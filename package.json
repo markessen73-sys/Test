@@ -1,0 +1,27 @@
+{
+  "name": "lunar-muskman",
+  "version": "1.0.0",
+  "description": "Retro Phaser 3 browser game inspired by 1980s space rescues.",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/markessen73-sys/Test.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/markessen73-sys/Test/issues"
+  },
+  "homepage": "https://github.com/markessen73-sys/Test#readme",
+  "dependencies": {
+    "phaser": "^3.90.0",
+    "vite": "^8.0.16"
+  },
+  "private": true,
+  "type": "module"
+}
