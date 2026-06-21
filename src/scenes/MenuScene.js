@@ -44,10 +44,10 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.panel = this.add.rectangle(GAME_WIDTH / 2, 136, 212, 104, COLORS.ink, 0.92).setStrokeStyle(2, COLORS.magenta, 1);
-    this.items = MENU_ITEMS.map((label, index) =>
+    this.panel = this.add.rectangle(GAME_WIDTH / 2, 136, 212, 118, COLORS.ink, 0.92).setStrokeStyle(2, COLORS.magenta, 1);
+    this.items = Array.from({ length: 6 }, (_, index) =>
       this.add
-        .text(GAME_WIDTH / 2, 104 + index * 14, label, {
+        .text(GAME_WIDTH / 2, 100 + index * 11, MENU_ITEMS[index] || "", {
           fontFamily: "monospace",
           fontSize: "10px",
           color: "#f3f5ff",
@@ -85,8 +85,8 @@ export class MenuScene extends Phaser.Scene {
     this.selection = 0;
     this.pageText.setVisible(false);
     this.items.forEach((item, index) => {
-      item.setVisible(true);
-      item.setText(MENU_ITEMS[index]);
+      item.setVisible(index < MENU_ITEMS.length);
+      item.setText(MENU_ITEMS[index] || "");
     });
     this.infoText.setText("ARROWS/ENTER OR TAP");
     this.updateHighlight();
@@ -115,17 +115,18 @@ export class MenuScene extends Phaser.Scene {
   renderSettings() {
     this.page = "settings";
     this.items.forEach((item, index) => {
-      item.setVisible(true);
+      item.setVisible(index < 6);
       const labels = [
         `PILOT NAME ${this.settings.pilotName}`,
         `CRT ${this.settings.crt ? "ON" : "OFF"}`,
         `MUSIC ${this.settings.music ? "ON" : "OFF"}`,
         `SFX ${this.settings.sfx ? "ON" : "OFF"}`,
+        `GHOST ${this.settings.ghostMode ? "ON" : "OFF"}`,
+        `TOUCH ${this.settings.touchControls ? "ON" : "OFF"}`,
       ];
       item.setText(labels[index] || "");
     });
-    this.items[4 - 1].setVisible(true);
-    this.pageText.setVisible(true).setText("SPACE GHOSTS AND TOUCH CONTROLS FOLLOW DEVICE TYPE.\n\nENTER TO TOGGLE.\nESC TO RETURN.");
+    this.pageText.setVisible(true).setText("COARSE POINTER DEVICES SHOW TOUCH BUTTONS.\nGHOST MODE REUSES YOUR FASTEST SAVED RUN.\n\nENTER TO TOGGLE.\nESC TO RETURN.");
     this.infoText.setText("SETTINGS");
     this.selection = 0;
     this.updateHighlight();
@@ -154,12 +155,12 @@ export class MenuScene extends Phaser.Scene {
 
   updateHighlight() {
     this.items.forEach((item, index) => {
-      item.setStyle({ color: index === this.selection ? "#fff05a" : "#f3f5ff" });
+      item.setStyle({ color: item.visible && index === this.selection ? "#fff05a" : "#f3f5ff" });
     });
   }
 
   changeSelection(delta) {
-    const limit = this.page === "settings" ? 4 : MENU_ITEMS.length;
+    const limit = this.page === "settings" ? 6 : MENU_ITEMS.length;
     this.selection = Phaser.Math.Wrap(this.selection + delta, 0, limit);
     this.updateHighlight();
   }
@@ -206,6 +207,10 @@ export class MenuScene extends Phaser.Scene {
         this.settings.music = !this.settings.music;
       } else if (this.selection === 3) {
         this.settings.sfx = !this.settings.sfx;
+      } else if (this.selection === 4) {
+        this.settings.ghostMode = !this.settings.ghostMode;
+      } else if (this.selection === 5) {
+        this.settings.touchControls = !this.settings.touchControls;
       }
 
       saveSettings(this.settings);

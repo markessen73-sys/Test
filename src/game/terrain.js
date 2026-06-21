@@ -174,6 +174,12 @@ export function generateWorld(level, seed) {
   const enemySpawns = distributedSpawns(4 + level * 2, width, rand, surfacePoints, caves, 0.35);
   const powerUpSpawns = distributedSpawns(5, width, rand, surfacePoints, caves, 0.2);
   const eggSpawns = buildEggSpawns(rand, width, surfacePoints, caves);
+  const tutorialPartX = assemblyPad.x + 48;
+  partSpawns[0] = {
+    x: tutorialPartX,
+    y: sampleLine(surfacePoints, tutorialPartX) - 8,
+    cave: false,
+  };
   const skyline = Array.from({ length: 48 }, (_, index) => ({
     x: rand() * width,
     y: 18 + rand() * 70,

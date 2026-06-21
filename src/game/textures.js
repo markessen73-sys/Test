@@ -21,12 +21,14 @@ export function createTextures(scene) {
     scene,
     "ship",
     (graphics) => {
-      pixel(graphics, COLORS.cyan, 6, 0, 4, 3);
-      pixel(graphics, COLORS.cyan, 4, 3, 8, 2);
-      pixel(graphics, COLORS.white, 2, 5, 12, 3);
-      pixel(graphics, COLORS.magenta, 0, 8, 16, 3);
+      pixel(graphics, COLORS.yellow, 7, 0, 3, 2);
+      pixel(graphics, COLORS.cyan, 6, 2, 4, 3);
+      pixel(graphics, COLORS.cyan, 4, 5, 8, 2);
+      pixel(graphics, COLORS.white, 1, 7, 11, 3);
+      pixel(graphics, COLORS.magenta, 0, 10, 16, 3);
+      pixel(graphics, COLORS.blue, 11, 6, 4, 2);
       pixel(graphics, COLORS.yellow, 6, 11, 4, 4);
-      pixel(graphics, COLORS.red, 4, 14, 8, 2);
+      pixel(graphics, COLORS.red, 3, 14, 9, 2);
     },
     16,
     16,

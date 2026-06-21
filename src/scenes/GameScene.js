@@ -56,6 +56,7 @@ export class GameScene extends Phaser.Scene {
 
     this.cameras.main.startFollow(this.shipSprite, true, 0.08, 0.08);
     this.inputManager = new InputManager(this, this.settings);
+    this.actionKeys = this.input.keyboard.addKeys({ enter: "ENTER", esc: "ESC" });
     this.recorder = new GhostRecorder();
     this.ghostPlayback = this.ghostData ? new GhostPlayback(this.ghostData.points) : null;
 
@@ -79,6 +80,8 @@ export class GameScene extends Phaser.Scene {
     this.pauseLatch = false;
     this.state = "playing";
     this.statusMessage = "RECOVER ROCKET PARTS";
+    this.effects.invulnerableUntil = 6000;
+    this.takeoffGraceUntil = 0;
 
     this.game.globals.audio.playSong("game");
   }
@@ -133,6 +136,13 @@ export class GameScene extends Phaser.Scene {
         .setScale(scale)
         .setDepth(14)
         .setTint(COLORS.cyan);
+      this.add
+        .text(this.assemblySite.x + offset.x + 12, this.assemblySite.y + offset.y - 4, offset.key.toUpperCase().slice(0, 3), {
+          fontFamily: "monospace",
+          fontSize: "6px",
+          color: "#40e0d0",
+        })
+        .setDepth(14);
       return {
         ...offset,
         sprite,
@@ -162,6 +172,14 @@ export class GameScene extends Phaser.Scene {
         x: spawn.x,
         y: spawn.y,
         sprite,
+        marker: this.add
+          .text(spawn.x, spawn.y - 14, part.label, {
+            fontFamily: "monospace",
+            fontSize: "6px",
+            color: "#fff05a",
+          })
+          .setOrigin(0.5)
+          .setDepth(16),
         placed: false,
         delivered: false,
         vx: 0,
@@ -176,18 +194,32 @@ export class GameScene extends Phaser.Scene {
         x: spawn.x,
         y: spawn.y,
         sprite,
+        marker: this.add
+          .text(spawn.x, spawn.y - 12, "FUEL", {
+            fontFamily: "monospace",
+            fontSize: "6px",
+            color: "#4cff68",
+          })
+          .setOrigin(0.5)
+          .setDepth(16)
+          .setVisible(false),
         delivered: false,
       };
     });
 
     this.enemies = this.worldData.enemySpawns.map((spawn, index) => {
       const enemy = ENEMY_TYPES[index % ENEMY_TYPES.length];
-      const sprite = this.add.image(spawn.x, spawn.y, `enemy-${enemy.key}`).setDepth(17);
+      const safeSpawnX =
+        Math.abs(spawn.x - this.worldData.assemblyPad.x) < 260
+          ? spawn.x + 280 + index * 18
+          : spawn.x;
+      const clampedX = clamp(safeSpawnX, 80, this.worldData.width - 80);
+      const sprite = this.add.image(clampedX, spawn.y, `enemy-${enemy.key}`).setDepth(17);
       return {
         ...enemy,
-        x: spawn.x,
+        x: clampedX,
         y: spawn.y,
-        originX: spawn.x,
+        originX: clampedX,
         originY: spawn.y,
         dir: index % 2 === 0 ? 1 : -1,
         phase: index * 0.7,
@@ -245,7 +277,7 @@ export class GameScene extends Phaser.Scene {
       vy: 0,
       fuel: 100,
       shield: 100,
-      lives: 3,
+      lives: 4,
       carried: null,
       landedPad: this.worldData.assemblyPad,
     };
@@ -334,7 +366,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.state === "victory" || this.state === "gameover") {
-      if (Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey("ENTER"))) {
+      if (Phaser.Input.Keyboard.JustDown(this.actionKeys.enter)) {
         if (this.state === "victory") {
           this.scene.restart({
             level: this.level + 1,
@@ -347,7 +379,7 @@ export class GameScene extends Phaser.Scene {
         }
       }
 
-      if (Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey("ESC"))) {
+      if (Phaser.Input.Keyboard.JustDown(this.actionKeys.esc)) {
         this.scene.start("menu");
       }
       return;
@@ -355,6 +387,7 @@ export class GameScene extends Phaser.Scene {
 
     const step = delta / 16.666;
     const elapsed = this.time.now - this.startTime;
+    this.latestControls = controls;
 
     this.updateShip(controls, step, elapsed);
     this.updateCarriedObject(step);
@@ -374,7 +407,7 @@ export class GameScene extends Phaser.Scene {
 
   updateShip(controls, step, elapsed) {
     const turboBoost = elapsed < this.effects.turboUntil ? 1.35 : 1;
-    const beamRange = elapsed < this.effects.beamUntil ? 54 : 38;
+    const beamRange = elapsed < this.effects.beamUntil ? 84 : 56;
     const invulnerable = elapsed < this.effects.invulnerableUntil;
     const shieldActive = controls.shield && this.ship.shield > 0;
 
@@ -382,13 +415,11 @@ export class GameScene extends Phaser.Scene {
     this.shieldRing.setVisible(shieldActive || invulnerable);
     this.shieldRing.setFillStyle(invulnerable ? COLORS.yellow : COLORS.cyan, invulnerable ? 0.28 : 0.22);
 
-    if (!this.ship.landedPad) {
-      if (controls.left) {
-        this.shipSprite.angle -= 2.8 * step;
-      }
-      if (controls.right) {
-        this.shipSprite.angle += 2.8 * step;
-      }
+    if (controls.left) {
+      this.shipSprite.angle -= 4.4 * step;
+    }
+    if (controls.right) {
+      this.shipSprite.angle += 4.4 * step;
     }
 
     if (shieldActive) {
@@ -400,6 +431,9 @@ export class GameScene extends Phaser.Scene {
     if (controls.thrust && this.ship.fuel > 0) {
       if (this.ship.landedPad) {
         this.ship.landedPad = null;
+        this.takeoffGraceUntil = elapsed + 260;
+        this.ship.y -= 2;
+        this.ship.vy = Math.min(this.ship.vy, -1.2);
       }
 
       const angle = this.shipSprite.rotation - Math.PI / 2;
@@ -455,6 +489,7 @@ export class GameScene extends Phaser.Scene {
 
       if (candidate) {
         this.ship.carried = candidate.item;
+        this.statusMessage = candidate.item.kind === "part" ? `TRACTOR ${candidate.item.label} TO ROCKET` : "RETURN FUEL TO ROCKET";
         this.game.globals.audio.playSfx("beam");
       }
     }
@@ -466,13 +501,88 @@ export class GameScene extends Phaser.Scene {
       this.ship.carried.x = Phaser.Math.Linear(this.ship.carried.x, targetX, 0.24);
       this.ship.carried.y = Phaser.Math.Linear(this.ship.carried.y, targetY, 0.24);
       this.ship.carried.sprite.setPosition(this.ship.carried.x, this.ship.carried.y);
+      this.ship.carried.marker?.setPosition(
+        this.ship.carried.x,
+        this.ship.carried.y - (this.ship.carried.kind === "fuel" ? 12 : 14),
+      );
 
       this.beamGraphics.lineStyle(1, COLORS.cyan, 0.95);
       this.beamGraphics.beginPath();
       this.beamGraphics.moveTo(this.ship.x, this.ship.y + 6);
       this.beamGraphics.lineTo(this.ship.carried.x, this.ship.carried.y);
       this.beamGraphics.strokePath();
+
+      if (this.tryDockCarriedObject()) {
+        this.beamGraphics.clear();
+      }
     }
+  }
+
+  tryDockCarriedObject() {
+    const item = this.ship.carried;
+    if (!item) {
+      return false;
+    }
+
+    if (item.kind === "part") {
+      const slot = this.rocketSlots.find((entry) => entry.key === item.key);
+      const slotPosition = { x: this.assemblySite.x + slot.x, y: this.assemblySite.y + slot.y };
+      if (distance(item, slotPosition) < 18 * this.worldData.rocketScale) {
+        this.completePartPlacement(item, slot, slotPosition);
+        return true;
+      }
+      return false;
+    }
+
+    if (item.kind === "fuel") {
+      const rocketDistance = Phaser.Math.Distance.Between(item.x, item.y, this.assemblySite.x, this.assemblySite.y - 16);
+      if (rocketDistance < 30 * this.worldData.rocketScale && this.progress.stage === "fuel") {
+        this.completeFuelDelivery(item);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  completePartPlacement(item, slot, slotPosition) {
+    item.placed = true;
+    item.x = slotPosition.x;
+    item.y = slotPosition.y;
+    item.sprite.setPosition(item.x, item.y).setDepth(16);
+    item.marker?.setVisible(false);
+    slot.filled = true;
+    slot.sprite.setTint(COLORS.green);
+    this.ship.carried = null;
+    this.progress.partsPlaced += 1;
+    this.score += item.score;
+    this.statusMessage = `PLACED ${item.label}`;
+    this.game.globals.audio.playSfx("place");
+
+    if (this.progress.partsPlaced === PART_TYPES.length) {
+      this.progress.stage = "fuel";
+      this.fuelPods.forEach((pod) => {
+        pod.sprite.setVisible(true);
+        pod.marker.setVisible(true);
+      });
+      this.statusMessage = "ROCKET BUILT - GATHER FUEL PODS";
+    }
+  }
+
+  completeFuelDelivery(item) {
+    item.delivered = true;
+    item.sprite.setVisible(false);
+    item.marker.setVisible(false);
+    this.progress.fuelDelivered += 1;
+    this.score += 350;
+    this.statusMessage = `FUEL POD ${this.progress.fuelDelivered}/${this.progress.requiredFuel}`;
+    this.game.globals.audio.playSfx("collect");
+
+    if (this.progress.fuelDelivered >= this.progress.requiredFuel) {
+      this.progress.stage = "launch";
+      this.statusMessage = "LAND ON ROCKET PAD AND LAUNCH";
+    }
+    this.ship.carried = null;
   }
 
   releaseCarriedObject() {
@@ -484,50 +594,40 @@ export class GameScene extends Phaser.Scene {
     if (item.kind === "part") {
       const slot = this.rocketSlots.find((entry) => entry.key === item.key);
       const slotPosition = { x: this.assemblySite.x + slot.x, y: this.assemblySite.y + slot.y };
-      if (distance(item, slotPosition) < 12 * this.worldData.rocketScale) {
-        item.placed = true;
-        item.x = slotPosition.x;
-        item.y = slotPosition.y;
-        item.sprite.setPosition(item.x, item.y).setDepth(16);
-        slot.filled = true;
-        slot.sprite.setTint(COLORS.green);
-        this.ship.carried = null;
-        this.progress.partsPlaced += 1;
-        this.score += item.score;
-        this.statusMessage = `PLACED ${item.label}`;
-        this.game.globals.audio.playSfx("place");
-
-        if (this.progress.partsPlaced === PART_TYPES.length) {
-          this.progress.stage = "fuel";
-          this.fuelPods.forEach((pod) => pod.sprite.setVisible(true));
-          this.statusMessage = "ROCKET BUILT - GATHER FUEL PODS";
-        }
+      if (distance(item, slotPosition) < 18 * this.worldData.rocketScale) {
+        this.completePartPlacement(item, slot, slotPosition);
         return;
       }
 
       item.x += Phaser.Math.Between(-8, 8);
       item.y = this.worldData.placeOnGround(item.x);
       item.sprite.setPosition(item.x, item.y);
+      this.tweens.add({
+        targets: item.sprite,
+        y: item.y - 6,
+        duration: 90,
+        yoyo: true,
+        ease: "Quad.Out",
+      });
+      this.statusMessage = "MISPLACED - TRY AGAIN";
     }
 
     if (item.kind === "fuel") {
       const rocketDistance = Phaser.Math.Distance.Between(item.x, item.y, this.assemblySite.x, this.assemblySite.y - 16);
-      if (rocketDistance < 24 * this.worldData.rocketScale && this.progress.stage === "fuel") {
-        item.delivered = true;
-        item.sprite.setVisible(false);
-        this.progress.fuelDelivered += 1;
-        this.score += 350;
-        this.statusMessage = `FUEL POD ${this.progress.fuelDelivered}/${this.progress.requiredFuel}`;
-        this.game.globals.audio.playSfx("collect");
-
-        if (this.progress.fuelDelivered >= this.progress.requiredFuel) {
-          this.progress.stage = "launch";
-          this.statusMessage = "LAND ON ROCKET PAD AND LAUNCH";
-        }
+      if (rocketDistance < 30 * this.worldData.rocketScale && this.progress.stage === "fuel") {
+        this.completeFuelDelivery(item);
       } else {
         item.x += Phaser.Math.Between(-8, 8);
         item.y = this.worldData.placeOnGround(item.x, 10);
         item.sprite.setPosition(item.x, item.y);
+        this.tweens.add({
+          targets: item.sprite,
+          y: item.y - 6,
+          duration: 90,
+          yoyo: true,
+          ease: "Quad.Out",
+        });
+        this.statusMessage = "FUEL MISSED THE TANK";
       }
     }
 
@@ -537,12 +637,16 @@ export class GameScene extends Phaser.Scene {
   updateCarriedObject(step) {
     [...this.parts, ...this.fuelPods].forEach((item) => {
       if (this.ship.carried === item || item.placed || item.delivered) {
+        if (item.placed || item.delivered) {
+          item.marker?.setVisible(false);
+        }
         return;
       }
 
       const targetY = this.worldData.placeOnGround(item.x, item.kind === "fuel" ? 10 : 8);
       item.y = Phaser.Math.Linear(item.y, targetY, 0.18 * step);
       item.sprite.setPosition(item.x, item.y);
+      item.marker?.setPosition(item.x, item.y - (item.kind === "fuel" ? 12 : 14));
     });
   }
 
@@ -585,11 +689,22 @@ export class GameScene extends Phaser.Scene {
       enemy.sprite.rotation = Math.sin(enemy.phase + index) * 0.08;
 
       if (Phaser.Math.Distance.Between(enemy.x, enemy.y, this.ship.x, this.ship.y) < 14) {
+        if (elapsed < 3500) {
+          return;
+        }
         if (elapsed < this.effects.invulnerableUntil || (this.inputManager.getState().shield && this.ship.shield > 0)) {
           enemy.alive = false;
           enemy.sprite.setVisible(false);
           this.score += enemy.score;
           this.statusMessage = `DESTROYED ${enemy.label}`;
+          this.game.globals.audio.playSfx("explosion");
+        } else if (this.ship.shield > 20) {
+          this.ship.shield = Math.max(0, this.ship.shield - 20);
+          this.ship.vy = Math.min(this.ship.vy, -0.8);
+          this.effects.invulnerableUntil = Math.max(this.effects.invulnerableUntil, elapsed + 1500);
+          enemy.alive = false;
+          enemy.sprite.setVisible(false);
+          this.statusMessage = "SHIELD ABSORBED IMPACT";
           this.game.globals.audio.playSfx("explosion");
         } else {
           this.handleCrash("HIT BY ENEMY");
@@ -662,9 +777,20 @@ export class GameScene extends Phaser.Scene {
 
   checkShipCollisions() {
     const collision = this.worldData.getCollisionInfo(this.ship.x, this.ship.y, 7);
+    const elapsed = this.time.now - this.startTime;
+
+    if (this.ship.landedPad && !this.latestControls?.thrust) {
+      this.ship.y = (collision.groundY || this.ship.landedPad.y) - 10;
+      this.shipSprite.setPosition(this.ship.x, this.ship.y);
+      return;
+    }
 
     if (collision.hitCeiling) {
       this.handleCrash("CAVE CEILING");
+      return;
+    }
+
+    if (elapsed < this.takeoffGraceUntil && this.ship.vy <= 0) {
       return;
     }
 
@@ -674,6 +800,7 @@ export class GameScene extends Phaser.Scene {
 
     const safeSpeed = Math.hypot(this.ship.vx, this.ship.vy) < 1.45;
     const safeAngle = Math.abs(wrapAngleDegrees(this.shipSprite.angle)) < 14;
+    const impactSpeed = Math.hypot(this.ship.vx, this.ship.vy);
 
     if (collision.pad && safeSpeed && safeAngle) {
       this.landOnPad(collision.pad, collision.groundY || collision.floorY);
@@ -695,6 +822,16 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    if (this.ship.shield > 12 && impactSpeed < 2.25) {
+      this.ship.shield = Math.max(0, this.ship.shield - 12);
+      this.ship.vy = -0.9;
+      this.ship.vx *= 0.85;
+      this.ship.y -= 4;
+      this.shipSprite.setPosition(this.ship.x, this.ship.y);
+      this.statusMessage = "ROUGH IMPACT SOFTENED";
+      return;
+    }
+
     this.handleCrash(collision.pad ? "ROUGH LANDING" : "CRASH");
   }
 
@@ -710,6 +847,9 @@ export class GameScene extends Phaser.Scene {
     this.ship.y = groundY - 10;
     this.shipSprite.setPosition(this.ship.x, this.ship.y);
     this.statusMessage = pad.kind === "fuelDepot" ? "FUEL DEPOT ACTIVE" : "PAD LANDED";
+    if (pad.kind === "assembly" && this.ship.carried) {
+      this.tryDockCarriedObject();
+    }
     this.game.globals.audio.playSfx("land");
   }
 
@@ -743,6 +883,7 @@ export class GameScene extends Phaser.Scene {
     this.shipSprite.setPosition(this.ship.x, this.ship.y);
     this.shipSprite.angle = 0;
     this.ship.landedPad = this.worldData.assemblyPad;
+    this.effects.invulnerableUntil = Math.max(this.effects.invulnerableUntil, this.time.now - this.startTime + 3000);
     if (this.ship.carried) {
       this.releaseCarriedObject();
     }
