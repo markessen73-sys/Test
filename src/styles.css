@@ -1,0 +1,75 @@
+:root {
+  color-scheme: dark;
+  font-family: monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at top, #353884 0%, #14152f 45%, #05050a 100%);
+  color: #ffffff;
+}
+
+#app {
+  width: min(96vw, 96vh * 1.6);
+}
+
+#game-shell {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border: 6px solid #6cf0ff;
+  box-shadow: 0 0 0 4px #8a52ff inset, 0 0 30px rgba(108, 240, 255, 0.2);
+  background: #000000;
+  overflow: hidden;
+}
+
+#game-root,
+#game-root canvas {
+  width: 100% !important;
+  height: 100% !important;
+  image-rendering: pixelated;
+}
+
+#touch-controls {
+  position: absolute;
+  inset: auto 0 8px 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+#game-shell[data-touch="true"] #touch-controls {
+  display: flex;
+  pointer-events: auto;
+}
+
+.touch-row {
+  display: flex;
+  gap: 8px;
+}
+
+.touch-button {
+  min-width: 58px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 2px solid #ffef75;
+  background: rgba(0, 0, 0, 0.82);
+  color: #ffffff;
+  font: inherit;
+  font-size: 10px;
+  border-radius: 10px;
+}
+
+.touch-button:active {
+  background: rgba(108, 240, 255, 0.25);
+}
