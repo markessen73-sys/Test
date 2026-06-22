@@ -17,6 +17,19 @@ function makeRect(x, y, width, height) {
   return { x, y, width, height };
 }
 
+function getHazardHitRadius(type) {
+  if (type === "spark") {
+    return 8;
+  }
+  if (type === "turret") {
+    return 9;
+  }
+  if (type === "orbit") {
+    return 8;
+  }
+  return 7;
+}
+
 export class GameScene extends Phaser.Scene {
   constructor() {
     super("game");
@@ -45,6 +58,7 @@ export class GameScene extends Phaser.Scene {
     this.playerDepth = 5;
     this.player.setDepth(this.playerDepth);
     this.playerHitbox = { width: 12, height: 10 };
+    this.playerDamageRadius = 6;
     this.playerInvulnerableUntil = 0;
 
     this.hudBar = this.add.rectangle(GAME_WIDTH / 2, HUD_HEIGHT / 2, GAME_WIDTH, HUD_HEIGHT, COLORS.purple).setOrigin(0.5);
@@ -86,6 +100,13 @@ export class GameScene extends Phaser.Scene {
     this.pickupSprites = [];
     this.levelTimer = 0;
     this.flashTimer = 0;
+    this.playerHint = this.add.text(0, 0, "YOU", {
+      fontFamily: "monospace",
+      fontSize: "8px",
+      color: "#ffffff",
+      backgroundColor: "#000000",
+      padding: { left: 2, right: 2, top: 1, bottom: 1 },
+    }).setOrigin(0.5).setDepth(6);
 
     this.game.globals.audio.playTheme("game");
     this.loadScreen(this.screenKey, this.pendingStart);
@@ -149,7 +170,8 @@ export class GameScene extends Phaser.Scene {
     const start = startOverride || this.currentScreen.start;
     this.player.setPosition(start.x, start.y);
     this.playerInvulnerableUntil = this.time.now + 700;
-    this.messageText.setText(this.currentScreen.name);
+    this.messageText.setText(this.screenKey === "hangar" ? "GUIDE SHIP TO EXIT" : this.currentScreen.name);
+    this.playerHintUntil = this.time.now + 2400;
   }
 
   drawScreen() {
@@ -262,6 +284,8 @@ export class GameScene extends Phaser.Scene {
     this.checkHazardCollisions(time);
     this.updateHud();
     this.player.setVisible(time > this.playerInvulnerableUntil || Math.floor(time / 80) % 2 === 0);
+    this.playerHint.setPosition(this.player.x, this.player.y - 12);
+    this.playerHint.setVisible(time < this.playerHintUntil);
   }
 
   updateHazards(delta, time) {
@@ -343,9 +367,14 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    const rect = this.getPlayerRect();
-    const hitHazard = this.hazardSprites.some((hazard) => overlaps(rect, makeRect(hazard.sprite.x - 6, hazard.sprite.y - 6, 12, 12)));
-    const hitProjectile = this.projectiles.some((projectile) => overlaps(rect, makeRect(projectile.sprite.x - 4, projectile.sprite.y - 4, 8, 8)));
+    const hitHazard = this.hazardSprites.some((hazard) => {
+      const distance = Math.hypot(hazard.sprite.x - this.player.x, hazard.sprite.y - this.player.y);
+      return distance <= this.playerDamageRadius + getHazardHitRadius(hazard.type);
+    });
+    const hitProjectile = this.projectiles.some((projectile) => {
+      const distance = Math.hypot(projectile.sprite.x - this.player.x, projectile.sprite.y - this.player.y);
+      return distance <= this.playerDamageRadius + 4;
+    });
 
     if (hitHazard || hitProjectile) {
       this.killPlayer();
