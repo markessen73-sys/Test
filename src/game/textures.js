@@ -18,11 +18,11 @@ function create(scene, key, width, height, draw) {
 
 export function createTextures(scene) {
   create(scene, "ship", 16, 12, (g) => {
-    pixel(g, COLORS.cyan, 0, 4, 14, 4);
-    pixel(g, COLORS.white, 2, 2, 10, 2);
-    pixel(g, COLORS.yellow, 4, 0, 5, 2);
-    pixel(g, COLORS.magenta, 12, 3, 4, 6);
-    pixel(g, COLORS.blue, 2, 8, 10, 2);
+    pixel(g, COLORS.magenta, 1, 4, 10, 4);
+    pixel(g, COLORS.white, 3, 2, 6, 2);
+    pixel(g, COLORS.cyan, 10, 3, 5, 6);
+    pixel(g, COLORS.yellow, 5, 0, 3, 2);
+    pixel(g, COLORS.blue, 2, 8, 7, 2);
   });
 
   create(scene, "drone", 12, 12, (g) => {
@@ -66,9 +66,9 @@ export function createTextures(scene) {
   });
 
   create(scene, "star", 8, 8, (g) => {
-    pixel(g, COLORS.white, 3, 0, 2, 8);
-    pixel(g, COLORS.white, 0, 3, 8, 2);
-    pixel(g, COLORS.cyan, 2, 2, 4, 4);
+    pixel(g, COLORS.yellow, 1, 1, 6, 6);
+    pixel(g, COLORS.orange, 2, 2, 4, 4);
+    pixel(g, COLORS.white, 3, 3, 2, 2);
   });
 
   create(scene, "turret", 16, 16, (g) => {

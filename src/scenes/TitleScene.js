@@ -41,21 +41,21 @@ export class TitleScene extends Phaser.Scene {
       color: "#ffef75",
     });
 
-    this.add.text(40, 156, CONTROL_HINTS.join("   "), {
+    this.add.text(40, 150, CONTROL_HINTS.join("   "), {
       fontFamily: "monospace",
-      fontSize: "10px",
+      fontSize: "9px",
       color: "#72f28f",
     });
 
-    this.touchLabel = this.add.text(40, 124, "", {
+    this.touchLabel = this.add.text(40, 168, "", {
       fontFamily: "monospace",
-      fontSize: "10px",
+      fontSize: "9px",
       color: "#ffffff",
     });
 
-    this.startLabel = this.add.text(GAME_WIDTH / 2, 178, "PRESS ENTER OR TAP TO START", {
+    this.startLabel = this.add.text(GAME_WIDTH / 2, 188, "PRESS ENTER OR TAP TO START", {
       fontFamily: "monospace",
-      fontSize: "11px",
+      fontSize: "10px",
       color: "#ff8ecb",
     }).setOrigin(0.5);
 
