@@ -1,0 +1,21 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "description": "This repository has been cleared and is ready for a new project.",
+  "main": "index.js",
+  "scripts": {
+    "build:portable": "node demo/build-portable.mjs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/markessen73-sys/Test.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/markessen73-sys/Test/issues"
+  },
+  "homepage": "https://github.com/markessen73-sys/Test#readme"
+}
