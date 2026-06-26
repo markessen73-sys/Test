@@ -1,14 +1,16 @@
 import sharp from "sharp";
-import { mkdir } from "node:fs/promises";
+import { mkdir, access } from "node:fs/promises";
+import { constants } from "node:fs";
 
-const SRC = "/opt/cursor/artifacts/assets/arena-foreground.png";
+const SRC = "/workspace/demo/assets/arena-source.png";
 const OUT_DIR = "/workspace/demo/assets";
+const BLACK_THRESHOLD = 14;
 
 async function build() {
+  await access(SRC, constants.R_OK);
   await mkdir(OUT_DIR, { recursive: true });
 
   const { data, info } = await sharp(SRC)
-    .resize(768, 512, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
@@ -24,7 +26,7 @@ async function build() {
     const b = rocks[px + 2];
     const lum = r * 0.2126 + g * 0.7152 + b * 0.0722;
 
-    if (lum < 22) {
+    if (lum < BLACK_THRESHOLD) {
       rocks[px + 3] = 0;
       cloudMask[px] = 255;
       cloudMask[px + 1] = 255;
@@ -40,18 +42,24 @@ async function build() {
   }
 
   await sharp(rocks, { raw: { width, height, channels: 4 } })
-    .png({ compressionLevel: 9, palette: false })
+    .png({ compressionLevel: 9, palette: true, colors: 256 })
     .toFile(`${OUT_DIR}/arena-rocks.png`);
 
   await sharp(cloudMask, { raw: { width, height, channels: 4 } })
     .png({ compressionLevel: 9 })
     .toFile(`${OUT_DIR}/arena-cloud-mask.png`);
 
-  const rocksInfo = await sharp(`${OUT_DIR}/arena-rocks.png`).metadata();
-  console.log(`Built ${width}x${height} assets. Rocks size: ${rocksInfo.size} bytes`);
+  const meta = await sharp(`${OUT_DIR}/arena-rocks.png`).metadata();
+  await sharp(SRC).png({ compressionLevel: 9 }).toFile(`${OUT_DIR}/arena-source.png`);
+
+  console.log(`Built ${width}x${height} from user source (${meta.size ?? "?"} byte rocks layer)`);
 }
 
 build().catch((err) => {
-  console.error(err);
+  if (err.code === "ENOENT") {
+    console.error("Missing demo/assets/arena-source.png — add your foreground image there first.");
+  } else {
+    console.error(err);
+  }
   process.exit(1);
 });

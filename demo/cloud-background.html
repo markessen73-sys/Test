@@ -12,19 +12,37 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 16px;
+        gap: 14px;
         background: #111;
         color: #ccc;
         font-family: system-ui, sans-serif;
+        padding: 16px;
       }
-      h1 { font-size: 1rem; font-weight: 500; letter-spacing: 0.04em; }
+      h1 { font-size: 1rem; font-weight: 500; }
+      #picker {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      #picker label {
+        font-size: 0.8rem;
+        border: 1px solid #444;
+        padding: 8px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        background: #1a1a1a;
+      }
+      #picker input { display: none; }
       #wrap {
         position: relative;
         border: 1px solid #333;
         box-shadow: 0 8px 40px rgba(0,0,0,0.6);
         background: #000;
+        max-width: 100%;
       }
-      canvas { display: block; }
+      canvas { display: block; max-width: 100%; height: auto; }
       #timer {
         position: absolute;
         top: 8px;
@@ -39,37 +57,45 @@
         inset: 0;
         display: grid;
         place-items: center;
+        text-align: center;
+        padding: 20px;
         font-size: 0.85rem;
         color: #888;
-        background: #000;
+        background: rgba(0,0,0,0.92);
+        line-height: 1.5;
       }
       p { font-size: 0.8rem; color: #666; max-width: 720px; text-align: center; line-height: 1.5; }
     </style>
   </head>
   <body>
-    <h1>Rock arena foreground + cloud gaps — 5 second loop</h1>
+    <h1>Your foreground image + cloud gaps — 5 second loop</h1>
+    <div id="picker">
+      <label>Load your foreground image<input id="file" type="file" accept="image/png,image/jpeg,image/webp" /></label>
+      <span id="source-label" style="font-size:0.75rem;color:#666">Waiting for arena-source.png or file upload…</span>
+    </div>
     <div id="wrap">
-      <canvas id="sky" width="768" height="512"></canvas>
-      <div id="status">Loading foreground…</div>
+      <canvas id="sky"></canvas>
+      <div id="status">Loading…</div>
       <div id="timer">0.00s</div>
     </div>
-    <p>Foreground rocks are baked first. Clouds are drawn only into the empty gaps, then the rock layer is composited on top.</p>
+    <p>Your rock image is used exactly as provided. Only pure-black pixels become transparent so clouds can fill those gaps. Rock pixels are never altered.</p>
     <script>
       const LOOP_SECONDS = 5;
-      const W = 768;
-      const H = 512;
+      const BLACK_THRESHOLD = 14;
       const canvas = document.getElementById("sky");
       const ctx = canvas.getContext("2d");
       const timerEl = document.getElementById("timer");
       const statusEl = document.getElementById("status");
+      const sourceLabel = document.getElementById("source-label");
+      const fileInput = document.getElementById("file");
 
       const cloudBuffer = document.createElement("canvas");
-      cloudBuffer.width = W;
-      cloudBuffer.height = H;
       const cloudCtx = cloudBuffer.getContext("2d");
 
-      let rocksImage = null;
-      let maskImage = null;
+      let W = 768;
+      let H = 512;
+      let rocksCanvas = null;
+      let maskCanvas = null;
       let ready = false;
 
       function loadImage(src) {
@@ -79,6 +105,60 @@
           img.onerror = () => reject(new Error(`Failed to load ${src}`));
           img.src = src;
         });
+      }
+
+      function processForeground(img, label) {
+        W = img.naturalWidth;
+        H = img.naturalHeight;
+        canvas.width = W;
+        canvas.height = H;
+        cloudBuffer.width = W;
+        cloudBuffer.height = H;
+
+        const src = document.createElement("canvas");
+        src.width = W;
+        src.height = H;
+        const srcCtx = src.getContext("2d");
+        srcCtx.drawImage(img, 0, 0);
+
+        const data = srcCtx.getImageData(0, 0, W, H);
+        const px = data.data;
+
+        rocksCanvas = document.createElement("canvas");
+        rocksCanvas.width = W;
+        rocksCanvas.height = H;
+        const rocksCtx = rocksCanvas.getContext("2d");
+        const rocksData = rocksCtx.createImageData(W, H);
+
+        maskCanvas = document.createElement("canvas");
+        maskCanvas.width = W;
+        maskCanvas.height = H;
+        const maskCtx = maskCanvas.getContext("2d");
+        const maskData = maskCtx.createImageData(W, H);
+
+        for (let i = 0; i < px.length; i += 4) {
+          const r = px[i];
+          const g = px[i + 1];
+          const b = px[i + 2];
+          const lum = r * 0.2126 + g * 0.7152 + b * 0.0722;
+          const isSky = lum < BLACK_THRESHOLD;
+
+          rocksData.data[i] = r;
+          rocksData.data[i + 1] = g;
+          rocksData.data[i + 2] = b;
+          rocksData.data[i + 3] = isSky ? 0 : 255;
+
+          maskData.data[i] = 255;
+          maskData.data[i + 1] = 255;
+          maskData.data[i + 2] = 255;
+          maskData.data[i + 3] = isSky ? 255 : 0;
+        }
+
+        rocksCtx.putImageData(rocksData, 0, 0);
+        maskCtx.putImageData(maskData, 0, 0);
+        ready = true;
+        statusEl.style.display = "none";
+        sourceLabel.textContent = label;
       }
 
       function seeded(seed) {
@@ -111,11 +191,15 @@
         return { puffs, alpha };
       }
 
-      const layers = [
-        { ...makeCloudLayer(101, 9, H * 0.08, H * 0.42, 48, 110, 0.55), speed: 1, blur: 28 },
-        { ...makeCloudLayer(202, 12, H * 0.22, H * 0.62, 36, 90, 0.72), speed: 2, blur: 20 },
-        { ...makeCloudLayer(303, 14, H * 0.38, H * 0.82, 28, 72, 0.88), speed: 3, blur: 14 },
-      ];
+      let layers = [];
+
+      function rebuildLayers() {
+        layers = [
+          { ...makeCloudLayer(101, 9, H * 0.08, H * 0.42, Math.max(24, W * 0.08), Math.max(60, W * 0.16), 0.55), speed: 1, blur: Math.max(12, W * 0.03) },
+          { ...makeCloudLayer(202, 12, H * 0.22, H * 0.62, Math.max(18, W * 0.06), Math.max(48, W * 0.13), 0.72), speed: 2, blur: Math.max(8, W * 0.022) },
+          { ...makeCloudLayer(303, 14, H * 0.38, H * 0.82, Math.max(14, W * 0.045), Math.max(36, W * 0.1), 0.88), speed: 3, blur: Math.max(6, W * 0.016) },
+        ];
+      }
 
       function drawPuff(targetCtx, puff, offsetX, layerAlpha) {
         const base = puff.shade;
@@ -144,16 +228,8 @@
 
       function drawCloudsToBuffer(t) {
         cloudCtx.setTransform(1, 0, 0, 1, 0, 0);
-        cloudCtx.clearRect(0, 0, W, H);
         cloudCtx.fillStyle = "#000000";
         cloudCtx.fillRect(0, 0, W, H);
-
-        const atmo = cloudCtx.createLinearGradient(0, 0, 0, H);
-        atmo.addColorStop(0, "rgba(0,0,0,1)");
-        atmo.addColorStop(1, "rgba(4,4,6,1)");
-        cloudCtx.fillStyle = atmo;
-        cloudCtx.fillRect(0, 0, W, H);
-
         for (const layer of layers) {
           const travel = (t / LOOP_SECONDS) * W * layer.speed;
           cloudCtx.filter = `blur(${layer.blur}px)`;
@@ -166,38 +242,42 @@
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.fillStyle = "#000000";
         ctx.fillRect(0, 0, W, H);
-
         drawCloudsToBuffer(t);
-
-        // Clip clouds to gap areas only (where mask is opaque)
         ctx.drawImage(cloudBuffer, 0, 0);
         ctx.globalCompositeOperation = "destination-in";
-        ctx.drawImage(maskImage, 0, 0);
-
-        // Rock foreground on top
+        ctx.drawImage(maskCanvas, 0, 0);
         ctx.globalCompositeOperation = "source-over";
-        ctx.drawImage(rocksImage, 0, 0, W, H);
-
-        ctx.globalCompositeOperation = "source-over";
-        const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85);
-        vig.addColorStop(0, "rgba(0,0,0,0)");
-        vig.addColorStop(1, "rgba(0,0,0,0.3)");
-        ctx.fillStyle = vig;
-        ctx.fillRect(0, 0, W, H);
+        ctx.drawImage(rocksCanvas, 0, 0);
       }
 
-      async function init() {
+      async function useImage(img, label) {
+        processForeground(img, label);
+        rebuildLayers();
+      }
+
+      async function tryLoadBundled() {
+        const url = new URL("./assets/arena-source.png", window.location.href).href;
         try {
-          const base = new URL("./assets/", window.location.href);
-          [rocksImage, maskImage] = await Promise.all([
-            loadImage(new URL("arena-rocks.png", base).href),
-            loadImage(new URL("arena-cloud-mask.png", base).href),
-          ]);
-          ready = true;
-          statusEl.style.display = "none";
-        } catch (err) {
-          statusEl.textContent = `Failed to load foreground assets: ${err.message}`;
-          console.error(err);
+          const img = await loadImage(url);
+          await useImage(img, "Using arena-source.png");
+          return true;
+        } catch {
+          return false;
+        }
+      }
+
+      fileInput.addEventListener("change", async () => {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        const img = await loadImage(URL.createObjectURL(file));
+        await useImage(img, `Using ${file.name}`);
+      });
+
+      async function init() {
+        const loaded = await tryLoadBundled();
+        if (!loaded) {
+          statusEl.innerHTML = "Add your image to <code>demo/assets/arena-source.png</code><br>or use the button above to load it now.";
+          sourceLabel.textContent = "No arena-source.png found — upload your image";
         }
       }
 
