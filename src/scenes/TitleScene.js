@@ -40,21 +40,21 @@ export class TitleScene extends Phaser.Scene {
       color: "#ffef75",
     });
 
-    this.add.text(40, 138, "ARROWS MOVE   AVOID CONTACT", {
+    this.add.text(40, 144, "AVOID CONTACT", {
       fontFamily: "monospace",
-      fontSize: "8px",
+      fontSize: "7px",
       color: "#72f28f",
     });
 
-    this.touchLabel = this.add.text(40, 158, "", {
+    this.touchLabel = this.add.text(40, 154, "", {
       fontFamily: "monospace",
-      fontSize: "7px",
+      fontSize: "6px",
       color: "#ffffff",
     });
 
     this.startLabel = this.add.text(GAME_WIDTH / 2, 182, "PRESS ENTER OR TAP TO START", {
       fontFamily: "monospace",
-      fontSize: "8px",
+      fontSize: "7px",
       color: "#ff8ecb",
     }).setOrigin(0.5);
 
@@ -62,10 +62,10 @@ export class TitleScene extends Phaser.Scene {
     this.input.keyboard.once("keydown", () => this.game.globals.audio.playTheme("title"));
     this.input.keyboard.addKey("T").on("down", () => {
       const enabled = this.inputManager.toggleTouchPreference();
-      this.touchLabel.setText(`TOUCH CONTROLS ${enabled ? "ON" : "OFF"}\nT TO TOGGLE`);
+      this.touchLabel.setText(`TOUCH ${enabled ? "ON" : "OFF"}  T TO TOGGLE`);
     });
 
-    this.touchLabel.setText(`TOUCH CONTROLS ${this.inputManager.touchEnabled ? "ON" : "OFF"}\nT TO TOGGLE`);
+    this.touchLabel.setText(`TOUCH ${this.inputManager.touchEnabled ? "ON" : "OFF"}  T TO TOGGLE`);
   }
 
   startGame() {

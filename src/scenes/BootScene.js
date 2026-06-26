@@ -7,9 +7,10 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.image("vegas-caesars", "/vegas/caesars.jpg");
-    this.load.image("vegas-mandalay", "/vegas/mandalay.jpg");
-    this.load.image("vegas-montecarlo", "/vegas/montecarlo.jpg");
+    const base = import.meta.env.BASE_URL || "/";
+    this.load.image("vegas-caesars", `${base}vegas/caesars.jpg`);
+    this.load.image("vegas-mandalay", `${base}vegas/mandalay.jpg`);
+    this.load.image("vegas-montecarlo", `${base}vegas/montecarlo.jpg`);
   }
 
   create() {
