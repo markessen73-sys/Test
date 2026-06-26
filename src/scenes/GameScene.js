@@ -242,107 +242,76 @@ export class GameScene extends Phaser.Scene {
   }
 
   drawVegasBuilding(solid, wall, accent) {
-    const depth = Math.max(5, Math.min(12, Math.floor(Math.min(solid.width, solid.height) * 0.22)));
-    const skew = Math.max(4, Math.min(10, Math.floor(solid.width * 0.12)));
     const paletteIndex = Math.floor((solid.x + solid.y + solid.width + solid.height) / 16) % 4;
     const roofStyle = Math.floor((solid.x + solid.width + solid.height) / 24) % 3;
     const roofColors = [0xbec9d4, 0xa8bad1, 0xc6c3bb, 0xb8bac7];
-    const frontColors = [0x667588, 0x58687d, 0x786e67, 0x66677a];
-    const sideColors = [0x455468, 0x404c60, 0x5e5651, 0x4f5064];
-    const windowOn = [0x9fe8ff, 0xb9f7ff, 0xffe3a3, 0xb4ffd2][paletteIndex];
+    const parapetColors = [0x7b8794, 0x6f7d8f, 0x847b72, 0x77788a];
+    const skylightColors = [0x8fe6ff, 0xb8f5ff, 0xdaf4ff, 0x9de0f0];
+    const hatchColors = [0x666666, 0x5b6577, 0x7e766f, 0x646779];
+    const neonTone = [0xff7ec4, 0x7ce4ff, 0xffd072, 0x8effb8][paletteIndex];
     const roof = roofColors[paletteIndex];
-    const front = frontColors[paletteIndex];
-    const side = sideColors[paletteIndex];
-    const edge = accent;
+    const parapet = parapetColors[paletteIndex];
+    const skylight = skylightColors[paletteIndex];
+    const hatch = hatchColors[paletteIndex];
 
-    const roofPoly = [
-      { x: solid.x + skew, y: solid.y },
-      { x: solid.x + solid.width, y: solid.y },
-      { x: solid.x + solid.width - skew, y: solid.y + depth },
-      { x: solid.x, y: solid.y + depth },
-    ];
-    const frontPoly = [
-      { x: solid.x, y: solid.y + depth },
-      { x: solid.x + solid.width - skew, y: solid.y + depth },
-      { x: solid.x + solid.width - skew, y: solid.y + solid.height },
-      { x: solid.x, y: solid.y + solid.height },
-    ];
-    const sidePoly = [
-      { x: solid.x + solid.width - skew, y: solid.y + depth },
-      { x: solid.x + solid.width, y: solid.y },
-      { x: solid.x + solid.width, y: solid.y + solid.height - depth },
-      { x: solid.x + solid.width - skew, y: solid.y + solid.height },
-    ];
+    this.wallLayer.fillStyle(roof, 1);
+    this.wallLayer.fillRect(solid.x, solid.y, solid.width, solid.height);
+    this.wallLayer.fillStyle(parapet, 1);
+    this.wallLayer.fillRect(solid.x, solid.y, solid.width, 3);
+    this.wallLayer.fillRect(solid.x, solid.y + solid.height - 3, solid.width, 3);
+    this.wallLayer.fillRect(solid.x, solid.y, 3, solid.height);
+    this.wallLayer.fillRect(solid.x + solid.width - 3, solid.y, 3, solid.height);
+    this.wallLayer.lineStyle(2, accent, 0.9);
+    this.wallLayer.strokeRect(solid.x + 0.5, solid.y + 0.5, solid.width - 1, solid.height - 1);
 
-    polygon(this.wallLayer, frontPoly, front, 1, edge);
-    polygon(this.wallLayer, sidePoly, side, 1, edge);
-    polygon(this.wallLayer, roofPoly, roof, 1, edge);
-
-    if (roofStyle === 1 && solid.width > 28) {
-      const pitched = [
-        { x: solid.x + skew + 2, y: solid.y + depth },
-        { x: solid.x + solid.width / 2, y: solid.y + 1 },
-        { x: solid.x + solid.width - skew - 2, y: solid.y + depth },
-        { x: solid.x + solid.width / 2, y: solid.y + depth + 4 },
-      ];
-      polygon(this.wallLayer, pitched, 0xd8dde5, 0.95, edge);
-      this.wallLayer.lineStyle(1, 0x8f99a6, 0.8);
+    if (roofStyle === 1 && solid.width > 22 && solid.height > 18) {
+      const centerX = solid.x + solid.width / 2;
+      this.wallLayer.fillStyle(hatch, 0.95);
       this.wallLayer.beginPath();
-      this.wallLayer.moveTo(solid.x + solid.width / 2, solid.y + 1);
-      this.wallLayer.lineTo(solid.x + solid.width / 2, solid.y + depth + 4);
+      this.wallLayer.moveTo(centerX, solid.y + 4);
+      this.wallLayer.lineTo(solid.x + solid.width - 6, solid.y + solid.height / 2);
+      this.wallLayer.lineTo(centerX, solid.y + solid.height - 4);
+      this.wallLayer.lineTo(solid.x + 6, solid.y + solid.height / 2);
+      this.wallLayer.closePath();
+      this.wallLayer.fillPath();
+      this.wallLayer.lineStyle(1, 0xe5e5e5, 0.65);
+      this.wallLayer.beginPath();
+      this.wallLayer.moveTo(centerX, solid.y + 4);
+      this.wallLayer.lineTo(centerX, solid.y + solid.height - 4);
       this.wallLayer.strokePath();
-    } else if (roofStyle === 2 && solid.width > 26) {
-      this.wallLayer.fillStyle(0x7d8795, 0.95);
-      this.wallLayer.fillRect(solid.x + skew + 5, solid.y + 3, Math.max(8, solid.width - skew - 14), 4);
-      this.wallLayer.fillStyle(0x9aa6b6, 0.95);
-      this.wallLayer.fillRect(solid.x + skew + 8, solid.y + 8, Math.max(6, solid.width - skew - 20), 3);
+    } else {
+      const skylightCount = Math.max(1, Math.floor((solid.width - 10) / 18));
+      for (let light = 0; light < skylightCount; light += 1) {
+        const lightX = solid.x + 6 + light * 16;
+        const lightY = solid.y + 6 + (light % 2) * 6;
+        this.wallLayer.fillStyle(skylight, 0.92);
+        this.wallLayer.fillRect(lightX, lightY, Math.max(5, Math.min(10, solid.width - 12)), 4);
+        this.wallLayer.fillStyle(0xffffff, 0.45);
+        this.wallLayer.fillRect(lightX + 1, lightY + 1, Math.max(3, Math.min(8, solid.width - 16)), 1);
+      }
     }
 
-    this.wallLayer.fillStyle(COLORS.black, 0.14);
-    this.wallLayer.fillRect(solid.x + 4, solid.y + solid.height - 5, Math.max(0, solid.width - 8), 4);
+    const unitCount = Math.max(1, Math.floor((solid.height - 10) / 22));
+    for (let unit = 0; unit < unitCount; unit += 1) {
+      const unitW = Math.max(8, Math.min(18, solid.width - 14));
+      const unitX = solid.x + solid.width - unitW - 5;
+      const unitY = solid.y + 6 + unit * 18;
+      if (unitY + 8 < solid.y + solid.height - 4) {
+        this.wallLayer.fillStyle(hatch, 0.95);
+        this.wallLayer.fillRect(unitX, unitY, unitW, 7);
+        this.wallLayer.fillStyle(0xcfd6de, 0.95);
+        this.wallLayer.fillRect(unitX + 2, unitY + 2, unitW - 4, 1);
+      }
+    }
 
-    const storefrontCount = Math.max(1, Math.floor((solid.width - skew - 10) / 18));
-    const bayWidth = Math.max(12, Math.floor((solid.width - skew - 8) / storefrontCount));
-    for (let bay = 0; bay < storefrontCount; bay += 1) {
-      const bayX = solid.x + 4 + bay * bayWidth;
-      const facadeHeight = Math.max(8, Math.min(18, solid.height - depth - 8));
-      const facadeTone = [0xd9d4ca, 0xbec7d2, 0xcab5a0, 0xc6d6d1][bay % 4];
-      const neonTone = [0xff7ec4, 0x7ce4ff, 0xffd072, 0x8effb8][(bay + paletteIndex) % 4];
-      this.wallLayer.fillStyle(facadeTone, 0.92);
-      this.wallLayer.fillRect(bayX, solid.y + depth + 4, bayWidth - 2, facadeHeight);
-      this.wallLayer.fillStyle(COLORS.black, 0.16);
-      this.wallLayer.fillRect(bayX, solid.y + depth + 4, bayWidth - 2, 3);
+    if (solid.width > 26) {
+      const signWidth = Math.max(10, Math.min(26, solid.width - 12));
+      const signX = solid.x + 4;
+      const signY = solid.y + solid.height - 8;
+      this.wallLayer.fillStyle(COLORS.black, 0.75);
+      this.wallLayer.fillRect(signX, signY, signWidth, 4);
       this.wallLayer.fillStyle(neonTone, 0.95);
-      this.wallLayer.fillRect(bayX + 1, solid.y + depth + 5, bayWidth - 4, 2);
-      this.wallLayer.fillStyle(windowOn, 0.9);
-      this.wallLayer.fillRect(bayX + 2, solid.y + depth + 9, Math.max(4, bayWidth - 7), 5);
-      this.wallLayer.fillStyle(COLORS.black, 0.8);
-      this.wallLayer.fillRect(bayX + Math.floor((bayWidth - 4) / 2), solid.y + depth + 15, 4, Math.max(6, facadeHeight - 12));
-      if (facadeHeight > 12) {
-        this.wallLayer.fillStyle(0xffffff, 0.65);
-        this.wallLayer.fillRect(bayX + 3, solid.y + depth + 8, Math.max(3, bayWidth - 9), 1);
-      }
-    }
-
-    for (let wy = solid.y + depth + 9; wy < solid.y + solid.height - 10; wy += 12) {
-      const sideX = solid.x + solid.width - skew + 2;
-      if (sideX < solid.x + solid.width - 2) {
-        this.wallLayer.fillStyle(windowOn, 0.75);
-        this.wallLayer.fillRect(sideX, wy, Math.max(2, skew - 4), 5);
-      }
-    }
-
-    const roofInset = 8;
-    if (solid.width > 34 && solid.height > 18) {
-      this.wallLayer.fillStyle(0x5b6577, 0.95);
-      this.wallLayer.fillRect(solid.x + roofInset, solid.y + depth + 3, Math.max(10, solid.width - skew - roofInset - 8), 6);
-      this.wallLayer.fillStyle(0x7e8ba0, 0.95);
-      this.wallLayer.fillRect(solid.x + roofInset + 2, solid.y + depth + 1, Math.max(6, solid.width - skew - roofInset - 12), 3);
-    }
-
-    if (solid.height > 26) {
-      this.wallLayer.fillStyle(0xd0d6dd, 0.85);
-      this.wallLayer.fillRect(solid.x + 4, solid.y + depth + 4, 3, solid.height - depth - 10);
+      this.wallLayer.fillRect(signX + 1, signY + 1, signWidth - 2, 1);
     }
   }
 
