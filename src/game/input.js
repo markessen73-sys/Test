@@ -24,6 +24,7 @@ export class InputManager {
     });
 
     this.shell = document.getElementById("game-shell");
+    this.appRoot = document.getElementById("app");
     this.touchRoot = document.getElementById("touch-controls");
     this.stickLayer = document.getElementById("touch-stick-layer");
     this.renderTouchControls();
@@ -70,7 +71,7 @@ export class InputManager {
   }
 
   attachThumbstick() {
-    if (!this.shell || !this.stickLayer) {
+    if (!this.appRoot || !this.stickLayer) {
       return;
     }
 
@@ -88,9 +89,8 @@ export class InputManager {
         return;
       }
 
-      const rect = this.shell.getBoundingClientRect();
-      const localX = event.clientX - rect.left;
-      const localY = event.clientY - rect.top;
+      const localX = event.clientX;
+      const localY = event.clientY;
       const dx = localX - this.stickOrigin.x;
       const dy = localY - this.stickOrigin.y;
       const distance = Math.hypot(dx, dy);
@@ -117,20 +117,25 @@ export class InputManager {
       this.touchState.y = 0;
       this.stickBase.hidden = true;
       this.stickKnob.hidden = true;
-      this.shell.releasePointerCapture?.(event.pointerId);
+      document.body.releasePointerCapture?.(event.pointerId);
     };
 
-    this.shell.addEventListener("pointerdown", (event) => {
+    document.addEventListener("pointerdown", (event) => {
       if (!this.touchEnabled || !window.matchMedia("(pointer: coarse)").matches) {
         return;
       }
       if (this.activeTouchId !== null || event.pointerType === "mouse") {
         return;
       }
+      if (event.target instanceof Element && event.target.closest("#touch-controls")) {
+        return;
+      }
+      if (this.scene.scene.key !== "game") {
+        return;
+      }
 
-      const rect = this.shell.getBoundingClientRect();
-      const localX = event.clientX - rect.left;
-      const localY = event.clientY - rect.top;
+      const localX = event.clientX;
+      const localY = event.clientY;
       this.activeTouchId = event.pointerId;
       this.stickOrigin = { x: localX, y: localY };
       this.touchState.x = 0;
@@ -141,13 +146,14 @@ export class InputManager {
       this.stickBase.style.top = `${localY}px`;
       this.stickKnob.style.left = `${localX}px`;
       this.stickKnob.style.top = `${localY}px`;
-      this.shell.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+      document.body.setPointerCapture?.(event.pointerId);
       updateStickFromEvent(event);
     });
 
-    this.shell.addEventListener("pointermove", updateStickFromEvent);
-    this.shell.addEventListener("pointerup", clearStick);
-    this.shell.addEventListener("pointercancel", clearStick);
+    document.addEventListener("pointermove", updateStickFromEvent);
+    document.addEventListener("pointerup", clearStick);
+    document.addEventListener("pointercancel", clearStick);
   }
 
   refreshTouchVisibility() {
@@ -157,6 +163,7 @@ export class InputManager {
 
     const coarse = window.matchMedia("(pointer: coarse)").matches;
     this.shell.dataset.touch = this.touchEnabled && coarse ? "true" : "false";
+    document.body.dataset.touch = this.touchEnabled && coarse ? "true" : "false";
   }
 
   toggleTouchPreference() {

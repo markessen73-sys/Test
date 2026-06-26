@@ -42,14 +42,14 @@ body {
 }
 
 #touch-stick-layer {
-  position: absolute;
+  position: fixed;
   inset: 0;
   display: none;
   pointer-events: none;
   z-index: 25;
 }
 
-#game-shell[data-touch="true"] #touch-stick-layer {
+body[data-touch="true"] #touch-stick-layer {
   display: block;
 }
 
