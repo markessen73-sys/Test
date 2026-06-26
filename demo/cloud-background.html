@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cloud Background Preview — 5s Loop</title>
+    <title>Arena + Cloud Background Preview</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
@@ -22,6 +22,7 @@
         position: relative;
         border: 1px solid #333;
         box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+        background: #000;
       }
       canvas { display: block; }
       #timer {
@@ -33,52 +34,52 @@
         font-variant-numeric: tabular-nums;
         z-index: 2;
       }
-      p { font-size: 0.8rem; color: #666; max-width: 640px; text-align: center; line-height: 1.5; }
+      #status {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        font-size: 0.85rem;
+        color: #888;
+        background: #000;
+      }
+      p { font-size: 0.8rem; color: #666; max-width: 720px; text-align: center; line-height: 1.5; }
     </style>
   </head>
   <body>
-    <h1>Arena foreground over cloud sky — 5 second seamless loop</h1>
+    <h1>Rock arena foreground + cloud gaps — 5 second loop</h1>
     <div id="wrap">
       <canvas id="sky" width="768" height="512"></canvas>
+      <div id="status">Loading foreground…</div>
       <div id="timer">0.00s</div>
     </div>
-    <p>Rock arena sits in front. Dark grey clouds drift behind it through the black gaps. Three cloud layers loop every 5.00 seconds.</p>
+    <p>Foreground rocks are baked first. Clouds are drawn only into the empty gaps, then the rock layer is composited on top.</p>
     <script>
       const LOOP_SECONDS = 5;
+      const W = 768;
+      const H = 512;
       const canvas = document.getElementById("sky");
       const ctx = canvas.getContext("2d");
       const timerEl = document.getElementById("timer");
-      const W = canvas.width;
-      const H = canvas.height;
+      const statusEl = document.getElementById("status");
 
-      let arenaImage = null;
-      let arenaReady = false;
+      const cloudBuffer = document.createElement("canvas");
+      cloudBuffer.width = W;
+      cloudBuffer.height = H;
+      const cloudCtx = cloudBuffer.getContext("2d");
 
-      function makeBlackTransparent(image) {
-        const off = document.createElement("canvas");
-        off.width = image.width;
-        off.height = image.height;
-        const offCtx = off.getContext("2d");
-        offCtx.drawImage(image, 0, 0);
-        const data = offCtx.getImageData(0, 0, off.width, off.height);
-        const px = data.data;
-        for (let i = 0; i < px.length; i += 4) {
-          const r = px[i];
-          const g = px[i + 1];
-          const b = px[i + 2];
-          const lum = r * 0.2126 + g * 0.7152 + b * 0.0722;
-          if (lum < 18) px[i + 3] = 0;
-        }
-        offCtx.putImageData(data, 0, 0);
-        return off;
+      let rocksImage = null;
+      let maskImage = null;
+      let ready = false;
+
+      function loadImage(src) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error(`Failed to load ${src}`));
+          img.src = src;
+        });
       }
-
-      const arenaLoader = new Image();
-      arenaLoader.onload = () => {
-        arenaImage = makeBlackTransparent(arenaLoader);
-        arenaReady = true;
-      };
-      arenaLoader.src = "./assets/arena-foreground.png";
 
       function seeded(seed) {
         let s = seed >>> 0;
@@ -116,20 +117,20 @@
         { ...makeCloudLayer(303, 14, H * 0.38, H * 0.82, 28, 72, 0.88), speed: 3, blur: 14 },
       ];
 
-      function drawPuff(puff, offsetX, layerAlpha) {
+      function drawPuff(targetCtx, puff, offsetX, layerAlpha) {
         const base = puff.shade;
         const drawBlob = (x, y, r) => {
-          const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+          const g = targetCtx.createRadialGradient(x, y, 0, x, y, r);
           const hi = `rgba(${Math.floor(base * 255 * 1.35)},${Math.floor(base * 255 * 1.35)},${Math.floor(base * 255 * 1.35)},${layerAlpha * puff.shade * 2.2})`;
           const mid = `rgba(${Math.floor(base * 255)},${Math.floor(base * 255)},${Math.floor(base * 255)},${layerAlpha * 0.9})`;
           const edge = `rgba(${Math.floor(base * 255 * 0.6)},${Math.floor(base * 255 * 0.6)},${Math.floor(base * 255 * 0.6)},0)`;
           g.addColorStop(0, hi);
           g.addColorStop(0.45, mid);
           g.addColorStop(1, edge);
-          ctx.fillStyle = g;
-          ctx.beginPath();
-          ctx.arc(x, y, r, 0, Math.PI * 2);
-          ctx.fill();
+          targetCtx.fillStyle = g;
+          targetCtx.beginPath();
+          targetCtx.arc(x, y, r, 0, Math.PI * 2);
+          targetCtx.fill();
         };
 
         for (const blob of puff.blobs) {
@@ -141,56 +142,76 @@
         }
       }
 
-      function drawLayer(layer, t) {
-        const travel = (t / LOOP_SECONDS) * W * layer.speed;
-        const offsetX = -travel;
-        ctx.filter = `blur(${layer.blur}px)`;
-        for (const puff of layer.puffs) drawPuff(puff, offsetX, layer.alpha);
-        ctx.filter = "none";
-      }
+      function drawCloudsToBuffer(t) {
+        cloudCtx.setTransform(1, 0, 0, 1, 0, 0);
+        cloudCtx.clearRect(0, 0, W, H);
+        cloudCtx.fillStyle = "#000000";
+        cloudCtx.fillRect(0, 0, W, H);
 
-      function drawClouds(t) {
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(0, 0, W, H);
-
-        const atmo = ctx.createLinearGradient(0, 0, 0, H);
+        const atmo = cloudCtx.createLinearGradient(0, 0, 0, H);
         atmo.addColorStop(0, "rgba(0,0,0,1)");
         atmo.addColorStop(1, "rgba(4,4,6,1)");
-        ctx.fillStyle = atmo;
-        ctx.fillRect(0, 0, W, H);
+        cloudCtx.fillStyle = atmo;
+        cloudCtx.fillRect(0, 0, W, H);
 
-        for (const layer of layers) drawLayer(layer, t);
-      }
-
-      function drawArenaForeground() {
-        if (!arenaReady) return;
-        const scale = Math.max(W / arenaImage.width, H / arenaImage.height);
-        const dw = arenaImage.width * scale;
-        const dh = arenaImage.height * scale;
-        const dx = (W - dw) / 2;
-        const dy = (H - dh) / 2;
-        ctx.drawImage(arenaImage, dx, dy, dw, dh);
+        for (const layer of layers) {
+          const travel = (t / LOOP_SECONDS) * W * layer.speed;
+          cloudCtx.filter = `blur(${layer.blur}px)`;
+          for (const puff of layer.puffs) drawPuff(cloudCtx, puff, -travel, layer.alpha);
+          cloudCtx.filter = "none";
+        }
       }
 
       function drawFrame(t) {
-        drawClouds(t);
-        drawArenaForeground();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, W, H);
 
+        drawCloudsToBuffer(t);
+
+        // Clip clouds to gap areas only (where mask is opaque)
+        ctx.drawImage(cloudBuffer, 0, 0);
+        ctx.globalCompositeOperation = "destination-in";
+        ctx.drawImage(maskImage, 0, 0);
+
+        // Rock foreground on top
+        ctx.globalCompositeOperation = "source-over";
+        ctx.drawImage(rocksImage, 0, 0, W, H);
+
+        ctx.globalCompositeOperation = "source-over";
         const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85);
         vig.addColorStop(0, "rgba(0,0,0,0)");
-        vig.addColorStop(1, "rgba(0,0,0,0.35)");
+        vig.addColorStop(1, "rgba(0,0,0,0.3)");
         ctx.fillStyle = vig;
         ctx.fillRect(0, 0, W, H);
       }
 
+      async function init() {
+        try {
+          const base = new URL("./assets/", window.location.href);
+          [rocksImage, maskImage] = await Promise.all([
+            loadImage(new URL("arena-rocks.png", base).href),
+            loadImage(new URL("arena-cloud-mask.png", base).href),
+          ]);
+          ready = true;
+          statusEl.style.display = "none";
+        } catch (err) {
+          statusEl.textContent = `Failed to load foreground assets: ${err.message}`;
+          console.error(err);
+        }
+      }
+
       let start = performance.now();
       function frame(now) {
-        const elapsed = ((now - start) / 1000) % LOOP_SECONDS;
-        timerEl.textContent = `${elapsed.toFixed(2)}s / ${LOOP_SECONDS.toFixed(2)}s`;
-        drawFrame(elapsed);
+        if (ready) {
+          const elapsed = ((now - start) / 1000) % LOOP_SECONDS;
+          timerEl.textContent = `${elapsed.toFixed(2)}s / ${LOOP_SECONDS.toFixed(2)}s`;
+          drawFrame(elapsed);
+        }
         requestAnimationFrame(frame);
       }
-      requestAnimationFrame(frame);
+
+      init().then(() => requestAnimationFrame(frame));
     </script>
   </body>
 </html>
