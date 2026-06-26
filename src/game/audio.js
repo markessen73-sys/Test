@@ -328,7 +328,7 @@ export class AudioManager {
 
     const spec = {
       tick: { start: 360, end: 520, duration: 0.08, type: "square" },
-      pickup: { start: 620, end: 1080, duration: 0.16, type: "triangle" },
+      pickup: { start: 980, end: 640, duration: 0.09, type: "square" },
       warp: { start: 180, end: 840, duration: 0.28, type: "sawtooth" },
       hit: { start: 220, end: 40, duration: 0.42, type: "sawtooth" },
       win: { start: 420, end: 1320, duration: 0.4, type: "square" },
