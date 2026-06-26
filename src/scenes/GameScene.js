@@ -70,12 +70,13 @@ export class GameScene extends Phaser.Scene {
     this.wallLayer = this.add.graphics();
     this.patternLayer = this.add.graphics();
 
-    this.player = this.add.image(32, PLAYFIELD_Y + 132, "ship").setOrigin(0.5);
+    this.player = this.add.image(32, PLAYFIELD_Y + 132, "ship-right").setOrigin(0.5);
     this.playerDepth = 5;
     this.player.setDepth(this.playerDepth);
     this.playerHitbox = { width: 12, height: 10 };
     this.playerDamageRadius = 6;
     this.playerInvulnerableUntil = 0;
+    this.playerDirection = "right";
 
     this.hudBar = this.add.rectangle(GAME_WIDTH / 2, HUD_HEIGHT / 2, GAME_WIDTH, HUD_HEIGHT, COLORS.purple).setOrigin(0.5);
     this.hudText = this.add.text(8, 6, "", {
@@ -146,17 +147,17 @@ export class GameScene extends Phaser.Scene {
     this.drawScreen();
 
     if (this.currentScreen.exit) {
-      const exit = this.add.image(this.currentScreen.exit.x + 8, this.currentScreen.exit.y + 16, "door").setDepth(3);
+      const exit = this.add.image(this.currentScreen.exit.x + 12, this.currentScreen.exit.y + 16, "tunnel-exit").setDepth(3);
       this.spawnLayer.push(exit);
     }
 
     if (this.currentScreen.teleporter) {
-      const teleporter = this.add.image(this.currentScreen.teleporter.x + 8, this.currentScreen.teleporter.y + 8, "teleporter").setDepth(3);
+      const teleporter = this.add.image(this.currentScreen.teleporter.x + 10, this.currentScreen.teleporter.y + 10, "tunnel-warp").setDepth(3);
       this.spawnLayer.push(teleporter);
     }
 
     if (this.currentScreen.relic) {
-      const relic = this.add.image(this.currentScreen.relic.x + 6, this.currentScreen.relic.y + 6, "relic").setDepth(3);
+      const relic = this.add.image(this.currentScreen.relic.x + 10, this.currentScreen.relic.y + 10, "tunnel-core").setDepth(3);
       this.spawnLayer.push(relic);
       this.relicSprite = relic;
     } else {
@@ -185,6 +186,7 @@ export class GameScene extends Phaser.Scene {
 
     const start = startOverride || this.currentScreen.start;
     this.player.setPosition(start.x, start.y);
+    this.setPlayerDirection("right");
     this.playerInvulnerableUntil = this.time.now + 700;
     this.messageText.setText(this.screenKey === "hangar" ? "GUIDE SHIP TO EXIT" : this.currentScreen.name);
     this.playerHintUntil = this.time.now + 2400;
@@ -242,9 +244,9 @@ export class GameScene extends Phaser.Scene {
     const depth = Math.max(5, Math.min(12, Math.floor(Math.min(solid.width, solid.height) * 0.22)));
     const skew = Math.max(4, Math.min(10, Math.floor(solid.width * 0.12)));
     const paletteIndex = Math.floor((solid.x + solid.y + solid.width + solid.height) / 16) % 4;
-    const roofColors = [0xb7c2cf, 0x9fb1c7, 0xc7c0b2, 0xb7b7c7];
-    const frontColors = [0x6f7c8c, 0x5f6f84, 0x7c7068, 0x6f6d82];
-    const sideColors = [0x516072, 0x47566d, 0x635a55, 0x55536b];
+    const roofColors = [0xbec9d4, 0xa8bad1, 0xc6c3bb, 0xb8bac7];
+    const frontColors = [0x667588, 0x58687d, 0x786e67, 0x66677a];
+    const sideColors = [0x455468, 0x404c60, 0x5e5651, 0x4f5064];
     const windowOn = [0x9fe8ff, 0xb9f7ff, 0xffe3a3, 0xb4ffd2][paletteIndex];
     const roof = roofColors[paletteIndex];
     const front = frontColors[paletteIndex];
@@ -277,11 +279,21 @@ export class GameScene extends Phaser.Scene {
     this.wallLayer.fillStyle(COLORS.black, 0.14);
     this.wallLayer.fillRect(solid.x + 4, solid.y + solid.height - 5, Math.max(0, solid.width - 8), 4);
 
-    for (let wy = solid.y + depth + 8; wy < solid.y + solid.height - 8; wy += 11) {
-      for (let wx = solid.x + 6; wx < solid.x + solid.width - skew - 6; wx += 10) {
-        this.wallLayer.fillStyle(((wx + wy + solid.x) / 10) % 2 > 1 ? COLORS.black : windowOn, 0.92);
-        this.wallLayer.fillRect(wx, wy, 5, 6);
-      }
+    const storefrontCount = Math.max(1, Math.floor((solid.width - skew - 10) / 18));
+    const bayWidth = Math.max(12, Math.floor((solid.width - skew - 8) / storefrontCount));
+    for (let bay = 0; bay < storefrontCount; bay += 1) {
+      const bayX = solid.x + 4 + bay * bayWidth;
+      const facadeHeight = Math.max(8, Math.min(18, solid.height - depth - 8));
+      this.wallLayer.fillStyle([0xd9d4ca, 0xbec7d2, 0xcab5a0, 0xc6d6d1][bay % 4], 0.9);
+      this.wallLayer.fillRect(bayX, solid.y + depth + 4, bayWidth - 2, facadeHeight);
+      this.wallLayer.fillStyle(COLORS.black, 0.16);
+      this.wallLayer.fillRect(bayX, solid.y + depth + 4, bayWidth - 2, 3);
+      this.wallLayer.fillStyle([0xff7ec4, 0x7ce4ff, 0xffd072, 0x8effb8][(bay + paletteIndex) % 4], 0.95);
+      this.wallLayer.fillRect(bayX + 1, solid.y + depth + 5, bayWidth - 4, 2);
+      this.wallLayer.fillStyle(windowOn, 0.9);
+      this.wallLayer.fillRect(bayX + 2, solid.y + depth + 9, Math.max(4, bayWidth - 7), 5);
+      this.wallLayer.fillStyle(COLORS.black, 0.8);
+      this.wallLayer.fillRect(bayX + Math.floor((bayWidth - 4) / 2), solid.y + depth + 15, 4, Math.max(6, facadeHeight - 12));
     }
 
     for (let wy = solid.y + depth + 9; wy < solid.y + solid.height - 10; wy += 12) {
@@ -304,6 +316,14 @@ export class GameScene extends Phaser.Scene {
       this.wallLayer.fillStyle(0xd0d6dd, 0.85);
       this.wallLayer.fillRect(solid.x + 4, solid.y + depth + 4, 3, solid.height - depth - 10);
     }
+  }
+
+  setPlayerDirection(direction) {
+    if (this.playerDirection === direction) {
+      return;
+    }
+    this.playerDirection = direction;
+    this.player.setTexture(`ship-${direction}`);
   }
 
   getPlayerRect(nextX = this.player.x, nextY = this.player.y) {
@@ -359,10 +379,10 @@ export class GameScene extends Phaser.Scene {
     const distance = this.loopStats.playerSpeed * (delta / 1000);
     if (input.x !== 0) {
       this.movePlayer("x", input.x * distance);
-      this.player.setAngle(input.x > 0 ? 0 : 180);
+      this.setPlayerDirection(input.x > 0 ? "right" : "left");
     } else if (input.y !== 0) {
       this.movePlayer("y", input.y * distance);
-      this.player.setAngle(input.y > 0 ? 90 : -90);
+      this.setPlayerDirection(input.y > 0 ? "down" : "up");
     }
 
     this.checkTransitions();

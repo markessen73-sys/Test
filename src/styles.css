@@ -53,6 +53,13 @@ body[data-touch="true"] #touch-stick-layer {
   display: block;
 }
 
+body[data-touch="true"],
+body[data-touch="true"] #app,
+body[data-touch="true"] #game-shell,
+body[data-touch="true"] #touch-stick-layer {
+  touch-action: none;
+}
+
 .touch-stick-base,
 .touch-stick-knob {
   position: absolute;
@@ -111,6 +118,10 @@ body[data-touch="true"] #touch-stick-layer {
 
 .touch-button:active {
   background: rgba(108, 240, 255, 0.25);
+}
+
+.touch-button {
+  touch-action: manipulation;
 }
 
 @media (pointer: coarse) {

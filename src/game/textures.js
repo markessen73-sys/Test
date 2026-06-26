@@ -17,7 +17,7 @@ function create(scene, key, width, height, draw) {
 }
 
 export function createTextures(scene) {
-  create(scene, "ship", 16, 12, (g) => {
+  create(scene, "ship-right", 16, 12, (g) => {
     pixel(g, COLORS.white, 2, 7, 10, 3);
     pixel(g, COLORS.gray, 4, 5, 9, 2);
     pixel(g, COLORS.gray, 6, 3, 7, 2);
@@ -26,6 +26,35 @@ export function createTextures(scene) {
     pixel(g, COLORS.yellow, 2, 10, 2, 1);
     pixel(g, COLORS.yellow, 10, 10, 2, 1);
     pixel(g, COLORS.blue, 1, 8, 2, 1);
+  });
+
+  create(scene, "ship-left", 16, 12, (g) => {
+    pixel(g, COLORS.white, 4, 7, 10, 3);
+    pixel(g, COLORS.gray, 3, 5, 9, 2);
+    pixel(g, COLORS.gray, 3, 3, 7, 2);
+    pixel(g, COLORS.gray, 3, 1, 3, 2);
+    pixel(g, COLORS.cyan, 5, 4, 3, 1);
+    pixel(g, COLORS.yellow, 4, 10, 2, 1);
+    pixel(g, COLORS.yellow, 12, 10, 2, 1);
+    pixel(g, COLORS.blue, 13, 8, 2, 1);
+  });
+
+  create(scene, "ship-up", 12, 16, (g) => {
+    pixel(g, COLORS.white, 2, 5, 8, 9);
+    pixel(g, COLORS.gray, 3, 3, 6, 9);
+    pixel(g, COLORS.gray, 4, 1, 4, 5);
+    pixel(g, COLORS.cyan, 4, 4, 4, 2);
+    pixel(g, COLORS.yellow, 4, 13, 2, 2);
+    pixel(g, COLORS.yellow, 6, 13, 2, 2);
+  });
+
+  create(scene, "ship-down", 12, 16, (g) => {
+    pixel(g, COLORS.white, 2, 2, 8, 9);
+    pixel(g, COLORS.gray, 3, 4, 6, 9);
+    pixel(g, COLORS.gray, 4, 10, 4, 5);
+    pixel(g, COLORS.cyan, 4, 3, 4, 2);
+    pixel(g, COLORS.red, 4, 1, 2, 2);
+    pixel(g, COLORS.red, 6, 1, 2, 2);
   });
 
   create(scene, "drone", 12, 12, (g) => {
@@ -50,16 +79,24 @@ export function createTextures(scene) {
     pixel(g, COLORS.orange, 2, 2, 4, 4);
   });
 
-  create(scene, "door", 16, 32, (g) => {
-    pixel(g, COLORS.yellow, 0, 0, 16, 32);
-    pixel(g, COLORS.orange, 2, 2, 12, 28);
-    pixel(g, COLORS.black, 5, 14, 2, 2);
+  create(scene, "tunnel-exit", 24, 32, (g) => {
+    pixel(g, COLORS.black, 0, 0, 24, 32);
+    pixel(g, COLORS.gray, 2, 0, 20, 32);
+    pixel(g, COLORS.black, 4, 3, 16, 26);
+    pixel(g, COLORS.navy, 6, 6, 12, 20);
+    pixel(g, COLORS.black, 8, 9, 8, 14);
+    pixel(g, COLORS.orange, 2, 2, 20, 2);
+    pixel(g, COLORS.yellow, 2, 4, 2, 24);
+    pixel(g, COLORS.yellow, 20, 4, 2, 24);
   });
 
-  create(scene, "teleporter", 16, 16, (g) => {
-    pixel(g, COLORS.cyan, 0, 0, 16, 16);
-    pixel(g, COLORS.blue, 2, 2, 12, 12);
-    pixel(g, COLORS.white, 4, 4, 8, 8);
+  create(scene, "tunnel-warp", 20, 20, (g) => {
+    pixel(g, COLORS.black, 0, 0, 20, 20);
+    pixel(g, COLORS.cyan, 1, 1, 18, 18);
+    pixel(g, COLORS.black, 3, 3, 14, 14);
+    pixel(g, COLORS.blue, 5, 5, 10, 10);
+    pixel(g, COLORS.white, 7, 7, 6, 6);
+    pixel(g, COLORS.cyan, 8, 8, 4, 4);
   });
 
   create(scene, "relic", 12, 12, (g) => {
@@ -78,5 +115,13 @@ export function createTextures(scene) {
     pixel(g, COLORS.red, 2, 4, 12, 8);
     pixel(g, COLORS.orange, 5, 1, 8, 4);
     pixel(g, COLORS.black, 10, 5, 4, 2);
+  });
+
+  create(scene, "tunnel-core", 20, 20, (g) => {
+    pixel(g, COLORS.black, 0, 0, 20, 20);
+    pixel(g, COLORS.orange, 1, 1, 18, 18);
+    pixel(g, COLORS.black, 3, 3, 14, 14);
+    pixel(g, COLORS.red, 5, 5, 10, 10);
+    pixel(g, COLORS.yellow, 8, 8, 4, 4);
   });
 }

@@ -71,6 +71,8 @@ const NOTE_INDEX = {
   B: 11,
 };
 
+const MASTER_GAIN = 0.55;
+
 function noteToFrequency(note) {
   if (note === "-") {
     return null;
@@ -91,6 +93,8 @@ export class AudioManager {
     this.master = null;
     this.timer = null;
     this.currentTheme = null;
+    this.requestedTheme = null;
+    this.requestedLoop = true;
   }
 
   async ensureReady() {
@@ -102,15 +106,19 @@ export class AudioManager {
       const Context = window.AudioContext || window.webkitAudioContext;
       this.context = new Context();
       this.master = this.context.createGain();
-      this.master.gain.value = 0.06;
+      this.master.gain.value = MASTER_GAIN;
       this.master.connect(this.context.destination);
     }
 
     if (this.context.state === "suspended") {
-      await this.context.resume();
+      try {
+        await this.context.resume();
+      } catch (error) {
+        return false;
+      }
     }
 
-    return true;
+    return this.context.state === "running";
   }
 
   stopTheme() {
@@ -121,8 +129,26 @@ export class AudioManager {
     this.currentTheme = null;
   }
 
+  async unlock() {
+    const ready = await this.ensureReady();
+    if (!ready || !this.requestedTheme) {
+      return ready;
+    }
+
+    if (this.currentTheme !== this.requestedTheme || !this.timer) {
+      this.stopTheme();
+      this.currentTheme = this.requestedTheme;
+      this.scheduleTheme(this.requestedTheme, this.requestedLoop);
+    }
+
+    return ready;
+  }
+
   async playTheme(name, loop = true) {
-    if (this.currentTheme === name) {
+    this.requestedTheme = name;
+    this.requestedLoop = loop;
+
+    if (this.currentTheme === name && this.timer) {
       return;
     }
 
@@ -177,7 +203,7 @@ export class AudioManager {
       const main = createVoice("square", 0);
       const bright = createVoice("sawtooth", 8);
       gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.linearRampToValueAtTime(0.035, start + 0.02);
+      gain.gain.linearRampToValueAtTime(0.08, start + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
       main.connect(gain);
       bright.connect(gain);
@@ -196,7 +222,7 @@ export class AudioManager {
       bell.frequency.linearRampToValueAtTime(frequency * 1.8, start + duration * 0.6);
       ping.frequency.linearRampToValueAtTime(frequency * 2.2, start + duration * 0.4);
       gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.linearRampToValueAtTime(0.03, start + 0.01);
+      gain.gain.linearRampToValueAtTime(0.075, start + 0.01);
       gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
       bell.connect(gain);
       ping.connect(gain);
@@ -215,7 +241,7 @@ export class AudioManager {
       low.frequency.linearRampToValueAtTime(frequency * 0.8, start + duration * 0.5);
       rumble.frequency.linearRampToValueAtTime(frequency * 1.1, start + duration);
       gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.linearRampToValueAtTime(0.02, start + 0.03);
+      gain.gain.linearRampToValueAtTime(0.055, start + 0.03);
       gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
       low.connect(gain);
       rumble.connect(gain);
@@ -231,7 +257,7 @@ export class AudioManager {
       const gain = this.context.createGain();
       const screech = createVoice("sawtooth");
       screech.frequency.linearRampToValueAtTime(Math.max(40, frequency * 0.3), start + duration);
-      gain.gain.setValueAtTime(0.03, start);
+      gain.gain.setValueAtTime(0.075, start);
       gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
       screech.connect(gain);
       gain.connect(this.master);
@@ -264,7 +290,7 @@ export class AudioManager {
     osc.type = spec.type;
     osc.frequency.setValueAtTime(spec.start, start);
     osc.frequency.linearRampToValueAtTime(spec.end, start + spec.duration);
-    gain.gain.setValueAtTime(0.06, start);
+    gain.gain.setValueAtTime(0.12, start);
     gain.gain.exponentialRampToValueAtTime(0.0001, start + spec.duration);
     osc.connect(gain);
     gain.connect(this.master);

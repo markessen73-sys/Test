@@ -33,4 +33,11 @@ const config = {
 
 window.addEventListener("load", () => {
   window.__STARVAULT_SKIMMER__ = new Phaser.Game(config);
+
+  const unlockAudio = () => {
+    window.__STARVAULT_SKIMMER__?.globals?.audio?.unlock();
+  };
+
+  window.addEventListener("pointerdown", unlockAudio, { passive: true });
+  window.addEventListener("keydown", unlockAudio);
 });
