@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
+    "build:portable": "vite build --base ./ --outDir docs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "repository": {
