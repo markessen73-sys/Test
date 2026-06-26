@@ -6,6 +6,12 @@ export class BootScene extends Phaser.Scene {
     super("boot");
   }
 
+  preload() {
+    this.load.image("vegas-caesars", "/vegas/caesars.jpg");
+    this.load.image("vegas-mandalay", "/vegas/mandalay.jpg");
+    this.load.image("vegas-montecarlo", "/vegas/montecarlo.jpg");
+  }
+
   create() {
     createTextures(this);
     this.scene.start("title");
