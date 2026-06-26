@@ -125,6 +125,7 @@ export class GameScene extends Phaser.Scene {
       padding: { left: 2, right: 2, top: 1, bottom: 1 },
     }).setOrigin(0.5).setDepth(6);
 
+    this.game.globals.audio.unlock();
     this.game.globals.audio.playTheme("game");
     this.loadScreen(this.screenKey, this.pendingStart);
   }

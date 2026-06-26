@@ -11,7 +11,6 @@ export class TitleScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor(COLORS.black);
     this.inputManager = new InputManager(this);
-    this.game.globals.audio.playTheme("title");
 
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH - 12, GAME_HEIGHT - 12, COLORS.navy, 1).setStrokeStyle(4, COLORS.cyan);
     this.add.text(GAME_WIDTH / 2, 24, GAME_TITLE, {
@@ -59,7 +58,7 @@ export class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.input.on("pointerdown", () => this.startGame());
-    this.input.keyboard.once("keydown", () => this.game.globals.audio.playTheme("title"));
+    this.input.keyboard.once("keydown", () => this.game.globals.audio.unlock());
     this.input.keyboard.addKey("T").on("down", () => {
       const enabled = this.inputManager.toggleTouchPreference();
       this.touchLabel.setText(`TOUCH ${enabled ? "ON" : "OFF"}  T TO TOGGLE`);
@@ -69,6 +68,7 @@ export class TitleScene extends Phaser.Scene {
   }
 
   startGame() {
+    this.game.globals.audio.unlock();
     this.scene.start("game", {
       score: 0,
       lives: 4,
