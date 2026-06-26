@@ -51,12 +51,12 @@
     <div id="wrap">
       <canvas id="view"></canvas>
       <div id="status">Loading…</div>
-      <div id="timer">0.00s</div>
+      <div id="timer">0.00s / 2.00s</div>
     </div>
-    <p>Red ball drops straight down from the top. In empty space it reaches the bottom in exactly 2.00 seconds.</p>
+    <p>Red ball drops straight down. In open space it reaches the bottom in exactly 2.00 seconds, then restarts.</p>
     <script>
       const FALL_SECONDS = 2;
-      const FIXED_DT = 1 / 60;
+      const STEP_MS = 1000 / 60;
       const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("status");
@@ -66,25 +66,16 @@
       let H = 1024;
       let gravity = 512;
       let background = null;
-      let solid = null;
       let ready = false;
-      let last = 0;
-      let accumulator = 0;
-      let fallStart = 0;
-      let simTime = 0;
+      let fallElapsed = 0;
 
-      const ball = {
-        x: W / 2,
-        y: 12,
-        vy: 0,
-        r: 12,
-      };
+      const ball = { x: 0, y: 0, vy: 0, r: 14 };
 
       function resetBall() {
         ball.x = W / 2;
         ball.y = ball.r;
         ball.vy = 0;
-        fallStart = simTime;
+        fallElapsed = 0;
       }
 
       function loadImage(src) {
@@ -97,61 +88,8 @@
         });
       }
 
-      function buildSolidMap(img) {
-        const off = document.createElement("canvas");
-        off.width = W;
-        off.height = H;
-        const offCtx = off.getContext("2d");
-        offCtx.drawImage(img, 0, 0);
-        const data = offCtx.getImageData(0, 0, W, H).data;
-        const map = new Uint8Array(W * H);
-        for (let i = 0; i < W * H; i++) {
-          map[i] = data[i * 4 + 3] > 128 ? 1 : 0;
-        }
-        return map;
-      }
-
-      function isSolid(px, py) {
-        const x = Math.floor(px);
-        const y = Math.floor(py);
-        if (y < 0 || y >= H || x < 0 || x >= W) return false;
-        return solid[y * W + x] === 1;
-      }
-
-      function resolveCircle() {
-        for (let pass = 0; pass < 8; pass++) {
-          let hit = false;
-          const minX = Math.floor(ball.x - ball.r - 1);
-          const maxX = Math.ceil(ball.x + ball.r + 1);
-          const minY = Math.floor(ball.y - ball.r - 1);
-          const maxY = Math.ceil(ball.y + ball.r + 1);
-
-          for (let y = minY; y <= maxY; y++) {
-            for (let x = minX; x <= maxX; x++) {
-              if (!isSolid(x, y)) continue;
-              const dx = ball.x - (x + 0.5);
-              const dy = ball.y - (y + 0.5);
-              const dist = Math.hypot(dx, dy);
-              if (dist < ball.r && dist > 0.0001) {
-                const nx = dx / dist;
-                const ny = dy / dist;
-                const push = ball.r - dist;
-                ball.x += nx * push;
-                ball.y += ny * push;
-                const vn = ball.vy * ny;
-                if (vn < 0) {
-                  ball.vy -= vn * ny * 1.15;
-                }
-                hit = true;
-              }
-            }
-          }
-          if (!hit) break;
-        }
-      }
-
       function step(dt) {
-        simTime += dt;
+        fallElapsed += dt;
         ball.vy += gravity * dt;
         ball.y += ball.vy * dt;
 
@@ -159,75 +97,55 @@
           resetBall();
         }
 
-        resolveCircle();
-
-        const elapsed = simTime - fallStart;
-        timerEl.textContent = `${elapsed.toFixed(2)}s`;
+        timerEl.textContent = `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s`;
       }
 
       function drawFrame() {
-        ctx.fillStyle = "#000000";
+        ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, W, H);
-        ctx.drawImage(background, 0, 0, W, H);
+        if (background) ctx.drawImage(background, 0, 0, W, H);
 
         ctx.beginPath();
         ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
         ctx.fillStyle = "#ff3b3b";
         ctx.fill();
-        ctx.strokeStyle = "#ffffff";
+        ctx.strokeStyle = "#fff";
         ctx.lineWidth = 2;
         ctx.stroke();
       }
 
-      function frame(now) {
-        requestAnimationFrame(frame);
+      function tick() {
         if (!ready) return;
-
-        if (!last) last = now;
-        const frameDt = Math.min(0.05, (now - last) / 1000);
-        last = now;
-        accumulator += frameDt;
-
-        while (accumulator >= FIXED_DT) {
-          step(FIXED_DT);
-          accumulator -= FIXED_DT;
-        }
-
+        step(STEP_MS / 1000);
         drawFrame();
       }
 
       async function init() {
         const base = new URL("./assets/", window.location.href);
-        const sources = ["arena-bg.jpg", "arena-source.png"];
-        let lastError = null;
-        for (const name of sources) {
+        for (const name of ["arena-bg.jpg", "arena-source.png"]) {
           try {
             background = await loadImage(new URL(name, base).href);
             break;
-          } catch (err) {
-            lastError = err;
+          } catch {
+            // try next
           }
         }
-        if (!background) throw lastError ?? new Error("Background image missing");
+        if (!background) throw new Error("Background image missing");
 
-        const collisionImg = await loadImage(new URL("arena-collision.png", base).href);
         W = background.naturalWidth;
         H = background.naturalHeight;
         gravity = H / (0.5 * FALL_SECONDS * FALL_SECONDS);
         canvas.width = W;
         canvas.height = H;
-        solid = buildSolidMap(collisionImg);
         resetBall();
         ready = true;
-        last = 0;
-        accumulator = 0;
         statusEl.style.display = "none";
-        requestAnimationFrame(frame);
+        setInterval(tick, STEP_MS);
+        drawFrame();
       }
 
       init().catch((err) => {
         statusEl.textContent = `Failed to load: ${err.message}`;
-        console.error(err);
       });
     </script>
   </body>
