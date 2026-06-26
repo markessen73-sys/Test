@@ -245,6 +245,7 @@ export class GameScene extends Phaser.Scene {
     const depth = Math.max(5, Math.min(12, Math.floor(Math.min(solid.width, solid.height) * 0.22)));
     const skew = Math.max(4, Math.min(10, Math.floor(solid.width * 0.12)));
     const paletteIndex = Math.floor((solid.x + solid.y + solid.width + solid.height) / 16) % 4;
+    const roofStyle = Math.floor((solid.x + solid.width + solid.height) / 24) % 3;
     const roofColors = [0xbec9d4, 0xa8bad1, 0xc6c3bb, 0xb8bac7];
     const frontColors = [0x667588, 0x58687d, 0x786e67, 0x66677a];
     const sideColors = [0x455468, 0x404c60, 0x5e5651, 0x4f5064];
@@ -277,6 +278,26 @@ export class GameScene extends Phaser.Scene {
     polygon(this.wallLayer, sidePoly, side, 1, edge);
     polygon(this.wallLayer, roofPoly, roof, 1, edge);
 
+    if (roofStyle === 1 && solid.width > 28) {
+      const pitched = [
+        { x: solid.x + skew + 2, y: solid.y + depth },
+        { x: solid.x + solid.width / 2, y: solid.y + 1 },
+        { x: solid.x + solid.width - skew - 2, y: solid.y + depth },
+        { x: solid.x + solid.width / 2, y: solid.y + depth + 4 },
+      ];
+      polygon(this.wallLayer, pitched, 0xd8dde5, 0.95, edge);
+      this.wallLayer.lineStyle(1, 0x8f99a6, 0.8);
+      this.wallLayer.beginPath();
+      this.wallLayer.moveTo(solid.x + solid.width / 2, solid.y + 1);
+      this.wallLayer.lineTo(solid.x + solid.width / 2, solid.y + depth + 4);
+      this.wallLayer.strokePath();
+    } else if (roofStyle === 2 && solid.width > 26) {
+      this.wallLayer.fillStyle(0x7d8795, 0.95);
+      this.wallLayer.fillRect(solid.x + skew + 5, solid.y + 3, Math.max(8, solid.width - skew - 14), 4);
+      this.wallLayer.fillStyle(0x9aa6b6, 0.95);
+      this.wallLayer.fillRect(solid.x + skew + 8, solid.y + 8, Math.max(6, solid.width - skew - 20), 3);
+    }
+
     this.wallLayer.fillStyle(COLORS.black, 0.14);
     this.wallLayer.fillRect(solid.x + 4, solid.y + solid.height - 5, Math.max(0, solid.width - 8), 4);
 
@@ -285,16 +306,22 @@ export class GameScene extends Phaser.Scene {
     for (let bay = 0; bay < storefrontCount; bay += 1) {
       const bayX = solid.x + 4 + bay * bayWidth;
       const facadeHeight = Math.max(8, Math.min(18, solid.height - depth - 8));
-      this.wallLayer.fillStyle([0xd9d4ca, 0xbec7d2, 0xcab5a0, 0xc6d6d1][bay % 4], 0.9);
+      const facadeTone = [0xd9d4ca, 0xbec7d2, 0xcab5a0, 0xc6d6d1][bay % 4];
+      const neonTone = [0xff7ec4, 0x7ce4ff, 0xffd072, 0x8effb8][(bay + paletteIndex) % 4];
+      this.wallLayer.fillStyle(facadeTone, 0.92);
       this.wallLayer.fillRect(bayX, solid.y + depth + 4, bayWidth - 2, facadeHeight);
       this.wallLayer.fillStyle(COLORS.black, 0.16);
       this.wallLayer.fillRect(bayX, solid.y + depth + 4, bayWidth - 2, 3);
-      this.wallLayer.fillStyle([0xff7ec4, 0x7ce4ff, 0xffd072, 0x8effb8][(bay + paletteIndex) % 4], 0.95);
+      this.wallLayer.fillStyle(neonTone, 0.95);
       this.wallLayer.fillRect(bayX + 1, solid.y + depth + 5, bayWidth - 4, 2);
       this.wallLayer.fillStyle(windowOn, 0.9);
       this.wallLayer.fillRect(bayX + 2, solid.y + depth + 9, Math.max(4, bayWidth - 7), 5);
       this.wallLayer.fillStyle(COLORS.black, 0.8);
       this.wallLayer.fillRect(bayX + Math.floor((bayWidth - 4) / 2), solid.y + depth + 15, 4, Math.max(6, facadeHeight - 12));
+      if (facadeHeight > 12) {
+        this.wallLayer.fillStyle(0xffffff, 0.65);
+        this.wallLayer.fillRect(bayX + 3, solid.y + depth + 8, Math.max(3, bayWidth - 9), 1);
+      }
     }
 
     for (let wy = solid.y + depth + 9; wy < solid.y + solid.height - 10; wy += 12) {
@@ -371,6 +398,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.state !== "playing") {
+      this.game.globals.audio.setDriveActive(false);
       return;
     }
 
@@ -378,13 +406,20 @@ export class GameScene extends Phaser.Scene {
     this.updateHazards(delta, time);
 
     const distance = this.loopStats.playerSpeed * (delta / 1000);
+    let movementActive = false;
+    let movementIntensity = 0;
     if (input.x !== 0) {
       this.movePlayer("x", input.x * distance);
       this.setPlayerDirection(input.x > 0 ? "right" : "left");
+      movementActive = true;
+      movementIntensity = Math.abs(input.x);
     } else if (input.y !== 0) {
       this.movePlayer("y", input.y * distance);
       this.setPlayerDirection(input.y > 0 ? "down" : "up");
+      movementActive = true;
+      movementIntensity = Math.abs(input.y);
     }
+    this.game.globals.audio.setDriveActive(movementActive, movementIntensity);
 
     this.checkTransitions();
     this.checkPickups();
@@ -490,6 +525,7 @@ export class GameScene extends Phaser.Scene {
 
   killPlayer() {
     this.lives -= 1;
+    this.game.globals.audio.setDriveActive(false);
     this.game.globals.audio.playSfx("hit");
 
     if (this.lives <= 0) {
