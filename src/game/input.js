@@ -6,12 +6,13 @@ export class InputManager {
     this.scene = scene;
     this.touchEnabled = loadTouchPreference();
     this.touchState = {
-      left: false,
-      right: false,
-      up: false,
-      down: false,
+      x: 0,
+      y: 0,
       pause: false,
     };
+    this.activeTouchId = null;
+    this.stickOrigin = null;
+    this.stickRadius = 42;
 
     this.keys = scene.input.keyboard.addKeys({
       left: "LEFT",
@@ -24,7 +25,9 @@ export class InputManager {
 
     this.shell = document.getElementById("game-shell");
     this.touchRoot = document.getElementById("touch-controls");
+    this.stickLayer = document.getElementById("touch-stick-layer");
     this.renderTouchControls();
+    this.attachThumbstick();
     this.refreshTouchVisibility();
   }
 
@@ -34,11 +37,7 @@ export class InputManager {
     }
 
     this.touchRoot.innerHTML = "";
-    const controls = [
-      ["up"],
-      ["left", "pause", "right"],
-      ["down"],
-    ];
+    const controls = [["pause"]];
 
     controls.forEach((row) => {
       const rowEl = document.createElement("div");
@@ -70,6 +69,87 @@ export class InputManager {
     });
   }
 
+  attachThumbstick() {
+    if (!this.shell || !this.stickLayer) {
+      return;
+    }
+
+    this.stickBase = document.createElement("div");
+    this.stickBase.className = "touch-stick-base";
+    this.stickBase.hidden = true;
+    this.stickKnob = document.createElement("div");
+    this.stickKnob.className = "touch-stick-knob";
+    this.stickKnob.hidden = true;
+    this.stickLayer.appendChild(this.stickBase);
+    this.stickLayer.appendChild(this.stickKnob);
+
+    const updateStickFromEvent = (event) => {
+      if (this.activeTouchId !== event.pointerId || !this.stickOrigin) {
+        return;
+      }
+
+      const rect = this.shell.getBoundingClientRect();
+      const localX = event.clientX - rect.left;
+      const localY = event.clientY - rect.top;
+      const dx = localX - this.stickOrigin.x;
+      const dy = localY - this.stickOrigin.y;
+      const distance = Math.hypot(dx, dy);
+      const clamped = distance > this.stickRadius ? this.stickRadius / distance : 1;
+      const knobX = this.stickOrigin.x + dx * clamped;
+      const knobY = this.stickOrigin.y + dy * clamped;
+      const axisX = Math.abs(dx) < 8 ? 0 : Math.max(-1, Math.min(1, dx / this.stickRadius));
+      const axisY = Math.abs(dy) < 8 ? 0 : Math.max(-1, Math.min(1, dy / this.stickRadius));
+
+      this.touchState.x = axisX;
+      this.touchState.y = axisY;
+      this.stickKnob.style.left = `${knobX}px`;
+      this.stickKnob.style.top = `${knobY}px`;
+    };
+
+    const clearStick = (event) => {
+      if (this.activeTouchId !== event.pointerId) {
+        return;
+      }
+
+      this.activeTouchId = null;
+      this.stickOrigin = null;
+      this.touchState.x = 0;
+      this.touchState.y = 0;
+      this.stickBase.hidden = true;
+      this.stickKnob.hidden = true;
+      this.shell.releasePointerCapture?.(event.pointerId);
+    };
+
+    this.shell.addEventListener("pointerdown", (event) => {
+      if (!this.touchEnabled || !window.matchMedia("(pointer: coarse)").matches) {
+        return;
+      }
+      if (this.activeTouchId !== null || event.pointerType === "mouse") {
+        return;
+      }
+
+      const rect = this.shell.getBoundingClientRect();
+      const localX = event.clientX - rect.left;
+      const localY = event.clientY - rect.top;
+      this.activeTouchId = event.pointerId;
+      this.stickOrigin = { x: localX, y: localY };
+      this.touchState.x = 0;
+      this.touchState.y = 0;
+      this.stickBase.hidden = false;
+      this.stickKnob.hidden = false;
+      this.stickBase.style.left = `${localX}px`;
+      this.stickBase.style.top = `${localY}px`;
+      this.stickKnob.style.left = `${localX}px`;
+      this.stickKnob.style.top = `${localY}px`;
+      this.shell.setPointerCapture?.(event.pointerId);
+      updateStickFromEvent(event);
+    });
+
+    this.shell.addEventListener("pointermove", updateStickFromEvent);
+    this.shell.addEventListener("pointerup", clearStick);
+    this.shell.addEventListener("pointercancel", clearStick);
+  }
+
   refreshTouchVisibility() {
     if (!this.shell) {
       return;
@@ -88,17 +168,37 @@ export class InputManager {
 
   getMenuState() {
     return {
-      up: Phaser.Input.Keyboard.JustDown(this.keys.up) || this.touchState.up,
-      down: Phaser.Input.Keyboard.JustDown(this.keys.down) || this.touchState.down,
+      up: Phaser.Input.Keyboard.JustDown(this.keys.up),
+      down: Phaser.Input.Keyboard.JustDown(this.keys.down),
       start: Phaser.Input.Keyboard.JustDown(this.keys.start) || this.touchState.pause,
     };
   }
 
   getPlayState() {
-    const horizontal = (this.keys.left.isDown || this.touchState.left ? -1 : 0)
-      + (this.keys.right.isDown || this.touchState.right ? 1 : 0);
-    const vertical = (this.keys.up.isDown || this.touchState.up ? -1 : 0)
-      + (this.keys.down.isDown || this.touchState.down ? 1 : 0);
+    const horizontal = (this.keys.left.isDown ? -1 : 0)
+      + (this.keys.right.isDown ? 1 : 0);
+    const vertical = (this.keys.up.isDown ? -1 : 0)
+      + (this.keys.down.isDown ? 1 : 0);
+
+    const touchX = this.touchState.x;
+    const touchY = this.touchState.y;
+    const useTouch = Math.abs(touchX) > 0.15 || Math.abs(touchY) > 0.15;
+
+    if (useTouch) {
+      if (Math.abs(touchX) >= Math.abs(touchY)) {
+        return {
+          x: Phaser.Math.Clamp(Math.sign(touchX), -1, 1),
+          y: 0,
+          pause: Phaser.Input.Keyboard.JustDown(this.keys.pause) || this.touchState.pause,
+        };
+      }
+
+      return {
+        x: 0,
+        y: Phaser.Math.Clamp(Math.sign(touchY), -1, 1),
+        pause: Phaser.Input.Keyboard.JustDown(this.keys.pause) || this.touchState.pause,
+      };
+    }
 
     if (horizontal !== 0) {
       return {
