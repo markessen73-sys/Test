@@ -4,7 +4,9 @@ import { constants } from "node:fs";
 
 const SRC = "/workspace/demo/assets/arena-source.png";
 const OUT_DIR = "/workspace/demo/assets";
-const BLACK_THRESHOLD = 14;
+const SKY_MAX = 16;
+const ROCK_MAX = 108;
+const SUPPORT_SCAN = 4;
 
 async function build() {
   await access(SRC, constants.R_OK);
@@ -16,30 +18,63 @@ async function build() {
     .toBuffer({ resolveWithObject: true });
 
   const { width, height, channels } = info;
-  const rocks = Buffer.from(data);
+  const lum = new Float32Array(width * height);
+  const solid = new Uint8Array(width * height);
 
   for (let i = 0; i < width * height; i++) {
-    const px = i * channels;
-    const r = rocks[px];
-    const g = rocks[px + 1];
-    const b = rocks[px + 2];
-    const lum = r * 0.2126 + g * 0.7152 + b * 0.0722;
-    rocks[px + 3] = lum < BLACK_THRESHOLD ? 0 : 255;
+    const p = i * channels;
+    lum[i] = data[p] * 0.2126 + data[p + 1] * 0.7152 + data[p + 2] * 0.0722;
   }
 
-  await sharp(rocks, { raw: { width, height, channels: 4 } })
-    .png({ compressionLevel: 9, palette: true, colors: 256 })
-    .toFile(`${OUT_DIR}/arena-rocks.png`);
+  const at = (x, y) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return 0;
+    return lum[y * width + x];
+  };
 
-  const meta = await sharp(`${OUT_DIR}/arena-rocks.png`).metadata();
-  console.log(`Built ${width}x${height} rocks layer (${meta.size ?? "?"} bytes)`);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x;
+      const l = lum[i];
+      if (l < SKY_MAX) continue;
+
+      if (l <= ROCK_MAX) {
+        solid[i] = 1;
+        continue;
+      }
+
+      let supported = false;
+      for (let dy = 1; dy <= SUPPORT_SCAN; dy++) {
+        const below = at(x, y + dy);
+        if (below < SKY_MAX) break;
+        if (below <= ROCK_MAX) {
+          supported = true;
+          break;
+        }
+      }
+
+      if (supported) solid[i] = 1;
+    }
+  }
+
+  const collision = Buffer.alloc(width * height * 4);
+  for (let i = 0; i < width * height; i++) {
+    const p = i * 4;
+    if (solid[i]) {
+      collision[p] = 255;
+      collision[p + 1] = 255;
+      collision[p + 2] = 255;
+      collision[p + 3] = 255;
+    }
+  }
+
+  await sharp(collision, { raw: { width, height, channels: 4 } })
+    .png({ compressionLevel: 9 })
+    .toFile(`${OUT_DIR}/arena-collision.png`);
+
+  console.log(`Built ${width}x${height} collision map`);
 }
 
 build().catch((err) => {
-  if (err.code === "ENOENT") {
-    console.error("Missing demo/assets/arena-source.png — add your foreground image there first.");
-  } else {
-    console.error(err);
-  }
+  console.error(err);
   process.exit(1);
 });

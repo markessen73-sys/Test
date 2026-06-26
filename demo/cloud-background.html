@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Arena Background Preview</title>
+    <title>Arena Physics Preview</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
@@ -12,29 +12,13 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 14px;
+        gap: 12px;
         background: #111;
         color: #ccc;
         font-family: system-ui, sans-serif;
-        padding: 16px;
+        padding: 12px;
       }
       h1 { font-size: 1rem; font-weight: 500; }
-      #picker {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        flex-wrap: wrap;
-        justify-content: center;
-      }
-      #picker label {
-        font-size: 0.8rem;
-        border: 1px solid #444;
-        padding: 8px 12px;
-        border-radius: 6px;
-        cursor: pointer;
-        background: #1a1a1a;
-      }
-      #picker input { display: none; }
       #wrap {
         position: relative;
         border: 1px solid #333;
@@ -48,36 +32,39 @@
         inset: 0;
         display: grid;
         place-items: center;
-        text-align: center;
-        padding: 20px;
-        font-size: 0.85rem;
         color: #888;
-        background: rgba(0,0,0,0.92);
-        line-height: 1.5;
+        background: #000;
       }
-      p { font-size: 0.8rem; color: #666; max-width: 720px; text-align: center; line-height: 1.5; }
+      p { font-size: 0.8rem; color: #666; max-width: 760px; text-align: center; line-height: 1.5; }
     </style>
   </head>
   <body>
-    <h1>Rock arena on black background</h1>
-    <div id="picker">
-      <label>Load foreground image<input id="file" type="file" accept="image/png,image/jpeg,image/webp" /></label>
-      <span id="source-label" style="font-size:0.75rem;color:#666">Loading…</span>
-    </div>
+    <h1>Rock arena — gravity + horizontal wrap</h1>
     <div id="wrap">
-      <canvas id="sky"></canvas>
+      <canvas id="view"></canvas>
       <div id="status">Loading…</div>
     </div>
-    <p>Your rock image is used exactly as provided on a solid black background.</p>
+    <p>Only rock platforms are solid. Light shading is background. Gravity drops from top to bottom in 2 seconds. The level wraps horizontally.</p>
     <script>
-      const BLACK_THRESHOLD = 14;
-      const canvas = document.getElementById("sky");
+      const FALL_SECONDS = 2;
+      const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("status");
-      const sourceLabel = document.getElementById("source-label");
-      const fileInput = document.getElementById("file");
 
-      let rocksCanvas = null;
+      let W = 1536;
+      let H = 1024;
+      let gravity = H / (0.5 * FALL_SECONDS * FALL_SECONDS);
+      let background = null;
+      let solid = null;
+      let ready = false;
+
+      const ball = {
+        x: W / 2,
+        y: 14,
+        vx: 220,
+        vy: 0,
+        r: 10,
+      };
 
       function loadImage(src) {
         return new Promise((resolve, reject) => {
@@ -88,99 +75,137 @@
         });
       }
 
-      function processForeground(img, label) {
-        const W = img.naturalWidth;
-        const H = img.naturalHeight;
-        canvas.width = W;
-        canvas.height = H;
-
-        const src = document.createElement("canvas");
-        src.width = W;
-        src.height = H;
-        const srcCtx = src.getContext("2d");
-        srcCtx.drawImage(img, 0, 0);
-
-        const data = srcCtx.getImageData(0, 0, W, H);
-        const px = data.data;
-
-        rocksCanvas = document.createElement("canvas");
-        rocksCanvas.width = W;
-        rocksCanvas.height = H;
-        const rocksCtx = rocksCanvas.getContext("2d");
-        const rocksData = rocksCtx.createImageData(W, H);
-
-        for (let i = 0; i < px.length; i += 4) {
-          const r = px[i];
-          const g = px[i + 1];
-          const b = px[i + 2];
-          const lum = r * 0.2126 + g * 0.7152 + b * 0.0722;
-          const isSky = lum < BLACK_THRESHOLD;
-
-          rocksData.data[i] = r;
-          rocksData.data[i + 1] = g;
-          rocksData.data[i + 2] = b;
-          rocksData.data[i + 3] = isSky ? 0 : 255;
-        }
-
-        rocksCtx.putImageData(rocksData, 0, 0);
-        drawFrame();
-        statusEl.style.display = "none";
-        sourceLabel.textContent = label;
+      function wrapX(x) {
+        x %= W;
+        if (x < 0) x += W;
+        return x;
       }
 
-      function usePrebuilt(rocksImg, label) {
-        canvas.width = rocksImg.naturalWidth;
-        canvas.height = rocksImg.naturalHeight;
-        rocksCanvas = document.createElement("canvas");
-        rocksCanvas.width = rocksImg.naturalWidth;
-        rocksCanvas.height = rocksImg.naturalHeight;
-        rocksCanvas.getContext("2d").drawImage(rocksImg, 0, 0);
-        drawFrame();
-        statusEl.style.display = "none";
-        sourceLabel.textContent = label;
+      function buildSolidMap(img) {
+        const off = document.createElement("canvas");
+        off.width = W;
+        off.height = H;
+        const offCtx = off.getContext("2d");
+        offCtx.drawImage(img, 0, 0);
+        const data = offCtx.getImageData(0, 0, W, H).data;
+        const map = new Uint8Array(W * H);
+        for (let i = 0; i < W * H; i++) {
+          map[i] = data[i * 4 + 3] > 128 ? 1 : 0;
+        }
+        return map;
+      }
+
+      function isSolid(px, py) {
+        const x = Math.floor(px);
+        const y = Math.floor(py);
+        if (y < 0 || y >= H) return false;
+        const xl = wrapX(x);
+        const xr = wrapX(x + 1);
+        return solid[y * W + xl] || solid[y * W + xr];
+      }
+
+      function resolveCircle() {
+        for (let pass = 0; pass < 6; pass++) {
+          let hit = false;
+          const minX = Math.floor(ball.x - ball.r - 1);
+          const maxX = Math.ceil(ball.x + ball.r + 1);
+          const minY = Math.floor(ball.y - ball.r - 1);
+          const maxY = Math.ceil(ball.y + ball.r + 1);
+
+          for (let y = minY; y <= maxY; y++) {
+            for (let ox = minX; ox <= maxX; ox++) {
+              const x = wrapX(ox);
+              if (!isSolid(x, y)) continue;
+              const dx = ball.x - (x + 0.5);
+              const dy = ball.y - (y + 0.5);
+              const dist = Math.hypot(dx, dy);
+              if (dist < ball.r && dist > 0.0001) {
+                const nx = dx / dist;
+                const ny = dy / dist;
+                const push = ball.r - dist;
+                ball.x += nx * push;
+                ball.y += ny * push;
+                const vn = ball.vx * nx + ball.vy * ny;
+                if (vn < 0) {
+                  ball.vx -= vn * nx * 1.2;
+                  ball.vy -= vn * ny * 1.2;
+                }
+                hit = true;
+              }
+            }
+          }
+          if (!hit) break;
+        }
+      }
+
+      function drawBackground() {
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, W, H);
+        ctx.drawImage(background, 0, 0, W, H);
+      }
+
+      function drawBall() {
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+        ctx.fillStyle = "#ff4d4d";
+        ctx.fill();
+        ctx.strokeStyle = "#ffd0d0";
+        ctx.lineWidth = 2;
+        ctx.stroke();
       }
 
       function drawFrame() {
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(rocksCanvas, 0, 0);
+        drawBackground();
+        drawBall();
       }
 
-      async function tryLoadBundled() {
-        const base = new URL("./assets/", window.location.href);
-        try {
-          const rocksImg = await loadImage(new URL("arena-rocks.png", base).href);
-          usePrebuilt(rocksImg, "Using your foreground image");
-          return true;
-        } catch {
-          // fall through
+      let last = performance.now();
+      function frame(now) {
+        if (!ready) {
+          requestAnimationFrame(frame);
+          return;
         }
 
-        try {
-          const img = await loadImage(new URL("arena-source.png", base).href);
-          processForeground(img, "Using arena-source.png");
-          return true;
-        } catch {
-          return false;
+        const dt = Math.min(0.033, (now - last) / 1000);
+        last = now;
+
+        ball.vy += gravity * dt;
+        ball.x += ball.vx * dt;
+        ball.y += ball.vy * dt;
+        ball.x = wrapX(ball.x);
+
+        if (ball.y - ball.r > H) {
+          ball.y = ball.r;
+          ball.vy = 0;
         }
+
+        resolveCircle();
+
+        drawFrame();
+        requestAnimationFrame(frame);
       }
-
-      fileInput.addEventListener("change", async () => {
-        const file = fileInput.files?.[0];
-        if (!file) return;
-        const img = await loadImage(URL.createObjectURL(file));
-        processForeground(img, `Using ${file.name}`);
-      });
 
       async function init() {
-        const loaded = await tryLoadBundled();
-        if (!loaded) {
-          statusEl.innerHTML = "Add your image to <code>demo/assets/arena-source.png</code><br>or use the button above to load it now.";
-          sourceLabel.textContent = "No foreground image found";
-        }
+        const base = new URL("./assets/", window.location.href);
+        background = await loadImage(new URL("arena-source.png", base).href);
+        const collisionImg = await loadImage(new URL("arena-collision.png", base).href);
+        W = background.naturalWidth;
+        H = background.naturalHeight;
+        gravity = H / (0.5 * FALL_SECONDS * FALL_SECONDS);
+        canvas.width = W;
+        canvas.height = H;
+        solid = buildSolidMap(collisionImg);
+        ball.x = W / 2;
+        ball.y = ball.r + 2;
+        ready = true;
+        statusEl.style.display = "none";
+        requestAnimationFrame(frame);
       }
 
-      init();
+      init().catch((err) => {
+        statusEl.textContent = `Failed to load: ${err.message}`;
+        console.error(err);
+      });
     </script>
   </body>
 </html>
