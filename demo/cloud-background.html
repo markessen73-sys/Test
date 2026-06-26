@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Arena + Cloud Background Preview</title>
+    <title>Arena Background Preview</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
@@ -43,15 +43,6 @@
         max-width: 100%;
       }
       canvas { display: block; max-width: 100%; height: auto; }
-      #timer {
-        position: absolute;
-        top: 8px;
-        right: 10px;
-        font-size: 11px;
-        color: rgba(255,255,255,0.35);
-        font-variant-numeric: tabular-nums;
-        z-index: 2;
-      }
       #status {
         position: absolute;
         inset: 0;
@@ -68,35 +59,25 @@
     </style>
   </head>
   <body>
-    <h1>Your foreground image + cloud gaps — 5 second loop</h1>
+    <h1>Rock arena on black background</h1>
     <div id="picker">
-      <label>Load your foreground image<input id="file" type="file" accept="image/png,image/jpeg,image/webp" /></label>
-      <span id="source-label" style="font-size:0.75rem;color:#666">Waiting for arena-source.png or file upload…</span>
+      <label>Load foreground image<input id="file" type="file" accept="image/png,image/jpeg,image/webp" /></label>
+      <span id="source-label" style="font-size:0.75rem;color:#666">Loading…</span>
     </div>
     <div id="wrap">
       <canvas id="sky"></canvas>
       <div id="status">Loading…</div>
-      <div id="timer">0.00s</div>
     </div>
-    <p>Your rock image is used exactly as provided. Only pure-black pixels become transparent so clouds can fill those gaps. Rock pixels are never altered.</p>
+    <p>Your rock image is used exactly as provided on a solid black background.</p>
     <script>
-      const LOOP_SECONDS = 5;
       const BLACK_THRESHOLD = 14;
       const canvas = document.getElementById("sky");
       const ctx = canvas.getContext("2d");
-      const timerEl = document.getElementById("timer");
       const statusEl = document.getElementById("status");
       const sourceLabel = document.getElementById("source-label");
       const fileInput = document.getElementById("file");
 
-      const cloudBuffer = document.createElement("canvas");
-      const cloudCtx = cloudBuffer.getContext("2d");
-
-      let W = 768;
-      let H = 512;
       let rocksCanvas = null;
-      let maskCanvas = null;
-      let ready = false;
 
       function loadImage(src) {
         return new Promise((resolve, reject) => {
@@ -108,12 +89,10 @@
       }
 
       function processForeground(img, label) {
-        W = img.naturalWidth;
-        H = img.naturalHeight;
+        const W = img.naturalWidth;
+        const H = img.naturalHeight;
         canvas.width = W;
         canvas.height = H;
-        cloudBuffer.width = W;
-        cloudBuffer.height = H;
 
         const src = document.createElement("canvas");
         src.width = W;
@@ -130,12 +109,6 @@
         const rocksCtx = rocksCanvas.getContext("2d");
         const rocksData = rocksCtx.createImageData(W, H);
 
-        maskCanvas = document.createElement("canvas");
-        maskCanvas.width = W;
-        maskCanvas.height = H;
-        const maskCtx = maskCanvas.getContext("2d");
-        const maskData = maskCtx.createImageData(W, H);
-
         for (let i = 0; i < px.length; i += 4) {
           const r = px[i];
           const g = px[i + 1];
@@ -147,146 +120,37 @@
           rocksData.data[i + 1] = g;
           rocksData.data[i + 2] = b;
           rocksData.data[i + 3] = isSky ? 0 : 255;
-
-          maskData.data[i] = 255;
-          maskData.data[i + 1] = 255;
-          maskData.data[i + 2] = 255;
-          maskData.data[i + 3] = isSky ? 255 : 0;
         }
 
         rocksCtx.putImageData(rocksData, 0, 0);
-        maskCtx.putImageData(maskData, 0, 0);
-        ready = true;
+        drawFrame();
         statusEl.style.display = "none";
         sourceLabel.textContent = label;
       }
 
-      function seeded(seed) {
-        let s = seed >>> 0;
-        return () => {
-          s = (s * 1664525 + 1013904223) >>> 0;
-          return s / 0xffffffff;
-        };
-      }
-
-      function makeCloudLayer(seed, count, yMin, yMax, minR, maxR, alpha) {
-        const rand = seeded(seed);
-        const puffs = [];
-        for (let i = 0; i < count; i++) {
-          const cx = rand() * W;
-          const cy = yMin + rand() * (yMax - yMin);
-          const r = minR + rand() * (maxR - minR);
-          const shade = 0.14 + rand() * 0.12;
-          const blobs = [];
-          const blobCount = 4 + Math.floor(rand() * 5);
-          for (let b = 0; b < blobCount; b++) {
-            blobs.push({
-              ox: (rand() - 0.5) * r * 1.6,
-              oy: (rand() - 0.5) * r * 0.7,
-              r: r * (0.45 + rand() * 0.55),
-            });
-          }
-          puffs.push({ cx, cy, r, shade, blobs });
-        }
-        return { puffs, alpha };
-      }
-
-      let layers = [];
-
-      function rebuildLayers() {
-        layers = [
-          { ...makeCloudLayer(101, 9, H * 0.08, H * 0.42, Math.max(24, W * 0.08), Math.max(60, W * 0.16), 0.55), speed: 1, blur: Math.max(12, W * 0.03) },
-          { ...makeCloudLayer(202, 12, H * 0.22, H * 0.62, Math.max(18, W * 0.06), Math.max(48, W * 0.13), 0.72), speed: 2, blur: Math.max(8, W * 0.022) },
-          { ...makeCloudLayer(303, 14, H * 0.38, H * 0.82, Math.max(14, W * 0.045), Math.max(36, W * 0.1), 0.88), speed: 3, blur: Math.max(6, W * 0.016) },
-        ];
-      }
-
-      function drawPuff(targetCtx, puff, offsetX, layerAlpha) {
-        const base = puff.shade;
-        const drawBlob = (x, y, r) => {
-          const g = targetCtx.createRadialGradient(x, y, 0, x, y, r);
-          const hi = `rgba(${Math.floor(base * 255 * 1.35)},${Math.floor(base * 255 * 1.35)},${Math.floor(base * 255 * 1.35)},${layerAlpha * puff.shade * 2.2})`;
-          const mid = `rgba(${Math.floor(base * 255)},${Math.floor(base * 255)},${Math.floor(base * 255)},${layerAlpha * 0.9})`;
-          const edge = `rgba(${Math.floor(base * 255 * 0.6)},${Math.floor(base * 255 * 0.6)},${Math.floor(base * 255 * 0.6)},0)`;
-          g.addColorStop(0, hi);
-          g.addColorStop(0.45, mid);
-          g.addColorStop(1, edge);
-          targetCtx.fillStyle = g;
-          targetCtx.beginPath();
-          targetCtx.arc(x, y, r, 0, Math.PI * 2);
-          targetCtx.fill();
-        };
-
-        for (const blob of puff.blobs) {
-          const x = ((puff.cx + blob.ox + offsetX) % W + W) % W;
-          drawBlob(x, puff.cy + blob.oy, blob.r);
-          for (const wrap of [-W, W]) {
-            drawBlob(((puff.cx + blob.ox + offsetX + wrap) % W + W) % W, puff.cy + blob.oy, blob.r);
-          }
-        }
-      }
-
-      function drawCloudsToBuffer(t) {
-        cloudCtx.setTransform(1, 0, 0, 1, 0, 0);
-        cloudCtx.fillStyle = "#000000";
-        cloudCtx.fillRect(0, 0, W, H);
-        for (const layer of layers) {
-          const travel = (t / LOOP_SECONDS) * W * layer.speed;
-          cloudCtx.filter = `blur(${layer.blur}px)`;
-          for (const puff of layer.puffs) drawPuff(cloudCtx, puff, -travel, layer.alpha);
-          cloudCtx.filter = "none";
-        }
-      }
-
-      function drawFrame(t) {
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(0, 0, W, H);
-        drawCloudsToBuffer(t);
-        ctx.drawImage(cloudBuffer, 0, 0);
-        ctx.globalCompositeOperation = "destination-in";
-        ctx.drawImage(maskCanvas, 0, 0);
-        ctx.globalCompositeOperation = "source-over";
-        ctx.drawImage(rocksCanvas, 0, 0);
-      }
-
-      async function useImage(img, label) {
-        processForeground(img, label);
-        rebuildLayers();
-      }
-
-      async function usePrebuilt(rocksImg, maskImg, label) {
-        W = rocksImg.naturalWidth;
-        H = rocksImg.naturalHeight;
-        canvas.width = W;
-        canvas.height = H;
-        cloudBuffer.width = W;
-        cloudBuffer.height = H;
-
+      function usePrebuilt(rocksImg, label) {
+        canvas.width = rocksImg.naturalWidth;
+        canvas.height = rocksImg.naturalHeight;
         rocksCanvas = document.createElement("canvas");
-        rocksCanvas.width = W;
-        rocksCanvas.height = H;
+        rocksCanvas.width = rocksImg.naturalWidth;
+        rocksCanvas.height = rocksImg.naturalHeight;
         rocksCanvas.getContext("2d").drawImage(rocksImg, 0, 0);
-
-        maskCanvas = document.createElement("canvas");
-        maskCanvas.width = W;
-        maskCanvas.height = H;
-        maskCanvas.getContext("2d").drawImage(maskImg, 0, 0);
-
-        ready = true;
+        drawFrame();
         statusEl.style.display = "none";
         sourceLabel.textContent = label;
-        rebuildLayers();
+      }
+
+      function drawFrame() {
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(rocksCanvas, 0, 0);
       }
 
       async function tryLoadBundled() {
         const base = new URL("./assets/", window.location.href);
         try {
-          const [rocksImg, maskImg] = await Promise.all([
-            loadImage(new URL("arena-rocks.png", base).href),
-            loadImage(new URL("arena-cloud-mask.png", base).href),
-          ]);
-          await usePrebuilt(rocksImg, maskImg, "Using your foreground image");
+          const rocksImg = await loadImage(new URL("arena-rocks.png", base).href);
+          usePrebuilt(rocksImg, "Using your foreground image");
           return true;
         } catch {
           // fall through
@@ -294,7 +158,7 @@
 
         try {
           const img = await loadImage(new URL("arena-source.png", base).href);
-          await useImage(img, "Using arena-source.png");
+          processForeground(img, "Using arena-source.png");
           return true;
         } catch {
           return false;
@@ -305,28 +169,18 @@
         const file = fileInput.files?.[0];
         if (!file) return;
         const img = await loadImage(URL.createObjectURL(file));
-        await useImage(img, `Using ${file.name}`);
+        processForeground(img, `Using ${file.name}`);
       });
 
       async function init() {
         const loaded = await tryLoadBundled();
         if (!loaded) {
           statusEl.innerHTML = "Add your image to <code>demo/assets/arena-source.png</code><br>or use the button above to load it now.";
-          sourceLabel.textContent = "No arena-source.png found — upload your image";
+          sourceLabel.textContent = "No foreground image found";
         }
       }
 
-      let start = performance.now();
-      function frame(now) {
-        if (ready) {
-          const elapsed = ((now - start) / 1000) % LOOP_SECONDS;
-          timerEl.textContent = `${elapsed.toFixed(2)}s / ${LOOP_SECONDS.toFixed(2)}s`;
-          drawFrame(elapsed);
-        }
-        requestAnimationFrame(frame);
-      }
-
-      init().then(() => requestAnimationFrame(frame));
+      init();
     </script>
   </body>
 </html>
