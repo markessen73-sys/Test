@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Arena Physics Preview</title>
+    <title>Arena Gravity Test</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
@@ -27,44 +27,65 @@
         max-width: 100%;
       }
       canvas { display: block; max-width: 100%; height: auto; }
-      #status {
+      #status, #timer {
         position: absolute;
+        font-size: 11px;
+        color: rgba(255,255,255,0.45);
+        font-variant-numeric: tabular-nums;
+        z-index: 2;
+      }
+      #status {
         inset: 0;
         display: grid;
         place-items: center;
+        font-size: 0.85rem;
         color: #888;
-        background: #000;
+        background: rgba(0,0,0,0.92);
       }
+      #timer { top: 8px; right: 10px; }
       p { font-size: 0.8rem; color: #666; max-width: 760px; text-align: center; line-height: 1.5; }
     </style>
   </head>
   <body>
-    <h1>Rock arena — gravity + horizontal wrap</h1>
+    <h1>Gravity test — vertical drop in 2 seconds</h1>
     <div id="wrap">
       <canvas id="view"></canvas>
       <div id="status">Loading…</div>
+      <div id="timer">0.00s</div>
     </div>
-    <p>Only rock platforms are solid. Light shading is background. Gravity drops from top to bottom in 2 seconds. The level wraps horizontally.</p>
+    <p>Red ball drops straight down from the top. In empty space it reaches the bottom in exactly 2.00 seconds.</p>
     <script>
       const FALL_SECONDS = 2;
+      const FIXED_DT = 1 / 60;
       const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("status");
+      const timerEl = document.getElementById("timer");
 
       let W = 1536;
       let H = 1024;
-      let gravity = H / (0.5 * FALL_SECONDS * FALL_SECONDS);
+      let gravity = 512;
       let background = null;
       let solid = null;
       let ready = false;
+      let last = 0;
+      let accumulator = 0;
+      let fallStart = 0;
+      let simTime = 0;
 
       const ball = {
         x: W / 2,
-        y: 14,
-        vx: 220,
+        y: 12,
         vy: 0,
-        r: 10,
+        r: 12,
       };
+
+      function resetBall() {
+        ball.x = W / 2;
+        ball.y = ball.r;
+        ball.vy = 0;
+        fallStart = simTime;
+      }
 
       function loadImage(src) {
         return new Promise((resolve, reject) => {
@@ -74,12 +95,6 @@
           img.onerror = () => reject(new Error(`Failed to load ${src}`));
           img.src = src;
         });
-      }
-
-      function wrapX(x) {
-        x %= W;
-        if (x < 0) x += W;
-        return x;
       }
 
       function buildSolidMap(img) {
@@ -99,14 +114,12 @@
       function isSolid(px, py) {
         const x = Math.floor(px);
         const y = Math.floor(py);
-        if (y < 0 || y >= H) return false;
-        const xl = wrapX(x);
-        const xr = wrapX(x + 1);
-        return solid[y * W + xl] || solid[y * W + xr];
+        if (y < 0 || y >= H || x < 0 || x >= W) return false;
+        return solid[y * W + x] === 1;
       }
 
       function resolveCircle() {
-        for (let pass = 0; pass < 6; pass++) {
+        for (let pass = 0; pass < 8; pass++) {
           let hit = false;
           const minX = Math.floor(ball.x - ball.r - 1);
           const maxX = Math.ceil(ball.x + ball.r + 1);
@@ -114,8 +127,7 @@
           const maxY = Math.ceil(ball.y + ball.r + 1);
 
           for (let y = minY; y <= maxY; y++) {
-            for (let ox = minX; ox <= maxX; ox++) {
-              const x = wrapX(ox);
+            for (let x = minX; x <= maxX; x++) {
               if (!isSolid(x, y)) continue;
               const dx = ball.x - (x + 0.5);
               const dy = ball.y - (y + 0.5);
@@ -126,10 +138,9 @@
                 const push = ball.r - dist;
                 ball.x += nx * push;
                 ball.y += ny * push;
-                const vn = ball.vx * nx + ball.vy * ny;
+                const vn = ball.vy * ny;
                 if (vn < 0) {
-                  ball.vx -= vn * nx * 1.2;
-                  ball.vy -= vn * ny * 1.2;
+                  ball.vy -= vn * ny * 1.15;
                 }
                 hit = true;
               }
@@ -139,51 +150,50 @@
         }
       }
 
-      function drawBackground() {
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(0, 0, W, H);
-        ctx.drawImage(background, 0, 0, W, H);
-      }
-
-      function drawBall() {
-        ctx.beginPath();
-        ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
-        ctx.fillStyle = "#ff4d4d";
-        ctx.fill();
-        ctx.strokeStyle = "#ffd0d0";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
-
-      function drawFrame() {
-        drawBackground();
-        drawBall();
-      }
-
-      let last = performance.now();
-      function frame(now) {
-        if (!ready) {
-          requestAnimationFrame(frame);
-          return;
-        }
-
-        const dt = Math.min(0.033, (now - last) / 1000);
-        last = now;
-
+      function step(dt) {
+        simTime += dt;
         ball.vy += gravity * dt;
-        ball.x += ball.vx * dt;
         ball.y += ball.vy * dt;
-        ball.x = wrapX(ball.x);
 
-        if (ball.y - ball.r > H) {
-          ball.y = ball.r;
-          ball.vy = 0;
+        if (ball.y + ball.r >= H) {
+          resetBall();
         }
 
         resolveCircle();
 
-        drawFrame();
+        const elapsed = simTime - fallStart;
+        timerEl.textContent = `${elapsed.toFixed(2)}s`;
+      }
+
+      function drawFrame() {
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, W, H);
+        ctx.drawImage(background, 0, 0, W, H);
+
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+        ctx.fillStyle = "#ff3b3b";
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      function frame(now) {
         requestAnimationFrame(frame);
+        if (!ready) return;
+
+        if (!last) last = now;
+        const frameDt = Math.min(0.05, (now - last) / 1000);
+        last = now;
+        accumulator += frameDt;
+
+        while (accumulator >= FIXED_DT) {
+          step(FIXED_DT);
+          accumulator -= FIXED_DT;
+        }
+
+        drawFrame();
       }
 
       async function init() {
@@ -207,9 +217,10 @@
         canvas.width = W;
         canvas.height = H;
         solid = buildSolidMap(collisionImg);
-        ball.x = W / 2;
-        ball.y = ball.r + 2;
+        resetBall();
         ready = true;
+        last = 0;
+        accumulator = 0;
         statusEl.style.display = "none";
         requestAnimationFrame(frame);
       }
