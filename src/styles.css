@@ -18,6 +18,10 @@ body {
 
 #app {
   width: min(96vw, 96vh * 1.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 #game-shell {
@@ -38,17 +42,16 @@ body {
 }
 
 #touch-controls {
-  position: absolute;
-  inset: auto 0 8px 0;
+  width: 100%;
   display: none;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  z-index: 20;
   pointer-events: none;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
 }
 
-#game-shell[data-touch="true"] #touch-controls {
+#game-shell[data-touch="true"] + #touch-controls {
   display: flex;
   pointer-events: auto;
 }
@@ -56,6 +59,8 @@ body {
 .touch-row {
   display: flex;
   gap: 8px;
+  justify-content: center;
+  width: 100%;
 }
 
 .touch-button {
@@ -72,4 +77,10 @@ body {
 
 .touch-button:active {
   background: rgba(108, 240, 255, 0.25);
+}
+
+@media (pointer: coarse) {
+  #app {
+    width: min(96vw, 96vh * 1.45);
+  }
 }
