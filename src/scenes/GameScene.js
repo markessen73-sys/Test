@@ -30,6 +30,10 @@ function getHazardHitRadius(type) {
   return 7;
 }
 
+function colorToCss(color) {
+  return `#${color.toString(16).padStart(6, "0")}`;
+}
+
 export class GameScene extends Phaser.Scene {
   constructor() {
     super("game");
@@ -184,6 +188,11 @@ export class GameScene extends Phaser.Scene {
     this.bgLayer.fillStyle(bg, 1);
     this.bgLayer.fillRect(0, PLAYFIELD_Y, GAME_WIDTH, GAME_HEIGHT - HUD_HEIGHT);
 
+    this.bgLayer.fillStyle(COLORS.black, 0.15);
+    this.bgLayer.fillRect(0, PLAYFIELD_Y + 150, GAME_WIDTH, 26);
+    this.bgLayer.fillStyle(COLORS.orange, 0.25);
+    this.bgLayer.fillRect(0, PLAYFIELD_Y + 150, GAME_WIDTH, 2);
+
     for (let y = PLAYFIELD_Y; y < GAME_HEIGHT; y += TILE_SIZE) {
       for (let x = 0; x < GAME_WIDTH; x += TILE_SIZE) {
         if (((x + y) / TILE_SIZE) % 2 === 0) {
@@ -194,10 +203,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.currentScreen.solids.forEach((solid) => {
-      this.wallLayer.fillStyle(wall, 1);
-      this.wallLayer.fillRect(solid.x, solid.y, solid.width, solid.height);
-      this.wallLayer.lineStyle(1, accent, 1);
-      this.wallLayer.strokeRect(solid.x + 0.5, solid.y + 0.5, solid.width - 1, solid.height - 1);
+      this.drawVegasBuilding(solid, wall, accent);
     });
 
     if (this.currentScreen.exit) {
@@ -218,6 +224,61 @@ export class GameScene extends Phaser.Scene {
       color: "#ffffff",
     }).setDepth(3);
     this.spawnLayer.push(label);
+  }
+
+  drawVegasBuilding(solid, wall, accent) {
+    const facadeColors = [wall, COLORS.blue, COLORS.purple, COLORS.navy];
+    const trimColors = [accent, COLORS.yellow, COLORS.cyan, COLORS.magenta];
+    const signTexts = ["VEGA", "LUXE", "777", "SUITE", "JACKPOT", "NEON", "CASINO"];
+    const facade = facadeColors[(solid.x + solid.y) % facadeColors.length];
+    const trim = trimColors[(solid.x / 8 + solid.y / 8) % trimColors.length];
+
+    this.wallLayer.fillStyle(facade, 1);
+    this.wallLayer.fillRect(solid.x, solid.y, solid.width, solid.height);
+    this.wallLayer.fillStyle(COLORS.black, 0.18);
+    this.wallLayer.fillRect(solid.x + 2, solid.y + 2, Math.max(0, solid.width - 4), Math.max(0, solid.height - 4));
+    this.wallLayer.fillStyle(facade, 1);
+    this.wallLayer.fillRect(solid.x + 1, solid.y + 1, Math.max(0, solid.width - 2), Math.max(0, solid.height - 2));
+    this.wallLayer.fillStyle(trim, 1);
+    this.wallLayer.fillRect(solid.x, solid.y, solid.width, Math.min(3, solid.height));
+    this.wallLayer.lineStyle(1, trim, 1);
+    this.wallLayer.strokeRect(solid.x + 0.5, solid.y + 0.5, solid.width - 1, solid.height - 1);
+
+    if (solid.height <= 20) {
+      for (let bulbX = solid.x + 6; bulbX < solid.x + solid.width - 4; bulbX += 10) {
+        this.wallLayer.fillStyle((bulbX / 10) % 2 === 0 ? COLORS.yellow : COLORS.magenta, 1);
+        this.wallLayer.fillRect(bulbX, solid.y + solid.height - 4, 3, 3);
+      }
+      return;
+    }
+
+    const windowColor = trim === COLORS.yellow ? COLORS.orange : COLORS.yellow;
+    for (let wy = solid.y + 8; wy < solid.y + solid.height - 6; wy += 10) {
+      for (let wx = solid.x + 5; wx < solid.x + solid.width - 5; wx += 8) {
+        if (((wx + wy + solid.x) / 4) % 3 < 1) {
+          this.wallLayer.fillStyle(windowColor, 0.95);
+        } else {
+          this.wallLayer.fillStyle(COLORS.black, 0.55);
+        }
+        this.wallLayer.fillRect(wx, wy, 4, 5);
+      }
+    }
+
+    if (solid.width >= 42 && solid.height >= 16) {
+      const signWidth = Math.min(solid.width - 10, 40);
+      const signX = solid.x + (solid.width - signWidth) / 2;
+      this.wallLayer.fillStyle(COLORS.black, 0.9);
+      this.wallLayer.fillRect(signX, solid.y + 4, signWidth, 9);
+      this.wallLayer.lineStyle(1, trim, 1);
+      this.wallLayer.strokeRect(signX + 0.5, solid.y + 4.5, signWidth - 1, 8);
+      const sign = signTexts[(solid.x + solid.y + solid.width) % signTexts.length];
+      const label = this.add.text(signX + signWidth / 2, solid.y + 5, sign, {
+        fontFamily: "monospace",
+        fontSize: "6px",
+        color: colorToCss(trim),
+      }).setOrigin(0.5, 0).setDepth(3);
+      this.spawnLayer.push(label);
+    }
   }
 
   getPlayerRect(nextX = this.player.x, nextY = this.player.y) {

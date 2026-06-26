@@ -36,8 +36,8 @@ export class InputManager {
     this.touchRoot.innerHTML = "";
     const controls = [
       ["up"],
-      ["left", "down", "right"],
-      ["pause"],
+      ["left", "pause", "right"],
+      ["down"],
     ];
 
     controls.forEach((row) => {
