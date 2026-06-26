@@ -200,24 +200,44 @@ export class GameScene extends Phaser.Scene {
     this.wallLayer.clear();
     this.patternLayer.clear();
 
-    this.bgLayer.fillStyle(bg, 1);
+    this.bgLayer.fillStyle(0x686d73, 1);
     this.bgLayer.fillRect(0, PLAYFIELD_Y, GAME_WIDTH, GAME_HEIGHT - HUD_HEIGHT);
-
-    this.bgLayer.fillStyle(COLORS.black, 0.15);
-    this.bgLayer.fillRect(0, PLAYFIELD_Y + 150, GAME_WIDTH, 26);
-    this.bgLayer.fillStyle(COLORS.orange, 0.25);
-    this.bgLayer.fillRect(0, PLAYFIELD_Y + 150, GAME_WIDTH, 2);
 
     for (let y = PLAYFIELD_Y; y < GAME_HEIGHT; y += TILE_SIZE) {
       for (let x = 0; x < GAME_WIDTH; x += TILE_SIZE) {
-        if (((x + y) / TILE_SIZE) % 2 === 0) {
-          this.patternLayer.fillStyle(accent, 0.11);
-          this.patternLayer.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        }
+        this.patternLayer.fillStyle(((x + y) / TILE_SIZE) % 2 === 0 ? 0x72777d : 0x62676d, 0.18);
+        this.patternLayer.fillRect(x, y, TILE_SIZE, TILE_SIZE);
       }
     }
 
+    const stripeColor = 0xf4f0cf;
+    this.patternLayer.fillStyle(stripeColor, 0.9);
+    for (let x = 12; x < GAME_WIDTH; x += 28) {
+      this.patternLayer.fillRect(x, PLAYFIELD_Y + 148, 14, 3);
+    }
+    for (let y = PLAYFIELD_Y + 18; y < GAME_HEIGHT - 14; y += 26) {
+      this.patternLayer.fillRect(8, y, 3, 10);
+      this.patternLayer.fillRect(GAME_WIDTH - 11, y, 3, 10);
+    }
+    for (let x = 48; x < GAME_WIDTH - 32; x += 52) {
+      this.patternLayer.fillRect(x, PLAYFIELD_Y + 8, 22, 2);
+    }
+
     this.currentScreen.solids.forEach((solid) => {
+      const curb = 4;
+      this.patternLayer.fillStyle(0x50545a, 1);
+      this.patternLayer.fillRect(solid.x - 1, solid.y - 1, solid.width + 2, solid.height + 2);
+      this.patternLayer.fillStyle(0xf2d55a, 0.9);
+      this.patternLayer.fillRect(solid.x, solid.y - 2, solid.width, 2);
+      this.patternLayer.fillRect(solid.x, solid.y + solid.height, solid.width, 2);
+      this.patternLayer.fillRect(solid.x - 2, solid.y, 2, solid.height);
+      this.patternLayer.fillRect(solid.x + solid.width, solid.y, 2, solid.height);
+      if (solid.width > 30) {
+        for (let markX = solid.x + 6; markX < solid.x + solid.width - 8; markX += 18) {
+          this.patternLayer.fillRect(markX, solid.y - 5, 8, 2);
+          this.patternLayer.fillRect(markX, solid.y + solid.height + 3, 8, 2);
+        }
+      }
       this.drawVegasBuilding(solid, wall, accent);
     });
 
@@ -243,12 +263,11 @@ export class GameScene extends Phaser.Scene {
 
   drawVegasBuilding(solid, wall, accent) {
     const paletteIndex = Math.floor((solid.x + solid.y + solid.width + solid.height) / 16) % 4;
-    const roofStyle = Math.floor((solid.x + solid.width + solid.height) / 24) % 3;
+    const roofStyle = Math.floor((solid.x + solid.width + solid.height) / 24) % 4;
     const roofColors = [0xbec9d4, 0xa8bad1, 0xc6c3bb, 0xb8bac7];
     const parapetColors = [0x7b8794, 0x6f7d8f, 0x847b72, 0x77788a];
     const skylightColors = [0x8fe6ff, 0xb8f5ff, 0xdaf4ff, 0x9de0f0];
     const hatchColors = [0x666666, 0x5b6577, 0x7e766f, 0x646779];
-    const neonTone = [0xff7ec4, 0x7ce4ff, 0xffd072, 0x8effb8][paletteIndex];
     const roof = roofColors[paletteIndex];
     const parapet = parapetColors[paletteIndex];
     const skylight = skylightColors[paletteIndex];
@@ -264,22 +283,7 @@ export class GameScene extends Phaser.Scene {
     this.wallLayer.lineStyle(2, accent, 0.9);
     this.wallLayer.strokeRect(solid.x + 0.5, solid.y + 0.5, solid.width - 1, solid.height - 1);
 
-    if (roofStyle === 1 && solid.width > 22 && solid.height > 18) {
-      const centerX = solid.x + solid.width / 2;
-      this.wallLayer.fillStyle(hatch, 0.95);
-      this.wallLayer.beginPath();
-      this.wallLayer.moveTo(centerX, solid.y + 4);
-      this.wallLayer.lineTo(solid.x + solid.width - 6, solid.y + solid.height / 2);
-      this.wallLayer.lineTo(centerX, solid.y + solid.height - 4);
-      this.wallLayer.lineTo(solid.x + 6, solid.y + solid.height / 2);
-      this.wallLayer.closePath();
-      this.wallLayer.fillPath();
-      this.wallLayer.lineStyle(1, 0xe5e5e5, 0.65);
-      this.wallLayer.beginPath();
-      this.wallLayer.moveTo(centerX, solid.y + 4);
-      this.wallLayer.lineTo(centerX, solid.y + solid.height - 4);
-      this.wallLayer.strokePath();
-    } else {
+    if (roofStyle === 0) {
       const skylightCount = Math.max(1, Math.floor((solid.width - 10) / 18));
       for (let light = 0; light < skylightCount; light += 1) {
         const lightX = solid.x + 6 + light * 16;
@@ -288,6 +292,35 @@ export class GameScene extends Phaser.Scene {
         this.wallLayer.fillRect(lightX, lightY, Math.max(5, Math.min(10, solid.width - 12)), 4);
         this.wallLayer.fillStyle(0xffffff, 0.45);
         this.wallLayer.fillRect(lightX + 1, lightY + 1, Math.max(3, Math.min(8, solid.width - 16)), 1);
+      }
+    } else if (roofStyle === 1) {
+      const centerY = solid.y + solid.height / 2;
+      this.wallLayer.fillStyle(hatch, 0.95);
+      this.wallLayer.beginPath();
+      this.wallLayer.moveTo(solid.x + 4, centerY);
+      this.wallLayer.lineTo(solid.x + solid.width / 2, solid.y + 4);
+      this.wallLayer.lineTo(solid.x + solid.width - 4, centerY);
+      this.wallLayer.lineTo(solid.x + solid.width / 2, solid.y + solid.height - 4);
+      this.wallLayer.closePath();
+      this.wallLayer.fillPath();
+      this.wallLayer.lineStyle(1, 0xe5e5e5, 0.65);
+      this.wallLayer.beginPath();
+      this.wallLayer.moveTo(solid.x + solid.width / 2, solid.y + 4);
+      this.wallLayer.lineTo(solid.x + solid.width / 2, solid.y + solid.height - 4);
+      this.wallLayer.strokePath();
+    } else if (roofStyle === 2) {
+      this.wallLayer.fillStyle(hatch, 0.95);
+      this.wallLayer.fillRect(solid.x + 6, solid.y + 6, Math.max(10, solid.width - 12), Math.max(6, solid.height - 12));
+      this.wallLayer.fillStyle(0xffffff, 0.3);
+      for (let x = solid.x + 9; x < solid.x + solid.width - 8; x += 8) {
+        this.wallLayer.fillRect(x, solid.y + 9, 2, Math.max(4, solid.height - 18));
+      }
+    } else {
+      const bandCount = Math.max(2, Math.floor((solid.height - 8) / 10));
+      for (let band = 0; band < bandCount; band += 1) {
+        const bandY = solid.y + 5 + band * 8;
+        this.wallLayer.fillStyle(band % 2 === 0 ? skylight : hatch, 0.85);
+        this.wallLayer.fillRect(solid.x + 6, bandY, Math.max(8, solid.width - 12), 3);
       }
     }
 
@@ -308,6 +341,7 @@ export class GameScene extends Phaser.Scene {
       const signWidth = Math.max(10, Math.min(26, solid.width - 12));
       const signX = solid.x + 4;
       const signY = solid.y + solid.height - 8;
+      const neonTone = [0xff7ec4, 0x7ce4ff, 0xffd072, 0x8effb8][(paletteIndex + roofStyle) % 4];
       this.wallLayer.fillStyle(COLORS.black, 0.75);
       this.wallLayer.fillRect(signX, signY, signWidth, 4);
       this.wallLayer.fillStyle(neonTone, 0.95);

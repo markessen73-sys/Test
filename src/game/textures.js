@@ -64,10 +64,13 @@ export function createTextures(scene) {
   });
 
   create(scene, "drone", 12, 12, (g) => {
-    pixel(g, COLORS.yellow, 2, 4, 8, 4);
-    pixel(g, COLORS.red, 0, 5, 12, 2);
-    pixel(g, COLORS.black, 3, 5, 2, 2);
-    pixel(g, COLORS.black, 7, 5, 2, 2);
+    pixel(g, COLORS.gray, 2, 2, 8, 8);
+    pixel(g, COLORS.white, 1, 3, 10, 6);
+    pixel(g, COLORS.black, 3, 4, 6, 4);
+    pixel(g, COLORS.cyan, 4, 5, 4, 2);
+    pixel(g, COLORS.yellow, 1, 5, 1, 2);
+    pixel(g, COLORS.yellow, 10, 5, 1, 2);
+    pixel(g, COLORS.red, 5, 2, 2, 1);
   });
 
   create(scene, "orb", 10, 10, (g) => {
