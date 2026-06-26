@@ -264,9 +264,9 @@ export class GameScene extends Phaser.Scene {
   drawVegasBuilding(solid, wall, accent) {
     const paletteIndex = Math.floor((solid.x + solid.y + solid.width + solid.height) / 16) % 4;
     const roofStyle = Math.floor((solid.x + solid.width + solid.height) / 24) % 4;
-    const roofColors = [0xe79b8e, 0xbdd78f, 0x87d7df, 0xe3e3e3];
-    const roofShade = [0xd78b7c, 0xa9c677, 0x76c6cf, 0xd2d2d2];
-    const roofDeep = [0xca786c, 0x95b65d, 0x65aeb6, 0xbebebe];
+    const roofColors = [0xe89f95, 0xbdd689, 0x87d5dc, 0xe2e2e2];
+    const roofShade = [0xd88d84, 0xa9c274, 0x73c1c8, 0xcfcfcf];
+    const roofDeep = [0xc7776c, 0x94af5f, 0x61adb3, 0xbcbcbc];
     const trimColor = 0xffffff;
     const roof = roofColors[paletteIndex];
     const shade = roofShade[paletteIndex];
@@ -291,8 +291,8 @@ export class GameScene extends Phaser.Scene {
       this.wallLayer.strokePath();
 
       if (roofStyle % 2 === 1) {
-        for (let x = solid.x + 8; x < solid.x + solid.width - 8; x += 16) {
-          this.wallLayer.fillStyle(0xf7d5d0, 0.7);
+        for (let x = solid.x + 8; x < solid.x + solid.width - 8; x += 18) {
+          this.wallLayer.fillStyle(0xf6d6cf, 0.75);
           this.wallLayer.fillRect(x, solid.y + 5, 2, solid.height - 10);
         }
       }
@@ -309,8 +309,8 @@ export class GameScene extends Phaser.Scene {
       this.wallLayer.strokePath();
 
       if (roofStyle % 2 === 1) {
-        for (let y = solid.y + 8; y < solid.y + solid.height - 8; y += 16) {
-          this.wallLayer.fillStyle(0xf7d5d0, 0.7);
+        for (let y = solid.y + 8; y < solid.y + solid.height - 8; y += 18) {
+          this.wallLayer.fillStyle(0xf6d6cf, 0.75);
           this.wallLayer.fillRect(solid.x + 5, y, solid.width - 10, 2);
         }
       }
@@ -318,26 +318,30 @@ export class GameScene extends Phaser.Scene {
 
     const skylightColor = 0x9dc3d9;
     const skylightInner = 0xd8eef8;
-    const skylightCount = horizontalRoof
-      ? Math.max(1, Math.floor((solid.width - 18) / 28))
-      : Math.max(1, Math.floor((solid.height - 18) / 28));
+    const roofModules = horizontalRoof
+      ? [
+          { x: solid.x + 7, y: solid.y + 6 },
+          { x: solid.x + solid.width - 17, y: solid.y + 6 },
+          { x: solid.x + 7, y: solid.y + solid.height - 10 },
+          { x: solid.x + solid.width - 17, y: solid.y + solid.height - 10 },
+        ]
+      : [
+          { x: solid.x + 5, y: solid.y + 7 },
+          { x: solid.x + solid.width - 13, y: solid.y + 7 },
+          { x: solid.x + 5, y: solid.y + solid.height - 13 },
+          { x: solid.x + solid.width - 13, y: solid.y + solid.height - 13 },
+        ];
 
-    for (let index = 0; index < skylightCount; index += 1) {
+    roofModules.forEach(({ x, y }, index) => {
       const skylightW = horizontalRoof ? 10 : 8;
-      const skylightH = horizontalRoof ? 6 : 10;
-      const lightX = horizontalRoof
-        ? solid.x + 7 + index * 24
-        : solid.x + (index % 2 === 0 ? 5 : solid.width - skylightW - 5);
-      const lightY = horizontalRoof
-        ? solid.y + (index % 2 === 0 ? 6 : solid.height - skylightH - 6)
-        : solid.y + 7 + index * 24;
-      if (lightX + skylightW < solid.x + solid.width - 3 && lightY + skylightH < solid.y + solid.height - 3) {
+      const skylightH = horizontalRoof ? 6 : 8;
+      if (x + skylightW < solid.x + solid.width - 3 && y + skylightH < solid.y + solid.height - 3 && (index < 2 || solid.width > 28 || solid.height > 28)) {
         this.wallLayer.fillStyle(skylightColor, 0.95);
-        this.wallLayer.fillRect(lightX, lightY, skylightW, skylightH);
+        this.wallLayer.fillRect(x, y, skylightW, skylightH);
         this.wallLayer.fillStyle(skylightInner, 0.95);
-        this.wallLayer.fillRect(lightX + 1, lightY + 1, skylightW - 2, skylightH - 2);
+        this.wallLayer.fillRect(x + 1, y + 1, skylightW - 2, skylightH - 2);
       }
-    }
+    });
 
     const ventW = horizontalRoof ? 12 : 8;
     const ventH = horizontalRoof ? 5 : 10;
@@ -349,10 +353,10 @@ export class GameScene extends Phaser.Scene {
     this.wallLayer.fillRect(ventX + 2, ventY + 1, Math.max(4, ventW - 4), 1);
 
     if (solid.width > 28 && solid.height > 18) {
-      const hutW = horizontalRoof ? 14 : 10;
-      const hutH = horizontalRoof ? 10 : 14;
-      const hutX = solid.x + solid.width - hutW - 6;
-      const hutY = solid.y + 5;
+      const hutW = horizontalRoof ? 12 : 10;
+      const hutH = horizontalRoof ? 10 : 12;
+      const hutX = horizontalRoof ? solid.x + solid.width - hutW - 6 : solid.x + 5;
+      const hutY = horizontalRoof ? solid.y + 5 : solid.y + solid.height - hutH - 6;
       this.wallLayer.fillStyle(0x4a5662, 0.95);
       this.wallLayer.fillRect(hutX, hutY, hutW, hutH);
       this.wallLayer.fillStyle(0xced7df, 0.95);
