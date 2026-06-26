@@ -31,17 +31,18 @@
         font-size: 11px;
         color: rgba(255,255,255,0.35);
         font-variant-numeric: tabular-nums;
+        z-index: 2;
       }
       p { font-size: 0.8rem; color: #666; max-width: 640px; text-align: center; line-height: 1.5; }
     </style>
   </head>
   <body>
-    <h1>Cloud background preview — 5 second seamless loop</h1>
+    <h1>Arena foreground over cloud sky — 5 second seamless loop</h1>
     <div id="wrap">
-      <canvas id="sky" width="640" height="360"></canvas>
+      <canvas id="sky" width="768" height="512"></canvas>
       <div id="timer">0.00s</div>
     </div>
-    <p>Black sky with dark grey volumetric clouds. Three depth layers drift at different speeds and return to the exact same frame every 5.00 seconds.</p>
+    <p>Rock arena sits in front. Dark grey clouds drift behind it through the black gaps. Three cloud layers loop every 5.00 seconds.</p>
     <script>
       const LOOP_SECONDS = 5;
       const canvas = document.getElementById("sky");
@@ -50,7 +51,35 @@
       const W = canvas.width;
       const H = canvas.height;
 
-      // Seeded pseudo-random for stable cloud placement
+      let arenaImage = null;
+      let arenaReady = false;
+
+      function makeBlackTransparent(image) {
+        const off = document.createElement("canvas");
+        off.width = image.width;
+        off.height = image.height;
+        const offCtx = off.getContext("2d");
+        offCtx.drawImage(image, 0, 0);
+        const data = offCtx.getImageData(0, 0, off.width, off.height);
+        const px = data.data;
+        for (let i = 0; i < px.length; i += 4) {
+          const r = px[i];
+          const g = px[i + 1];
+          const b = px[i + 2];
+          const lum = r * 0.2126 + g * 0.7152 + b * 0.0722;
+          if (lum < 18) px[i + 3] = 0;
+        }
+        offCtx.putImageData(data, 0, 0);
+        return off;
+      }
+
+      const arenaLoader = new Image();
+      arenaLoader.onload = () => {
+        arenaImage = makeBlackTransparent(arenaLoader);
+        arenaReady = true;
+      };
+      arenaLoader.src = "./assets/arena-foreground.png";
+
       function seeded(seed) {
         let s = seed >>> 0;
         return () => {
@@ -62,12 +91,11 @@
       function makeCloudLayer(seed, count, yMin, yMax, minR, maxR, alpha) {
         const rand = seeded(seed);
         const puffs = [];
-        // Tile width = W so scrolling one full width loops seamlessly
         for (let i = 0; i < count; i++) {
           const cx = rand() * W;
           const cy = yMin + rand() * (yMax - yMin);
           const r = minR + rand() * (maxR - minR);
-          const shade = 0.14 + rand() * 0.12; // dark grey luminance
+          const shade = 0.14 + rand() * 0.12;
           const blobs = [];
           const blobCount = 4 + Math.floor(rand() * 5);
           for (let b = 0; b < blobCount; b++) {
@@ -82,19 +110,16 @@
         return { puffs, alpha };
       }
 
-      // Integer speeds guarantee each layer completes whole tile widths in exactly 5s
       const layers = [
         { ...makeCloudLayer(101, 9, H * 0.08, H * 0.42, 48, 110, 0.55), speed: 1, blur: 28 },
         { ...makeCloudLayer(202, 12, H * 0.22, H * 0.62, 36, 90, 0.72), speed: 2, blur: 20 },
         { ...makeCloudLayer(303, 14, H * 0.38, H * 0.82, 28, 72, 0.88), speed: 3, blur: 14 },
       ];
 
-      function drawPuff(puff, offsetX, layerAlpha, blur) {
+      function drawPuff(puff, offsetX, layerAlpha) {
         const base = puff.shade;
-        for (const blob of puff.blobs) {
-          const x = ((puff.cx + blob.ox + offsetX) % W + W) % W;
-          const y = puff.cy + blob.oy;
-          const g = ctx.createRadialGradient(x, y, 0, x, y, blob.r);
+        const drawBlob = (x, y, r) => {
+          const g = ctx.createRadialGradient(x, y, 0, x, y, r);
           const hi = `rgba(${Math.floor(base * 255 * 1.35)},${Math.floor(base * 255 * 1.35)},${Math.floor(base * 255 * 1.35)},${layerAlpha * puff.shade * 2.2})`;
           const mid = `rgba(${Math.floor(base * 255)},${Math.floor(base * 255)},${Math.floor(base * 255)},${layerAlpha * 0.9})`;
           const edge = `rgba(${Math.floor(base * 255 * 0.6)},${Math.floor(base * 255 * 0.6)},${Math.floor(base * 255 * 0.6)},0)`;
@@ -103,47 +128,31 @@
           g.addColorStop(1, edge);
           ctx.fillStyle = g;
           ctx.beginPath();
-          ctx.arc(x, y, blob.r, 0, Math.PI * 2);
+          ctx.arc(x, y, r, 0, Math.PI * 2);
           ctx.fill();
-        }
-        // Draw wrapped duplicate for seamless horizontal tiling
+        };
+
         for (const blob of puff.blobs) {
+          const x = ((puff.cx + blob.ox + offsetX) % W + W) % W;
+          drawBlob(x, puff.cy + blob.oy, blob.r);
           for (const wrap of [-W, W]) {
-            const x = ((puff.cx + blob.ox + offsetX + wrap) % W + W) % W;
-            const y = puff.cy + blob.oy;
-            const g = ctx.createRadialGradient(x, y, 0, x, y, blob.r);
-            const hi = `rgba(${Math.floor(base * 255 * 1.35)},${Math.floor(base * 255 * 1.35)},${Math.floor(base * 255 * 1.35)},${layerAlpha * puff.shade * 2.2})`;
-            const mid = `rgba(${Math.floor(base * 255)},${Math.floor(base * 255)},${Math.floor(base * 255)},${layerAlpha * 0.9})`;
-            const edge = `rgba(${Math.floor(base * 255 * 0.6)},${Math.floor(base * 255 * 0.6)},${Math.floor(base * 255 * 0.6)},0)`;
-            g.addColorStop(0, hi);
-            g.addColorStop(0.45, mid);
-            g.addColorStop(1, edge);
-            ctx.fillStyle = g;
-            ctx.beginPath();
-            ctx.arc(x, y, blob.r, 0, Math.PI * 2);
-            ctx.fill();
+            drawBlob(((puff.cx + blob.ox + offsetX + wrap) % W + W) % W, puff.cy + blob.oy, blob.r);
           }
         }
       }
 
       function drawLayer(layer, t) {
-        // offset completes exactly one tile width per LOOP_SECONDS * (1/speed) ... 
-        // normalize so all layers loop at t=0 and t=LOOP_SECONDS
         const travel = (t / LOOP_SECONDS) * W * layer.speed;
         const offsetX = -travel;
         ctx.filter = `blur(${layer.blur}px)`;
-        ctx.globalCompositeOperation = "source-over";
-        for (const puff of layer.puffs) {
-          drawPuff(puff, offsetX, layer.alpha, layer.blur);
-        }
+        for (const puff of layer.puffs) drawPuff(puff, offsetX, layer.alpha);
         ctx.filter = "none";
       }
 
-      function drawSky(t) {
+      function drawClouds(t) {
         ctx.fillStyle = "#000000";
         ctx.fillRect(0, 0, W, H);
 
-        // Subtle atmospheric depth — still black, just a whisper of gradient
         const atmo = ctx.createLinearGradient(0, 0, 0, H);
         atmo.addColorStop(0, "rgba(0,0,0,1)");
         atmo.addColorStop(1, "rgba(4,4,6,1)");
@@ -151,11 +160,25 @@
         ctx.fillRect(0, 0, W, H);
 
         for (const layer of layers) drawLayer(layer, t);
+      }
 
-        // Soft vignette
-        const vig = ctx.createRadialGradient(W/2, H/2, H*0.2, W/2, H/2, H*0.85);
+      function drawArenaForeground() {
+        if (!arenaReady) return;
+        const scale = Math.max(W / arenaImage.width, H / arenaImage.height);
+        const dw = arenaImage.width * scale;
+        const dh = arenaImage.height * scale;
+        const dx = (W - dw) / 2;
+        const dy = (H - dh) / 2;
+        ctx.drawImage(arenaImage, dx, dy, dw, dh);
+      }
+
+      function drawFrame(t) {
+        drawClouds(t);
+        drawArenaForeground();
+
+        const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85);
         vig.addColorStop(0, "rgba(0,0,0,0)");
-        vig.addColorStop(1, "rgba(0,0,0,0.45)");
+        vig.addColorStop(1, "rgba(0,0,0,0.35)");
         ctx.fillStyle = vig;
         ctx.fillRect(0, 0, W, H);
       }
@@ -164,7 +187,7 @@
       function frame(now) {
         const elapsed = ((now - start) / 1000) % LOOP_SECONDS;
         timerEl.textContent = `${elapsed.toFixed(2)}s / ${LOOP_SECONDS.toFixed(2)}s`;
-        drawSky(elapsed);
+        drawFrame(elapsed);
         requestAnimationFrame(frame);
       }
       requestAnimationFrame(frame);
