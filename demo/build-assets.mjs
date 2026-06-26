@@ -50,8 +50,6 @@ async function build() {
     .toFile(`${OUT_DIR}/arena-cloud-mask.png`);
 
   const meta = await sharp(`${OUT_DIR}/arena-rocks.png`).metadata();
-  await sharp(SRC).png({ compressionLevel: 9 }).toFile(`${OUT_DIR}/arena-source.png`);
-
   console.log(`Built ${width}x${height} from user source (${meta.size ?? "?"} byte rocks layer)`);
 }
 

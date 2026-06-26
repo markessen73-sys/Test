@@ -255,10 +255,45 @@
         rebuildLayers();
       }
 
+      async function usePrebuilt(rocksImg, maskImg, label) {
+        W = rocksImg.naturalWidth;
+        H = rocksImg.naturalHeight;
+        canvas.width = W;
+        canvas.height = H;
+        cloudBuffer.width = W;
+        cloudBuffer.height = H;
+
+        rocksCanvas = document.createElement("canvas");
+        rocksCanvas.width = W;
+        rocksCanvas.height = H;
+        rocksCanvas.getContext("2d").drawImage(rocksImg, 0, 0);
+
+        maskCanvas = document.createElement("canvas");
+        maskCanvas.width = W;
+        maskCanvas.height = H;
+        maskCanvas.getContext("2d").drawImage(maskImg, 0, 0);
+
+        ready = true;
+        statusEl.style.display = "none";
+        sourceLabel.textContent = label;
+        rebuildLayers();
+      }
+
       async function tryLoadBundled() {
-        const url = new URL("./assets/arena-source.png", window.location.href).href;
+        const base = new URL("./assets/", window.location.href);
         try {
-          const img = await loadImage(url);
+          const [rocksImg, maskImg] = await Promise.all([
+            loadImage(new URL("arena-rocks.png", base).href),
+            loadImage(new URL("arena-cloud-mask.png", base).href),
+          ]);
+          await usePrebuilt(rocksImg, maskImg, "Using your foreground image");
+          return true;
+        } catch {
+          // fall through
+        }
+
+        try {
+          const img = await loadImage(new URL("arena-source.png", base).href);
           await useImage(img, "Using arena-source.png");
           return true;
         } catch {
