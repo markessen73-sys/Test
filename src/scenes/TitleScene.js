@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { COLORS, CONTROL_HINTS, GAME_HEIGHT, GAME_WIDTH } from "../game/constants";
+import { COLORS, GAME_HEIGHT, GAME_WIDTH } from "../game/constants";
 import { GAME_TITLE } from "../game/levels";
 import { InputManager } from "../game/input";
 
@@ -27,35 +27,34 @@ export class TitleScene extends Phaser.Scene {
       color: "#ffffff",
     }).setOrigin(0.5);
 
-    this.add.text(40, 86, [
+    this.add.text(40, 78, [
       "GUIDE THE SKIMMER THROUGH",
       "THREE TRAP-FILLED VAULT SCREENS.",
       "",
       "HANGAR  >  LIFT  >  CORE",
-      "",
       "ONE HIT SENDS YOU BACK",
-      "TO THE START OF THE SCREEN.",
+      "TO THE START SCREEN.",
     ].join("\n"), {
       fontFamily: "monospace",
-      fontSize: "10px",
+      fontSize: "9px",
       color: "#ffef75",
     });
 
-    this.add.text(40, 150, CONTROL_HINTS.join("   "), {
+    this.add.text(40, 138, "ARROWS MOVE   AVOID CONTACT", {
       fontFamily: "monospace",
-      fontSize: "9px",
+      fontSize: "8px",
       color: "#72f28f",
     });
 
-    this.touchLabel = this.add.text(40, 168, "", {
+    this.touchLabel = this.add.text(40, 158, "", {
       fontFamily: "monospace",
-      fontSize: "9px",
+      fontSize: "7px",
       color: "#ffffff",
     });
 
-    this.startLabel = this.add.text(GAME_WIDTH / 2, 188, "PRESS ENTER OR TAP TO START", {
+    this.startLabel = this.add.text(GAME_WIDTH / 2, 182, "PRESS ENTER OR TAP TO START", {
       fontFamily: "monospace",
-      fontSize: "10px",
+      fontSize: "8px",
       color: "#ff8ecb",
     }).setOrigin(0.5);
 
@@ -63,10 +62,10 @@ export class TitleScene extends Phaser.Scene {
     this.input.keyboard.once("keydown", () => this.game.globals.audio.playTheme("title"));
     this.input.keyboard.addKey("T").on("down", () => {
       const enabled = this.inputManager.toggleTouchPreference();
-      this.touchLabel.setText(`TOUCH CONTROLS ${enabled ? "ON" : "OFF"}  (T TO TOGGLE)`);
+      this.touchLabel.setText(`TOUCH CONTROLS ${enabled ? "ON" : "OFF"}\nT TO TOGGLE`);
     });
 
-    this.touchLabel.setText(`TOUCH CONTROLS ${this.inputManager.touchEnabled ? "ON" : "OFF"}  (T TO TOGGLE)`);
+    this.touchLabel.setText(`TOUCH CONTROLS ${this.inputManager.touchEnabled ? "ON" : "OFF"}\nT TO TOGGLE`);
   }
 
   startGame() {
