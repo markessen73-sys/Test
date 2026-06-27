@@ -71,17 +71,66 @@ function buildSolidMask(data, width, height, channels) {
     }
   }
 
+  addMiddleCenterPlatform(solid, at, width, height);
+
   return solid;
+}
+
+function addMiddleCenterPlatform(solid, at, width, height) {
+  const X0 = 680;
+  const X1 = 860;
+  const Y0 = 635;
+  const Y1 = 675;
+  const GAP_RUN = 4;
+
+  let bestY = -1;
+  let bestCount = 0;
+  for (let y = Y0; y <= Y1; y++) {
+    let count = 0;
+    for (let x = X0; x <= X1; x++) {
+      if (at(x, y) >= 50 && at(x, y - 1) < 28) count++;
+    }
+    if (count > bestCount) {
+      bestCount = count;
+      bestY = y;
+    }
+  }
+  if (bestY < 0 || bestCount < 15) return;
+
+  for (let x = X0; x <= X1; x++) {
+    let startY = -1;
+    for (let y = bestY - 10; y <= bestY + 6; y++) {
+      if (at(x, y) >= 45 && at(x, y - 1) < 30) {
+        startY = y;
+        break;
+      }
+    }
+    if (startY < 0) continue;
+
+    let gap = 0;
+    for (let y = startY; y < height; y++) {
+      if (at(x, y) < SKY_MAX) {
+        gap++;
+        if (gap >= GAP_RUN) break;
+      } else {
+        gap = 0;
+      }
+      solid[y * width + x] = 1;
+    }
+  }
 }
 
 function findPlatformSpawns(solid, width, height) {
   const caps = [];
   for (let x = 0; x < width; x++) {
+    let prev = -1;
     for (let y = 0; y < height; y++) {
-      if (solid[y * width + x]) {
-        caps.push({ x, capY: y });
-        break;
+      if (!solid[y * width + x]) {
+        prev = -1;
+        continue;
       }
+      if (prev < 0 || y > prev + 1) caps.push({ x, capY: y });
+      prev = y;
     }
   }
 

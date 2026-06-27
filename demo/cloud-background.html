@@ -48,7 +48,7 @@
   </head>
   <body>
     <h1>Gravity test — vertical drop in 2 seconds</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27d</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27e</p>
     <div id="wrap">
       <canvas id="view"></canvas>
       <div id="status">Loading…</div>
@@ -88,11 +88,14 @@
       function findPlatformSpawns(map, width, height) {
         const caps = [];
         for (let x = 0; x < width; x++) {
+          let prev = -1;
           for (let y = 0; y < height; y++) {
-            if (map[y * width + x]) {
-              caps.push({ x, capY: y });
-              break;
+            if (!map[y * width + x]) {
+              prev = -1;
+              continue;
             }
+            if (prev < 0 || y > prev + 1) caps.push({ x, capY: y });
+            prev = y;
           }
         }
 
@@ -122,10 +125,21 @@
           .sort((a, b) => a.capY - b.capY || a.x - b.x);
       }
 
-      function createBall(spawn) {
+      function createBall(spawn, map, width, height) {
+        let clearColumn = true;
+        for (let y = 0; y < spawn.capY - BALL_R - 2; y++) {
+          if (map[y * width + spawn.x]) {
+            clearColumn = false;
+            break;
+          }
+        }
+        const spawnY = clearColumn
+          ? BALL_R
+          : Math.max(spawn.capY - BALL_R * 2 - 10, BALL_R);
         return {
           x: spawn.x,
-          y: BALL_R,
+          y: spawnY,
+          spawnY,
           vy: 0,
           r: BALL_R,
           restTimer: 0,
@@ -133,7 +147,7 @@
       }
 
       function resetBall(ball) {
-        ball.y = ball.r;
+        ball.y = ball.spawnY;
         ball.vy = 0;
         ball.restTimer = 0;
       }
@@ -274,7 +288,7 @@
             ? PLATFORM_SPAWNS
             : findPlatformSpawns(solid, W, H);
 
-        balls = spawns.map(createBall);
+        balls = spawns.map((spawn) => createBall(spawn, solid, W, H));
         canvas.width = W;
         canvas.height = H;
         resetAllBalls();
