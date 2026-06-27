@@ -4,8 +4,10 @@ import { constants } from "node:fs";
 
 const SRC = "/workspace/demo/assets/arena-source.png";
 const OUT_DIR = "/workspace/demo/assets";
-const DENSE_MIN = 60;
-const ROCK_MAX = 108;
+const DECK_LUM = 88;
+const FALLBACK_LUM = 70;
+const BODY_AVG = 62;
+const BODY_DEPTH = 12;
 const SKY_MAX = 12;
 
 async function build() {
@@ -22,26 +24,43 @@ async function build() {
     lum[i] = data[p] * 0.2126 + data[p + 1] * 0.7152 + data[p + 2] * 0.0722;
   }
 
-  for (let x = 0; x < width; x++) {
-    let inMass = false;
-    for (let y = 0; y < height; y++) {
-      const i = y * width + x;
-      const l = lum[i];
-      if (!inMass && l >= DENSE_MIN && l <= ROCK_MAX) inMass = true;
-      if (!inMass) continue;
-      if (l < SKY_MAX) {
-        inMass = false;
-        continue;
-      }
-      solid[i] = 1;
-    }
-  }
+  const at = (x, y) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return 0;
+    return lum[y * width + x];
+  };
 
-  for (let y = 0; y < height - 1; y++) {
-    for (let x = 0; x < width; x++) {
-      const i = y * width + x;
-      if (solid[i] || lum[i] <= ROCK_MAX) continue;
-      if (solid[(y + 1) * width + x]) solid[i] = 1;
+  for (let x = 0; x < width; x++) {
+    let startY = -1;
+
+    for (let y = 0; y < height; y++) {
+      if (at(x, y) >= DECK_LUM) {
+        startY = y;
+        break;
+      }
+    }
+
+    if (startY < 0) {
+      for (let y = 0; y < height; y++) {
+        if (at(x, y) < FALLBACK_LUM) continue;
+        let sum = 0;
+        const end = Math.min(y + 24, height);
+        let n = 0;
+        for (let yy = y; yy < end; yy++) {
+          sum += at(x, yy);
+          n++;
+        }
+        if (n >= BODY_DEPTH && sum / n >= BODY_AVG) {
+          startY = y;
+          break;
+        }
+      }
+    }
+
+    if (startY < 0) continue;
+
+    for (let y = startY; y < height; y++) {
+      if (at(x, y) < SKY_MAX) break;
+      solid[y * width + x] = 1;
     }
   }
 
