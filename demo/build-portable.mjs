@@ -49,9 +49,9 @@ async function build() {
   function embedPortable(source, bakedMode) {
     const copies = {
       drop: {
-        title: "Gravity test — vertical drop in 3 seconds",
+        title: "Cybertruck Arena",
         desc:
-          "Tap ← / lift / → for velocity kicks. Platforms are frictionless sideways; landings bounce half a ball height.",
+          "Tap ← / lift / → to drive. Truck faces left when moving left, right otherwise. Platforms are frictionless; landings bounce.",
         btnDrop: "active",
         btnWrapRight: "",
         btnWrapLeft: "",

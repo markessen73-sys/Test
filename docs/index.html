@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Arena Gravity Test</title>
+    <title>Cybertruck Arena</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
@@ -128,8 +128,8 @@
     </style>
   </head>
   <body>
-    <h1 id="title">Gravity test — vertical drop in 3 seconds</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27t</p>
+    <h1 id="title">Cybertruck Arena</h1>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27u</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="active">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -148,7 +148,7 @@
         <button type="button" id="right-btn" class="control-btn" aria-label="Accelerate right">→</button>
       </div>
     </div>
-    <p id="desc">Tap ← / lift / → for velocity kicks. Platforms are frictionless sideways; landings bounce half a ball height.</p>
+    <p id="desc">Tap ← / lift / → to drive. Truck faces left when moving left, right otherwise. Platforms are frictionless; landings bounce.</p>
     <script>window.__ARENA_MODE__ = "drop";</script>
     <script>
       const FALL_SECONDS = 3;
@@ -184,17 +184,22 @@
       let background = null;
       let solid = null;
       let debugBackground = null;
-      let ballPixels = [];
       let ready = false;
       let fallElapsed = 0;
       let dropX = 768;
 
       const BALL_R = 14;
+      const TRUCK_W = BALL_R * 6;
+      const TRUCK_H = BALL_R * 4;
+      const TRUCK_HW = TRUCK_W / 2;
+      const TRUCK_HH = TRUCK_H / 2;
       const TAP_IMPULSE_T = 0.12;
       let ball = null;
+      let truckSprite = null;
+      let truckPixelsRight = [];
 
       function fallDistance() {
-        return H - BALL_R * 2;
+        return H - TRUCK_HH * 2;
       }
 
       function computeAccelX() {
@@ -247,24 +252,22 @@
         if (isWrap()) {
           return {
             x: W / 2,
-            y: BALL_R,
+            y: TRUCK_HH,
             spawnX: W / 2,
-            spawnY: BALL_R,
+            spawnY: TRUCK_HH,
             vy: 0,
             vx: mode === "wrap-left" ? -WRAP_SPEED : WRAP_SPEED,
-            r: BALL_R,
             restTimer: 0,
             wrapCount: 0,
           };
         }
         return {
           x: dropX,
-          y: BALL_R,
+          y: TRUCK_HH,
           spawnX: dropX,
-          spawnY: BALL_R,
+          spawnY: TRUCK_HH,
           vy: 0,
           vx: 0,
-          r: BALL_R,
           restTimer: 0,
           wrapCount: 0,
         };
@@ -289,15 +292,97 @@
         });
       }
 
-      function buildBallPixels(r) {
+      function drawCybertruckRight(ctx, w, h) {
+        ctx.clearRect(0, 0, w, h);
+        const body = "#c5c9d0";
+        const shade = "#7a808a";
+        const glass = "#4a6d8c";
+        const tire = "#141414";
+        const hub = "#8a8a8a";
+        const lamp = "#ffe08a";
+
+        ctx.fillStyle = tire;
+        ctx.fillRect(6, h - 13, 16, 13);
+        ctx.fillRect(w - 22, h - 13, 16, 13);
+        ctx.fillStyle = hub;
+        ctx.fillRect(10, h - 10, 8, 7);
+        ctx.fillRect(w - 18, h - 10, 8, 7);
+
+        ctx.fillStyle = body;
+        ctx.beginPath();
+        ctx.moveTo(2, h - 14);
+        ctx.lineTo(w - 4, h - 14);
+        ctx.lineTo(w - 2, h - 34);
+        ctx.lineTo(w - 26, h - 47);
+        ctx.lineTo(w - 48, h - 47);
+        ctx.lineTo(w - 56, h - 38);
+        ctx.lineTo(w - 60, h - 26);
+        ctx.lineTo(w - 56, h - 17);
+        ctx.lineTo(18, h - 17);
+        ctx.lineTo(6, h - 15);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = glass;
+        ctx.beginPath();
+        ctx.moveTo(w - 52, h - 45);
+        ctx.lineTo(w - 30, h - 45);
+        ctx.lineTo(w - 24, h - 21);
+        ctx.lineTo(w - 54, h - 21);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = shade;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(w - 57, h - 19);
+        ctx.lineTo(w - 55, h - 45);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(2, h - 14);
+        ctx.lineTo(w - 4, h - 14);
+        ctx.stroke();
+
+        ctx.fillStyle = lamp;
+        ctx.fillRect(w - 3, h - 24, 3, 5);
+        ctx.fillStyle = "#ff4444";
+        ctx.fillRect(1, h - 20, 2, 4);
+      }
+
+      function extractTruckPixels(canvas) {
+        const w = canvas.width;
+        const h = canvas.height;
+        const data = canvas.getContext("2d").getImageData(0, 0, w, h).data;
         const pixels = [];
-        const r2 = r * r;
-        for (let dy = -r; dy <= r; dy++) {
-          for (let dx = -r; dx <= r; dx++) {
-            if (dx * dx + dy * dy <= r2) pixels.push([dx, dy]);
+        const cx = w / 2;
+        const cy = h / 2;
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            if (data[(y * w + x) * 4 + 3] > 32) {
+              pixels.push([Math.round(x - cx), Math.round(y - cy)]);
+            }
           }
         }
         return pixels;
+      }
+
+      function buildCybertruck() {
+        const scratch = document.createElement("canvas");
+        scratch.width = TRUCK_W;
+        scratch.height = TRUCK_H;
+        const sctx = scratch.getContext("2d");
+        drawCybertruckRight(sctx, TRUCK_W, TRUCK_H);
+        truckSprite = scratch;
+        truckPixelsRight = extractTruckPixels(scratch);
+      }
+
+      function truckFacingLeft() {
+        return ball.vx < 0;
+      }
+
+      function activeTruckPixels() {
+        if (!truckFacingLeft()) return truckPixelsRight;
+        return truckPixelsRight.map(([dx, dy]) => [-dx, dy]);
       }
 
       function buildDebugBackground(img, width, height) {
@@ -324,7 +409,7 @@
       }
 
       function ballOverlapsSolid(cx, cy) {
-        for (const [dx, dy] of ballPixels) {
+        for (const [dx, dy] of activeTruckPixels()) {
           if (solidAt(Math.floor(cx + dx), Math.floor(cy + dy))) return true;
         }
         return false;
@@ -389,7 +474,7 @@
           [1, 1],
         ];
 
-        for (let dist = 1; dist <= ball.r + 4; dist++) {
+        for (let dist = 1; dist <= Math.max(TRUCK_HW, TRUCK_HH) + 4; dist++) {
           for (const [dx, dy] of dirs) {
             ball.x = originX + dx * dist;
             ball.y = originY + dy * dist;
@@ -406,18 +491,18 @@
       }
 
       function wrapBallX() {
-        while (ball.x - ball.r > W) {
+        while (ball.x - TRUCK_HW > W) {
           ball.x -= W;
           ball.wrapCount++;
         }
-        while (ball.x + ball.r < 0) {
+        while (ball.x + TRUCK_HW < 0) {
           ball.x += W;
           ball.wrapCount++;
         }
       }
 
       function clampBallToTop() {
-        const top = BALL_R;
+        const top = TRUCK_HH;
         if (ball.y < top) {
           ball.y = top;
           if (ball.vy < 0) ball.vy = 0;
@@ -435,7 +520,7 @@
         timerEl.textContent =
           `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s  ` +
           `vy: ${ball.vy.toFixed(0)}  vx: ${ball.vx.toFixed(0)}  ` +
-          `px: ${ballPixels.length}  ` +
+          `px: ${activeTruckPixels().length}  ` +
           `(v₀=0 → vₘₐₓ=${vBottom.toFixed(0)})`;
       }
 
@@ -452,11 +537,13 @@
         stepDrop(dt);
       }
 
-      function drawBallAt(cx, cy) {
-        ctx.fillStyle = "#ff3b3b";
-        for (const [dx, dy] of ballPixels) {
-          ctx.fillRect(Math.floor(cx + dx), Math.floor(cy + dy), 1, 1);
-        }
+      function drawTruckAt(cx, cy) {
+        if (!truckSprite) return;
+        ctx.save();
+        ctx.translate(cx, cy);
+        if (truckFacingLeft()) ctx.scale(-1, 1);
+        ctx.drawImage(truckSprite, -TRUCK_HW, -TRUCK_HH, TRUCK_W, TRUCK_H);
+        ctx.restore();
       }
 
       function drawFrame() {
@@ -466,9 +553,9 @@
         if (bg) ctx.drawImage(bg, 0, 0, W, H);
 
         const drawXs = [ball.x];
-        if (ball.x - ball.r < 0) drawXs.push(ball.x + W);
-        if (ball.x + ball.r > W) drawXs.push(ball.x - W);
-        for (const x of drawXs) drawBallAt(x, ball.y);
+        if (ball.x - TRUCK_HW < 0) drawXs.push(ball.x + W);
+        if (ball.x + TRUCK_HW > W) drawXs.push(ball.x - W);
+        for (const x of drawXs) drawTruckAt(x, ball.y);
       }
 
       let lastFrame = 0;
@@ -493,16 +580,16 @@
 
         if (mode === "wrap-right") {
           titleEl.textContent = "Wrap test — exits right, re-enters left";
-          descEl.textContent = "Single red ball at the top moves right. When it leaves the right edge it wraps to the left.";
+          descEl.textContent = "Cybertruck at the top moves right. When it leaves the right edge it wraps to the left.";
           modeBadgeEl.textContent = "WRAP →";
         } else if (mode === "wrap-left") {
           titleEl.textContent = "Wrap test — exits left, re-enters right";
-          descEl.textContent = "Single red ball at the top moves left. When it leaves the left edge it wraps to the right.";
+          descEl.textContent = "Cybertruck at the top moves left. When it leaves the left edge it wraps to the right.";
           modeBadgeEl.textContent = "WRAP ←";
         } else {
-          titleEl.textContent = "Gravity test — vertical drop in 3 seconds";
+          titleEl.textContent = "Cybertruck Arena";
           descEl.textContent =
-            "Tap ← / lift / → for velocity kicks. Platforms are frictionless sideways; landings bounce half a ball height.";
+            "Tap ← / lift / → to drive. Truck faces left when moving left, right otherwise. Platforms are frictionless; landings bounce.";
           modeBadgeEl.textContent = "DROP ↓";
         }
 
@@ -576,7 +663,7 @@
         H = background.naturalHeight;
         accelX = computeAccelX();
         solid = buildSolidMap(SOLID_SEGMENTS, W, H);
-        ballPixels = buildBallPixels(BALL_R);
+        buildCybertruck();
         if (DEBUG_GREEN_BG) {
           debugBackground = buildDebugBackground(background, W, H);
         }
