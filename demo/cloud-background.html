@@ -86,7 +86,13 @@
         align-items: center;
         gap: 14px;
       }
-      #lift-btn {
+      #control-bar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+      }
+      .control-btn {
         width: 2cm;
         height: 2cm;
         border-radius: 50%;
@@ -96,13 +102,26 @@
         cursor: pointer;
         flex-shrink: 0;
         touch-action: none;
+        font: inherit;
+        font-size: 1.35rem;
+        line-height: 1;
+        color: #ccc;
+        display: grid;
+        place-items: center;
+        padding: 0;
       }
       #lift-btn.pressed {
         border-color: #9df;
         background: radial-gradient(circle at 35% 30%, #8cd, #245);
         box-shadow: 0 2px 8px rgba(100, 200, 255, 0.35);
       }
-      #lift-btn:disabled {
+      #left-btn.pressed,
+      #right-btn.pressed {
+        border-color: #fd8;
+        background: radial-gradient(circle at 35% 30%, #da8, #432);
+        box-shadow: 0 2px 8px rgba(255, 180, 80, 0.35);
+      }
+      .control-btn:disabled {
         opacity: 0.35;
         cursor: default;
       }
@@ -110,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27l</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27m</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -121,14 +140,18 @@
         <canvas id="view"></canvas>
         <div id="mode-badge" class="__BADGE_CLASS__">__BADGE_TEXT__</div>
         <div id="status">Loading…</div>
-        <div id="timer">0.00s / 2.00s</div>
+        <div id="timer">0.00s / 3.00s</div>
       </div>
-      <button type="button" id="lift-btn" aria-label="Apply upward acceleration"></button>
+      <div id="control-bar">
+        <button type="button" id="left-btn" class="control-btn" aria-label="Accelerate left">←</button>
+        <button type="button" id="lift-btn" class="control-btn" aria-label="Apply upward acceleration"></button>
+        <button type="button" id="right-btn" class="control-btn" aria-label="Accelerate right">→</button>
+      </div>
     </div>
     <p id="desc">__DESC_TEXT__</p>
     <script>window.__ARENA_MODE__ = "__BAKED_MODE__";</script>
     <script>
-      const FALL_SECONDS = 2;
+      const FALL_SECONDS = 3;
       const WRAP_SPEED = 360;
       const SOLID_SEGMENTS = __SOLID_SEGMENTS__;
       const BG_DATA_URL = "__BG_DATA_URL__";
@@ -143,6 +166,8 @@
       const btnWrapRight = document.getElementById("btn-wrap-right");
       const btnWrapLeft = document.getElementById("btn-wrap-left");
       const liftBtn = document.getElementById("lift-btn");
+      const leftBtn = document.getElementById("left-btn");
+      const rightBtn = document.getElementById("right-btn");
 
       function parseInitialMode() {
         const baked = window.__ARENA_MODE__;
@@ -164,6 +189,8 @@
       const BALL_R = 14;
       let ball = null;
       let liftPressed = false;
+      let leftPressed = false;
+      let rightPressed = false;
 
       function fallDistance() {
         return H - BALL_R * 2;
@@ -280,8 +307,18 @@
       }
 
       function clampBallToScreen() {
+        const left = BALL_R;
+        const right = W - BALL_R;
         const top = BALL_R;
         const bottom = H - BALL_R;
+        if (ball.x < left) {
+          ball.x = left;
+          if (ball.vx < 0) ball.vx = 0;
+        }
+        if (ball.x > right) {
+          ball.x = right;
+          if (ball.vx > 0) ball.vx = 0;
+        }
         if (ball.y > bottom) {
           ball.y = bottom;
           if (ball.vy > 0) ball.vy = 0;
@@ -294,14 +331,21 @@
 
       function stepDrop(dt) {
         const ay = liftPressed ? -accelX / 2 : accelX;
+        let ax = 0;
+        if (leftPressed) ax -= accelX / 2;
+        if (rightPressed) ax += accelX / 2;
+
         ball.vy += ay * dt;
+        ball.vx += ax * dt;
         ball.y += ball.vy * dt;
+        ball.x += ball.vx * dt;
         clampBallToScreen();
 
         const vBottom = accelX * FALL_SECONDS;
         timerEl.textContent =
           `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s  ` +
-          `vy: ${ball.vy.toFixed(0)}  ay: ${ay > 0 ? "+" : ""}${ay.toFixed(0)}  ` +
+          `vy: ${ball.vy.toFixed(0)}  vx: ${ball.vx.toFixed(0)}  ` +
+          `ay: ${ay > 0 ? "+" : ""}${ay.toFixed(0)}  ax: ${ax > 0 ? "+" : ""}${ax.toFixed(0)}  ` +
           `(v₀=0 → vₘₐₓ=${vBottom.toFixed(0)})`;
       }
 
@@ -368,14 +412,19 @@
           descEl.textContent = "Single red ball at the top moves left. When it leaves the left edge it wraps to the right.";
           modeBadgeEl.textContent = "WRAP ←";
         } else {
-          titleEl.textContent = "Gravity test — vertical drop in 2 seconds";
+          titleEl.textContent = "Gravity test — vertical drop in 3 seconds";
           descEl.textContent =
-            "Ball falls top to bottom in 2s with acceleration x. Hold the button below for upward acceleration x/2 — tap repeatedly to slow, stop, and rise.";
+            "Ball falls top to bottom in 3s with acceleration x. Center button: upward x/2. Left/right arrows: horizontal x/2 — vertical gravity is unchanged while steering.";
           modeBadgeEl.textContent = "DROP ↓";
         }
 
-        liftBtn.disabled = isWrap();
-        liftBtn.classList.toggle("pressed", liftPressed && !isWrap());
+        const controlsDisabled = isWrap();
+        liftBtn.disabled = controlsDisabled;
+        leftBtn.disabled = controlsDisabled;
+        rightBtn.disabled = controlsDisabled;
+        liftBtn.classList.toggle("pressed", liftPressed && !controlsDisabled);
+        leftBtn.classList.toggle("pressed", leftPressed && !controlsDisabled);
+        rightBtn.classList.toggle("pressed", rightPressed && !controlsDisabled);
       }
 
       function setLift(on) {
@@ -384,10 +433,38 @@
         liftBtn.classList.toggle("pressed", on);
       }
 
+      function setLeft(on) {
+        if (isWrap()) return;
+        leftPressed = on;
+        leftBtn.classList.toggle("pressed", on);
+      }
+
+      function setRight(on) {
+        if (isWrap()) return;
+        rightPressed = on;
+        rightBtn.classList.toggle("pressed", on);
+      }
+
+      function clearControls() {
+        setLift(false);
+        setLeft(false);
+        setRight(false);
+      }
+
+      function bindHoldButton(btn, onPress, onRelease) {
+        btn.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
+          onPress(true);
+        });
+        btn.addEventListener("pointerup", () => onRelease(false));
+        btn.addEventListener("pointerleave", () => onRelease(false));
+        btn.addEventListener("pointercancel", () => onRelease(false));
+      }
+
       function setMode(next) {
         if (mode === next) return;
         mode = next;
-        setLift(false);
+        clearControls();
         applyModeCopy();
         if (solid) {
           ball = createBall();
@@ -400,13 +477,9 @@
       btnWrapRight.addEventListener("click", () => setMode("wrap-right"));
       btnWrapLeft.addEventListener("click", () => setMode("wrap-left"));
 
-      liftBtn.addEventListener("pointerdown", (e) => {
-        e.preventDefault();
-        setLift(true);
-      });
-      liftBtn.addEventListener("pointerup", () => setLift(false));
-      liftBtn.addEventListener("pointerleave", () => setLift(false));
-      liftBtn.addEventListener("pointercancel", () => setLift(false));
+      bindHoldButton(liftBtn, setLift, setLift);
+      bindHoldButton(leftBtn, setLeft, setLeft);
+      bindHoldButton(rightBtn, setRight, setRight);
 
       async function init() {
         applyModeCopy();
