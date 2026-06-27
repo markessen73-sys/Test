@@ -53,10 +53,11 @@
       <div id="status">Loading…</div>
       <div id="timer">0.00s / 2.00s</div>
     </div>
-    <p>Red ball drops straight down. In open space it reaches the bottom in exactly 2.00 seconds, then restarts.</p>
+    <p>Red ball drops straight down. Rock platforms are solid — it stops on contact with no bounce.</p>
     <script>
       const FALL_SECONDS = 2;
       const STEP_MS = 1000 / 60;
+      const SUBSTEPS = 4;
       const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("status");
@@ -66,8 +67,10 @@
       let H = 1024;
       let gravity = 512;
       let background = null;
+      let solid = null;
       let ready = false;
       let fallElapsed = 0;
+      let restTimer = 0;
 
       const ball = { x: 0, y: 0, vy: 0, r: 14 };
 
@@ -76,6 +79,7 @@
         ball.y = ball.r;
         ball.vy = 0;
         fallElapsed = 0;
+        restTimer = 0;
       }
 
       function loadImage(src) {
@@ -88,13 +92,87 @@
         });
       }
 
+      function buildSolidMap(img) {
+        const off = document.createElement("canvas");
+        off.width = W;
+        off.height = H;
+        const offCtx = off.getContext("2d");
+        offCtx.drawImage(img, 0, 0);
+        const data = offCtx.getImageData(0, 0, W, H).data;
+        const map = new Uint8Array(W * H);
+        for (let i = 0; i < W * H; i++) {
+          map[i] = data[i * 4 + 3] > 128 ? 1 : 0;
+        }
+        return map;
+      }
+
+      function isSolid(x, y) {
+        const ix = Math.floor(x);
+        const iy = Math.floor(y);
+        if (ix < 0 || iy < 0 || ix >= W || iy >= H) return false;
+        return solid[iy * W + ix] === 1;
+      }
+
+      function resolvePlatforms() {
+        for (let pass = 0; pass < 10; pass++) {
+          let hit = false;
+          const minX = Math.floor(ball.x - ball.r - 1);
+          const maxX = Math.ceil(ball.x + ball.r + 1);
+          const minY = Math.floor(ball.y - ball.r - 1);
+          const maxY = Math.ceil(ball.y + ball.r + 1);
+
+          for (let y = minY; y <= maxY; y++) {
+            for (let x = minX; x <= maxX; x++) {
+              if (!isSolid(x, y)) continue;
+              const px = x + 0.5;
+              const py = y + 0.5;
+              const dx = ball.x - px;
+              const dy = ball.y - py;
+              const dist = Math.hypot(dx, dy);
+              if (dist >= ball.r || dist < 0.0001) continue;
+
+              const nx = dx / dist;
+              const ny = dy / dist;
+              const push = ball.r - dist;
+              ball.x += nx * push;
+              ball.y += ny * push;
+
+              const vn = ball.vy * ny;
+              if (vn < 0) {
+                ball.vy -= vn * ny;
+                if (ny < -0.3) ball.vy = 0;
+              }
+              hit = true;
+            }
+          }
+          if (!hit) break;
+        }
+      }
+
+      function onSolid() {
+        const samples = [
+          [ball.x, ball.y + ball.r + 1],
+          [ball.x - ball.r * 0.6, ball.y + ball.r + 1],
+          [ball.x + ball.r * 0.6, ball.y + ball.r + 1],
+        ];
+        return samples.some(([x, y]) => isSolid(x, y));
+      }
+
       function step(dt) {
+        if (Math.abs(ball.vy) < 2 && onSolid()) {
+          restTimer += dt;
+          if (restTimer > 1.5) resetBall();
+        } else {
+          restTimer = 0;
+        }
+
         fallElapsed += dt;
         ball.vy += gravity * dt;
-        ball.y += ball.vy * dt;
+        const dy = (ball.vy * dt) / SUBSTEPS;
 
-        if (ball.y + ball.r >= H) {
-          resetBall();
+        for (let i = 0; i < SUBSTEPS; i++) {
+          ball.y += dy;
+          resolvePlatforms();
         }
 
         timerEl.textContent = `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s`;
@@ -132,11 +210,13 @@
         }
         if (!background) throw new Error("Background image missing");
 
+        const collisionImg = await loadImage(new URL("arena-collision.png", base).href);
         W = background.naturalWidth;
         H = background.naturalHeight;
         gravity = H / (0.5 * FALL_SECONDS * FALL_SECONDS);
         canvas.width = W;
         canvas.height = H;
+        solid = buildSolidMap(collisionImg);
         resetBall();
         ready = true;
         statusEl.style.display = "none";
