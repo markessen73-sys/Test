@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">Gravity test — vertical drop in 3 seconds</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27r</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27s</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="active">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -335,7 +335,7 @@
       }
 
       function tapImpulseY() {
-        return (accelX / 2) * TAP_IMPULSE_T;
+        return accelX * TAP_IMPULSE_T;
       }
 
       function tapImpulseX() {
