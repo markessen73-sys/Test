@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">Wrap test — exits right, re-enters left</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27u</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27v</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="active-wrap">→ Wrap right</button>
@@ -294,59 +294,113 @@
 
       function drawCybertruckRight(ctx, w, h) {
         ctx.clearRect(0, 0, w, h);
-        const body = "#c5c9d0";
-        const shade = "#7a808a";
-        const glass = "#4a6d8c";
-        const tire = "#141414";
-        const hub = "#8a8a8a";
-        const lamp = "#ffe08a";
 
-        ctx.fillStyle = tire;
-        ctx.fillRect(6, h - 13, 16, 13);
-        ctx.fillRect(w - 22, h - 13, 16, 13);
-        ctx.fillStyle = hub;
-        ctx.fillRect(10, h - 10, 8, 7);
-        ctx.fillRect(w - 18, h - 10, 8, 7);
+        const steelHi = "#d6dae1";
+        const steel = "#b9bec7";
+        const steelLo = "#8f959f";
+        const trim = "#161618";
+        const arch = "#101012";
+        const glass = "#142232";
+        const glassHi = "#2f4f68";
+        const tire = "#0a0a0a";
+        const tread = "#1f1f1f";
+        const hub = "#0e0e0e";
+        const light = "#eef6ff";
 
-        ctx.fillStyle = body;
+        const trimH = 7;
+        const bodyBottom = h - trimH;
+        const rearWheelX = 21;
+        const frontWheelX = 63;
+        const wheelR = 10;
+
+        function drawWheel(cx) {
+          ctx.fillStyle = arch;
+          ctx.beginPath();
+          ctx.moveTo(cx - 12, bodyBottom);
+          ctx.lineTo(cx - 9, bodyBottom - 11);
+          ctx.lineTo(cx + 9, bodyBottom - 11);
+          ctx.lineTo(cx + 12, bodyBottom);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = tire;
+          ctx.beginPath();
+          ctx.ellipse(cx, bodyBottom - 1, wheelR, wheelR - 1, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = tread;
+          ctx.fillRect(cx - wheelR + 2, bodyBottom - wheelR - 2, wheelR * 2 - 4, 3);
+
+          ctx.fillStyle = hub;
+          ctx.beginPath();
+          for (let i = 0; i < 7; i++) {
+            const a0 = (i / 7) * Math.PI * 2 - Math.PI / 2;
+            const a1 = ((i + 0.42) / 7) * Math.PI * 2 - Math.PI / 2;
+            const a2 = ((i + 1) / 7) * Math.PI * 2 - Math.PI / 2;
+            if (i === 0) ctx.moveTo(cx + Math.cos(a0) * 5, bodyBottom - 1 + Math.sin(a0) * 5);
+            ctx.lineTo(cx + Math.cos(a1) * 2.2, bodyBottom - 1 + Math.sin(a1) * 2.2);
+            ctx.lineTo(cx + Math.cos(a2) * 5, bodyBottom - 1 + Math.sin(a2) * 5);
+          }
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        drawWheel(rearWheelX);
+        drawWheel(frontWheelX);
+
+        const bodyGrad = ctx.createLinearGradient(0, 0, w, h);
+        bodyGrad.addColorStop(0, steelLo);
+        bodyGrad.addColorStop(0.35, steelHi);
+        bodyGrad.addColorStop(0.7, steel);
+        bodyGrad.addColorStop(1, steelHi);
+
+        ctx.fillStyle = bodyGrad;
         ctx.beginPath();
-        ctx.moveTo(2, h - 14);
-        ctx.lineTo(w - 4, h - 14);
-        ctx.lineTo(w - 2, h - 34);
-        ctx.lineTo(w - 26, h - 47);
-        ctx.lineTo(w - 48, h - 47);
-        ctx.lineTo(w - 56, h - 38);
-        ctx.lineTo(w - 60, h - 26);
-        ctx.lineTo(w - 56, h - 17);
-        ctx.lineTo(18, h - 17);
-        ctx.lineTo(6, h - 15);
+        ctx.moveTo(2, bodyBottom);
+        ctx.lineTo(2, bodyBottom - 5);
+        ctx.lineTo(7, bodyBottom - 11);
+        ctx.lineTo(32, bodyBottom - 37);
+        ctx.lineTo(48, bodyBottom - 45);
+        ctx.lineTo(66, bodyBottom - 17);
+        ctx.lineTo(w - 2, bodyBottom - 13);
+        ctx.lineTo(w - 1, bodyBottom - 7);
+        ctx.lineTo(w - 1, bodyBottom);
         ctx.closePath();
         ctx.fill();
+
+        ctx.strokeStyle = steelLo;
+        ctx.lineWidth = 0.75;
+        ctx.beginPath();
+        ctx.moveTo(12, bodyBottom - 9);
+        ctx.lineTo(36, bodyBottom - 33);
+        ctx.stroke();
 
         ctx.fillStyle = glass;
         ctx.beginPath();
-        ctx.moveTo(w - 52, h - 45);
-        ctx.lineTo(w - 30, h - 45);
-        ctx.lineTo(w - 24, h - 21);
-        ctx.lineTo(w - 54, h - 21);
+        ctx.moveTo(44, bodyBottom - 43);
+        ctx.lineTo(57, bodyBottom - 43);
+        ctx.lineTo(63, bodyBottom - 21);
+        ctx.lineTo(47, bodyBottom - 21);
         ctx.closePath();
         ctx.fill();
 
-        ctx.strokeStyle = shade;
-        ctx.lineWidth = 1;
+        ctx.fillStyle = glassHi;
         ctx.beginPath();
-        ctx.moveTo(w - 57, h - 19);
-        ctx.lineTo(w - 55, h - 45);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(2, h - 14);
-        ctx.lineTo(w - 4, h - 14);
-        ctx.stroke();
+        ctx.moveTo(46, bodyBottom - 41);
+        ctx.lineTo(53, bodyBottom - 41);
+        ctx.lineTo(57, bodyBottom - 27);
+        ctx.lineTo(49, bodyBottom - 27);
+        ctx.closePath();
+        ctx.fill();
 
-        ctx.fillStyle = lamp;
-        ctx.fillRect(w - 3, h - 24, 3, 5);
-        ctx.fillStyle = "#ff4444";
-        ctx.fillRect(1, h - 20, 2, 4);
+        ctx.fillStyle = trim;
+        ctx.fillRect(0, bodyBottom, w, trimH);
+
+        ctx.fillStyle = light;
+        ctx.fillRect(w - 2, bodyBottom - 21, 2, 5);
+
+        ctx.fillStyle = "#c62828";
+        ctx.fillRect(1, bodyBottom - 15, 2, 4);
       }
 
       function extractTruckPixels(canvas) {
@@ -542,6 +596,7 @@
         ctx.save();
         ctx.translate(cx, cy);
         if (truckFacingLeft()) ctx.scale(-1, 1);
+        ctx.imageSmoothingEnabled = true;
         ctx.drawImage(truckSprite, -TRUCK_HW, -TRUCK_HH, TRUCK_W, TRUCK_H);
         ctx.restore();
       }
