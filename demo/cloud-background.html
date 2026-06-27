@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27p</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27q</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -302,23 +302,14 @@
         return pixels;
       }
 
-      function buildDebugBackground(img, map, width, height) {
+      function buildDebugBackground(img, width, height) {
         const scratch = document.createElement("canvas");
         scratch.width = width;
         scratch.height = height;
         const sctx = scratch.getContext("2d");
+        sctx.fillStyle = "#00ff00";
+        sctx.fillRect(0, 0, width, height);
         sctx.drawImage(img, 0, 0, width, height);
-        const frame = sctx.getImageData(0, 0, width, height);
-        const data = frame.data;
-        for (let i = 0; i < width * height; i++) {
-          if (map[i]) continue;
-          const p = i * 4;
-          data[p] = 0;
-          data[p + 1] = 255;
-          data[p + 2] = 0;
-          data[p + 3] = 255;
-        }
-        sctx.putImageData(frame, 0, 0);
         return scratch;
       }
 
@@ -505,7 +496,7 @@
         } else {
           titleEl.textContent = "Gravity test — vertical drop in 3 seconds";
           descEl.textContent =
-            "Pixel collision: green = passable background, art = solid rock/platform pixels. Ball is a red pixel disc.";
+            "Foreground template on bright green: green = passable, visible rock/platform pixels = solid. Collision matches template alpha.";
           modeBadgeEl.textContent = "DROP ↓";
         }
 
@@ -579,7 +570,7 @@
           background = await loadImage(BG_DATA_URL);
         } else {
           const base = new URL("./assets/", window.location.href);
-          for (const name of ["arena-bg.jpg", "arena-source.png"]) {
+          for (const name of ["arena-foreground.png", "arena-source.png", "arena-debug.png"]) {
             try {
               background = await loadImage(new URL(name, base).href);
               break;
@@ -596,7 +587,7 @@
         solid = buildSolidMap(SOLID_SEGMENTS, W, H);
         ballPixels = buildBallPixels(BALL_R);
         if (DEBUG_GREEN_BG) {
-          debugBackground = buildDebugBackground(background, solid, W, H);
+          debugBackground = buildDebugBackground(background, W, H);
         }
         dropX = findDropColumn(solid, W, H);
 
