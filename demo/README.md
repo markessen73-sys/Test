@@ -7,15 +7,23 @@
 
 ## View
 
+Local:
+
 ```bash
 python3 -m http.server 8765
 ```
 
-Open `http://localhost:8765/docs/index.html`
+Open http://localhost:8765/docs/index.html
 
-Portable CDN build:
+**Live demo (GitHub Pages):**
 
-`https://cdn.jsdelivr.net/gh/markessen73-sys/Test@cursor/lunar-muskman-2ae2/docs/index.html`
+https://markessen73-sys.github.io/Test/
+
+**Preview via raw file (self-contained build, works without Pages):**
+
+https://htmlpreview.github.io/?https://raw.githubusercontent.com/markessen73-sys/Test/cursor/lunar-muskman-2ae2/docs/index.html
+
+> Do not use jsDelivr or raw GitHub URLs directly — they serve HTML as plain text and show source code.
 
 ## Physics
 

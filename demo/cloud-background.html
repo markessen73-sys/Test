@@ -58,6 +58,7 @@
       const FALL_SECONDS = 2;
       const STEP_MS = 1000 / 60;
       const SOLID_SEGMENTS = __SOLID_SEGMENTS__;
+      const BG_DATA_URL = "__BG_DATA_URL__";
       const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("status");
@@ -225,13 +226,17 @@
       }
 
       async function init() {
-        const base = new URL("./assets/", window.location.href);
-        for (const name of ["arena-bg.jpg", "arena-source.png"]) {
-          try {
-            background = await loadImage(new URL(name, base).href);
-            break;
-          } catch {
-            // try next
+        if (BG_DATA_URL && !BG_DATA_URL.startsWith("__")) {
+          background = await loadImage(BG_DATA_URL);
+        } else {
+          const base = new URL("./assets/", window.location.href);
+          for (const name of ["arena-bg.jpg", "arena-source.png"]) {
+            try {
+              background = await loadImage(new URL(name, base).href);
+              break;
+            } catch {
+              // try next
+            }
           }
         }
         if (!background) throw new Error("Background image missing");

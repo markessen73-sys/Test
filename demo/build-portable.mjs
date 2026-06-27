@@ -90,8 +90,12 @@ async function build() {
   await writeFile(`${ASSETS}/arena-solid.bin`, solid);
 
   let html = readFileSync("/workspace/demo/cloud-background.html", "utf8");
+  const jpeg = readFileSync(`${ASSETS}/arena-bg.jpg`);
+  const bgDataUrl = `data:image/jpeg;base64,${jpeg.toString("base64")}`;
   html = html.replace("__SOLID_SEGMENTS__", JSON.stringify(segments));
+  html = html.replace("__BG_DATA_URL__", bgDataUrl);
   await writeFile(`${OUT}/index.html`, html);
+  await writeFile(`${OUT}/.nojekyll`, "");
   console.log(`Portable build: ${width}x${height}, solid ${solidCount} px (${(100 * solidCount / (width * height)).toFixed(1)}%)`);
 }
 
