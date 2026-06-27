@@ -210,16 +210,40 @@ async function build() {
   const jpeg = readFileSync(`${ASSETS}/arena-bg.jpg`);
   const bgDataUrl = `data:image/jpeg;base64,${jpeg.toString("base64")}`;
 
-  function embedPortable(source, defaultMode) {
+  function embedPortable(source, isRise) {
+    const dropCopy = {
+      title: "Gravity test — vertical drop in 2 seconds",
+      desc: "Red balls drop onto each platform top. Click ↑ Rise test (undersides) to send cyan balls upward instead.",
+      btnDrop: "active",
+      btnRise: "",
+      badgeClass: "",
+      badgeText: "DROP ↓",
+    };
+    const riseCopy = {
+      title: "Underside test — balls rise in 2 seconds",
+      desc: "Cyan balls start near the bottom and rise with reversed gravity until they hit each platform underside.",
+      btnDrop: "",
+      btnRise: "active-rise",
+      badgeClass: "rise",
+      badgeText: "RISE ↑",
+    };
+    const copy = isRise ? riseCopy : dropCopy;
+
     return source
       .replace("__SOLID_SEGMENTS__", JSON.stringify(segments))
       .replace("__PLATFORM_SPAWNS__", JSON.stringify(platformSpawns))
       .replace("__BG_DATA_URL__", bgDataUrl)
-      .replace("__DEFAULT_MODE__", defaultMode);
+      .replace("__IS_RISE__", isRise ? "true" : "false")
+      .replace("__TITLE_TEXT__", copy.title)
+      .replace("__DESC_TEXT__", copy.desc)
+      .replace("__BTN_DROP_CLASS__", copy.btnDrop)
+      .replace("__BTN_RISE_CLASS__", copy.btnRise)
+      .replace("__BADGE_CLASS__", copy.badgeClass)
+      .replace("__BADGE_TEXT__", copy.badgeText);
   }
 
-  await writeFile(`${OUT}/index.html`, embedPortable(html, "drop"));
-  await writeFile(`${OUT}/rise.html`, embedPortable(html, "rise"));
+  await writeFile(`${OUT}/index.html`, embedPortable(html, false));
+  await writeFile(`${OUT}/rise.html`, embedPortable(html, true));
   await writeFile(`${OUT}/.nojekyll`, "");
   console.log(
     `Portable build: ${width}x${height}, solid ${solidCount} px (${(100 * solidCount / (width * height)).toFixed(1)}%), ${platformSpawns.length} platforms`,

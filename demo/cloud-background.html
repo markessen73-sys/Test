@@ -64,6 +64,14 @@
         background: #2a1515;
         color: #f88;
       }
+      #mode-bar button.active-rise {
+        border-color: #3cc;
+        background: #152828;
+        color: #8ff;
+      }
+      #mode-badge.rise {
+        color: rgba(120, 255, 255, 0.9);
+      }
       #mode-badge {
         position: absolute;
         top: 8px;
@@ -79,25 +87,26 @@
     </style>
   </head>
   <body>
-    <h1 id="title">Gravity test — vertical drop in 2 seconds</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27g</p>
+    <h1 id="title">__TITLE_TEXT__</h1>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27h</p>
     <div id="mode-bar">
-      <button type="button" id="btn-drop" class="active">↓ Drop test (tops)</button>
-      <button type="button" id="btn-rise">↑ Rise test (undersides)</button>
+      <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop test (tops)</button>
+      <button type="button" id="btn-rise" class="__BTN_RISE_CLASS__">↑ Rise test (undersides)</button>
     </div>
     <div id="wrap">
       <canvas id="view"></canvas>
-      <div id="mode-badge">drop</div>
+      <div id="mode-badge" class="__BADGE_CLASS__">__BADGE_TEXT__</div>
       <div id="status">Loading…</div>
       <div id="timer">0.00s / 2.00s</div>
     </div>
-    <p id="desc">Use the buttons above to switch between dropping onto platform tops and rising into platform undersides.</p>
+    <p id="desc">__DESC_TEXT__</p>
+    <script>window.__ARENA_RISE__ = __IS_RISE__;</script>
     <script>
       const FALL_SECONDS = 2;
+      const IS_RISE = window.__ARENA_RISE__ === true;
       const SOLID_SEGMENTS = __SOLID_SEGMENTS__;
       const PLATFORM_SPAWNS = __PLATFORM_SPAWNS__;
       const BG_DATA_URL = "__BG_DATA_URL__";
-      const BAKED_MODE = "__DEFAULT_MODE__";
       const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("status");
@@ -108,18 +117,7 @@
       const btnDrop = document.getElementById("btn-drop");
       const btnRise = document.getElementById("btn-rise");
 
-      function parseInitialMode() {
-        if (BAKED_MODE === "rise" || BAKED_MODE === "drop") return BAKED_MODE;
-        const params = new URLSearchParams(location.search);
-        if (params.get("mode") === "rise") return "rise";
-        if (params.get("mode") === "drop") return "drop";
-        if (location.hash === "#rise") return "rise";
-        if (/rise\.html/i.test(location.pathname)) return "rise";
-        if (/mode=rise/i.test(location.href)) return "rise";
-        return "drop";
-      }
-
-      let mode = parseInitialMode();
+      let mode = IS_RISE ? "rise" : "drop";
 
       let W = 1536;
       let H = 1024;
@@ -206,11 +204,32 @@
         return { top, bottom };
       }
 
+      function isRise() {
+        return mode === "rise";
+      }
+
+      function nextSolidBelow(map, width, x, belowY) {
+        for (let y = belowY + 1; y < map.length / width; y++) {
+          if (map[y * width + x]) return y;
+        }
+        return map.length / width;
+      }
+
+      function riseSpawnY(bounds, map, width, x, height) {
+        const gapFloor = bounds.bottom + BALL_R + 18;
+        const nextTop = nextSolidBelow(map, width, x, bounds.bottom);
+        const gapCeil = nextTop < height
+          ? nextTop - BALL_R - 18
+          : height - BALL_R - 8;
+        if (gapCeil <= gapFloor) return gapFloor;
+        return Math.min(gapCeil, Math.max(gapFloor, height * 0.82));
+      }
+
       function createBall(spawn, map, width, height) {
         const bounds = findSegmentBounds(map, width, height, spawn.x, spawn.capY);
 
-        if (mode === "rise") {
-          const spawnY = Math.min(bounds.bottom + BALL_R + 12, height - BALL_R - 2);
+        if (isRise()) {
+          const spawnY = riseSpawnY(bounds, map, width, spawn.x, height);
           return {
             x: spawn.x,
             y: spawnY,
@@ -300,6 +319,7 @@
 
         for (let y = Math.ceil(headY); y >= Math.floor(nextHead); y--) {
           if (!isSolid(cx, y)) continue;
+          if (y < ball.bounds.top || y > ball.bounds.bottom) continue;
           surface = y;
           break;
         }
@@ -313,7 +333,7 @@
       function pushOutOfSolids(ball) {
         if (!isSolid(ball.x, ball.y)) return;
 
-        if (mode === "rise") {
+        if (isRise()) {
           for (let y = Math.ceil(ball.y + ball.r); y < H; y++) {
             if (isSolid(ball.x, y)) continue;
             ball.y = y + ball.r + 0.01;
@@ -334,7 +354,7 @@
       }
 
       function restingOnSolid(ball) {
-        if (mode === "rise") {
+        if (isRise()) {
           return isSolid(ball.x, ball.y - ball.r - 1)
             || isSolid(ball.x - ball.r * 0.5, ball.y - ball.r - 1)
             || isSolid(ball.x + ball.r * 0.5, ball.y - ball.r - 1);
@@ -346,12 +366,12 @@
 
       function step(dt) {
         fallElapsed += dt;
-        const g = mode === "rise" ? -gravity : gravity;
+        const g = isRise() ? -gravity : gravity;
 
         for (const ball of balls) {
           ball.vy += g * dt;
           ball.y += ball.vy * dt;
-          if (mode === "rise") hitUnderside(ball, dt);
+          if (isRise()) hitUnderside(ball, dt);
           else landOnPlatforms(ball, dt);
           pushOutOfSolids(ball);
 
@@ -363,7 +383,7 @@
           }
         }
 
-        const label = mode === "rise" ? "rise" : "fall";
+        const label = isRise() ? "rise ↑" : "fall ↓";
         timerEl.textContent = `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s ${label}`;
       }
 
@@ -375,9 +395,9 @@
         for (const ball of balls) {
           ctx.beginPath();
           ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
-          ctx.fillStyle = "#ff3b3b";
+          ctx.fillStyle = isRise() ? "#3bffff" : "#ff3b3b";
           ctx.fill();
-          ctx.strokeStyle = "#fff";
+          ctx.strokeStyle = isRise() ? "#cff" : "#fff";
           ctx.lineWidth = 2;
           ctx.stroke();
         }
@@ -399,16 +419,17 @@
       }
 
       function applyModeCopy() {
-        btnDrop.classList.toggle("active", mode === "drop");
-        btnRise.classList.toggle("active", mode === "rise");
-        modeBadgeEl.textContent = mode === "rise" ? "rise ↑" : "drop ↓";
+        btnDrop.className = mode === "drop" ? "active" : "";
+        btnRise.className = mode === "rise" ? "active-rise" : "";
+        modeBadgeEl.className = mode === "rise" ? "rise" : "";
+        modeBadgeEl.textContent = mode === "rise" ? "RISE ↑" : "DROP ↓";
 
         if (mode === "rise") {
           titleEl.textContent = "Underside test — balls rise in 2 seconds";
-          descEl.textContent = "Balls spawn below each platform and rise with reversed gravity until they hit the underside.";
+          descEl.textContent = "Cyan balls start near the bottom and rise with reversed gravity until they hit each platform underside.";
         } else {
           titleEl.textContent = "Gravity test — vertical drop in 2 seconds";
-          descEl.textContent = "Balls drop onto each platform top. Click ↑ Rise test to check undersides instead.";
+          descEl.textContent = "Red balls drop onto each platform top. Click ↑ Rise test (undersides) to send cyan balls upward instead.";
         }
       }
 
