@@ -74,6 +74,43 @@ function buildSolidMask(data, width, height, channels) {
   return solid;
 }
 
+function findPlatformSpawns(solid, width, height) {
+  const caps = [];
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      if (solid[y * width + x]) {
+        caps.push({ x, capY: y });
+        break;
+      }
+    }
+  }
+
+  const groups = [];
+  const Y_TOL = 30;
+  const MIN_SPAN = 45;
+
+  for (const cap of caps) {
+    let group = groups.find(
+      (g) =>
+        Math.abs(g.capY - cap.capY) <= Y_TOL &&
+        cap.x >= g.x0 - 20 &&
+        cap.x <= g.x1 + 20,
+    );
+    if (group) {
+      group.x0 = Math.min(group.x0, cap.x);
+      group.x1 = Math.max(group.x1, cap.x);
+      group.capY = Math.round((group.capY + cap.capY) / 2);
+    } else {
+      groups.push({ x0: cap.x, x1: cap.x, capY: cap.capY });
+    }
+  }
+
+  return groups
+    .filter((g) => g.x1 - g.x0 >= MIN_SPAN)
+    .map((g) => ({ x: Math.round((g.x0 + g.x1) / 2), capY: g.capY }))
+    .sort((a, b) => a.capY - b.capY || a.x - b.x);
+}
+
 async function build() {
   await mkdir(ASSETS, { recursive: true });
 
@@ -118,14 +155,19 @@ async function build() {
 
   await writeFile(`${ASSETS}/arena-solid.bin`, solid);
 
+  const platformSpawns = findPlatformSpawns(solid, width, height);
+
   let html = readFileSync("/workspace/demo/cloud-background.html", "utf8");
   const jpeg = readFileSync(`${ASSETS}/arena-bg.jpg`);
   const bgDataUrl = `data:image/jpeg;base64,${jpeg.toString("base64")}`;
   html = html.replace("__SOLID_SEGMENTS__", JSON.stringify(segments));
+  html = html.replace("__PLATFORM_SPAWNS__", JSON.stringify(platformSpawns));
   html = html.replace("__BG_DATA_URL__", bgDataUrl);
   await writeFile(`${OUT}/index.html`, html);
   await writeFile(`${OUT}/.nojekyll`, "");
-  console.log(`Portable build: ${width}x${height}, solid ${solidCount} px (${(100 * solidCount / (width * height)).toFixed(1)}%)`);
+  console.log(
+    `Portable build: ${width}x${height}, solid ${solidCount} px (${(100 * solidCount / (width * height)).toFixed(1)}%), ${platformSpawns.length} platforms`,
+  );
 }
 
 build().catch((err) => {
