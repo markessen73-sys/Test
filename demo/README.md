@@ -11,7 +11,11 @@
 python3 -m http.server 8765
 ```
 
-Open `http://localhost:8765/demo/cloud-background.html`
+Open `http://localhost:8765/docs/index.html`
+
+Portable CDN build:
+
+`https://cdn.jsdelivr.net/gh/markessen73-sys/Test@cursor/lunar-muskman-2ae2/docs/index.html`
 
 ## Physics
 

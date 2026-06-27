@@ -85,7 +85,17 @@
       }
 
       function findDropColumn(map, width, height) {
-        let bestX = Math.floor(width / 2);
+        const mid = Math.floor(width / 2);
+        let centerGap = height;
+        for (let y = 0; y < height; y++) {
+          if (map[y * width + mid]) {
+            centerGap = y;
+            break;
+          }
+        }
+        if (centerGap >= 100) return mid;
+
+        let bestX = mid;
         let bestGap = 0;
         for (let x = 80; x < width - 80; x += 8) {
           let first = height;
@@ -127,15 +137,17 @@
         return solid[iy * W + ix] === 1;
       }
 
-      function landOnPlatforms() {
+      function landOnPlatforms(dt) {
         if (ball.vy <= 0) return;
 
         const minX = Math.floor(ball.x - ball.r);
         const maxX = Math.ceil(ball.x + ball.r);
+        const footY = ball.y + ball.r;
+        const nextFoot = footY + ball.vy * dt;
         let surface = null;
 
         for (let x = minX; x <= maxX; x++) {
-          for (let y = Math.floor(ball.y + ball.r); y >= Math.floor(ball.y - ball.r); y--) {
+          for (let y = Math.floor(footY); y <= Math.ceil(nextFoot); y++) {
             if (!isSolid(x, y)) continue;
             surface = surface === null ? y : Math.min(surface, y);
             break;
@@ -170,7 +182,7 @@
         fallElapsed += dt;
         ball.vy += gravity * dt;
         ball.y += ball.vy * dt;
-        landOnPlatforms();
+        landOnPlatforms(dt);
         pushOutOfSolids();
 
         if (ball.vy === 0 && restingOnSolid()) {
@@ -197,10 +209,19 @@
         ctx.stroke();
       }
 
-      function tick() {
-        if (!ready) return;
-        step(STEP_MS / 1000);
+      let lastFrame = 0;
+
+      function tick(now) {
+        if (!ready) {
+          requestAnimationFrame(tick);
+          return;
+        }
+        if (!lastFrame) lastFrame = now;
+        const dt = Math.min((now - lastFrame) / 1000, 0.05);
+        lastFrame = now;
+        step(dt);
         drawFrame();
+        requestAnimationFrame(tick);
       }
 
       async function init() {
@@ -225,7 +246,8 @@
         resetBall();
         ready = true;
         statusEl.style.display = "none";
-        setInterval(tick, STEP_MS);
+        lastFrame = 0;
+        requestAnimationFrame(tick);
         drawFrame();
       }
 

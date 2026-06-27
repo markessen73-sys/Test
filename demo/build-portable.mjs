@@ -5,8 +5,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 const SRC = "/workspace/demo/assets/arena-source.png";
 const OUT = "/workspace/docs";
 const ASSETS = `${OUT}/assets`;
-const ROCK_MIN = 33;
+const DENSE_MIN = 52;
 const ROCK_MAX = 108;
+const SKY_MAX = 12;
 
 function buildSolidMask(data, width, height, channels) {
   const lum = new Float32Array(width * height);
@@ -17,21 +18,27 @@ function buildSolidMask(data, width, height, channels) {
     lum[i] = data[p] * 0.2126 + data[p + 1] * 0.7152 + data[p + 2] * 0.0722;
   }
 
-  const isRock = (l) => l >= ROCK_MIN && l <= ROCK_MAX;
-
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
+  for (let x = 0; x < width; x++) {
+    let inMass = false;
+    for (let y = 0; y < height; y++) {
       const i = y * width + x;
-      if (isRock(lum[i])) solid[i] = 1;
+      const l = lum[i];
+      if (!inMass && l >= DENSE_MIN && l <= ROCK_MAX) inMass = true;
+      if (!inMass) continue;
+      if (l < SKY_MAX) {
+        inMass = false;
+        continue;
+      }
+      solid[i] = 1;
     }
   }
 
-  // Bright inlays / metal strips sitting on rock — not atmospheric haze above platforms.
+  // Bright inlays / metal strips sitting on rock.
   for (let y = 0; y < height - 1; y++) {
     for (let x = 0; x < width; x++) {
       const i = y * width + x;
       if (solid[i] || lum[i] <= ROCK_MAX) continue;
-      if (isRock(lum[(y + 1) * width + x])) solid[i] = 1;
+      if (solid[(y + 1) * width + x]) solid[i] = 1;
     }
   }
 
