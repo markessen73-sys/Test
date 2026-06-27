@@ -23,6 +23,8 @@ https://markessen73-sys.github.io/Test/
 
 https://htmlpreview.github.io/?https://raw.githubusercontent.com/markessen73-sys/Test/cursor/lunar-muskman-2ae2/docs/index.html
 
+Look for **build 2026-06-27c** under the title to confirm the latest version loaded.
+
 > Do not use jsDelivr or raw GitHub URLs directly — they serve HTML as plain text and show source code.
 
 ## Physics

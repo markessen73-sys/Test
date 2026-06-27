@@ -4,10 +4,6 @@ import { constants } from "node:fs";
 
 const SRC = "/workspace/demo/assets/arena-source.png";
 const OUT_DIR = "/workspace/demo/assets";
-const DECK_LUM = 88;
-const FALLBACK_LUM = 70;
-const BODY_AVG = 62;
-const BODY_DEPTH = 12;
 const SKY_MAX = 12;
 
 async function build() {
@@ -32,24 +28,36 @@ async function build() {
   for (let x = 0; x < width; x++) {
     let startY = -1;
 
-    for (let y = 0; y < height; y++) {
-      if (at(x, y) >= DECK_LUM) {
+    for (let y = 2; y < height - 1; y++) {
+      const l = at(x, y);
+      const above = at(x, y - 1);
+      const below = at(x, y + 1);
+      if (l >= 80 && above >= 75 && below < l - 40) {
         startY = y;
         break;
       }
     }
 
     if (startY < 0) {
+      for (let y = 1; y < height; y++) {
+        if (at(x, y) >= 95 && at(x, y - 1) < 35) {
+          startY = y;
+          break;
+        }
+      }
+    }
+
+    if (startY < 0) {
       for (let y = 0; y < height; y++) {
-        if (at(x, y) < FALLBACK_LUM) continue;
+        if (at(x, y) < 65) continue;
         let sum = 0;
-        const end = Math.min(y + 24, height);
+        const end = Math.min(y + 20, height);
         let n = 0;
         for (let yy = y; yy < end; yy++) {
           sum += at(x, yy);
           n++;
         }
-        if (n >= BODY_DEPTH && sum / n >= BODY_AVG) {
+        if (n >= 10 && sum / n >= 60) {
           startY = y;
           break;
         }

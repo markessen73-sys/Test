@@ -5,10 +5,6 @@ import { mkdir, writeFile } from "node:fs/promises";
 const SRC = "/workspace/demo/assets/arena-source.png";
 const OUT = "/workspace/docs";
 const ASSETS = `${OUT}/assets`;
-const DECK_LUM = 88;
-const FALLBACK_LUM = 70;
-const BODY_AVG = 62;
-const BODY_DEPTH = 12;
 const SKY_MAX = 12;
 
 function buildSolidMask(data, width, height, channels) {
@@ -28,24 +24,39 @@ function buildSolidMask(data, width, height, channels) {
   for (let x = 0; x < width; x++) {
     let startY = -1;
 
-    for (let y = 0; y < height; y++) {
-      if (at(x, y) >= DECK_LUM) {
+    // Side-view deck cap: last bright row before a sharp drop into shadow/gap.
+    for (let y = 2; y < height - 1; y++) {
+      const l = at(x, y);
+      const above = at(x, y - 1);
+      const below = at(x, y + 1);
+      if (l >= 80 && above >= 75 && below < l - 40) {
         startY = y;
         break;
       }
     }
 
+    // Sharp top edge against open sky.
+    if (startY < 0) {
+      for (let y = 1; y < height; y++) {
+        if (at(x, y) >= 95 && at(x, y - 1) < 35) {
+          startY = y;
+          break;
+        }
+      }
+    }
+
+    // Plain rock tops without a bright cap.
     if (startY < 0) {
       for (let y = 0; y < height; y++) {
-        if (at(x, y) < FALLBACK_LUM) continue;
+        if (at(x, y) < 65) continue;
         let sum = 0;
-        const end = Math.min(y + 24, height);
+        const end = Math.min(y + 20, height);
         let n = 0;
         for (let yy = y; yy < end; yy++) {
           sum += at(x, yy);
           n++;
         }
-        if (n >= BODY_DEPTH && sum / n >= BODY_AVG) {
+        if (n >= 10 && sum / n >= 60) {
           startY = y;
           break;
         }
