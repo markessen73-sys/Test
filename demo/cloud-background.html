@@ -43,31 +43,83 @@
         background: rgba(0,0,0,0.92);
       }
       #timer { top: 8px; right: 10px; }
+      #mode-bar {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      #mode-bar button {
+        font: inherit;
+        font-size: 0.8rem;
+        padding: 6px 14px;
+        border-radius: 6px;
+        border: 1px solid #444;
+        background: #1a1a1a;
+        color: #aaa;
+        cursor: pointer;
+      }
+      #mode-bar button.active {
+        border-color: #c44;
+        background: #2a1515;
+        color: #f88;
+      }
+      #mode-badge {
+        position: absolute;
+        top: 8px;
+        left: 10px;
+        font-size: 11px;
+        color: rgba(255, 120, 120, 0.85);
+        z-index: 2;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
       p { font-size: 0.8rem; color: #666; max-width: 760px; text-align: center; line-height: 1.5; }
       code { font-size: 0.75rem; color: #888; }
     </style>
   </head>
   <body>
     <h1 id="title">Gravity test — vertical drop in 2 seconds</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27f</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27g</p>
+    <div id="mode-bar">
+      <button type="button" id="btn-drop" class="active">↓ Drop test (tops)</button>
+      <button type="button" id="btn-rise">↑ Rise test (undersides)</button>
+    </div>
     <div id="wrap">
       <canvas id="view"></canvas>
+      <div id="mode-badge">drop</div>
       <div id="status">Loading…</div>
       <div id="timer">0.00s / 2.00s</div>
     </div>
-    <p id="desc">One red ball per platform — each drops straight down and stops on contact with no bounce. Add <code>?mode=rise</code> to test platform undersides.</p>
+    <p id="desc">Use the buttons above to switch between dropping onto platform tops and rising into platform undersides.</p>
     <script>
       const FALL_SECONDS = 2;
-      const MODE = new URLSearchParams(location.search).get("mode") === "rise" ? "rise" : "drop";
       const SOLID_SEGMENTS = __SOLID_SEGMENTS__;
       const PLATFORM_SPAWNS = __PLATFORM_SPAWNS__;
       const BG_DATA_URL = "__BG_DATA_URL__";
+      const BAKED_MODE = "__DEFAULT_MODE__";
       const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("status");
       const timerEl = document.getElementById("timer");
       const titleEl = document.getElementById("title");
       const descEl = document.getElementById("desc");
+      const modeBadgeEl = document.getElementById("mode-badge");
+      const btnDrop = document.getElementById("btn-drop");
+      const btnRise = document.getElementById("btn-rise");
+
+      function parseInitialMode() {
+        if (BAKED_MODE === "rise" || BAKED_MODE === "drop") return BAKED_MODE;
+        const params = new URLSearchParams(location.search);
+        if (params.get("mode") === "rise") return "rise";
+        if (params.get("mode") === "drop") return "drop";
+        if (location.hash === "#rise") return "rise";
+        if (/rise\.html/i.test(location.pathname)) return "rise";
+        if (/mode=rise/i.test(location.href)) return "rise";
+        return "drop";
+      }
+
+      let mode = parseInitialMode();
 
       let W = 1536;
       let H = 1024;
@@ -79,6 +131,7 @@
 
       const BALL_R = 14;
       let balls = [];
+      let spawns = [];
 
       function buildSolidMap(segments, width, height) {
         const map = new Uint8Array(width * height);
@@ -156,7 +209,7 @@
       function createBall(spawn, map, width, height) {
         const bounds = findSegmentBounds(map, width, height, spawn.x, spawn.capY);
 
-        if (MODE === "rise") {
+        if (mode === "rise") {
           const spawnY = Math.min(bounds.bottom + BALL_R + 12, height - BALL_R - 2);
           return {
             x: spawn.x,
@@ -260,7 +313,7 @@
       function pushOutOfSolids(ball) {
         if (!isSolid(ball.x, ball.y)) return;
 
-        if (MODE === "rise") {
+        if (mode === "rise") {
           for (let y = Math.ceil(ball.y + ball.r); y < H; y++) {
             if (isSolid(ball.x, y)) continue;
             ball.y = y + ball.r + 0.01;
@@ -281,7 +334,7 @@
       }
 
       function restingOnSolid(ball) {
-        if (MODE === "rise") {
+        if (mode === "rise") {
           return isSolid(ball.x, ball.y - ball.r - 1)
             || isSolid(ball.x - ball.r * 0.5, ball.y - ball.r - 1)
             || isSolid(ball.x + ball.r * 0.5, ball.y - ball.r - 1);
@@ -293,12 +346,12 @@
 
       function step(dt) {
         fallElapsed += dt;
-        const g = MODE === "rise" ? -gravity : gravity;
+        const g = mode === "rise" ? -gravity : gravity;
 
         for (const ball of balls) {
           ball.vy += g * dt;
           ball.y += ball.vy * dt;
-          if (MODE === "rise") hitUnderside(ball, dt);
+          if (mode === "rise") hitUnderside(ball, dt);
           else landOnPlatforms(ball, dt);
           pushOutOfSolids(ball);
 
@@ -310,7 +363,7 @@
           }
         }
 
-        const label = MODE === "rise" ? "rise" : "fall";
+        const label = mode === "rise" ? "rise" : "fall";
         timerEl.textContent = `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s ${label}`;
       }
 
@@ -346,11 +399,34 @@
       }
 
       function applyModeCopy() {
-        if (MODE === "rise") {
+        btnDrop.classList.toggle("active", mode === "drop");
+        btnRise.classList.toggle("active", mode === "rise");
+        modeBadgeEl.textContent = mode === "rise" ? "rise ↑" : "drop ↓";
+
+        if (mode === "rise") {
           titleEl.textContent = "Underside test — balls rise in 2 seconds";
-          descEl.innerHTML = "One red ball below each platform — reversed gravity, each rises until it hits the platform underside. Use <code>?mode=drop</code> for the downward test.";
+          descEl.textContent = "Balls spawn below each platform and rise with reversed gravity until they hit the underside.";
+        } else {
+          titleEl.textContent = "Gravity test — vertical drop in 2 seconds";
+          descEl.textContent = "Balls drop onto each platform top. Click ↑ Rise test to check undersides instead.";
         }
       }
+
+      function setupBalls() {
+        balls = spawns.map((spawn) => createBall(spawn, solid, W, H));
+        resetAllBalls();
+        lastFrame = 0;
+      }
+
+      function setMode(next) {
+        if (mode === next) return;
+        mode = next;
+        applyModeCopy();
+        if (solid) setupBalls();
+      }
+
+      btnDrop.addEventListener("click", () => setMode("drop"));
+      btnRise.addEventListener("click", () => setMode("rise"));
 
       async function init() {
         applyModeCopy();
@@ -375,15 +451,14 @@
         gravity = H / (0.5 * FALL_SECONDS * FALL_SECONDS);
         solid = buildSolidMap(SOLID_SEGMENTS, W, H);
 
-        const spawns =
+        spawns =
           Array.isArray(PLATFORM_SPAWNS) && PLATFORM_SPAWNS.length
             ? PLATFORM_SPAWNS
             : findPlatformSpawns(solid, W, H);
 
-        balls = spawns.map((spawn) => createBall(spawn, solid, W, H));
         canvas.width = W;
         canvas.height = H;
-        resetAllBalls();
+        setupBalls();
         ready = true;
         statusEl.style.display = "none";
         lastFrame = 0;

@@ -209,10 +209,17 @@ async function build() {
   let html = readFileSync("/workspace/demo/cloud-background.html", "utf8");
   const jpeg = readFileSync(`${ASSETS}/arena-bg.jpg`);
   const bgDataUrl = `data:image/jpeg;base64,${jpeg.toString("base64")}`;
-  html = html.replace("__SOLID_SEGMENTS__", JSON.stringify(segments));
-  html = html.replace("__PLATFORM_SPAWNS__", JSON.stringify(platformSpawns));
-  html = html.replace("__BG_DATA_URL__", bgDataUrl);
-  await writeFile(`${OUT}/index.html`, html);
+
+  function embedPortable(source, defaultMode) {
+    return source
+      .replace("__SOLID_SEGMENTS__", JSON.stringify(segments))
+      .replace("__PLATFORM_SPAWNS__", JSON.stringify(platformSpawns))
+      .replace("__BG_DATA_URL__", bgDataUrl)
+      .replace("__DEFAULT_MODE__", defaultMode);
+  }
+
+  await writeFile(`${OUT}/index.html`, embedPortable(html, "drop"));
+  await writeFile(`${OUT}/rise.html`, embedPortable(html, "rise"));
   await writeFile(`${OUT}/.nojekyll`, "");
   console.log(
     `Portable build: ${width}x${height}, solid ${solidCount} px (${(100 * solidCount / (width * height)).toFixed(1)}%), ${platformSpawns.length} platforms`,
