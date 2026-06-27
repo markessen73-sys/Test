@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">Ford Capri Arena</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27x</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27y</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="active">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -195,8 +195,10 @@
       const CAR_HH = CAR_H / 2;
       const TAP_IMPULSE_T = 0.12;
       let ball = null;
-      let carSprite = null;
+      let carSpriteLeft = null;
+      let carSpriteRight = null;
       let carPixelsLeft = [];
+      let carPixelsRight = [];
 
       function fallDistance() {
         return H - CAR_HH * 2;
@@ -494,15 +496,6 @@
 
         ctx.fillStyle = sill;
         ctx.fillRect(0, bottom, w, sillH);
-        ctx.fillStyle = "#18181c";
-        ctx.fillRect(0, bottom + 1, w, 1);
-
-        ctx.strokeStyle = blueLo;
-        ctx.lineWidth = 0.75;
-        ctx.beginPath();
-        ctx.moveTo(10, bottom - 10);
-        ctx.lineTo(w - 10, bottom - 10);
-        ctx.stroke();
 
         ctx.strokeStyle = "rgba(255,255,255,0.18)";
         ctx.lineWidth = 0.5;
@@ -530,22 +523,33 @@
       }
 
       function buildCapri() {
-        const scratch = document.createElement("canvas");
-        scratch.width = CAR_W;
-        scratch.height = CAR_H;
-        const sctx = scratch.getContext("2d");
-        drawCapriLeft(sctx, CAR_W, CAR_H);
-        carSprite = scratch;
-        carPixelsLeft = extractCarPixels(scratch);
+        const left = document.createElement("canvas");
+        left.width = CAR_W;
+        left.height = CAR_H;
+        drawCapriLeft(left.getContext("2d"), CAR_W, CAR_H);
+        carSpriteLeft = left;
+        carPixelsLeft = extractCarPixels(left);
+
+        const right = document.createElement("canvas");
+        right.width = CAR_W;
+        right.height = CAR_H;
+        const rctx = right.getContext("2d");
+        rctx.translate(CAR_W, 0);
+        rctx.scale(-1, 1);
+        rctx.drawImage(left, 0, 0);
+        carSpriteRight = right;
+        carPixelsRight = carPixelsLeft.map(([dx, dy]) => [-dx, dy]);
       }
 
-      function carFacingRight() {
-        return ball.vx > 0;
+      function activeCarBundle() {
+        if (ball.vx > 0) {
+          return { sprite: carSpriteRight, pixels: carPixelsRight };
+        }
+        return { sprite: carSpriteLeft, pixels: carPixelsLeft };
       }
 
       function activeCarPixels() {
-        if (!carFacingRight()) return carPixelsLeft;
-        return carPixelsLeft.map(([dx, dy]) => [-dx, dy]);
+        return activeCarBundle().pixels;
       }
 
       function buildDebugBackground(img, width, height) {
@@ -701,13 +705,9 @@
       }
 
       function drawCarAt(cx, cy) {
-        if (!carSprite) return;
-        ctx.save();
-        ctx.translate(cx, cy);
-        if (carFacingRight()) ctx.scale(-1, 1);
-        ctx.imageSmoothingEnabled = true;
-        ctx.drawImage(carSprite, -CAR_HW, -CAR_HH, CAR_W, CAR_H);
-        ctx.restore();
+        const { sprite } = activeCarBundle();
+        if (!sprite) return;
+        ctx.drawImage(sprite, cx - CAR_HW, cy - CAR_HH, CAR_W, CAR_H);
       }
 
       function drawFrame() {
@@ -753,7 +753,7 @@
         } else {
           titleEl.textContent = "Ford Capri Arena";
           descEl.textContent =
-            "Tap ← / lift / → to drive. Capri faces left when moving left, right otherwise. Platforms are frictionless; landings bounce.";
+            "Tap ← / lift / → to drive. Capri nose leads travel direction. Platforms are frictionless; landings bounce.";
           modeBadgeEl.textContent = "DROP ↓";
         }
 
