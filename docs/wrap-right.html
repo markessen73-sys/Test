@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">Wrap test — exits right, re-enters left</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27w</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27x</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="active-wrap">→ Wrap right</button>
@@ -196,7 +196,7 @@
       const TAP_IMPULSE_T = 0.12;
       let ball = null;
       let carSprite = null;
-      let carPixelsRight = [];
+      let carPixelsLeft = [];
 
       function fallDistance() {
         return H - CAR_HH * 2;
@@ -292,117 +292,223 @@
         });
       }
 
-      function drawCapriRight(ctx, w, h) {
+      function drawCapriLeft(ctx, w, h) {
         ctx.clearRect(0, 0, w, h);
 
-        const blue = "#74bfe8";
+        const blue = "#6eb8e4";
         const blueHi = "#a8d8f6";
-        const blueLo = "#4a96c8";
-        const chrome = "#d4dae4";
-        const glass = "#2e4458";
-        const glassHi = "#4f7088";
-        const sill = "#101012";
-        const tire = "#0a0a0a";
-        const bumper = "#18181a";
-        const indicator = "#e07018";
+        const blueLo = "#3f8fbe";
+        const blueSh = "#2f6f98";
+        const chrome = "#d8dde6";
+        const chromeLo = "#9aa4b2";
+        const glass = "#243848";
+        const glassHi = "#4a6a82";
+        const glassLo = "#162430";
+        const sill = "#0c0c0e";
+        const tire = "#080808";
+        const tireHi = "#1a1a1a";
+        const bumper = "#141416";
+        const rubber = "#2a2a2e";
+        const indicator = "#e07820";
+        const tail = "#c01818";
+        const head = "#f0f4fa";
 
-        const sillH = 5;
+        const sillH = 6;
         const bottom = h - sillH;
-        const rearWheelX = 30;
-        const frontWheelX = 90;
-        const wheelR = 9;
+        const frontWheelX = 22;
+        const rearWheelX = 82;
+        const wheelR = 10;
+
+        function drawWheelArch(cx) {
+          ctx.fillStyle = blueSh;
+          ctx.beginPath();
+          ctx.moveTo(cx - 13, bottom);
+          ctx.quadraticCurveTo(cx - 11, bottom - 14, cx, bottom - 14);
+          ctx.quadraticCurveTo(cx + 11, bottom - 14, cx + 13, bottom);
+          ctx.closePath();
+          ctx.fill();
+        }
 
         function drawWheel(cx) {
+          drawWheelArch(cx);
+
           ctx.fillStyle = tire;
           ctx.beginPath();
           ctx.ellipse(cx, bottom - 1, wheelR, wheelR - 1, 0, 0, Math.PI * 2);
           ctx.fill();
 
-          ctx.strokeStyle = chrome;
-          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = tireHi;
+          ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.ellipse(cx, bottom - 1, wheelR - 2, wheelR - 3, 0, 0, Math.PI * 2);
+          ctx.ellipse(cx, bottom - 1, wheelR - 1, wheelR - 2, 0, 0, Math.PI * 2);
           ctx.stroke();
 
-          ctx.fillStyle = "#101010";
+          ctx.strokeStyle = chrome;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.ellipse(cx, bottom - 1, wheelR - 3, wheelR - 4, 0, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.fillStyle = "#0e0e0e";
           for (let i = 0; i < 4; i++) {
             const a = (i / 4) * Math.PI * 2 - Math.PI / 4;
             ctx.beginPath();
             ctx.moveTo(cx, bottom - 1);
-            ctx.lineTo(cx + Math.cos(a) * 5.5, bottom - 1 + Math.sin(a) * 5.5);
-            ctx.lineTo(cx + Math.cos(a + 0.12) * 2, bottom - 1 + Math.sin(a + 0.12) * 2);
+            ctx.lineTo(cx + Math.cos(a) * 6, bottom - 1 + Math.sin(a) * 6);
+            ctx.lineTo(cx + Math.cos(a + 0.14) * 2.4, bottom - 1 + Math.sin(a + 0.14) * 2.4);
             ctx.closePath();
             ctx.fill();
           }
+
+          ctx.fillStyle = chromeLo;
+          ctx.beginPath();
+          ctx.arc(cx, bottom - 1, 2.2, 0, Math.PI * 2);
+          ctx.fill();
         }
 
-        drawWheel(rearWheelX);
         drawWheel(frontWheelX);
+        drawWheel(rearWheelX);
 
-        const bodyGrad = ctx.createLinearGradient(0, 0, w, 0);
-        bodyGrad.addColorStop(0, blueLo);
-        bodyGrad.addColorStop(0.45, blueHi);
-        bodyGrad.addColorStop(1, blue);
+        const bodyGrad = ctx.createLinearGradient(0, bottom - 34, 0, bottom);
+        bodyGrad.addColorStop(0, blueHi);
+        bodyGrad.addColorStop(0.55, blue);
+        bodyGrad.addColorStop(1, blueLo);
 
         ctx.fillStyle = bodyGrad;
         ctx.beginPath();
-        ctx.moveTo(3, bottom);
-        ctx.lineTo(3, bottom - 7);
-        ctx.lineTo(9, bottom - 13);
-        ctx.lineTo(54, bottom - 30);
-        ctx.lineTo(82, bottom - 32);
-        ctx.lineTo(92, bottom - 25);
-        ctx.lineTo(w - 3, bottom - 19);
-        ctx.lineTo(w - 2, bottom - 12);
-        ctx.lineTo(w - 2, bottom - 7);
+        ctx.moveTo(w - 4, bottom);
+        ctx.lineTo(w - 4, bottom - 8);
+        ctx.lineTo(w - 10, bottom - 14);
+        ctx.lineTo(58, bottom - 33);
+        ctx.lineTo(30, bottom - 35);
+        ctx.lineTo(20, bottom - 28);
+        ctx.lineTo(4, bottom - 20);
+        ctx.lineTo(2, bottom - 12);
+        ctx.lineTo(2, bottom - 7);
+        ctx.lineTo(4, bottom - 5);
         ctx.lineTo(w - 4, bottom - 5);
-        ctx.lineTo(3, bottom - 5);
         ctx.closePath();
         ctx.fill();
 
+        ctx.strokeStyle = blueSh;
+        ctx.lineWidth = 0.75;
+        ctx.beginPath();
+        ctx.moveTo(18, bottom - 27);
+        ctx.lineTo(52, bottom - 33);
+        ctx.stroke();
+
         ctx.fillStyle = bumper;
-        ctx.fillRect(1, bottom - 6, 11, 4);
-        ctx.fillRect(w - 12, bottom - 6, 11, 4);
+        ctx.fillRect(w - 12, bottom - 7, 11, 5);
+        ctx.fillRect(1, bottom - 7, 12, 5);
+        ctx.fillStyle = rubber;
+        ctx.fillRect(w - 11, bottom - 4, 9, 2);
+        ctx.fillRect(2, bottom - 4, 10, 2);
+
+        ctx.fillStyle = glassLo;
+        ctx.beginPath();
+        ctx.moveTo(26, bottom - 34);
+        ctx.lineTo(50, bottom - 34);
+        ctx.lineTo(54, bottom - 22);
+        ctx.lineTo(24, bottom - 22);
+        ctx.closePath();
+        ctx.fill();
 
         ctx.fillStyle = glass;
-        ctx.fillRect(62, bottom - 29, 24, 11);
         ctx.beginPath();
-        ctx.moveTo(44, bottom - 28);
-        ctx.lineTo(57, bottom - 28);
-        ctx.lineTo(59, bottom - 20);
-        ctx.lineTo(42, bottom - 20);
+        ctx.moveTo(28, bottom - 33);
+        ctx.lineTo(48, bottom - 33);
+        ctx.lineTo(52, bottom - 23);
+        ctx.lineTo(26, bottom - 23);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = glassHi;
+        ctx.fillRect(30, bottom - 32, 10, 5);
+        ctx.fillRect(40, bottom - 31, 6, 3);
+
+        ctx.strokeStyle = chrome;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(26, bottom - 34);
+        ctx.lineTo(50, bottom - 34);
+        ctx.lineTo(54, bottom - 22);
+        ctx.lineTo(24, bottom - 22);
+        ctx.closePath();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(54, bottom - 33);
+        ctx.lineTo(68, bottom - 31);
+        ctx.lineTo(72, bottom - 22);
+        ctx.lineTo(54, bottom - 22);
+        ctx.closePath();
+        ctx.fillStyle = glass;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = glassHi;
+        ctx.beginPath();
+        ctx.moveTo(56, bottom - 32);
+        ctx.lineTo(64, bottom - 31);
+        ctx.lineTo(66, bottom - 25);
+        ctx.lineTo(56, bottom - 25);
         ctx.closePath();
         ctx.fill();
 
         ctx.strokeStyle = chrome;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(62, bottom - 29, 24, 11);
+        ctx.lineWidth = 1.25;
         ctx.beginPath();
-        ctx.moveTo(44, bottom - 28);
-        ctx.lineTo(57, bottom - 28);
-        ctx.lineTo(59, bottom - 20);
-        ctx.lineTo(42, bottom - 20);
-        ctx.closePath();
+        ctx.moveTo(54, bottom - 22);
+        ctx.lineTo(72, bottom - 22);
         ctx.stroke();
 
-        ctx.fillStyle = glassHi;
-        ctx.fillRect(64, bottom - 28, 9, 4);
+        ctx.fillStyle = blueSh;
+        ctx.fillRect(52, bottom - 22, 2, 8);
 
         ctx.fillStyle = chrome;
-        ctx.fillRect(55, bottom - 19, 6, 2);
-        for (let i = 0; i < 3; i++) ctx.fillRect(32 + i * 4, bottom - 22, 3, 1);
-
-        ctx.fillStyle = indicator;
-        ctx.fillRect(w - 24, bottom - 16, 5, 2);
-
-        ctx.fillStyle = sill;
-        ctx.fillRect(0, bottom, w, sillH);
+        ctx.fillRect(44, bottom - 20, 7, 2);
 
         ctx.strokeStyle = blueLo;
         ctx.lineWidth = 0.75;
         ctx.beginPath();
-        ctx.moveTo(10, bottom - 9);
-        ctx.lineTo(w - 10, bottom - 9);
+        ctx.moveTo(8, bottom - 18);
+        ctx.lineTo(18, bottom - 26);
+        ctx.stroke();
+
+        for (let i = 0; i < 3; i++) {
+          ctx.fillStyle = chrome;
+          ctx.fillRect(74 + i * 5, bottom - 24, 4, 2);
+          ctx.fillStyle = chromeLo;
+          ctx.fillRect(74 + i * 5, bottom - 22, 4, 1);
+        }
+
+        ctx.fillStyle = indicator;
+        ctx.fillRect(14, bottom - 17, 6, 3);
+        ctx.fillStyle = "#f0a040";
+        ctx.fillRect(15, bottom - 16, 3, 1);
+
+        ctx.fillStyle = head;
+        ctx.fillRect(2, bottom - 19, 3, 4);
+        ctx.fillStyle = tail;
+        ctx.fillRect(w - 4, bottom - 17, 3, 4);
+
+        ctx.fillStyle = sill;
+        ctx.fillRect(0, bottom, w, sillH);
+        ctx.fillStyle = "#18181c";
+        ctx.fillRect(0, bottom + 1, w, 1);
+
+        ctx.strokeStyle = blueLo;
+        ctx.lineWidth = 0.75;
+        ctx.beginPath();
+        ctx.moveTo(10, bottom - 10);
+        ctx.lineTo(w - 10, bottom - 10);
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(255,255,255,0.18)";
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(6, bottom - 14);
+        ctx.lineTo(22, bottom - 22);
         ctx.stroke();
       }
 
@@ -428,18 +534,18 @@
         scratch.width = CAR_W;
         scratch.height = CAR_H;
         const sctx = scratch.getContext("2d");
-        drawCapriRight(sctx, CAR_W, CAR_H);
+        drawCapriLeft(sctx, CAR_W, CAR_H);
         carSprite = scratch;
-        carPixelsRight = extractCarPixels(scratch);
+        carPixelsLeft = extractCarPixels(scratch);
       }
 
-      function carFacingLeft() {
-        return ball.vx < 0;
+      function carFacingRight() {
+        return ball.vx > 0;
       }
 
       function activeCarPixels() {
-        if (!carFacingLeft()) return carPixelsRight;
-        return carPixelsRight.map(([dx, dy]) => [-dx, dy]);
+        if (!carFacingRight()) return carPixelsLeft;
+        return carPixelsLeft.map(([dx, dy]) => [-dx, dy]);
       }
 
       function buildDebugBackground(img, width, height) {
@@ -598,7 +704,7 @@
         if (!carSprite) return;
         ctx.save();
         ctx.translate(cx, cy);
-        if (carFacingLeft()) ctx.scale(-1, 1);
+        if (carFacingRight()) ctx.scale(-1, 1);
         ctx.imageSmoothingEnabled = true;
         ctx.drawImage(carSprite, -CAR_HW, -CAR_HH, CAR_W, CAR_H);
         ctx.restore();
