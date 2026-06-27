@@ -83,21 +83,21 @@
     </style>
   </head>
   <body>
-    <h1 id="title">Gravity test — vertical drop in 2 seconds</h1>
+    <h1 id="title">Wrap test — exits right, re-enters left</h1>
     <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27k</p>
     <div id="mode-bar">
-      <button type="button" id="btn-drop" class="active">↓ Drop</button>
-      <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
+      <button type="button" id="btn-drop" class="">↓ Drop</button>
+      <button type="button" id="btn-wrap-right" class="active-wrap">→ Wrap right</button>
       <button type="button" id="btn-wrap-left" class="">← Wrap left</button>
     </div>
     <div id="wrap">
       <canvas id="view"></canvas>
-      <div id="mode-badge" class="">DROP ↓</div>
+      <div id="mode-badge" class="">WRAP →</div>
       <div id="status">Loading…</div>
       <div id="timer">0.00s / 2.00s</div>
     </div>
-    <p id="desc">Single red ball drops from the top center onto the platform below.</p>
-    <script>window.__ARENA_MODE__ = "drop";</script>
+    <p id="desc">Single red ball at the top moves right. When it leaves the right edge it wraps to the left.</p>
+    <script>window.__ARENA_MODE__ = "wrap-right";</script>
     <script>
       const FALL_SECONDS = 2;
       const WRAP_SPEED = 360;

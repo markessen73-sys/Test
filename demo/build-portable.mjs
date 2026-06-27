@@ -210,43 +210,57 @@ async function build() {
   const jpeg = readFileSync(`${ASSETS}/arena-bg.jpg`);
   const bgDataUrl = `data:image/jpeg;base64,${jpeg.toString("base64")}`;
 
-  function embedPortable(source, isRise) {
-    const dropCopy = {
-      title: "Gravity test — vertical drop in 2 seconds",
-      desc: "Red balls drop onto each platform top. Click ↑ Rise test (undersides) to send cyan balls upward instead.",
-      btnDrop: "active",
-      btnRise: "",
-      badgeClass: "",
-      badgeText: "DROP ↓",
+  function embedPortable(source, bakedMode) {
+    const copies = {
+      drop: {
+        title: "Gravity test — vertical drop in 2 seconds",
+        desc: "Single red ball drops from the top center onto the platform below.",
+        btnDrop: "active",
+        btnWrapRight: "",
+        btnWrapLeft: "",
+        badgeClass: "",
+        badgeText: "DROP ↓",
+      },
+      "wrap-right": {
+        title: "Wrap test — exits right, re-enters left",
+        desc: "Single red ball at the top moves right. When it leaves the right edge it wraps to the left.",
+        btnDrop: "",
+        btnWrapRight: "active-wrap",
+        btnWrapLeft: "",
+        badgeClass: "",
+        badgeText: "WRAP →",
+      },
+      "wrap-left": {
+        title: "Wrap test — exits left, re-enters right",
+        desc: "Single red ball at the top moves left. When it leaves the left edge it wraps to the right.",
+        btnDrop: "",
+        btnWrapRight: "",
+        btnWrapLeft: "active-wrap",
+        badgeClass: "",
+        badgeText: "WRAP ←",
+      },
     };
-    const riseCopy = {
-      title: "Underside test — balls rise in 2 seconds",
-      desc: "Cyan balls start near the bottom and rise with reversed gravity until they hit each platform underside.",
-      btnDrop: "",
-      btnRise: "active-rise",
-      badgeClass: "rise",
-      badgeText: "RISE ↑",
-    };
-    const copy = isRise ? riseCopy : dropCopy;
+    const copy = copies[bakedMode];
 
     return source
       .replace("__SOLID_SEGMENTS__", JSON.stringify(segments))
-      .replace("__PLATFORM_SPAWNS__", JSON.stringify(platformSpawns))
       .replace("__BG_DATA_URL__", bgDataUrl)
-      .replace("__IS_RISE__", isRise ? "true" : "false")
+      .replace("__BAKED_MODE__", bakedMode)
       .replace("__TITLE_TEXT__", copy.title)
       .replace("__DESC_TEXT__", copy.desc)
       .replace("__BTN_DROP_CLASS__", copy.btnDrop)
-      .replace("__BTN_RISE_CLASS__", copy.btnRise)
+      .replace("__BTN_WRAP_RIGHT_CLASS__", copy.btnWrapRight)
+      .replace("__BTN_WRAP_LEFT_CLASS__", copy.btnWrapLeft)
       .replace("__BADGE_CLASS__", copy.badgeClass)
       .replace("__BADGE_TEXT__", copy.badgeText);
   }
 
-  await writeFile(`${OUT}/index.html`, embedPortable(html, false));
-  await writeFile(`${OUT}/rise.html`, embedPortable(html, true));
+  await writeFile(`${OUT}/index.html`, embedPortable(html, "drop"));
+  await writeFile(`${OUT}/wrap-right.html`, embedPortable(html, "wrap-right"));
+  await writeFile(`${OUT}/wrap-left.html`, embedPortable(html, "wrap-left"));
   await writeFile(`${OUT}/.nojekyll`, "");
   console.log(
-    `Portable build: ${width}x${height}, solid ${solidCount} px (${(100 * solidCount / (width * height)).toFixed(1)}%), ${platformSpawns.length} platforms`,
+    `Portable build: ${width}x${height}, solid ${solidCount} px (${(100 * solidCount / (width * height)).toFixed(1)}%)`,
   );
 }
 

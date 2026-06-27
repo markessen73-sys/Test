@@ -64,13 +64,10 @@
         background: #2a1515;
         color: #f88;
       }
-      #mode-bar button.active-rise {
-        border-color: #3cc;
-        background: #152828;
-        color: #8ff;
-      }
-      #mode-badge.rise {
-        color: rgba(120, 255, 255, 0.9);
+      #mode-bar button.active-wrap {
+        border-color: #c93;
+        background: #2a2210;
+        color: #fd8;
       }
       #mode-badge {
         position: absolute;
@@ -83,15 +80,15 @@
         text-transform: uppercase;
       }
       p { font-size: 0.8rem; color: #666; max-width: 760px; text-align: center; line-height: 1.5; }
-      code { font-size: 0.75rem; color: #888; }
     </style>
   </head>
   <body>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27j</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27k</p>
     <div id="mode-bar">
-      <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop test (tops)</button>
-      <button type="button" id="btn-rise" class="__BTN_RISE_CLASS__">↑ Rise test (undersides)</button>
+      <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
+      <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
+      <button type="button" id="btn-wrap-left" class="__BTN_WRAP_LEFT_CLASS__">← Wrap left</button>
     </div>
     <div id="wrap">
       <canvas id="view"></canvas>
@@ -100,12 +97,11 @@
       <div id="timer">0.00s / 2.00s</div>
     </div>
     <p id="desc">__DESC_TEXT__</p>
-    <script>window.__ARENA_RISE__ = __IS_RISE__;</script>
+    <script>window.__ARENA_MODE__ = "__BAKED_MODE__";</script>
     <script>
       const FALL_SECONDS = 2;
-      const IS_RISE = window.__ARENA_RISE__ === true;
+      const WRAP_SPEED = 360;
       const SOLID_SEGMENTS = __SOLID_SEGMENTS__;
-      const PLATFORM_SPAWNS = __PLATFORM_SPAWNS__;
       const BG_DATA_URL = "__BG_DATA_URL__";
       const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
@@ -115,9 +111,16 @@
       const descEl = document.getElementById("desc");
       const modeBadgeEl = document.getElementById("mode-badge");
       const btnDrop = document.getElementById("btn-drop");
-      const btnRise = document.getElementById("btn-rise");
+      const btnWrapRight = document.getElementById("btn-wrap-right");
+      const btnWrapLeft = document.getElementById("btn-wrap-left");
 
-      let mode = IS_RISE ? "rise" : "drop";
+      function parseInitialMode() {
+        const baked = window.__ARENA_MODE__;
+        if (baked === "drop" || baked === "wrap-right" || baked === "wrap-left") return baked;
+        return "drop";
+      }
+
+      let mode = parseInitialMode();
 
       let W = 1536;
       let H = 1024;
@@ -126,10 +129,14 @@
       let solid = null;
       let ready = false;
       let fallElapsed = 0;
+      let dropX = 768;
 
       const BALL_R = 14;
-      let balls = [];
-      let spawns = [];
+      let ball = null;
+
+      function isWrap() {
+        return mode === "wrap-right" || mode === "wrap-left";
+      }
 
       function buildSolidMap(segments, width, height) {
         const map = new Uint8Array(width * height);
@@ -140,139 +147,70 @@
         return map;
       }
 
-      function findPlatformSpawns(map, width, height) {
-        const caps = [];
-        for (let x = 0; x < width; x++) {
-          let prev = -1;
-          for (let y = 0; y < height; y++) {
-            if (!map[y * width + x]) {
-              prev = -1;
-              continue;
-            }
-            if (prev < 0 || y > prev + 1) caps.push({ x, capY: y });
-            prev = y;
-          }
-        }
-
-        const groups = [];
-        const Y_TOL = 30;
-        const MIN_SPAN = 45;
-
-        for (const cap of caps) {
-          let group = groups.find(
-            (g) =>
-              Math.abs(g.capY - cap.capY) <= Y_TOL &&
-              cap.x >= g.x0 - 20 &&
-              cap.x <= g.x1 + 20,
-          );
-          if (group) {
-            group.x0 = Math.min(group.x0, cap.x);
-            group.x1 = Math.max(group.x1, cap.x);
-            group.capY = Math.round((group.capY + cap.capY) / 2);
-          } else {
-            groups.push({ x0: cap.x, x1: cap.x, capY: cap.capY });
-          }
-        }
-
-        return groups
-          .filter((g) => g.x1 - g.x0 >= MIN_SPAN)
-          .map((g) => ({ x: Math.round((g.x0 + g.x1) / 2), capY: g.capY }))
-          .sort((a, b) => a.capY - b.capY || a.x - b.x);
-      }
-
-      function findSegmentBounds(map, width, height, x, nearY) {
-        let y = nearY;
-        if (!map[y * width + x]) {
-          let best = -1;
-          let bestDist = Infinity;
-          for (let yy = 0; yy < height; yy++) {
-            if (!map[yy * width + x]) continue;
-            const d = Math.abs(yy - nearY);
-            if (d < bestDist) {
-              bestDist = d;
-              best = yy;
-            }
-          }
-          if (best < 0) return { top: nearY, bottom: nearY };
-          y = best;
-        }
-
-        let top = y;
-        while (top > 0 && map[(top - 1) * width + x]) top--;
-        let bottom = y;
-        while (bottom < height - 1 && map[(bottom + 1) * width + x]) bottom++;
-        return { top, bottom };
-      }
-
-      function isRise() {
-        return mode === "rise";
-      }
-
-      function nextSolidBelow(map, width, x, belowY) {
-        for (let y = belowY + 1; y < map.length / width; y++) {
-          if (map[y * width + x]) return y;
-        }
-        return map.length / width;
-      }
-
-      function riseSpawnY(bounds, map, width, x, height) {
-        const gapFloor = bounds.bottom + BALL_R + 18;
-        const nextTop = nextSolidBelow(map, width, x, bounds.bottom);
-        const gapCeil = nextTop < height
-          ? nextTop - BALL_R - 18
-          : height - BALL_R - 8;
-        if (gapCeil <= gapFloor) return gapFloor;
-        return Math.min(gapCeil, Math.max(gapFloor, height * 0.82));
-      }
-
-      function createBall(spawn, map, width, height) {
-        const bounds = findSegmentBounds(map, width, height, spawn.x, spawn.capY);
-
-        if (isRise()) {
-          const riseX = pickRiseColumnX(spawn, map, width, height, bounds);
-          const riseBounds = findSegmentBounds(map, width, height, riseX, spawn.capY);
-          const spawnY = riseSpawnY(riseBounds, map, width, riseX, height);
-          return {
-            x: riseX,
-            y: spawnY,
-            spawnY,
-            vy: 0,
-            r: BALL_R,
-            restTimer: 0,
-            bounds: riseBounds,
-          };
-        }
-
-        let clearColumn = true;
-        for (let y = 0; y < spawn.capY - BALL_R - 2; y++) {
-          if (map[y * width + spawn.x]) {
-            clearColumn = false;
+      function findDropColumn(map, width, height) {
+        const mid = Math.floor(width / 2);
+        let centerGap = height;
+        for (let y = 0; y < height; y++) {
+          if (map[y * width + mid]) {
+            centerGap = y;
             break;
           }
         }
-        const spawnY = clearColumn
-          ? BALL_R
-          : Math.max(spawn.capY - BALL_R * 2 - 10, BALL_R);
+        if (centerGap >= 100) return mid;
+
+        let bestX = mid;
+        let bestGap = 0;
+        for (let x = 80; x < width - 80; x += 8) {
+          let first = height;
+          for (let y = 0; y < height; y++) {
+            if (map[y * width + x]) {
+              first = y;
+              break;
+            }
+          }
+          if (first > bestGap) {
+            bestGap = first;
+            bestX = x;
+          }
+        }
+        return bestX;
+      }
+
+      function createBall() {
+        if (isWrap()) {
+          return {
+            x: W / 2,
+            y: BALL_R,
+            spawnX: W / 2,
+            spawnY: BALL_R,
+            vy: 0,
+            vx: mode === "wrap-left" ? -WRAP_SPEED : WRAP_SPEED,
+            r: BALL_R,
+            restTimer: 0,
+            wrapCount: 0,
+          };
+        }
         return {
-          x: spawn.x,
-          y: spawnY,
-          spawnY,
+          x: dropX,
+          y: BALL_R,
+          spawnX: dropX,
+          spawnY: BALL_R,
           vy: 0,
+          vx: 0,
           r: BALL_R,
           restTimer: 0,
-          bounds,
+          wrapCount: 0,
         };
       }
 
-      function resetBall(ball) {
+      function resetBall() {
+        ball.x = ball.spawnX;
         ball.y = ball.spawnY;
         ball.vy = 0;
+        ball.vx = isWrap() ? (mode === "wrap-left" ? -WRAP_SPEED : WRAP_SPEED) : 0;
         ball.restTimer = 0;
-      }
-
-      function resetAllBalls() {
+        ball.wrapCount = 0;
         fallElapsed = 0;
-        for (const ball of balls) resetBall(ball);
       }
 
       function loadImage(src) {
@@ -291,41 +229,18 @@
         return solid[iy * W + ix] === 1;
       }
 
-      function headY(ball) {
-        return ball.y - ball.r;
-      }
-
-      function undersideY(cx, bounds) {
-        for (let y = bounds.bottom; y >= bounds.top; y--) {
-          if (isSolid(cx, y)) return y;
+      function wrapBallX() {
+        while (ball.x - ball.r > W) {
+          ball.x -= W;
+          ball.wrapCount++;
         }
-        return bounds.bottom;
-      }
-
-      function pickRiseColumnX(spawn, map, width, height, bounds) {
-        for (let dx = 0; dx <= 280; dx += 2) {
-          for (const x of [spawn.x - dx, spawn.x + dx]) {
-            if (x < 0 || x >= width) continue;
-            const b = findSegmentBounds(map, width, height, x, spawn.capY);
-            if (Math.abs(b.top - bounds.top) > 2 || Math.abs(b.bottom - bounds.bottom) > 2) continue;
-
-            let segments = 0;
-            let prev = -1;
-            for (let y = 0; y < height; y++) {
-              if (!map[y * width + x]) {
-                prev = -1;
-                continue;
-              }
-              if (prev < 0 || y > prev + 1) segments++;
-              prev = y;
-            }
-            if (segments === 1) return x;
-          }
+        while (ball.x + ball.r < 0) {
+          ball.x += W;
+          ball.wrapCount++;
         }
-        return spawn.x;
       }
 
-      function landOnPlatforms(ball, dt) {
+      function landOnPlatforms(dt) {
         if (ball.vy <= 0) return;
 
         const cx = Math.round(ball.x);
@@ -345,47 +260,8 @@
         }
       }
 
-      function snapBallToUnderside(ball, undersideRow) {
-        // Top of ball (not center) touches the platform's bottom solid row.
-        ball.y = undersideRow + ball.r;
-        ball.vy = 0;
-      }
-
-      function hitUnderside(ball, dt) {
-        if (ball.vy >= 0) return;
-
-        const cx = Math.round(ball.x);
-        const undersideRow = undersideY(cx, ball.bounds);
-        const top = ball.y - ball.r;
-        const prevTop = top - ball.vy * dt;
-
-        if (prevTop >= undersideRow && top <= undersideRow) {
-          snapBallToUnderside(ball, undersideRow);
-          return;
-        }
-
-        const yLo = Math.min(prevTop, top);
-        const yHi = Math.max(prevTop, top);
-        let hitRow = null;
-        for (let y = Math.floor(yLo); y <= Math.ceil(yHi); y++) {
-          if (!isSolid(cx, y)) continue;
-          if (y < ball.bounds.top || y > ball.bounds.bottom) continue;
-          if (hitRow === null || y > hitRow) hitRow = y;
-        }
-        if (hitRow !== null) snapBallToUnderside(ball, hitRow);
-      }
-
-      function pushOutOfSolids(ball) {
+      function pushOutOfSolids() {
         if (!isSolid(ball.x, ball.y)) return;
-
-        if (isRise()) {
-          const undersideRow = undersideY(Math.round(ball.x), ball.bounds);
-          if (ball.y - ball.r <= undersideRow) {
-            snapBallToUnderside(ball, undersideRow);
-          }
-          return;
-        }
-
         for (let y = Math.floor(ball.y - ball.r); y <= Math.ceil(ball.y + ball.r); y++) {
           for (let x = Math.floor(ball.x - ball.r); x <= Math.ceil(ball.x + ball.r); x++) {
             if (!isSolid(x, y)) continue;
@@ -396,11 +272,7 @@
         }
       }
 
-      function restingOnSolid(ball) {
-        if (isRise()) {
-          const undersideRow = undersideY(Math.round(ball.x), ball.bounds);
-          return ball.y - ball.r <= undersideRow + 0.5;
-        }
+      function restingOnSolid() {
         return isSolid(ball.x, ball.y + ball.r + 1)
           || isSolid(ball.x - ball.r * 0.5, ball.y + ball.r + 1)
           || isSolid(ball.x + ball.r * 0.5, ball.y + ball.r + 1);
@@ -408,25 +280,37 @@
 
       function step(dt) {
         fallElapsed += dt;
-        const g = isRise() ? -gravity : gravity;
 
-        for (const ball of balls) {
-          ball.vy += g * dt;
-          ball.y += ball.vy * dt;
-          if (isRise()) hitUnderside(ball, dt);
-          else landOnPlatforms(ball, dt);
-          pushOutOfSolids(ball);
-
-          if (ball.vy === 0 && restingOnSolid(ball)) {
-            ball.restTimer += dt;
-            if (ball.restTimer > 2.5) resetBall(ball);
-          } else {
-            ball.restTimer = 0;
-          }
+        if (isWrap()) {
+          ball.x += ball.vx * dt;
+          wrapBallX();
+          timerEl.textContent = `wraps: ${ball.wrapCount}  x: ${Math.round(ball.x)}  vx: ${ball.vx > 0 ? "→" : "←"}`;
+          return;
         }
 
-        const label = isRise() ? "rise ↑" : "fall ↓";
-        timerEl.textContent = `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s ${label}`;
+        ball.vy += gravity * dt;
+        ball.y += ball.vy * dt;
+        landOnPlatforms(dt);
+        pushOutOfSolids();
+
+        if (ball.vy === 0 && restingOnSolid()) {
+          ball.restTimer += dt;
+          if (ball.restTimer > 2.5) resetBall();
+        } else {
+          ball.restTimer = 0;
+        }
+
+        timerEl.textContent = `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s`;
+      }
+
+      function drawBallAt(x, y) {
+        ctx.beginPath();
+        ctx.arc(x, y, ball.r, 0, Math.PI * 2);
+        ctx.fillStyle = "#ff3b3b";
+        ctx.fill();
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
       }
 
       function drawFrame() {
@@ -434,15 +318,10 @@
         ctx.fillRect(0, 0, W, H);
         if (background) ctx.drawImage(background, 0, 0, W, H);
 
-        for (const ball of balls) {
-          ctx.beginPath();
-          ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
-          ctx.fillStyle = isRise() ? "#3bffff" : "#ff3b3b";
-          ctx.fill();
-          ctx.strokeStyle = isRise() ? "#cff" : "#fff";
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        }
+        const drawXs = [ball.x];
+        if (ball.x - ball.r < 0) drawXs.push(ball.x + W);
+        if (ball.x + ball.r > W) drawXs.push(ball.x - W);
+        for (const x of drawXs) drawBallAt(x, ball.y);
       }
 
       let lastFrame = 0;
@@ -462,34 +341,38 @@
 
       function applyModeCopy() {
         btnDrop.className = mode === "drop" ? "active" : "";
-        btnRise.className = mode === "rise" ? "active-rise" : "";
-        modeBadgeEl.className = mode === "rise" ? "rise" : "";
-        modeBadgeEl.textContent = mode === "rise" ? "RISE ↑" : "DROP ↓";
+        btnWrapRight.className = mode === "wrap-right" ? "active-wrap" : "";
+        btnWrapLeft.className = mode === "wrap-left" ? "active-wrap" : "";
 
-        if (mode === "rise") {
-          titleEl.textContent = "Underside test — balls rise in 2 seconds";
-          descEl.textContent = "Cyan balls start near the bottom and rise with reversed gravity until they hit each platform underside.";
+        if (mode === "wrap-right") {
+          titleEl.textContent = "Wrap test — exits right, re-enters left";
+          descEl.textContent = "Single red ball at the top moves right. When it leaves the right edge it wraps to the left.";
+          modeBadgeEl.textContent = "WRAP →";
+        } else if (mode === "wrap-left") {
+          titleEl.textContent = "Wrap test — exits left, re-enters right";
+          descEl.textContent = "Single red ball at the top moves left. When it leaves the left edge it wraps to the right.";
+          modeBadgeEl.textContent = "WRAP ←";
         } else {
           titleEl.textContent = "Gravity test — vertical drop in 2 seconds";
-          descEl.textContent = "Red balls drop onto each platform top. Click ↑ Rise test (undersides) to send cyan balls upward instead.";
+          descEl.textContent = "Single red ball drops from the top center onto the platform below.";
+          modeBadgeEl.textContent = "DROP ↓";
         }
-      }
-
-      function setupBalls() {
-        balls = spawns.map((spawn) => createBall(spawn, solid, W, H));
-        resetAllBalls();
-        lastFrame = 0;
       }
 
       function setMode(next) {
         if (mode === next) return;
         mode = next;
         applyModeCopy();
-        if (solid) setupBalls();
+        if (solid) {
+          ball = createBall();
+          resetBall();
+          lastFrame = 0;
+        }
       }
 
       btnDrop.addEventListener("click", () => setMode("drop"));
-      btnRise.addEventListener("click", () => setMode("rise"));
+      btnWrapRight.addEventListener("click", () => setMode("wrap-right"));
+      btnWrapLeft.addEventListener("click", () => setMode("wrap-left"));
 
       async function init() {
         applyModeCopy();
@@ -513,15 +396,12 @@
         H = background.naturalHeight;
         gravity = H / (0.5 * FALL_SECONDS * FALL_SECONDS);
         solid = buildSolidMap(SOLID_SEGMENTS, W, H);
-
-        spawns =
-          Array.isArray(PLATFORM_SPAWNS) && PLATFORM_SPAWNS.length
-            ? PLATFORM_SPAWNS
-            : findPlatformSpawns(solid, W, H);
+        dropX = findDropColumn(solid, W, H);
 
         canvas.width = W;
         canvas.height = H;
-        setupBalls();
+        ball = createBall();
+        resetBall();
         ready = true;
         statusEl.style.display = "none";
         lastFrame = 0;
