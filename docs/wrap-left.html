@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">Wrap test — exits left, re-enters right</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27m</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27n</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -306,23 +306,40 @@
         }
       }
 
-      function clampBallToScreen() {
-        const left = BALL_R;
-        const right = W - BALL_R;
+      function landOnPlatforms(dt) {
+        if (ball.vy <= 0) return;
+
+        const cx = Math.round(ball.x);
+        const footY = ball.y + ball.r;
+        const nextFoot = footY + ball.vy * dt;
+        let surface = null;
+
+        for (let y = Math.floor(footY); y <= Math.ceil(nextFoot); y++) {
+          if (!isSolid(cx, y)) continue;
+          surface = y;
+          break;
+        }
+
+        if (surface !== null) {
+          ball.y = surface - ball.r - 0.01;
+          ball.vy = 0;
+        }
+      }
+
+      function pushOutOfSolids() {
+        if (!isSolid(ball.x, ball.y)) return;
+        for (let y = Math.floor(ball.y - ball.r); y <= Math.ceil(ball.y + ball.r); y++) {
+          for (let x = Math.floor(ball.x - ball.r); x <= Math.ceil(ball.x + ball.r); x++) {
+            if (!isSolid(x, y)) continue;
+            ball.y = y - ball.r - 0.01;
+            ball.vy = 0;
+            return;
+          }
+        }
+      }
+
+      function clampBallToTop() {
         const top = BALL_R;
-        const bottom = H - BALL_R;
-        if (ball.x < left) {
-          ball.x = left;
-          if (ball.vx < 0) ball.vx = 0;
-        }
-        if (ball.x > right) {
-          ball.x = right;
-          if (ball.vx > 0) ball.vx = 0;
-        }
-        if (ball.y > bottom) {
-          ball.y = bottom;
-          if (ball.vy > 0) ball.vy = 0;
-        }
         if (ball.y < top) {
           ball.y = top;
           if (ball.vy < 0) ball.vy = 0;
@@ -332,14 +349,18 @@
       function stepDrop(dt) {
         const ay = liftPressed ? -accelX / 2 : accelX;
         let ax = 0;
-        if (leftPressed) ax -= accelX / 2;
-        if (rightPressed) ax += accelX / 2;
+        if (leftPressed) ax -= accelX;
+        if (rightPressed) ax += accelX;
 
         ball.vy += ay * dt;
         ball.vx += ax * dt;
         ball.y += ball.vy * dt;
         ball.x += ball.vx * dt;
-        clampBallToScreen();
+
+        landOnPlatforms(dt);
+        pushOutOfSolids();
+        clampBallToTop();
+        wrapBallX();
 
         const vBottom = accelX * FALL_SECONDS;
         timerEl.textContent =
@@ -414,7 +435,7 @@
         } else {
           titleEl.textContent = "Gravity test — vertical drop in 3 seconds";
           descEl.textContent =
-            "Ball falls top to bottom in 3s with acceleration x. Center button: upward x/2. Left/right arrows: horizontal x/2 — vertical gravity is unchanged while steering.";
+            "Ball falls with acceleration x (3s screen drop). Center: upward x/2. Left/right: horizontal x. Platforms collide; horizontal edges wrap.";
           modeBadgeEl.textContent = "DROP ↓";
         }
 
