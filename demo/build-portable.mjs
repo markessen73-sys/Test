@@ -49,9 +49,9 @@ async function build() {
   function embedPortable(source, bakedMode) {
     const copies = {
       drop: {
-        title: "Cybertruck Arena",
+        title: "Ford Capri Arena",
         desc:
-          "Tap ← / lift / → to drive. Truck faces left when moving left, right otherwise. Platforms are frictionless; landings bounce.",
+          "Tap ← / lift / → to drive. Capri faces left when moving left, right otherwise. Platforms are frictionless; landings bounce.",
         btnDrop: "active",
         btnWrapRight: "",
         btnWrapLeft: "",

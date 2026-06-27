@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cybertruck Arena</title>
+    <title>Ford Capri Arena</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27v</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27w</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -189,17 +189,17 @@
       let dropX = 768;
 
       const BALL_R = 14;
-      const TRUCK_W = BALL_R * 6;
-      const TRUCK_H = BALL_R * 4;
-      const TRUCK_HW = TRUCK_W / 2;
-      const TRUCK_HH = TRUCK_H / 2;
+      const CAR_W = BALL_R * 8;
+      const CAR_H = BALL_R * 4;
+      const CAR_HW = CAR_W / 2;
+      const CAR_HH = CAR_H / 2;
       const TAP_IMPULSE_T = 0.12;
       let ball = null;
-      let truckSprite = null;
-      let truckPixelsRight = [];
+      let carSprite = null;
+      let carPixelsRight = [];
 
       function fallDistance() {
-        return H - TRUCK_HH * 2;
+        return H - CAR_HH * 2;
       }
 
       function computeAccelX() {
@@ -252,9 +252,9 @@
         if (isWrap()) {
           return {
             x: W / 2,
-            y: TRUCK_HH,
+            y: CAR_HH,
             spawnX: W / 2,
-            spawnY: TRUCK_HH,
+            spawnY: CAR_HH,
             vy: 0,
             vx: mode === "wrap-left" ? -WRAP_SPEED : WRAP_SPEED,
             restTimer: 0,
@@ -263,9 +263,9 @@
         }
         return {
           x: dropX,
-          y: TRUCK_HH,
+          y: CAR_HH,
           spawnX: dropX,
-          spawnY: TRUCK_HH,
+          spawnY: CAR_HH,
           vy: 0,
           vx: 0,
           restTimer: 0,
@@ -292,118 +292,121 @@
         });
       }
 
-      function drawCybertruckRight(ctx, w, h) {
+      function drawCapriRight(ctx, w, h) {
         ctx.clearRect(0, 0, w, h);
 
-        const steelHi = "#d6dae1";
-        const steel = "#b9bec7";
-        const steelLo = "#8f959f";
-        const trim = "#161618";
-        const arch = "#101012";
-        const glass = "#142232";
-        const glassHi = "#2f4f68";
+        const blue = "#74bfe8";
+        const blueHi = "#a8d8f6";
+        const blueLo = "#4a96c8";
+        const chrome = "#d4dae4";
+        const glass = "#2e4458";
+        const glassHi = "#4f7088";
+        const sill = "#101012";
         const tire = "#0a0a0a";
-        const tread = "#1f1f1f";
-        const hub = "#0e0e0e";
-        const light = "#eef6ff";
+        const bumper = "#18181a";
+        const indicator = "#e07018";
 
-        const trimH = 7;
-        const bodyBottom = h - trimH;
-        const rearWheelX = 21;
-        const frontWheelX = 63;
-        const wheelR = 10;
+        const sillH = 5;
+        const bottom = h - sillH;
+        const rearWheelX = 30;
+        const frontWheelX = 90;
+        const wheelR = 9;
 
         function drawWheel(cx) {
-          ctx.fillStyle = arch;
-          ctx.beginPath();
-          ctx.moveTo(cx - 12, bodyBottom);
-          ctx.lineTo(cx - 9, bodyBottom - 11);
-          ctx.lineTo(cx + 9, bodyBottom - 11);
-          ctx.lineTo(cx + 12, bodyBottom);
-          ctx.closePath();
-          ctx.fill();
-
           ctx.fillStyle = tire;
           ctx.beginPath();
-          ctx.ellipse(cx, bodyBottom - 1, wheelR, wheelR - 1, 0, 0, Math.PI * 2);
+          ctx.ellipse(cx, bottom - 1, wheelR, wheelR - 1, 0, 0, Math.PI * 2);
           ctx.fill();
 
-          ctx.fillStyle = tread;
-          ctx.fillRect(cx - wheelR + 2, bodyBottom - wheelR - 2, wheelR * 2 - 4, 3);
-
-          ctx.fillStyle = hub;
+          ctx.strokeStyle = chrome;
+          ctx.lineWidth = 1.5;
           ctx.beginPath();
-          for (let i = 0; i < 7; i++) {
-            const a0 = (i / 7) * Math.PI * 2 - Math.PI / 2;
-            const a1 = ((i + 0.42) / 7) * Math.PI * 2 - Math.PI / 2;
-            const a2 = ((i + 1) / 7) * Math.PI * 2 - Math.PI / 2;
-            if (i === 0) ctx.moveTo(cx + Math.cos(a0) * 5, bodyBottom - 1 + Math.sin(a0) * 5);
-            ctx.lineTo(cx + Math.cos(a1) * 2.2, bodyBottom - 1 + Math.sin(a1) * 2.2);
-            ctx.lineTo(cx + Math.cos(a2) * 5, bodyBottom - 1 + Math.sin(a2) * 5);
+          ctx.ellipse(cx, bottom - 1, wheelR - 2, wheelR - 3, 0, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.fillStyle = "#101010";
+          for (let i = 0; i < 4; i++) {
+            const a = (i / 4) * Math.PI * 2 - Math.PI / 4;
+            ctx.beginPath();
+            ctx.moveTo(cx, bottom - 1);
+            ctx.lineTo(cx + Math.cos(a) * 5.5, bottom - 1 + Math.sin(a) * 5.5);
+            ctx.lineTo(cx + Math.cos(a + 0.12) * 2, bottom - 1 + Math.sin(a + 0.12) * 2);
+            ctx.closePath();
+            ctx.fill();
           }
-          ctx.closePath();
-          ctx.fill();
         }
 
         drawWheel(rearWheelX);
         drawWheel(frontWheelX);
 
-        const bodyGrad = ctx.createLinearGradient(0, 0, w, h);
-        bodyGrad.addColorStop(0, steelLo);
-        bodyGrad.addColorStop(0.35, steelHi);
-        bodyGrad.addColorStop(0.7, steel);
-        bodyGrad.addColorStop(1, steelHi);
+        const bodyGrad = ctx.createLinearGradient(0, 0, w, 0);
+        bodyGrad.addColorStop(0, blueLo);
+        bodyGrad.addColorStop(0.45, blueHi);
+        bodyGrad.addColorStop(1, blue);
 
         ctx.fillStyle = bodyGrad;
         ctx.beginPath();
-        ctx.moveTo(2, bodyBottom);
-        ctx.lineTo(2, bodyBottom - 5);
-        ctx.lineTo(7, bodyBottom - 11);
-        ctx.lineTo(32, bodyBottom - 37);
-        ctx.lineTo(48, bodyBottom - 45);
-        ctx.lineTo(66, bodyBottom - 17);
-        ctx.lineTo(w - 2, bodyBottom - 13);
-        ctx.lineTo(w - 1, bodyBottom - 7);
-        ctx.lineTo(w - 1, bodyBottom);
+        ctx.moveTo(3, bottom);
+        ctx.lineTo(3, bottom - 7);
+        ctx.lineTo(9, bottom - 13);
+        ctx.lineTo(54, bottom - 30);
+        ctx.lineTo(82, bottom - 32);
+        ctx.lineTo(92, bottom - 25);
+        ctx.lineTo(w - 3, bottom - 19);
+        ctx.lineTo(w - 2, bottom - 12);
+        ctx.lineTo(w - 2, bottom - 7);
+        ctx.lineTo(w - 4, bottom - 5);
+        ctx.lineTo(3, bottom - 5);
         ctx.closePath();
         ctx.fill();
 
-        ctx.strokeStyle = steelLo;
-        ctx.lineWidth = 0.75;
-        ctx.beginPath();
-        ctx.moveTo(12, bodyBottom - 9);
-        ctx.lineTo(36, bodyBottom - 33);
-        ctx.stroke();
+        ctx.fillStyle = bumper;
+        ctx.fillRect(1, bottom - 6, 11, 4);
+        ctx.fillRect(w - 12, bottom - 6, 11, 4);
 
         ctx.fillStyle = glass;
+        ctx.fillRect(62, bottom - 29, 24, 11);
         ctx.beginPath();
-        ctx.moveTo(44, bodyBottom - 43);
-        ctx.lineTo(57, bodyBottom - 43);
-        ctx.lineTo(63, bodyBottom - 21);
-        ctx.lineTo(47, bodyBottom - 21);
+        ctx.moveTo(44, bottom - 28);
+        ctx.lineTo(57, bottom - 28);
+        ctx.lineTo(59, bottom - 20);
+        ctx.lineTo(42, bottom - 20);
         ctx.closePath();
         ctx.fill();
+
+        ctx.strokeStyle = chrome;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(62, bottom - 29, 24, 11);
+        ctx.beginPath();
+        ctx.moveTo(44, bottom - 28);
+        ctx.lineTo(57, bottom - 28);
+        ctx.lineTo(59, bottom - 20);
+        ctx.lineTo(42, bottom - 20);
+        ctx.closePath();
+        ctx.stroke();
 
         ctx.fillStyle = glassHi;
+        ctx.fillRect(64, bottom - 28, 9, 4);
+
+        ctx.fillStyle = chrome;
+        ctx.fillRect(55, bottom - 19, 6, 2);
+        for (let i = 0; i < 3; i++) ctx.fillRect(32 + i * 4, bottom - 22, 3, 1);
+
+        ctx.fillStyle = indicator;
+        ctx.fillRect(w - 24, bottom - 16, 5, 2);
+
+        ctx.fillStyle = sill;
+        ctx.fillRect(0, bottom, w, sillH);
+
+        ctx.strokeStyle = blueLo;
+        ctx.lineWidth = 0.75;
         ctx.beginPath();
-        ctx.moveTo(46, bodyBottom - 41);
-        ctx.lineTo(53, bodyBottom - 41);
-        ctx.lineTo(57, bodyBottom - 27);
-        ctx.lineTo(49, bodyBottom - 27);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.fillStyle = trim;
-        ctx.fillRect(0, bodyBottom, w, trimH);
-
-        ctx.fillStyle = light;
-        ctx.fillRect(w - 2, bodyBottom - 21, 2, 5);
-
-        ctx.fillStyle = "#c62828";
-        ctx.fillRect(1, bodyBottom - 15, 2, 4);
+        ctx.moveTo(10, bottom - 9);
+        ctx.lineTo(w - 10, bottom - 9);
+        ctx.stroke();
       }
 
-      function extractTruckPixels(canvas) {
+      function extractCarPixels(canvas) {
         const w = canvas.width;
         const h = canvas.height;
         const data = canvas.getContext("2d").getImageData(0, 0, w, h).data;
@@ -420,23 +423,23 @@
         return pixels;
       }
 
-      function buildCybertruck() {
+      function buildCapri() {
         const scratch = document.createElement("canvas");
-        scratch.width = TRUCK_W;
-        scratch.height = TRUCK_H;
+        scratch.width = CAR_W;
+        scratch.height = CAR_H;
         const sctx = scratch.getContext("2d");
-        drawCybertruckRight(sctx, TRUCK_W, TRUCK_H);
-        truckSprite = scratch;
-        truckPixelsRight = extractTruckPixels(scratch);
+        drawCapriRight(sctx, CAR_W, CAR_H);
+        carSprite = scratch;
+        carPixelsRight = extractCarPixels(scratch);
       }
 
-      function truckFacingLeft() {
+      function carFacingLeft() {
         return ball.vx < 0;
       }
 
-      function activeTruckPixels() {
-        if (!truckFacingLeft()) return truckPixelsRight;
-        return truckPixelsRight.map(([dx, dy]) => [-dx, dy]);
+      function activeCarPixels() {
+        if (!carFacingLeft()) return carPixelsRight;
+        return carPixelsRight.map(([dx, dy]) => [-dx, dy]);
       }
 
       function buildDebugBackground(img, width, height) {
@@ -463,7 +466,7 @@
       }
 
       function ballOverlapsSolid(cx, cy) {
-        for (const [dx, dy] of activeTruckPixels()) {
+        for (const [dx, dy] of activeCarPixels()) {
           if (solidAt(Math.floor(cx + dx), Math.floor(cy + dy))) return true;
         }
         return false;
@@ -528,7 +531,7 @@
           [1, 1],
         ];
 
-        for (let dist = 1; dist <= Math.max(TRUCK_HW, TRUCK_HH) + 4; dist++) {
+        for (let dist = 1; dist <= Math.max(CAR_HW, CAR_HH) + 4; dist++) {
           for (const [dx, dy] of dirs) {
             ball.x = originX + dx * dist;
             ball.y = originY + dy * dist;
@@ -545,18 +548,18 @@
       }
 
       function wrapBallX() {
-        while (ball.x - TRUCK_HW > W) {
+        while (ball.x - CAR_HW > W) {
           ball.x -= W;
           ball.wrapCount++;
         }
-        while (ball.x + TRUCK_HW < 0) {
+        while (ball.x + CAR_HW < 0) {
           ball.x += W;
           ball.wrapCount++;
         }
       }
 
       function clampBallToTop() {
-        const top = TRUCK_HH;
+        const top = CAR_HH;
         if (ball.y < top) {
           ball.y = top;
           if (ball.vy < 0) ball.vy = 0;
@@ -574,7 +577,7 @@
         timerEl.textContent =
           `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s  ` +
           `vy: ${ball.vy.toFixed(0)}  vx: ${ball.vx.toFixed(0)}  ` +
-          `px: ${activeTruckPixels().length}  ` +
+          `px: ${activeCarPixels().length}  ` +
           `(v₀=0 → vₘₐₓ=${vBottom.toFixed(0)})`;
       }
 
@@ -591,13 +594,13 @@
         stepDrop(dt);
       }
 
-      function drawTruckAt(cx, cy) {
-        if (!truckSprite) return;
+      function drawCarAt(cx, cy) {
+        if (!carSprite) return;
         ctx.save();
         ctx.translate(cx, cy);
-        if (truckFacingLeft()) ctx.scale(-1, 1);
+        if (carFacingLeft()) ctx.scale(-1, 1);
         ctx.imageSmoothingEnabled = true;
-        ctx.drawImage(truckSprite, -TRUCK_HW, -TRUCK_HH, TRUCK_W, TRUCK_H);
+        ctx.drawImage(carSprite, -CAR_HW, -CAR_HH, CAR_W, CAR_H);
         ctx.restore();
       }
 
@@ -608,9 +611,9 @@
         if (bg) ctx.drawImage(bg, 0, 0, W, H);
 
         const drawXs = [ball.x];
-        if (ball.x - TRUCK_HW < 0) drawXs.push(ball.x + W);
-        if (ball.x + TRUCK_HW > W) drawXs.push(ball.x - W);
-        for (const x of drawXs) drawTruckAt(x, ball.y);
+        if (ball.x - CAR_HW < 0) drawXs.push(ball.x + W);
+        if (ball.x + CAR_HW > W) drawXs.push(ball.x - W);
+        for (const x of drawXs) drawCarAt(x, ball.y);
       }
 
       let lastFrame = 0;
@@ -635,16 +638,16 @@
 
         if (mode === "wrap-right") {
           titleEl.textContent = "Wrap test — exits right, re-enters left";
-          descEl.textContent = "Cybertruck at the top moves right. When it leaves the right edge it wraps to the left.";
+          descEl.textContent = "Ford Capri at the top moves right. When it leaves the right edge it wraps to the left.";
           modeBadgeEl.textContent = "WRAP →";
         } else if (mode === "wrap-left") {
           titleEl.textContent = "Wrap test — exits left, re-enters right";
-          descEl.textContent = "Cybertruck at the top moves left. When it leaves the left edge it wraps to the right.";
+          descEl.textContent = "Ford Capri at the top moves left. When it leaves the left edge it wraps to the right.";
           modeBadgeEl.textContent = "WRAP ←";
         } else {
-          titleEl.textContent = "Cybertruck Arena";
+          titleEl.textContent = "Ford Capri Arena";
           descEl.textContent =
-            "Tap ← / lift / → to drive. Truck faces left when moving left, right otherwise. Platforms are frictionless; landings bounce.";
+            "Tap ← / lift / → to drive. Capri faces left when moving left, right otherwise. Platforms are frictionless; landings bounce.";
           modeBadgeEl.textContent = "DROP ↓";
         }
 
@@ -718,7 +721,7 @@
         H = background.naturalHeight;
         accelX = computeAccelX();
         solid = buildSolidMap(SOLID_SEGMENTS, W, H);
-        buildCybertruck();
+        buildCapri();
         if (DEBUG_GREEN_BG) {
           debugBackground = buildDebugBackground(background, W, H);
         }
