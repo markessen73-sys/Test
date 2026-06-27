@@ -88,7 +88,7 @@
   </head>
   <body>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27i</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27j</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop test (tops)</button>
       <button type="button" id="btn-rise" class="__BTN_RISE_CLASS__">↑ Rise test (undersides)</button>
@@ -345,47 +345,43 @@
         }
       }
 
+      function snapBallToUnderside(ball, undersideRow) {
+        // Top of ball (not center) touches the platform's bottom solid row.
+        ball.y = undersideRow + ball.r;
+        ball.vy = 0;
+      }
+
       function hitUnderside(ball, dt) {
         if (ball.vy >= 0) return;
 
         const cx = Math.round(ball.x);
-        const underside = undersideY(cx, ball.bounds);
-        const head = headY(ball);
-        const prevHead = head - ball.vy * dt;
+        const undersideRow = undersideY(cx, ball.bounds);
+        const top = ball.y - ball.r;
+        const prevTop = top - ball.vy * dt;
 
-        if (prevHead > underside && head <= underside) {
-          ball.y = underside + ball.r + 0.01;
-          ball.vy = 0;
+        if (prevTop >= undersideRow && top <= undersideRow) {
+          snapBallToUnderside(ball, undersideRow);
           return;
         }
 
-        const y0 = Math.min(prevHead, head);
-        const y1 = Math.max(prevHead, head);
-        for (let y = Math.ceil(y1); y >= Math.floor(y0); y--) {
+        const yLo = Math.min(prevTop, top);
+        const yHi = Math.max(prevTop, top);
+        let hitRow = null;
+        for (let y = Math.floor(yLo); y <= Math.ceil(yHi); y++) {
           if (!isSolid(cx, y)) continue;
           if (y < ball.bounds.top || y > ball.bounds.bottom) continue;
-          ball.y = y + ball.r + 0.01;
-          ball.vy = 0;
-          return;
+          if (hitRow === null || y > hitRow) hitRow = y;
         }
+        if (hitRow !== null) snapBallToUnderside(ball, hitRow);
       }
 
       function pushOutOfSolids(ball) {
         if (!isSolid(ball.x, ball.y)) return;
 
         if (isRise()) {
-          const cx = Math.round(ball.x);
-          const underside = undersideY(cx, ball.bounds);
-          if (headY(ball) < underside + 2) {
-            ball.y = underside + ball.r + 0.01;
-            ball.vy = 0;
-            return;
-          }
-          for (let y = Math.ceil(ball.y + ball.r); y < H; y++) {
-            if (isSolid(ball.x, y)) continue;
-            ball.y = y + ball.r + 0.01;
-            ball.vy = 0;
-            return;
+          const undersideRow = undersideY(Math.round(ball.x), ball.bounds);
+          if (ball.y - ball.r <= undersideRow) {
+            snapBallToUnderside(ball, undersideRow);
           }
           return;
         }
@@ -402,8 +398,8 @@
 
       function restingOnSolid(ball) {
         if (isRise()) {
-          const underside = undersideY(Math.round(ball.x), ball.bounds);
-          return headY(ball) <= underside + 1.5;
+          const undersideRow = undersideY(Math.round(ball.x), ball.bounds);
+          return ball.y - ball.r <= undersideRow + 0.5;
         }
         return isSolid(ball.x, ball.y + ball.r + 1)
           || isSolid(ball.x - ball.r * 0.5, ball.y + ball.r + 1)
