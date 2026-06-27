@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28i</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28j</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -195,7 +195,8 @@
       const CAR_HW = CAR_W / 2;
       const CAR_HH = CAR_H / 2;
       const TAP_IMPULSE_T = 0.12;
-      const ZOOX_MARGIN = 2;
+      const ZOOX_MARGIN = 3;
+      const ZOOX_EVADE_LOOK = 120;
       const ZOOX_CRUISE_VX = 300;
       const ZOOX_PATH_STEP = 44;
       const ZOOX_LOOKAHEAD = 140;
@@ -799,6 +800,48 @@
         return min;
       }
 
+      function zooxVerticalRoom(cx, cy, pixels, dir) {
+        let room = 0;
+        for (const step of [12, 24, 40, 60, 90, 120, 160]) {
+          if (!zooxFits(cx, cy + dir * step, pixels)) break;
+          room = step;
+        }
+        return room;
+      }
+
+      function zooxThreatAhead(cx, cy, pixels) {
+        for (const ax of [16, 40, 72, ZOOX_EVADE_LOOK]) {
+          if (!zooxFits(cx + ax, cy, pixels)) return true;
+        }
+        return false;
+      }
+
+      function zooxNeedsEvade(cx, cy, pixels) {
+        if (!zooxFits(cx, cy, pixels)) return true;
+        return zooxThreatAhead(cx, cy, pixels);
+      }
+
+      function zooxPickDodgeDir(cx, cy, pixels) {
+        const upRoom = zooxVerticalRoom(cx, cy, pixels, -1);
+        const downRoom = zooxVerticalRoom(cx, cy, pixels, 1);
+        const look = cx + ZOOX_EVADE_LOOK * 0.45;
+        let upScore = upRoom;
+        let downScore = downRoom;
+
+        for (const shift of [24, 48, 72]) {
+          if (zooxFits(look, cy - shift, pixels)) upScore += 30;
+          else break;
+        }
+        for (const shift of [24, 48, 72]) {
+          if (zooxFits(look, cy + shift, pixels)) downScore += 30;
+          else break;
+        }
+
+        if (upScore > downScore + 6) return -1;
+        if (downScore > upScore + 6) return 1;
+        return upScore >= downScore ? -1 : 1;
+      }
+
       function buildZooxPath(pixels) {
         const surfaceY = findSurfaceAt(solid, ZOOX_SPAWN.x, ZOOX_SPAWN.minY);
         let y = surfaceY ? vehicleYOnSurface(surfaceY, pixels) : CAR_HH;
@@ -855,6 +898,8 @@
           wrapCount: 0,
           steerTimer: 0.5,
           stuckTimer: 0,
+          evadeDir: 0,
+          evadeTimer: 0,
         };
         let guard = 0;
         while (zooxOverlapsSolid(zoox.x, zoox.y, zooxPixelsLeft) && guard++ < CAR_H) zoox.y -= 1;
@@ -935,6 +980,53 @@
         resolveEntityOverlap(entity, pixels, probe);
       }
 
+      function moveZooxPixels(dx, dy) {
+        const pixels = zooxBundle().pixels;
+        const probe = zooxSolidAt;
+        const overlaps = (cx, cy) => vehicleOverlapsSolidAt(cx, cy, pixels, probe);
+        const evading = zoox.evadeTimer > 0 || zooxNeedsEvade(zoox.x, zoox.y, pixels);
+
+        const moveAxis = (axis, delta) => {
+          if (delta === 0) return;
+          const steps = Math.max(1, Math.ceil(Math.abs(delta)));
+          const step = delta / steps;
+          for (let i = 0; i < steps; i++) {
+            if (axis === "x") zoox.x += step;
+            else zoox.y += step;
+            if (overlaps(zoox.x, zoox.y)) {
+              if (axis === "x") {
+                zoox.x -= step;
+                const dir = zoox.evadeDir || zooxPickDodgeDir(zoox.x, zoox.y, pixels);
+                zoox.evadeDir = dir;
+                zoox.evadeTimer = Math.max(zoox.evadeTimer, 0.22);
+                zoox.vy += dir * tapImpulseY() * 0.42;
+                const nudge = dir * Math.min(8, Math.max(2, Math.abs(step) * 3));
+                zoox.y += nudge;
+                if (overlaps(zoox.x, zoox.y)) zoox.y -= nudge;
+              } else {
+                zoox.y -= step;
+                if (step > 0 && zoox.vy > 0) {
+                  zoox.vy = -bounceVelocity() * 0.35;
+                  while (overlaps(zoox.x, zoox.y)) zoox.y -= 1;
+                } else {
+                  zoox.vy = 0;
+                }
+              }
+              return;
+            }
+          }
+        };
+
+        if (evading) {
+          moveAxis("y", dy);
+          moveAxis("x", dx);
+        } else {
+          moveAxis("x", dx);
+          moveAxis("y", dy);
+        }
+        resolveEntityOverlap(zoox, pixels, probe);
+      }
+
       function moveBallPixels(dx, dy) {
         moveEntityPixels(ball, activeCarPixels(), dx, dy, solidAt);
       }
@@ -1005,7 +1097,36 @@
         clampEntityToTop(ball, activeCarPixels());
       }
 
+      function evadeZoox(dt) {
+        const pixels = zooxBundle().pixels;
+        const threatened = zooxNeedsEvade(zoox.x, zoox.y, pixels);
+
+        if (zoox.evadeTimer > 0) {
+          zoox.evadeTimer -= dt;
+          const dir = zoox.evadeDir;
+          zoox.vy += dir * tapImpulseY() * 0.32;
+          if (zoox.evadeTimer <= 0 && !threatened) {
+            zoox.evadeDir = 0;
+          }
+          return;
+        }
+
+        if (!threatened) {
+          zoox.evadeDir = 0;
+          return;
+        }
+
+        zoox.evadeDir = zooxPickDodgeDir(zoox.x, zoox.y, pixels);
+        zoox.evadeTimer = 0.28 + Math.random() * 0.22;
+        zoox.vy += zoox.evadeDir * tapImpulseY() * (0.62 + Math.random() * 0.28);
+      }
+
       function steerZoox(dt) {
+        const pixels = zooxBundle().pixels;
+        evadeZoox(dt);
+
+        if (zoox.evadeTimer > 0) return;
+
         const targetY = zooxTargetY(zoox.x);
         const err = zoox.y - targetY;
 
@@ -1020,8 +1141,10 @@
         }
 
         const aheadX = zoox.x + ZOOX_LOOKAHEAD * 0.5;
-        if (!zooxFits(aheadX, zoox.y, zooxBundle().pixels) && zoox.y > CAR_HH + 12) {
-          zoox.vy -= tapImpulseY() * 0.55;
+        if (!zooxFits(aheadX, zoox.y, pixels) && zoox.y > CAR_HH + 12) {
+          zoox.evadeDir = zooxPickDodgeDir(zoox.x, zoox.y, pixels);
+          zoox.evadeTimer = 0.24;
+          zoox.vy += zoox.evadeDir * tapImpulseY() * 0.55;
         }
       }
 
@@ -1032,11 +1155,15 @@
           return;
         }
         zoox.stuckTimer += dt;
-        if (zoox.stuckTimer < 0.12) return;
+        if (zoox.stuckTimer < 0.08) return;
         zoox.stuckTimer = 0;
-        zoox.vy -= tapImpulseY() * 0.65;
+        zoox.evadeDir = zooxPickDodgeDir(zoox.x, zoox.y, pixels);
+        zoox.evadeTimer = 0.35;
+        zoox.vy += zoox.evadeDir * tapImpulseY() * 0.85;
         let guard = 0;
-        while (zooxOverlapsSolid(zoox.x, zoox.y, pixels) && guard++ < 8) zoox.y -= 1;
+        while (zooxOverlapsSolid(zoox.x, zoox.y, pixels) && guard++ < 12) {
+          zoox.y += zoox.evadeDir * 1;
+        }
       }
 
       function stepZoox(dt) {
@@ -1045,7 +1172,7 @@
         zoox.vx = ZOOX_CRUISE_VX;
         steerZoox(dt);
         zoox.vy += accelX * dt;
-        moveEntityPixels(zoox, zooxBundle().pixels, zoox.vx * dt, zoox.vy * dt, zooxSolidAt);
+        moveZooxPixels(zoox.vx * dt, zoox.vy * dt);
         unstuckZoox(dt);
         clampEntityToTop(zoox, zooxBundle().pixels, zooxSolidAt);
         wrapEntityRight(zoox);
