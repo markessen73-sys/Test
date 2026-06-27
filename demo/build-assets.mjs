@@ -4,7 +4,7 @@ import { constants } from "node:fs";
 
 const SRC = "/workspace/demo/assets/arena-source.png";
 const OUT_DIR = "/workspace/demo/assets";
-const DENSE_MIN = 52;
+const DENSE_MIN = 60;
 const ROCK_MAX = 108;
 const SKY_MAX = 12;
 

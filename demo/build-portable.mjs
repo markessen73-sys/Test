@@ -5,7 +5,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 const SRC = "/workspace/demo/assets/arena-source.png";
 const OUT = "/workspace/docs";
 const ASSETS = `${OUT}/assets`;
-const DENSE_MIN = 52;
+const DENSE_MIN = 60;
 const ROCK_MAX = 108;
 const SKY_MAX = 12;
 
@@ -33,7 +33,7 @@ function buildSolidMask(data, width, height, channels) {
     }
   }
 
-  // Bright inlays / metal strips sitting on rock.
+  // Bright inlays / metal strips flush with rock tops.
   for (let y = 0; y < height - 1; y++) {
     for (let x = 0; x < width; x++) {
       const i = y * width + x;

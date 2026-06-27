@@ -141,18 +141,15 @@
       function landOnPlatforms(dt) {
         if (ball.vy <= 0) return;
 
-        const minX = Math.floor(ball.x - ball.r);
-        const maxX = Math.ceil(ball.x + ball.r);
+        const cx = Math.round(ball.x);
         const footY = ball.y + ball.r;
         const nextFoot = footY + ball.vy * dt;
         let surface = null;
 
-        for (let x = minX; x <= maxX; x++) {
-          for (let y = Math.floor(footY); y <= Math.ceil(nextFoot); y++) {
-            if (!isSolid(x, y)) continue;
-            surface = surface === null ? y : Math.min(surface, y);
-            break;
-          }
+        for (let y = Math.floor(footY); y <= Math.ceil(nextFoot); y++) {
+          if (!isSolid(cx, y)) continue;
+          surface = y;
+          break;
         }
 
         if (surface !== null) {
