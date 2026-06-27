@@ -88,7 +88,7 @@
   </head>
   <body>
     <h1 id="title">Underside test — balls rise in 2 seconds</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27h</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27i</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="">↓ Drop test (tops)</button>
       <button type="button" id="btn-rise" class="active-rise">↑ Rise test (undersides)</button>
@@ -229,15 +229,17 @@
         const bounds = findSegmentBounds(map, width, height, spawn.x, spawn.capY);
 
         if (isRise()) {
-          const spawnY = riseSpawnY(bounds, map, width, spawn.x, height);
+          const riseX = pickRiseColumnX(spawn, map, width, height, bounds);
+          const riseBounds = findSegmentBounds(map, width, height, riseX, spawn.capY);
+          const spawnY = riseSpawnY(riseBounds, map, width, riseX, height);
           return {
-            x: spawn.x,
+            x: riseX,
             y: spawnY,
             spawnY,
             vy: 0,
             r: BALL_R,
             restTimer: 0,
-            bounds,
+            bounds: riseBounds,
           };
         }
 
@@ -289,6 +291,40 @@
         return solid[iy * W + ix] === 1;
       }
 
+      function headY(ball) {
+        return ball.y - ball.r;
+      }
+
+      function undersideY(cx, bounds) {
+        for (let y = bounds.bottom; y >= bounds.top; y--) {
+          if (isSolid(cx, y)) return y;
+        }
+        return bounds.bottom;
+      }
+
+      function pickRiseColumnX(spawn, map, width, height, bounds) {
+        for (let dx = 0; dx <= 280; dx += 2) {
+          for (const x of [spawn.x - dx, spawn.x + dx]) {
+            if (x < 0 || x >= width) continue;
+            const b = findSegmentBounds(map, width, height, x, spawn.capY);
+            if (Math.abs(b.top - bounds.top) > 2 || Math.abs(b.bottom - bounds.bottom) > 2) continue;
+
+            let segments = 0;
+            let prev = -1;
+            for (let y = 0; y < height; y++) {
+              if (!map[y * width + x]) {
+                prev = -1;
+                continue;
+              }
+              if (prev < 0 || y > prev + 1) segments++;
+              prev = y;
+            }
+            if (segments === 1) return x;
+          }
+        }
+        return spawn.x;
+      }
+
       function landOnPlatforms(ball, dt) {
         if (ball.vy <= 0) return;
 
@@ -313,20 +349,24 @@
         if (ball.vy >= 0) return;
 
         const cx = Math.round(ball.x);
-        const headY = ball.y - ball.r;
-        const nextHead = headY + ball.vy * dt;
-        let surface = null;
+        const underside = undersideY(cx, ball.bounds);
+        const head = headY(ball);
+        const prevHead = head - ball.vy * dt;
 
-        for (let y = Math.ceil(headY); y >= Math.floor(nextHead); y--) {
-          if (!isSolid(cx, y)) continue;
-          if (y < ball.bounds.top || y > ball.bounds.bottom) continue;
-          surface = y;
-          break;
+        if (prevHead > underside && head <= underside) {
+          ball.y = underside + ball.r + 0.01;
+          ball.vy = 0;
+          return;
         }
 
-        if (surface !== null) {
-          ball.y = surface + ball.r + 0.01;
+        const y0 = Math.min(prevHead, head);
+        const y1 = Math.max(prevHead, head);
+        for (let y = Math.ceil(y1); y >= Math.floor(y0); y--) {
+          if (!isSolid(cx, y)) continue;
+          if (y < ball.bounds.top || y > ball.bounds.bottom) continue;
+          ball.y = y + ball.r + 0.01;
           ball.vy = 0;
+          return;
         }
       }
 
@@ -334,6 +374,13 @@
         if (!isSolid(ball.x, ball.y)) return;
 
         if (isRise()) {
+          const cx = Math.round(ball.x);
+          const underside = undersideY(cx, ball.bounds);
+          if (headY(ball) < underside + 2) {
+            ball.y = underside + ball.r + 0.01;
+            ball.vy = 0;
+            return;
+          }
           for (let y = Math.ceil(ball.y + ball.r); y < H; y++) {
             if (isSolid(ball.x, y)) continue;
             ball.y = y + ball.r + 0.01;
@@ -355,9 +402,8 @@
 
       function restingOnSolid(ball) {
         if (isRise()) {
-          return isSolid(ball.x, ball.y - ball.r - 1)
-            || isSolid(ball.x - ball.r * 0.5, ball.y - ball.r - 1)
-            || isSolid(ball.x + ball.r * 0.5, ball.y - ball.r - 1);
+          const underside = undersideY(Math.round(ball.x), ball.bounds);
+          return headY(ball) <= underside + 1.5;
         }
         return isSolid(ball.x, ball.y + ball.r + 1)
           || isSolid(ball.x - ball.r * 0.5, ball.y + ball.r + 1)
