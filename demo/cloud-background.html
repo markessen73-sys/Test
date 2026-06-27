@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27n</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27o</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -153,6 +153,7 @@
     <script>
       const FALL_SECONDS = 3;
       const WRAP_SPEED = 360;
+      const DEBUG_GREEN_BG = true;
       const SOLID_SEGMENTS = __SOLID_SEGMENTS__;
       const BG_DATA_URL = "__BG_DATA_URL__";
       const canvas = document.getElementById("view");
@@ -182,6 +183,8 @@
       let accelX = 512;
       let background = null;
       let solid = null;
+      let debugBackground = null;
+      let ballPixels = [];
       let ready = false;
       let fallElapsed = 0;
       let dropX = 768;
@@ -288,11 +291,114 @@
         });
       }
 
-      function isSolid(x, y) {
-        const ix = Math.floor(x);
-        const iy = Math.floor(y);
-        if (ix < 0 || iy < 0 || ix >= W || iy >= H) return false;
-        return solid[iy * W + ix] === 1;
+      function buildBallPixels(r) {
+        const pixels = [];
+        const r2 = r * r;
+        for (let dy = -r; dy <= r; dy++) {
+          for (let dx = -r; dx <= r; dx++) {
+            if (dx * dx + dy * dy <= r2) pixels.push([dx, dy]);
+          }
+        }
+        return pixels;
+      }
+
+      function buildDebugBackground(img, map, width, height) {
+        const scratch = document.createElement("canvas");
+        scratch.width = width;
+        scratch.height = height;
+        const sctx = scratch.getContext("2d");
+        sctx.drawImage(img, 0, 0, width, height);
+        const frame = sctx.getImageData(0, 0, width, height);
+        const data = frame.data;
+        for (let i = 0; i < width * height; i++) {
+          if (map[i]) continue;
+          const p = i * 4;
+          data[p] = 0;
+          data[p + 1] = 255;
+          data[p + 2] = 0;
+          data[p + 3] = 255;
+        }
+        sctx.putImageData(frame, 0, 0);
+        return scratch;
+      }
+
+      function wrapPixelX(px) {
+        let x = px;
+        while (x < 0) x += W;
+        while (x >= W) x -= W;
+        return x;
+      }
+
+      function solidAt(px, py) {
+        if (py < 0 || py >= H) return false;
+        return solid[py * W + wrapPixelX(px)] === 1;
+      }
+
+      function ballOverlapsSolid(cx, cy) {
+        for (const [dx, dy] of ballPixels) {
+          if (solidAt(Math.floor(cx + dx), Math.floor(cy + dy))) return true;
+        }
+        return false;
+      }
+
+      function moveBallPixels(dx, dy) {
+        const moveAxis = (axis, delta) => {
+          if (delta === 0) return;
+          const steps = Math.max(1, Math.ceil(Math.abs(delta)));
+          const step = delta / steps;
+          for (let i = 0; i < steps; i++) {
+            if (axis === "x") ball.x += step;
+            else ball.y += step;
+            if (ballOverlapsSolid(ball.x, ball.y)) {
+              if (axis === "x") {
+                ball.x -= step;
+                ball.vx = 0;
+              } else {
+                ball.y -= step;
+                ball.vy = 0;
+              }
+              return;
+            }
+          }
+        };
+
+        moveAxis("x", dx);
+        moveAxis("y", dy);
+        resolvePixelOverlap();
+      }
+
+      function resolvePixelOverlap() {
+        if (!ballOverlapsSolid(ball.x, ball.y)) return;
+
+        const originX = ball.x;
+        const originY = ball.y;
+        const dirs = [
+          [0, -1],
+          [0, 1],
+          [-1, 0],
+          [1, 0],
+          [-1, -1],
+          [1, -1],
+          [-1, 1],
+          [1, 1],
+        ];
+
+        for (let dist = 1; dist <= ball.r + 4; dist++) {
+          for (const [dx, dy] of dirs) {
+            ball.x = originX + dx * dist;
+            ball.y = originY + dy * dist;
+            if (!ballOverlapsSolid(ball.x, ball.y)) {
+              if (dx !== 0) ball.vx = 0;
+              if (dy !== 0) ball.vy = 0;
+              return;
+            }
+          }
+        }
+
+        ball.x = originX;
+        ball.y = originY;
+        ball.vx = 0;
+        ball.vy = 0;
       }
 
       function wrapBallX() {
@@ -306,44 +412,13 @@
         }
       }
 
-      function landOnPlatforms(dt) {
-        if (ball.vy <= 0) return;
-
-        const cx = Math.round(ball.x);
-        const footY = ball.y + ball.r;
-        const nextFoot = footY + ball.vy * dt;
-        let surface = null;
-
-        for (let y = Math.floor(footY); y <= Math.ceil(nextFoot); y++) {
-          if (!isSolid(cx, y)) continue;
-          surface = y;
-          break;
-        }
-
-        if (surface !== null) {
-          ball.y = surface - ball.r - 0.01;
-          ball.vy = 0;
-        }
-      }
-
-      function pushOutOfSolids() {
-        if (!isSolid(ball.x, ball.y)) return;
-        for (let y = Math.floor(ball.y - ball.r); y <= Math.ceil(ball.y + ball.r); y++) {
-          for (let x = Math.floor(ball.x - ball.r); x <= Math.ceil(ball.x + ball.r); x++) {
-            if (!isSolid(x, y)) continue;
-            ball.y = y - ball.r - 0.01;
-            ball.vy = 0;
-            return;
-          }
-        }
-      }
-
       function clampBallToTop() {
         const top = BALL_R;
         if (ball.y < top) {
           ball.y = top;
           if (ball.vy < 0) ball.vy = 0;
         }
+        if (ballOverlapsSolid(ball.x, ball.y)) resolvePixelOverlap();
       }
 
       function stepDrop(dt) {
@@ -354,11 +429,7 @@
 
         ball.vy += ay * dt;
         ball.vx += ax * dt;
-        ball.y += ball.vy * dt;
-        ball.x += ball.vx * dt;
-
-        landOnPlatforms(dt);
-        pushOutOfSolids();
+        moveBallPixels(ball.vx * dt, ball.vy * dt);
         clampBallToTop();
         wrapBallX();
 
@@ -366,6 +437,7 @@
         timerEl.textContent =
           `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s  ` +
           `vy: ${ball.vy.toFixed(0)}  vx: ${ball.vx.toFixed(0)}  ` +
+          `px: ${ballPixels.length}  ` +
           `ay: ${ay > 0 ? "+" : ""}${ay.toFixed(0)}  ax: ${ax > 0 ? "+" : ""}${ax.toFixed(0)}  ` +
           `(v₀=0 → vₘₐₓ=${vBottom.toFixed(0)})`;
       }
@@ -383,20 +455,18 @@
         stepDrop(dt);
       }
 
-      function drawBallAt(x, y) {
-        ctx.beginPath();
-        ctx.arc(x, y, ball.r, 0, Math.PI * 2);
+      function drawBallAt(cx, cy) {
         ctx.fillStyle = "#ff3b3b";
-        ctx.fill();
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        for (const [dx, dy] of ballPixels) {
+          ctx.fillRect(Math.floor(cx + dx), Math.floor(cy + dy), 1, 1);
+        }
       }
 
       function drawFrame() {
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, W, H);
-        if (background) ctx.drawImage(background, 0, 0, W, H);
+        const bg = DEBUG_GREEN_BG && debugBackground ? debugBackground : background;
+        if (bg) ctx.drawImage(bg, 0, 0, W, H);
 
         const drawXs = [ball.x];
         if (ball.x - ball.r < 0) drawXs.push(ball.x + W);
@@ -435,7 +505,7 @@
         } else {
           titleEl.textContent = "Gravity test — vertical drop in 3 seconds";
           descEl.textContent =
-            "Ball falls with acceleration x (3s screen drop). Center: upward x/2. Left/right: horizontal x. Platforms collide; horizontal edges wrap.";
+            "Pixel collision: green = passable background, art = solid rock/platform pixels. Ball is a red pixel disc.";
           modeBadgeEl.textContent = "DROP ↓";
         }
 
@@ -524,6 +594,10 @@
         H = background.naturalHeight;
         accelX = computeAccelX();
         solid = buildSolidMap(SOLID_SEGMENTS, W, H);
+        ballPixels = buildBallPixels(BALL_R);
+        if (DEBUG_GREEN_BG) {
+          debugBackground = buildDebugBackground(background, solid, W, H);
+        }
         dropX = findDropColumn(solid, W, H);
 
         canvas.width = W;
