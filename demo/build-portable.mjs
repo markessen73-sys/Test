@@ -51,7 +51,7 @@ async function build() {
       drop: {
         title: "Gravity test — vertical drop in 3 seconds",
         desc:
-          "Foreground template on bright green: green = passable, visible rock/platform pixels = solid. Collision matches template alpha.",
+          "Tap ← / lift / → for velocity kicks. Platforms are frictionless sideways; landings bounce half a ball height.",
         btnDrop: "active",
         btnWrapRight: "",
         btnWrapLeft: "",
