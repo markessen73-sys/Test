@@ -1,124 +1,11 @@
 import sharp from "sharp";
 import { readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
+import { buildSolidMask, solidToSegments } from "./solid-mask.mjs";
 
 const SRC = "/workspace/demo/assets/arena-source.png";
 const OUT = "/workspace/docs";
 const ASSETS = `${OUT}/assets`;
-const SKY_MAX = 12;
-
-function buildSolidMask(data, width, height, channels) {
-  const lum = new Float32Array(width * height);
-  const solid = new Uint8Array(width * height);
-
-  for (let i = 0; i < width * height; i++) {
-    const p = i * channels;
-    lum[i] = data[p] * 0.2126 + data[p + 1] * 0.7152 + data[p + 2] * 0.0722;
-  }
-
-  const at = (x, y) => {
-    if (x < 0 || y < 0 || x >= width || y >= height) return 0;
-    return lum[y * width + x];
-  };
-
-  for (let x = 0; x < width; x++) {
-    let startY = -1;
-
-    // Side-view deck cap: last bright row before a sharp drop into shadow/gap.
-    for (let y = 2; y < height - 1; y++) {
-      const l = at(x, y);
-      const above = at(x, y - 1);
-      const below = at(x, y + 1);
-      if (l >= 80 && above >= 75 && below < l - 40) {
-        startY = y;
-        break;
-      }
-    }
-
-    // Sharp top edge against open sky.
-    if (startY < 0) {
-      for (let y = 1; y < height; y++) {
-        if (at(x, y) >= 95 && at(x, y - 1) < 35) {
-          startY = y;
-          break;
-        }
-      }
-    }
-
-    // Plain rock tops without a bright cap.
-    if (startY < 0) {
-      for (let y = 0; y < height; y++) {
-        if (at(x, y) < 65) continue;
-        let sum = 0;
-        const end = Math.min(y + 20, height);
-        let n = 0;
-        for (let yy = y; yy < end; yy++) {
-          sum += at(x, yy);
-          n++;
-        }
-        if (n >= 10 && sum / n >= 60) {
-          startY = y;
-          break;
-        }
-      }
-    }
-
-    if (startY < 0) continue;
-
-    for (let y = startY; y < height; y++) {
-      if (at(x, y) < SKY_MAX) break;
-      solid[y * width + x] = 1;
-    }
-  }
-
-  addMiddleCenterPlatform(solid, at, width, height);
-
-  return solid;
-}
-
-function addMiddleCenterPlatform(solid, at, width, height) {
-  const X0 = 680;
-  const X1 = 860;
-  const Y0 = 635;
-  const Y1 = 675;
-  const GAP_RUN = 4;
-
-  let bestY = -1;
-  let bestCount = 0;
-  for (let y = Y0; y <= Y1; y++) {
-    let count = 0;
-    for (let x = X0; x <= X1; x++) {
-      if (at(x, y) >= 50 && at(x, y - 1) < 28) count++;
-    }
-    if (count > bestCount) {
-      bestCount = count;
-      bestY = y;
-    }
-  }
-  if (bestY < 0 || bestCount < 15) return;
-
-  for (let x = X0; x <= X1; x++) {
-    let startY = -1;
-    for (let y = bestY - 10; y <= bestY + 6; y++) {
-      if (at(x, y) >= 45 && at(x, y - 1) < 30) {
-        startY = y;
-        break;
-      }
-    }
-    if (startY < 0) continue;
-
-    let gap = 0;
-    for (let y = startY; y < height; y++) {
-      if (at(x, y) < SKY_MAX) {
-        gap++;
-        if (gap >= GAP_RUN) break;
-      } else {
-        gap = 0;
-      }
-      solid[y * width + x] = 1;
-    }
-  }
-}
 
 function findPlatformSpawns(solid, width, height) {
   const caps = [];
@@ -188,23 +75,11 @@ async function build() {
     .png({ compressionLevel: 9 })
     .toFile(`${ASSETS}/arena-collision.png`);
 
-  const segments = [];
-  for (let y = 0; y < height; y++) {
-    let start = null;
-    for (let x = 0; x < width; x++) {
-      if (solid[y * width + x]) {
-        if (start === null) start = x;
-      } else if (start !== null) {
-        segments.push([y, start, x - 1]);
-        start = null;
-      }
-    }
-    if (start !== null) segments.push([y, start, width - 1]);
-  }
+  const segments = solidToSegments(solid, width, height);
 
   await writeFile(`${ASSETS}/arena-solid.bin`, solid);
 
-  const platformSpawns = findPlatformSpawns(solid, width, height);
+  findPlatformSpawns(solid, width, height);
 
   let html = readFileSync("/workspace/demo/cloud-background.html", "utf8");
   const jpeg = readFileSync(`${ASSETS}/arena-bg.jpg`);
@@ -213,8 +88,8 @@ async function build() {
   function embedPortable(source, bakedMode) {
     const copies = {
       drop: {
-        title: "Gravity test — vertical drop in 2 seconds",
-        desc: "Single red ball drops from the top center onto the platform below.",
+        title: "Gravity test — vertical drop in 3 seconds",
+        desc: "Pixel collision: green = passable background, art = solid rock/platform pixels. Ball is a red pixel disc.",
         btnDrop: "active",
         btnWrapRight: "",
         btnWrapLeft: "",
@@ -260,7 +135,7 @@ async function build() {
   await writeFile(`${OUT}/wrap-left.html`, embedPortable(html, "wrap-left"));
   await writeFile(`${OUT}/.nojekyll`, "");
   console.log(
-    `Portable build: ${width}x${height}, solid ${solidCount} px (${(100 * solidCount / (width * height)).toFixed(1)}%)`,
+    `Portable build: ${width}x${height}, solid ${solidCount} px (${((100 * solidCount) / (width * height)).toFixed(1)}%)`,
   );
 }
 
