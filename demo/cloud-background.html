@@ -44,19 +44,21 @@
       }
       #timer { top: 8px; right: 10px; }
       p { font-size: 0.8rem; color: #666; max-width: 760px; text-align: center; line-height: 1.5; }
+      code { font-size: 0.75rem; color: #888; }
     </style>
   </head>
   <body>
-    <h1>Gravity test — vertical drop in 2 seconds</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27e</p>
+    <h1 id="title">Gravity test — vertical drop in 2 seconds</h1>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27f</p>
     <div id="wrap">
       <canvas id="view"></canvas>
       <div id="status">Loading…</div>
       <div id="timer">0.00s / 2.00s</div>
     </div>
-    <p>One red ball per platform — each drops straight down and stops on contact with no bounce.</p>
+    <p id="desc">One red ball per platform — each drops straight down and stops on contact with no bounce. Add <code>?mode=rise</code> to test platform undersides.</p>
     <script>
       const FALL_SECONDS = 2;
+      const MODE = new URLSearchParams(location.search).get("mode") === "rise" ? "rise" : "drop";
       const SOLID_SEGMENTS = __SOLID_SEGMENTS__;
       const PLATFORM_SPAWNS = __PLATFORM_SPAWNS__;
       const BG_DATA_URL = "__BG_DATA_URL__";
@@ -64,6 +66,8 @@
       const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("status");
       const timerEl = document.getElementById("timer");
+      const titleEl = document.getElementById("title");
+      const descEl = document.getElementById("desc");
 
       let W = 1536;
       let H = 1024;
@@ -125,7 +129,46 @@
           .sort((a, b) => a.capY - b.capY || a.x - b.x);
       }
 
+      function findSegmentBounds(map, width, height, x, nearY) {
+        let y = nearY;
+        if (!map[y * width + x]) {
+          let best = -1;
+          let bestDist = Infinity;
+          for (let yy = 0; yy < height; yy++) {
+            if (!map[yy * width + x]) continue;
+            const d = Math.abs(yy - nearY);
+            if (d < bestDist) {
+              bestDist = d;
+              best = yy;
+            }
+          }
+          if (best < 0) return { top: nearY, bottom: nearY };
+          y = best;
+        }
+
+        let top = y;
+        while (top > 0 && map[(top - 1) * width + x]) top--;
+        let bottom = y;
+        while (bottom < height - 1 && map[(bottom + 1) * width + x]) bottom++;
+        return { top, bottom };
+      }
+
       function createBall(spawn, map, width, height) {
+        const bounds = findSegmentBounds(map, width, height, spawn.x, spawn.capY);
+
+        if (MODE === "rise") {
+          const spawnY = Math.min(bounds.bottom + BALL_R + 12, height - BALL_R - 2);
+          return {
+            x: spawn.x,
+            y: spawnY,
+            spawnY,
+            vy: 0,
+            r: BALL_R,
+            restTimer: 0,
+            bounds,
+          };
+        }
+
         let clearColumn = true;
         for (let y = 0; y < spawn.capY - BALL_R - 2; y++) {
           if (map[y * width + spawn.x]) {
@@ -143,6 +186,7 @@
           vy: 0,
           r: BALL_R,
           restTimer: 0,
+          bounds,
         };
       }
 
@@ -193,8 +237,39 @@
         }
       }
 
+      function hitUnderside(ball, dt) {
+        if (ball.vy >= 0) return;
+
+        const cx = Math.round(ball.x);
+        const headY = ball.y - ball.r;
+        const nextHead = headY + ball.vy * dt;
+        let surface = null;
+
+        for (let y = Math.ceil(headY); y >= Math.floor(nextHead); y--) {
+          if (!isSolid(cx, y)) continue;
+          surface = y;
+          break;
+        }
+
+        if (surface !== null) {
+          ball.y = surface + ball.r + 0.01;
+          ball.vy = 0;
+        }
+      }
+
       function pushOutOfSolids(ball) {
         if (!isSolid(ball.x, ball.y)) return;
+
+        if (MODE === "rise") {
+          for (let y = Math.ceil(ball.y + ball.r); y < H; y++) {
+            if (isSolid(ball.x, y)) continue;
+            ball.y = y + ball.r + 0.01;
+            ball.vy = 0;
+            return;
+          }
+          return;
+        }
+
         for (let y = Math.floor(ball.y - ball.r); y <= Math.ceil(ball.y + ball.r); y++) {
           for (let x = Math.floor(ball.x - ball.r); x <= Math.ceil(ball.x + ball.r); x++) {
             if (!isSolid(x, y)) continue;
@@ -206,6 +281,11 @@
       }
 
       function restingOnSolid(ball) {
+        if (MODE === "rise") {
+          return isSolid(ball.x, ball.y - ball.r - 1)
+            || isSolid(ball.x - ball.r * 0.5, ball.y - ball.r - 1)
+            || isSolid(ball.x + ball.r * 0.5, ball.y - ball.r - 1);
+        }
         return isSolid(ball.x, ball.y + ball.r + 1)
           || isSolid(ball.x - ball.r * 0.5, ball.y + ball.r + 1)
           || isSolid(ball.x + ball.r * 0.5, ball.y + ball.r + 1);
@@ -213,11 +293,13 @@
 
       function step(dt) {
         fallElapsed += dt;
+        const g = MODE === "rise" ? -gravity : gravity;
 
         for (const ball of balls) {
-          ball.vy += gravity * dt;
+          ball.vy += g * dt;
           ball.y += ball.vy * dt;
-          landOnPlatforms(ball, dt);
+          if (MODE === "rise") hitUnderside(ball, dt);
+          else landOnPlatforms(ball, dt);
           pushOutOfSolids(ball);
 
           if (ball.vy === 0 && restingOnSolid(ball)) {
@@ -228,7 +310,8 @@
           }
         }
 
-        timerEl.textContent = `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s`;
+        const label = MODE === "rise" ? "rise" : "fall";
+        timerEl.textContent = `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s ${label}`;
       }
 
       function drawFrame() {
@@ -262,7 +345,16 @@
         requestAnimationFrame(tick);
       }
 
+      function applyModeCopy() {
+        if (MODE === "rise") {
+          titleEl.textContent = "Underside test — balls rise in 2 seconds";
+          descEl.innerHTML = "One red ball below each platform — reversed gravity, each rises until it hits the platform underside. Use <code>?mode=drop</code> for the downward test.";
+        }
+      }
+
       async function init() {
+        applyModeCopy();
+
         if (BG_DATA_URL && !BG_DATA_URL.startsWith("__")) {
           background = await loadImage(BG_DATA_URL);
         } else {
