@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">Wrap test — exits left, re-enters right</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27y</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27z</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -310,13 +310,11 @@
         const tire = "#080808";
         const tireHi = "#1a1a1a";
         const bumper = "#141416";
-        const rubber = "#2a2a2e";
         const indicator = "#e07820";
         const tail = "#c01818";
         const head = "#f0f4fa";
 
-        const sillH = 6;
-        const bottom = h - sillH;
+        const bottom = h - 1;
         const frontWheelX = 22;
         const rearWheelX = 82;
         const wheelR = 10;
@@ -324,16 +322,16 @@
         function drawWheelArch(cx) {
           ctx.fillStyle = blueSh;
           ctx.beginPath();
-          ctx.moveTo(cx - 13, bottom);
-          ctx.quadraticCurveTo(cx - 11, bottom - 14, cx, bottom - 14);
-          ctx.quadraticCurveTo(cx + 11, bottom - 14, cx + 13, bottom);
+          ctx.moveTo(cx - 12, bottom - 4);
+          ctx.quadraticCurveTo(cx - 10, bottom - 15, cx, bottom - 15);
+          ctx.quadraticCurveTo(cx + 10, bottom - 15, cx + 12, bottom - 4);
+          ctx.lineTo(cx + 12, bottom - 14);
+          ctx.lineTo(cx - 12, bottom - 14);
           ctx.closePath();
           ctx.fill();
         }
 
         function drawWheel(cx) {
-          drawWheelArch(cx);
-
           ctx.fillStyle = tire;
           ctx.beginPath();
           ctx.ellipse(cx, bottom - 1, wheelR, wheelR - 1, 0, 0, Math.PI * 2);
@@ -368,9 +366,6 @@
           ctx.fill();
         }
 
-        drawWheel(frontWheelX);
-        drawWheel(rearWheelX);
-
         const bodyGrad = ctx.createLinearGradient(0, bottom - 34, 0, bottom);
         bodyGrad.addColorStop(0, blueHi);
         bodyGrad.addColorStop(0.55, blue);
@@ -378,19 +373,23 @@
 
         ctx.fillStyle = bodyGrad;
         ctx.beginPath();
-        ctx.moveTo(w - 4, bottom);
-        ctx.lineTo(w - 4, bottom - 8);
-        ctx.lineTo(w - 10, bottom - 14);
+        ctx.moveTo(w - 4, bottom - 6);
+        ctx.lineTo(w - 4, bottom - 12);
+        ctx.lineTo(w - 10, bottom - 16);
         ctx.lineTo(58, bottom - 33);
         ctx.lineTo(30, bottom - 35);
         ctx.lineTo(20, bottom - 28);
         ctx.lineTo(4, bottom - 20);
         ctx.lineTo(2, bottom - 12);
-        ctx.lineTo(2, bottom - 7);
-        ctx.lineTo(4, bottom - 5);
-        ctx.lineTo(w - 4, bottom - 5);
+        ctx.lineTo(2, bottom - 8);
+        ctx.lineTo(4, bottom - 6);
         ctx.closePath();
         ctx.fill();
+
+        drawWheelArch(frontWheelX);
+        drawWheelArch(rearWheelX);
+        drawWheel(frontWheelX);
+        drawWheel(rearWheelX);
 
         ctx.strokeStyle = blueSh;
         ctx.lineWidth = 0.75;
@@ -400,11 +399,8 @@
         ctx.stroke();
 
         ctx.fillStyle = bumper;
-        ctx.fillRect(w - 12, bottom - 7, 11, 5);
-        ctx.fillRect(1, bottom - 7, 12, 5);
-        ctx.fillStyle = rubber;
-        ctx.fillRect(w - 11, bottom - 4, 9, 2);
-        ctx.fillRect(2, bottom - 4, 10, 2);
+        ctx.fillRect(w - 12, bottom - 9, 11, 4);
+        ctx.fillRect(1, bottom - 9, 12, 4);
 
         ctx.fillStyle = glassLo;
         ctx.beginPath();
@@ -494,9 +490,6 @@
         ctx.fillStyle = tail;
         ctx.fillRect(w - 4, bottom - 17, 3, 4);
 
-        ctx.fillStyle = sill;
-        ctx.fillRect(0, bottom, w, sillH);
-
         ctx.strokeStyle = "rgba(255,255,255,0.18)";
         ctx.lineWidth = 0.5;
         ctx.beginPath();
@@ -542,7 +535,7 @@
       }
 
       function activeCarBundle() {
-        if (ball.vx > 0) {
+        if (ball.vx < 0) {
           return { sprite: carSpriteRight, pixels: carPixelsRight };
         }
         return { sprite: carSpriteLeft, pixels: carPixelsLeft };
