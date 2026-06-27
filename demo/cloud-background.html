@@ -57,7 +57,7 @@
     <script>
       const FALL_SECONDS = 2;
       const STEP_MS = 1000 / 60;
-      const SUBSTEPS = 4;
+      const SOLID_SEGMENTS = __SOLID_SEGMENTS__;
       const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("status");
@@ -71,11 +71,40 @@
       let ready = false;
       let fallElapsed = 0;
       let restTimer = 0;
+      let dropX = 768;
 
       const ball = { x: 0, y: 0, vy: 0, r: 14 };
 
+      function buildSolidMap(segments, width, height) {
+        const map = new Uint8Array(width * height);
+        for (const [y, x0, x1] of segments) {
+          const row = y * width;
+          for (let x = x0; x <= x1; x++) map[row + x] = 1;
+        }
+        return map;
+      }
+
+      function findDropColumn(map, width, height) {
+        let bestX = Math.floor(width / 2);
+        let bestGap = 0;
+        for (let x = 80; x < width - 80; x += 8) {
+          let first = height;
+          for (let y = 0; y < height; y++) {
+            if (map[y * width + x]) {
+              first = y;
+              break;
+            }
+          }
+          if (first > bestGap) {
+            bestGap = first;
+            bestX = x;
+          }
+        }
+        return bestX;
+      }
+
       function resetBall() {
-        ball.x = W / 2;
+        ball.x = dropX;
         ball.y = ball.r;
         ball.vy = 0;
         fallElapsed = 0;
@@ -85,25 +114,10 @@
       function loadImage(src) {
         return new Promise((resolve, reject) => {
           const img = new Image();
-          img.crossOrigin = "anonymous";
           img.onload = () => resolve(img);
           img.onerror = () => reject(new Error(`Failed to load ${src}`));
           img.src = src;
         });
-      }
-
-      function buildSolidMap(img) {
-        const off = document.createElement("canvas");
-        off.width = W;
-        off.height = H;
-        const offCtx = off.getContext("2d");
-        offCtx.drawImage(img, 0, 0);
-        const data = offCtx.getImageData(0, 0, W, H).data;
-        const map = new Uint8Array(W * H);
-        for (let i = 0; i < W * H; i++) {
-          map[i] = data[i * 4 + 3] > 128 ? 1 : 0;
-        }
-        return map;
       }
 
       function isSolid(x, y) {
@@ -113,66 +127,57 @@
         return solid[iy * W + ix] === 1;
       }
 
-      function resolvePlatforms() {
-        for (let pass = 0; pass < 10; pass++) {
-          let hit = false;
-          const minX = Math.floor(ball.x - ball.r - 1);
-          const maxX = Math.ceil(ball.x + ball.r + 1);
-          const minY = Math.floor(ball.y - ball.r - 1);
-          const maxY = Math.ceil(ball.y + ball.r + 1);
+      function landOnPlatforms() {
+        if (ball.vy <= 0) return;
 
-          for (let y = minY; y <= maxY; y++) {
-            for (let x = minX; x <= maxX; x++) {
-              if (!isSolid(x, y)) continue;
-              const px = x + 0.5;
-              const py = y + 0.5;
-              const dx = ball.x - px;
-              const dy = ball.y - py;
-              const dist = Math.hypot(dx, dy);
-              if (dist >= ball.r || dist < 0.0001) continue;
+        const minX = Math.floor(ball.x - ball.r);
+        const maxX = Math.ceil(ball.x + ball.r);
+        let surface = null;
 
-              const nx = dx / dist;
-              const ny = dy / dist;
-              const push = ball.r - dist;
-              ball.x += nx * push;
-              ball.y += ny * push;
-
-              const vn = ball.vy * ny;
-              if (vn < 0) {
-                ball.vy -= vn * ny;
-                if (ny < -0.3) ball.vy = 0;
-              }
-              hit = true;
-            }
+        for (let x = minX; x <= maxX; x++) {
+          for (let y = Math.floor(ball.y + ball.r); y >= Math.floor(ball.y - ball.r); y--) {
+            if (!isSolid(x, y)) continue;
+            surface = surface === null ? y : Math.min(surface, y);
+            break;
           }
-          if (!hit) break;
+        }
+
+        if (surface !== null) {
+          ball.y = surface - ball.r - 0.01;
+          ball.vy = 0;
         }
       }
 
-      function onSolid() {
-        const samples = [
-          [ball.x, ball.y + ball.r + 1],
-          [ball.x - ball.r * 0.6, ball.y + ball.r + 1],
-          [ball.x + ball.r * 0.6, ball.y + ball.r + 1],
-        ];
-        return samples.some(([x, y]) => isSolid(x, y));
+      function pushOutOfSolids() {
+        if (!isSolid(ball.x, ball.y)) return;
+        for (let y = Math.floor(ball.y - ball.r); y <= Math.ceil(ball.y + ball.r); y++) {
+          for (let x = Math.floor(ball.x - ball.r); x <= Math.ceil(ball.x + ball.r); x++) {
+            if (!isSolid(x, y)) continue;
+            ball.y = y - ball.r - 0.01;
+            ball.vy = 0;
+            return;
+          }
+        }
+      }
+
+      function restingOnSolid() {
+        return isSolid(ball.x, ball.y + ball.r + 1)
+          || isSolid(ball.x - ball.r * 0.5, ball.y + ball.r + 1)
+          || isSolid(ball.x + ball.r * 0.5, ball.y + ball.r + 1);
       }
 
       function step(dt) {
-        if (Math.abs(ball.vy) < 2 && onSolid()) {
-          restTimer += dt;
-          if (restTimer > 1.5) resetBall();
-        } else {
-          restTimer = 0;
-        }
-
         fallElapsed += dt;
         ball.vy += gravity * dt;
-        const dy = (ball.vy * dt) / SUBSTEPS;
+        ball.y += ball.vy * dt;
+        landOnPlatforms();
+        pushOutOfSolids();
 
-        for (let i = 0; i < SUBSTEPS; i++) {
-          ball.y += dy;
-          resolvePlatforms();
+        if (ball.vy === 0 && restingOnSolid()) {
+          restTimer += dt;
+          if (restTimer > 2.5) resetBall();
+        } else {
+          restTimer = 0;
         }
 
         timerEl.textContent = `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s`;
@@ -210,13 +215,13 @@
         }
         if (!background) throw new Error("Background image missing");
 
-        const collisionImg = await loadImage(new URL("arena-collision.png", base).href);
         W = background.naturalWidth;
         H = background.naturalHeight;
         gravity = H / (0.5 * FALL_SECONDS * FALL_SECONDS);
+        solid = buildSolidMap(SOLID_SEGMENTS, W, H);
+        dropX = findDropColumn(solid, W, H);
         canvas.width = W;
         canvas.height = H;
-        solid = buildSolidMap(collisionImg);
         resetBall();
         ready = true;
         statusEl.style.display = "none";

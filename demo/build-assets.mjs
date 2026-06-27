@@ -6,17 +6,12 @@ const SRC = "/workspace/demo/assets/arena-source.png";
 const OUT_DIR = "/workspace/demo/assets";
 const SKY_MAX = 16;
 const ROCK_MAX = 108;
-const SUPPORT_SCAN = 4;
 
 async function build() {
   await access(SRC, constants.R_OK);
   await mkdir(OUT_DIR, { recursive: true });
 
-  const { data, info } = await sharp(SRC)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-
+  const { data, info } = await sharp(SRC).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const { width, height, channels } = info;
   const lum = new Float32Array(width * height);
   const solid = new Uint8Array(width * height);
@@ -36,30 +31,19 @@ async function build() {
       const i = y * width + x;
       const l = lum[i];
       if (l < SKY_MAX) continue;
-
       if (l <= ROCK_MAX) {
         solid[i] = 1;
         continue;
       }
-
-      let supported = false;
-      for (let dy = 1; dy <= SUPPORT_SCAN; dy++) {
-        const below = at(x, y + dy);
-        if (below < SKY_MAX) break;
-        if (below <= ROCK_MAX) {
-          supported = true;
-          break;
-        }
-      }
-
-      if (supported) solid[i] = 1;
+      const below = at(x, y + 1);
+      if (below >= SKY_MAX && below <= ROCK_MAX) solid[i] = 1;
     }
   }
 
   const collision = Buffer.alloc(width * height * 4);
   for (let i = 0; i < width * height; i++) {
-    const p = i * 4;
     if (solid[i]) {
+      const p = i * 4;
       collision[p] = 255;
       collision[p + 1] = 255;
       collision[p + 2] = 255;
@@ -71,10 +55,7 @@ async function build() {
     .png({ compressionLevel: 9 })
     .toFile(`${OUT_DIR}/arena-collision.png`);
 
-  console.log(`Built ${width}x${height} collision map`);
+  console.log(`Built collision map ${width}x${height}`);
 }
 
-build().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+build().catch(console.error);
