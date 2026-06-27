@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">Wrap test — exits left, re-enters right</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27z</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28e</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -194,11 +194,22 @@
       const CAR_HW = CAR_W / 2;
       const CAR_HH = CAR_H / 2;
       const TAP_IMPULSE_T = 0.12;
+      const ZOOX_CRUISE_VX = 300;
+      const ZOOX_PATH_STEP = 44;
+      const ZOOX_LOOKAHEAD = 140;
+      const ZOOX_SPAWN = { x: 209, minY: 400 };
+
       let ball = null;
+      let zoox = null;
+      let zooxPath = [];
       let carSpriteLeft = null;
       let carSpriteRight = null;
       let carPixelsLeft = [];
       let carPixelsRight = [];
+      let zooxSpriteLeft = null;
+      let zooxSpriteRight = null;
+      let zooxPixelsLeft = [];
+      let zooxPixelsRight = [];
 
       function fallDistance() {
         return H - CAR_HH * 2;
@@ -219,6 +230,23 @@
           for (let x = x0; x <= x1; x++) map[row + x] = 1;
         }
         return map;
+      }
+
+      function findSurfaceAt(map, x, minY = 0) {
+        for (let y = minY; y < H - 1; y++) {
+          if (map[y * W + x] && !map[(y - 1) * W + x] && map[(y + 1) * W + x]) return y;
+        }
+        return null;
+      }
+
+      function spriteMaxDy(pixels) {
+        let maxDy = 0;
+        for (const [, dy] of pixels) if (dy > maxDy) maxDy = dy;
+        return maxDy;
+      }
+
+      function vehicleYOnSurface(surfaceY, pixels) {
+        return surfaceY - spriteMaxDy(pixels) - 1;
       }
 
       function findDropColumn(map, width, height) {
@@ -498,6 +526,124 @@
         ctx.stroke();
       }
 
+      function drawZooxLeft(ctx, w, h) {
+        ctx.clearRect(0, 0, w, h);
+
+        const mint = "#7ec1b4";
+        const mintHi = "#b2e2d8";
+        const mintLo = "#4f9d90";
+        const mintSh = "#3f8579";
+        const black = "#0e0e10";
+        const glass = "#1a2a34";
+        const glassHi = "#304a58";
+        const glassLo = "#101820";
+        const sensor = "#4a4a54";
+        const sensorHi = "#7a7a88";
+        const tire = "#080808";
+        const tireHi = "#1c1c1c";
+        const light = "#e8f8ff";
+        const lightCore = "#9de8ff";
+        const skirt = "#121216";
+
+        const bottom = h - 1;
+        const skirtH = 8;
+        const bodyBottom = bottom - skirtH;
+        const frontWheelX = 15;
+        const rearWheelX = w - 15;
+        const wheelR = 7;
+
+        function drawCornerWheel(cx) {
+          ctx.fillStyle = tire;
+          ctx.beginPath();
+          ctx.ellipse(cx, bottom - 1, wheelR, wheelR - 1, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = tireHi;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.ellipse(cx, bottom - 1, wheelR - 1, wheelR - 2, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = "#151515";
+          ctx.beginPath();
+          ctx.arc(cx, bottom - 1, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        const bodyGrad = ctx.createLinearGradient(0, bodyBottom - 40, 0, bodyBottom);
+        bodyGrad.addColorStop(0, mintHi);
+        bodyGrad.addColorStop(0.45, mint);
+        bodyGrad.addColorStop(1, mintLo);
+
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.moveTo(4, bodyBottom);
+        ctx.lineTo(4, bodyBottom - 10);
+        ctx.quadraticCurveTo(4, bodyBottom - 38, 12, bodyBottom - 40);
+        ctx.lineTo(w - 12, bodyBottom - 40);
+        ctx.quadraticCurveTo(w - 4, bodyBottom - 38, w - 4, bodyBottom - 10);
+        ctx.lineTo(w - 4, bodyBottom);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = glassLo;
+        ctx.beginPath();
+        ctx.moveTo(10, bodyBottom - 37);
+        ctx.lineTo(w - 10, bodyBottom - 37);
+        ctx.lineTo(w - 10, bodyBottom - 13);
+        ctx.lineTo(10, bodyBottom - 13);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = glass;
+        ctx.fillRect(12, bodyBottom - 36, w - 24, 22);
+        ctx.fillStyle = glassHi;
+        ctx.fillRect(14, bodyBottom - 35, 18, 8);
+        ctx.fillRect(w - 32, bodyBottom - 35, 18, 8);
+        ctx.fillStyle = black;
+        ctx.fillRect(Math.floor(w / 2) - 5, bodyBottom - 36, 10, 23);
+        ctx.fillStyle = "#242428";
+        ctx.fillRect(Math.floor(w / 2) - 1, bodyBottom - 34, 2, 19);
+        ctx.strokeStyle = "#2a3a44";
+        ctx.lineWidth = 0.75;
+        ctx.strokeRect(12, bodyBottom - 36, w - 24, 22);
+        ctx.strokeStyle = "rgba(180,220,255,0.12)";
+        ctx.beginPath();
+        ctx.moveTo(24, bodyBottom - 24);
+        ctx.lineTo(w - 24, bodyBottom - 24);
+        ctx.stroke();
+
+        ctx.fillStyle = sensor;
+        ctx.fillRect(7, bodyBottom - 44, 10, 5);
+        ctx.fillRect(w - 17, bodyBottom - 44, 10, 5);
+        ctx.fillStyle = sensorHi;
+        ctx.fillRect(8, bodyBottom - 43, 4, 2);
+        ctx.fillRect(w - 16, bodyBottom - 43, 4, 2);
+
+        function drawEndCap(x, facingLeft) {
+          const x0 = facingLeft ? x : x - 6;
+          ctx.fillStyle = mintSh;
+          ctx.fillRect(x0, bodyBottom - 20, 6, 10);
+          ctx.fillStyle = lightCore;
+          ctx.fillRect(x0 + (facingLeft ? 0 : 1), bodyBottom - 17, 5, 3);
+          ctx.fillStyle = light;
+          ctx.fillRect(x0 + (facingLeft ? 1 : 2), bodyBottom - 16, 3, 1);
+        }
+
+        drawEndCap(4, true);
+        drawEndCap(w - 4, false);
+        ctx.fillStyle = mintSh;
+        ctx.fillRect(10, bodyBottom - 12, w - 20, 2);
+        drawCornerWheel(frontWheelX);
+        drawCornerWheel(rearWheelX);
+        ctx.fillStyle = skirt;
+        ctx.fillRect(0, bodyBottom, w, skirtH);
+        ctx.strokeStyle = "rgba(255,255,255,0.16)";
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(14, bodyBottom - 40);
+        ctx.lineTo(w - 14, bodyBottom - 40);
+        ctx.stroke();
+      }
+
       function extractCarPixels(canvas) {
         const w = canvas.width;
         const h = canvas.height;
@@ -534,6 +680,25 @@
         carPixelsRight = carPixelsLeft.map(([dx, dy]) => [-dx, dy]);
       }
 
+      function buildZoox() {
+        const left = document.createElement("canvas");
+        left.width = CAR_W;
+        left.height = CAR_H;
+        drawZooxLeft(left.getContext("2d"), CAR_W, CAR_H);
+        zooxSpriteLeft = left;
+        zooxPixelsLeft = extractCarPixels(left);
+
+        const right = document.createElement("canvas");
+        right.width = CAR_W;
+        right.height = CAR_H;
+        const rctx = right.getContext("2d");
+        rctx.translate(CAR_W, 0);
+        rctx.scale(-1, 1);
+        rctx.drawImage(left, 0, 0);
+        zooxSpriteRight = right;
+        zooxPixelsRight = zooxPixelsLeft.map(([dx, dy]) => [-dx, dy]);
+      }
+
       function activeCarBundle() {
         if (ball.vx < 0) {
           return { sprite: carSpriteRight, pixels: carPixelsRight };
@@ -543,6 +708,99 @@
 
       function activeCarPixels() {
         return activeCarBundle().pixels;
+      }
+
+      function zooxBundle() {
+        if (zoox.vx < 0) {
+          return { sprite: zooxSpriteRight, pixels: zooxPixelsRight };
+        }
+        return { sprite: zooxSpriteLeft, pixels: zooxPixelsLeft };
+      }
+
+      function vehicleFits(cx, cy, pixels) {
+        for (const [dx, dy] of pixels) {
+          if (solidAt(Math.floor(cx + dx), Math.floor(cy + dy))) return false;
+        }
+        return true;
+      }
+
+      function vehicleOverlapsSolid(cx, cy, pixels) {
+        return !vehicleFits(cx, cy, pixels);
+      }
+
+      function vehicleClearance(cx, cy, pixels) {
+        let up = 0;
+        let down = 0;
+        for (let i = 1; i < 220; i++) {
+          if (!vehicleFits(cx, cy - i, pixels)) break;
+          up = i;
+        }
+        for (let i = 1; i < 220; i++) {
+          if (!vehicleFits(cx, cy + i, pixels)) break;
+          down = i;
+        }
+        return up + down;
+      }
+
+      function buildZooxPath(pixels) {
+        const surfaceY = findSurfaceAt(solid, ZOOX_SPAWN.x, ZOOX_SPAWN.minY);
+        let y = surfaceY ? vehicleYOnSurface(surfaceY, pixels) : CAR_HH;
+        const path = [];
+        const yLo = CAR_HH + 10;
+        const yHi = H - CAR_HH - 30;
+
+        for (let x = CAR_HW; x < W - CAR_HW; x += ZOOX_PATH_STEP) {
+          let bestY = y;
+          let bestScore = -Infinity;
+
+          for (let tryY = yLo; tryY <= yHi; tryY += 8) {
+            if (!vehicleFits(x, tryY, pixels)) continue;
+            const clear = vehicleClearance(x, tryY, pixels);
+            const jitter = (Math.random() - 0.5) * 60;
+            const smooth = -Math.abs(tryY - y) * 0.4;
+            const score = clear + jitter + smooth;
+            if (score > bestScore) {
+              bestScore = score;
+              bestY = tryY;
+            }
+          }
+
+          if (!vehicleFits(x, bestY, pixels)) bestY = y;
+          path.push({ x, y: bestY });
+          y = bestY + (Math.random() - 0.5) * 24;
+        }
+
+        return path;
+      }
+
+      function zooxTargetY(x) {
+        if (!zooxPath.length) return CAR_HH;
+        const lookX = x + ZOOX_LOOKAHEAD;
+        for (let i = 0; i < zooxPath.length - 1; i++) {
+          const a = zooxPath[i];
+          const b = zooxPath[i + 1];
+          if (lookX >= a.x && lookX <= b.x) {
+            const t = (lookX - a.x) / (b.x - a.x);
+            return a.y + (b.y - a.y) * t;
+          }
+        }
+        return zooxPath[zooxPath.length - 1].y;
+      }
+
+      function initZoox() {
+        const surfaceY = findSurfaceAt(solid, ZOOX_SPAWN.x, ZOOX_SPAWN.minY);
+        const y = surfaceY ? vehicleYOnSurface(surfaceY, zooxPixelsLeft) : CAR_HH;
+        zoox = {
+          x: ZOOX_SPAWN.x,
+          y,
+          vx: ZOOX_CRUISE_VX,
+          vy: 0,
+          wrapCount: 0,
+          steerTimer: 0.5,
+        };
+        let guard = 0;
+        while (vehicleOverlapsSolid(zoox.x, zoox.y, zooxPixelsLeft) && guard++ < CAR_H) zoox.y -= 1;
+        zooxPath = buildZooxPath(zooxPixelsLeft);
       }
 
       function buildDebugBackground(img, width, height) {
@@ -569,10 +827,7 @@
       }
 
       function ballOverlapsSolid(cx, cy) {
-        for (const [dx, dy] of activeCarPixels()) {
-          if (solidAt(Math.floor(cx + dx), Math.floor(cy + dy))) return true;
-        }
-        return false;
+        return vehicleOverlapsSolid(cx, cy, activeCarPixels());
       }
 
       function bounceVelocity() {
@@ -587,25 +842,25 @@
         return accelX * TAP_IMPULSE_T;
       }
 
-      function moveBallPixels(dx, dy) {
+      function moveEntityPixels(entity, pixels, dx, dy) {
         const moveAxis = (axis, delta) => {
           if (delta === 0) return;
           const steps = Math.max(1, Math.ceil(Math.abs(delta)));
           const step = delta / steps;
           for (let i = 0; i < steps; i++) {
-            if (axis === "x") ball.x += step;
-            else ball.y += step;
-            if (ballOverlapsSolid(ball.x, ball.y)) {
+            if (axis === "x") entity.x += step;
+            else entity.y += step;
+            if (vehicleOverlapsSolid(entity.x, entity.y, pixels)) {
               if (axis === "x") {
-                ball.x -= step;
-                ball.vx = 0;
+                entity.x -= step;
+                entity.vx = 0;
               } else {
-                ball.y -= step;
-                if (step > 0 && ball.vy > 0) {
-                  ball.vy = -bounceVelocity();
-                  while (ballOverlapsSolid(ball.x, ball.y)) ball.y -= 1;
+                entity.y -= step;
+                if (step > 0 && entity.vy > 0) {
+                  entity.vy = -bounceVelocity();
+                  while (vehicleOverlapsSolid(entity.x, entity.y, pixels)) entity.y -= 1;
                 } else {
-                  ball.vy = 0;
+                  entity.vy = 0;
                 }
               }
               return;
@@ -615,14 +870,18 @@
 
         moveAxis("x", dx);
         moveAxis("y", dy);
-        resolvePixelOverlap();
+        resolveEntityOverlap(entity, pixels);
       }
 
-      function resolvePixelOverlap() {
-        if (!ballOverlapsSolid(ball.x, ball.y)) return;
+      function moveBallPixels(dx, dy) {
+        moveEntityPixels(ball, activeCarPixels(), dx, dy);
+      }
 
-        const originX = ball.x;
-        const originY = ball.y;
+      function resolveEntityOverlap(entity, pixels) {
+        if (!vehicleOverlapsSolid(entity.x, entity.y, pixels)) return;
+
+        const originX = entity.x;
+        const originY = entity.y;
         const dirs = [
           [0, -1],
           [0, 1],
@@ -636,38 +895,81 @@
 
         for (let dist = 1; dist <= Math.max(CAR_HW, CAR_HH) + 4; dist++) {
           for (const [dx, dy] of dirs) {
-            ball.x = originX + dx * dist;
-            ball.y = originY + dy * dist;
-            if (!ballOverlapsSolid(ball.x, ball.y)) {
-              if (dx !== 0) ball.vx = 0;
-              if (dy !== 0) ball.vy = 0;
+            entity.x = originX + dx * dist;
+            entity.y = originY + dy * dist;
+            if (!vehicleOverlapsSolid(entity.x, entity.y, pixels)) {
+              if (dx !== 0) entity.vx = 0;
+              if (dy !== 0) entity.vy = 0;
               return;
             }
           }
         }
 
-        ball.x = originX;
-        ball.y = originY;
+        entity.x = originX;
+        entity.y = originY;
+      }
+
+      function resolvePixelOverlap() {
+        resolveEntityOverlap(ball, activeCarPixels());
+      }
+
+      function wrapEntityRight(entity) {
+        while (entity.x - CAR_HW > W) {
+          entity.x -= W;
+          entity.wrapCount++;
+        }
       }
 
       function wrapBallX() {
-        while (ball.x - CAR_HW > W) {
-          ball.x -= W;
-          ball.wrapCount++;
-        }
+        wrapEntityRight(ball);
         while (ball.x + CAR_HW < 0) {
           ball.x += W;
           ball.wrapCount++;
         }
       }
 
-      function clampBallToTop() {
+      function clampEntityToTop(entity, pixels) {
         const top = CAR_HH;
-        if (ball.y < top) {
-          ball.y = top;
-          if (ball.vy < 0) ball.vy = 0;
+        if (entity.y < top) {
+          entity.y = top;
+          if (entity.vy < 0) entity.vy = 0;
         }
-        if (ballOverlapsSolid(ball.x, ball.y)) resolvePixelOverlap();
+        if (vehicleOverlapsSolid(entity.x, entity.y, pixels)) resolveEntityOverlap(entity, pixels);
+      }
+
+      function clampBallToTop() {
+        clampEntityToTop(ball, activeCarPixels());
+      }
+
+      function steerZoox(dt) {
+        const targetY = zooxTargetY(zoox.x);
+        const err = zoox.y - targetY;
+
+        if (err > 18) zoox.vy -= tapImpulseY() * 0.28;
+
+        zoox.steerTimer -= dt;
+        if (zoox.steerTimer <= 0) {
+          zoox.steerTimer = 0.35 + Math.random() * 0.9;
+          if (Math.random() < 0.55) {
+            zoox.vy -= tapImpulseY() * (0.12 + Math.random() * 0.22);
+          }
+        }
+
+        const aheadX = zoox.x + ZOOX_LOOKAHEAD * 0.5;
+        if (!vehicleFits(aheadX, zoox.y, zooxBundle().pixels) && zoox.y > CAR_HH + 12) {
+          zoox.vy -= tapImpulseY() * 0.45;
+        }
+      }
+
+      function stepZoox(dt) {
+        if (isWrap() || !zoox) return;
+
+        zoox.vx = ZOOX_CRUISE_VX;
+        steerZoox(dt);
+        zoox.vy += accelX * dt;
+        moveEntityPixels(zoox, zooxBundle().pixels, zoox.vx * dt, zoox.vy * dt);
+        clampEntityToTop(zoox, zooxBundle().pixels);
+        wrapEntityRight(zoox);
       }
 
       function stepDrop(dt) {
@@ -695,12 +997,22 @@
         }
 
         stepDrop(dt);
+        stepZoox(dt);
+      }
+
+      function drawVehicle(sprite, cx, cy) {
+        if (!sprite) return;
+        ctx.drawImage(sprite, cx - CAR_HW, cy - CAR_HH, CAR_W, CAR_H);
       }
 
       function drawCarAt(cx, cy) {
         const { sprite } = activeCarBundle();
-        if (!sprite) return;
-        ctx.drawImage(sprite, cx - CAR_HW, cy - CAR_HH, CAR_W, CAR_H);
+        drawVehicle(sprite, cx, cy);
+      }
+
+      function drawZooxAt(cx, cy) {
+        const { sprite } = zooxBundle();
+        drawVehicle(sprite, cx, cy);
       }
 
       function drawFrame() {
@@ -708,6 +1020,13 @@
         ctx.fillRect(0, 0, W, H);
         const bg = DEBUG_GREEN_BG && debugBackground ? debugBackground : background;
         if (bg) ctx.drawImage(bg, 0, 0, W, H);
+
+        if (zoox && !isWrap()) {
+          const zooxXs = [zoox.x];
+          if (zoox.x - CAR_HW < 0) zooxXs.push(zoox.x + W);
+          if (zoox.x + CAR_HW > W) zooxXs.push(zoox.x - W);
+          for (const x of zooxXs) drawZooxAt(x, zoox.y);
+        }
 
         const drawXs = [ball.x];
         if (ball.x - CAR_HW < 0) drawXs.push(ball.x + W);
@@ -746,7 +1065,7 @@
         } else {
           titleEl.textContent = "Ford Capri Arena";
           descEl.textContent =
-            "Tap ← / lift / → to drive. Capri nose leads travel direction. Platforms are frictionless; landings bounce.";
+            "Tap ← / lift / → to drive your Capri. A Zoox robotaxi patrols left→right from the middle-left deck, weaving around the rocks.";
           modeBadgeEl.textContent = "DROP ↓";
         }
 
@@ -786,6 +1105,8 @@
         if (solid) {
           ball = createBall();
           resetBall();
+          if (!isWrap()) initZoox();
+          else zoox = null;
           lastFrame = 0;
         }
       }
@@ -821,10 +1142,12 @@
         accelX = computeAccelX();
         solid = buildSolidMap(SOLID_SEGMENTS, W, H);
         buildCapri();
+        buildZoox();
         if (DEBUG_GREEN_BG) {
           debugBackground = buildDebugBackground(background, W, H);
         }
         dropX = findDropColumn(solid, W, H);
+        initZoox();
 
         canvas.width = W;
         canvas.height = H;

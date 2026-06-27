@@ -51,7 +51,7 @@ async function build() {
       drop: {
         title: "Ford Capri Arena",
         desc:
-          "Tap ← / lift / → to drive. Capri faces left when moving left, right otherwise. Platforms are frictionless; landings bounce.",
+          "Tap ← / lift / → to drive your Capri. A Zoox robotaxi patrols left→right from the middle-left deck, weaving around the rocks.",
         btnDrop: "active",
         btnWrapRight: "",
         btnWrapLeft: "",
