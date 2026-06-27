@@ -80,21 +80,50 @@
         text-transform: uppercase;
       }
       p { font-size: 0.8rem; color: #666; max-width: 760px; text-align: center; line-height: 1.5; }
+      #play-column {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+      }
+      #lift-btn {
+        width: 2cm;
+        height: 2cm;
+        border-radius: 50%;
+        border: 2px solid #666;
+        background: radial-gradient(circle at 35% 30%, #666, #1a1a1a);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+        cursor: pointer;
+        flex-shrink: 0;
+        touch-action: none;
+      }
+      #lift-btn.pressed {
+        border-color: #9df;
+        background: radial-gradient(circle at 35% 30%, #8cd, #245);
+        box-shadow: 0 2px 8px rgba(100, 200, 255, 0.35);
+      }
+      #lift-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
     </style>
   </head>
   <body>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27k</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-27l</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
       <button type="button" id="btn-wrap-left" class="__BTN_WRAP_LEFT_CLASS__">← Wrap left</button>
     </div>
-    <div id="wrap">
-      <canvas id="view"></canvas>
-      <div id="mode-badge" class="__BADGE_CLASS__">__BADGE_TEXT__</div>
-      <div id="status">Loading…</div>
-      <div id="timer">0.00s / 2.00s</div>
+    <div id="play-column">
+      <div id="wrap">
+        <canvas id="view"></canvas>
+        <div id="mode-badge" class="__BADGE_CLASS__">__BADGE_TEXT__</div>
+        <div id="status">Loading…</div>
+        <div id="timer">0.00s / 2.00s</div>
+      </div>
+      <button type="button" id="lift-btn" aria-label="Apply upward acceleration"></button>
     </div>
     <p id="desc">__DESC_TEXT__</p>
     <script>window.__ARENA_MODE__ = "__BAKED_MODE__";</script>
@@ -113,6 +142,7 @@
       const btnDrop = document.getElementById("btn-drop");
       const btnWrapRight = document.getElementById("btn-wrap-right");
       const btnWrapLeft = document.getElementById("btn-wrap-left");
+      const liftBtn = document.getElementById("lift-btn");
 
       function parseInitialMode() {
         const baked = window.__ARENA_MODE__;
@@ -124,7 +154,7 @@
 
       let W = 1536;
       let H = 1024;
-      let gravity = 512;
+      let accelX = 512;
       let background = null;
       let solid = null;
       let ready = false;
@@ -133,6 +163,15 @@
 
       const BALL_R = 14;
       let ball = null;
+      let liftPressed = false;
+
+      function fallDistance() {
+        return H - BALL_R * 2;
+      }
+
+      function computeAccelX() {
+        return (2 * fallDistance()) / (FALL_SECONDS * FALL_SECONDS);
+      }
 
       function isWrap() {
         return mode === "wrap-right" || mode === "wrap-left";
@@ -240,42 +279,30 @@
         }
       }
 
-      function landOnPlatforms(dt) {
-        if (ball.vy <= 0) return;
-
-        const cx = Math.round(ball.x);
-        const footY = ball.y + ball.r;
-        const nextFoot = footY + ball.vy * dt;
-        let surface = null;
-
-        for (let y = Math.floor(footY); y <= Math.ceil(nextFoot); y++) {
-          if (!isSolid(cx, y)) continue;
-          surface = y;
-          break;
+      function clampBallToScreen() {
+        const top = BALL_R;
+        const bottom = H - BALL_R;
+        if (ball.y > bottom) {
+          ball.y = bottom;
+          if (ball.vy > 0) ball.vy = 0;
         }
-
-        if (surface !== null) {
-          ball.y = surface - ball.r - 0.01;
-          ball.vy = 0;
+        if (ball.y < top) {
+          ball.y = top;
+          if (ball.vy < 0) ball.vy = 0;
         }
       }
 
-      function pushOutOfSolids() {
-        if (!isSolid(ball.x, ball.y)) return;
-        for (let y = Math.floor(ball.y - ball.r); y <= Math.ceil(ball.y + ball.r); y++) {
-          for (let x = Math.floor(ball.x - ball.r); x <= Math.ceil(ball.x + ball.r); x++) {
-            if (!isSolid(x, y)) continue;
-            ball.y = y - ball.r - 0.01;
-            ball.vy = 0;
-            return;
-          }
-        }
-      }
+      function stepDrop(dt) {
+        const ay = liftPressed ? -accelX / 2 : accelX;
+        ball.vy += ay * dt;
+        ball.y += ball.vy * dt;
+        clampBallToScreen();
 
-      function restingOnSolid() {
-        return isSolid(ball.x, ball.y + ball.r + 1)
-          || isSolid(ball.x - ball.r * 0.5, ball.y + ball.r + 1)
-          || isSolid(ball.x + ball.r * 0.5, ball.y + ball.r + 1);
+        const vBottom = accelX * FALL_SECONDS;
+        timerEl.textContent =
+          `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s  ` +
+          `vy: ${ball.vy.toFixed(0)}  ay: ${ay > 0 ? "+" : ""}${ay.toFixed(0)}  ` +
+          `(v₀=0 → vₘₐₓ=${vBottom.toFixed(0)})`;
       }
 
       function step(dt) {
@@ -288,19 +315,7 @@
           return;
         }
 
-        ball.vy += gravity * dt;
-        ball.y += ball.vy * dt;
-        landOnPlatforms(dt);
-        pushOutOfSolids();
-
-        if (ball.vy === 0 && restingOnSolid()) {
-          ball.restTimer += dt;
-          if (ball.restTimer > 2.5) resetBall();
-        } else {
-          ball.restTimer = 0;
-        }
-
-        timerEl.textContent = `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s`;
+        stepDrop(dt);
       }
 
       function drawBallAt(x, y) {
@@ -354,14 +369,25 @@
           modeBadgeEl.textContent = "WRAP ←";
         } else {
           titleEl.textContent = "Gravity test — vertical drop in 2 seconds";
-          descEl.textContent = "Single red ball drops from the top center onto the platform below.";
+          descEl.textContent =
+            "Ball falls top to bottom in 2s with acceleration x. Hold the button below for upward acceleration x/2 — tap repeatedly to slow, stop, and rise.";
           modeBadgeEl.textContent = "DROP ↓";
         }
+
+        liftBtn.disabled = isWrap();
+        liftBtn.classList.toggle("pressed", liftPressed && !isWrap());
+      }
+
+      function setLift(on) {
+        if (isWrap()) return;
+        liftPressed = on;
+        liftBtn.classList.toggle("pressed", on);
       }
 
       function setMode(next) {
         if (mode === next) return;
         mode = next;
+        setLift(false);
         applyModeCopy();
         if (solid) {
           ball = createBall();
@@ -373,6 +399,14 @@
       btnDrop.addEventListener("click", () => setMode("drop"));
       btnWrapRight.addEventListener("click", () => setMode("wrap-right"));
       btnWrapLeft.addEventListener("click", () => setMode("wrap-left"));
+
+      liftBtn.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        setLift(true);
+      });
+      liftBtn.addEventListener("pointerup", () => setLift(false));
+      liftBtn.addEventListener("pointerleave", () => setLift(false));
+      liftBtn.addEventListener("pointercancel", () => setLift(false));
 
       async function init() {
         applyModeCopy();
@@ -394,7 +428,7 @@
 
         W = background.naturalWidth;
         H = background.naturalHeight;
-        gravity = H / (0.5 * FALL_SECONDS * FALL_SECONDS);
+        accelX = computeAccelX();
         solid = buildSolidMap(SOLID_SEGMENTS, W, H);
         dropX = findDropColumn(solid, W, H);
 
