@@ -29,7 +29,6 @@ async function build() {
   }
 
   copyFileSync(SRC, `${ASSETS}/arena-foreground.png`);
-  copyFileSync(BACKDROP, `${ASSETS}/arena-backdrop.jpg`);
   copyFileSync("/workspace/demo/manifest.webmanifest", `${OUT}/manifest.webmanifest`);
 
   const iconSvg = Buffer.from(
@@ -50,14 +49,43 @@ async function build() {
   const segments = solidToSegments(solid, width, height);
   await writeFile(`${ASSETS}/arena-solid.bin`, solid);
 
+  const titleFontSize = Math.round(width * 0.105);
+  const titleY = Math.round(height * 0.17);
+  const titleSvg = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+      <defs>
+        <linearGradient id="lvGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#fff8e8" stop-opacity="0.68"/>
+          <stop offset="55%" stop-color="#ffd6a0" stop-opacity="0.36"/>
+          <stop offset="100%" stop-color="#c88850" stop-opacity="0.1"/>
+        </linearGradient>
+        <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="2.2" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+      <text x="50%" y="${titleY}" text-anchor="middle"
+        font-family="Georgia, 'Times New Roman', serif" font-size="${titleFontSize}" font-weight="700"
+        letter-spacing="${Math.round(width * 0.006)}" fill="url(#lvGrad)" filter="url(#soft)" opacity="0.82">Las Vegas</text>
+    </svg>`,
+  );
+
+  const backdropJpegFull = await sharp(BACKDROP)
+    .resize(width, height, { fit: "cover", position: "centre" })
+    .composite([{ input: titleSvg, top: 0, left: 0 }])
+    .jpeg({ quality: 84 })
+    .toBuffer();
+
+  await writeFile(`${ASSETS}/arena-backdrop.jpg`, backdropJpegFull);
+  await writeFile("/workspace/demo/assets/arena-backdrop.jpg", backdropJpegFull);
+
+  const backdropDataUrl = `data:image/jpeg;base64,${backdropJpegFull.toString("base64")}`;
+
   const foregroundPng = await sharp(SRC).png({ compressionLevel: 9 }).toBuffer();
   const bgDataUrl = `data:image/png;base64,${foregroundPng.toString("base64")}`;
-
-  const backdropJpeg = await sharp(BACKDROP)
-    .resize(width, height, { fit: "cover", position: "centre" })
-    .jpeg({ quality: 82 })
-    .toBuffer();
-  const backdropDataUrl = `data:image/jpeg;base64,${backdropJpeg.toString("base64")}`;
 
   let html = readFileSync("/workspace/demo/cloud-background.html", "utf8");
 

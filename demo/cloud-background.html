@@ -31,9 +31,6 @@
         box-shadow: 0 8px 40px rgba(0,0,0,0.6);
         background: #000;
         max-width: 100%;
-        display: inline-flex;
-        flex-direction: column;
-        align-items: center;
       }
       canvas { display: block; max-width: 100%; height: auto; vertical-align: top; }
       #status, #timer {
@@ -102,11 +99,11 @@
         gap: 14px;
         padding: 14px 0 4px;
       }
-      .control-cluster {
+      .control-side {
         display: contents;
       }
       .control-landscape-only {
-        display: none;
+        display: none !important;
       }
       .control-btn {
         width: 2cm;
@@ -188,15 +185,19 @@
           height: 100%;
           gap: 0;
           justify-content: center;
-          position: relative;
+          align-items: center;
+          display: grid;
+          grid-template-columns: auto minmax(0, min(calc(100svh * 3 / 2), calc(100vw - 11rem))) auto;
+          column-gap: clamp(6px, 1.4vw, 14px);
         }
         #wrap {
+          grid-column: 2;
+          grid-row: 1;
           border: none;
           box-shadow: none;
           max-width: none;
-          display: block;
-          width: min(100dvw, calc(100svh * 3 / 2));
-          height: min(100svh, calc(100dvw * 2 / 3));
+          width: 100%;
+          height: min(100svh, calc(100% * 2 / 3));
           aspect-ratio: 3 / 2;
         }
         canvas {
@@ -205,36 +206,39 @@
           max-width: none;
         }
         #control-bar {
-          position: absolute;
-          inset: 0;
+          display: contents;
           padding: 0;
-          pointer-events: none;
-          z-index: 4;
         }
-        .control-cluster {
-          display: flex;
+        .control-side-left {
+          grid-column: 1;
+          grid-row: 1;
+          display: flex !important;
           flex-direction: column;
           align-items: center;
+          justify-content: center;
           gap: clamp(6px, 1.6vh, 12px);
-          position: absolute;
-          top: 50%;
-          transform: translateY(-50%);
           pointer-events: none;
         }
-        .control-cluster-left {
-          left: clamp(4px, 1.2%, 12px);
-        }
-        .control-cluster-right {
-          right: clamp(4px, 1.2%, 12px);
+        .control-side-right {
+          grid-column: 3;
+          grid-row: 1;
+          display: flex !important;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: clamp(6px, 1.6vh, 12px);
+          pointer-events: none;
         }
         .control-portrait-only {
-          display: none;
+          display: none !important;
         }
-        .control-landscape-only {
-          display: block;
+        .control-landscape-only[hidden] {
+          display: none !important;
+        }
+        .control-landscape-only:not([hidden]) {
+          display: grid !important;
         }
         #control-bar .control-btn {
-          position: static;
           pointer-events: auto;
           border: none;
           border-radius: 0;
@@ -287,7 +291,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29b</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29c</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -299,16 +303,16 @@
         <div id="mode-badge" class="__BADGE_CLASS__">__BADGE_TEXT__</div>
         <div id="status">Loading…</div>
         <div id="timer">0.00s / 3.00s</div>
-        <div id="control-bar">
-          <div class="control-cluster control-cluster-left">
-            <button type="button" id="left-btn" class="control-btn" aria-label="Accelerate left">←</button>
-            <button type="button" id="left-lift-btn" class="control-btn control-landscape-only" aria-label="Lift"></button>
-          </div>
-          <button type="button" id="lift-btn" class="control-btn control-portrait-only" aria-label="Apply upward acceleration"></button>
-          <div class="control-cluster control-cluster-right">
-            <button type="button" id="right-btn" class="control-btn" aria-label="Accelerate right">→</button>
-            <button type="button" id="right-lift-btn" class="control-btn control-landscape-only" aria-label="Lift"></button>
-          </div>
+      </div>
+      <div id="control-bar">
+        <div class="control-side control-side-left">
+          <button type="button" id="left-btn" class="control-btn" aria-label="Accelerate left">←</button>
+          <button type="button" id="left-lift-btn" class="control-btn control-landscape-only" aria-label="Lift" hidden></button>
+        </div>
+        <button type="button" id="lift-btn" class="control-btn control-portrait-only" aria-label="Apply upward acceleration"></button>
+        <div class="control-side control-side-right">
+          <button type="button" id="right-btn" class="control-btn" aria-label="Accelerate right">→</button>
+          <button type="button" id="right-lift-btn" class="control-btn control-landscape-only" aria-label="Lift" hidden></button>
         </div>
       </div>
     </div>
@@ -341,6 +345,13 @@
 
       function isLandscapePhone() {
         return window.matchMedia("(orientation: landscape) and (max-height: 520px)").matches;
+      }
+
+      function layoutControls() {
+        const land = isLandscapePhone();
+        leftLiftBtn.hidden = !land;
+        rightLiftBtn.hidden = !land;
+        liftBtn.hidden = land;
       }
 
       function isStandaloneDisplay() {
@@ -394,6 +405,7 @@
 
       window.addEventListener("orientationchange", () => {
         setTimeout(() => {
+          layoutControls();
           syncViewportHeight();
           hideMobileBrowserChrome();
           if (isLandscapePhone()) tryImmersiveMode();
@@ -401,8 +413,11 @@
         }, 250);
       });
 
+      window.addEventListener("resize", layoutControls);
+
       window.visualViewport?.addEventListener("resize", () => {
         syncViewportHeight();
+        layoutControls();
         updateChromeHint();
       });
 
@@ -2094,6 +2109,7 @@
         statusEl.style.display = "none";
         lastFrame = 0;
         syncViewportHeight();
+        layoutControls();
         updateChromeHint();
         hideMobileBrowserChrome();
         requestAnimationFrame(tick);
