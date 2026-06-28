@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28t</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28u</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -206,7 +206,7 @@
       const ZOOX_REVERSE_DIST = 32;
       const ZOOX_REVERSE_TIME = 0.24;
       const VEHICLE_HIT_COOLDOWN = 0.35;
-      const LIGHTNING_LIFETIME = 5;
+      const LIGHTNING_LIFETIME = 10;
       const LIGHTNING_SCALE = 0.82;
       const LIGHTNING_HSPEED_MULT = 3;
       const LIGHTNING_TOUCH_GRACE = 0.25;
@@ -779,23 +779,30 @@
         const lctx = canvas.getContext("2d");
         const cx = w / 2;
 
-        lctx.fillStyle = "#fff44a";
-        lctx.strokeStyle = "#ffffff";
-        lctx.lineWidth = 3.5;
+        function boltPath() {
+          lctx.beginPath();
+          lctx.moveTo(cx, 2);
+          lctx.lineTo(cx - 8, h * 0.34);
+          lctx.lineTo(cx + 6, h * 0.38);
+          lctx.lineTo(cx - 11, h * 0.7);
+          lctx.lineTo(cx + 5, h * 0.66);
+          lctx.lineTo(cx, h - 2);
+          lctx.closePath();
+        }
+
         lctx.lineJoin = "round";
-        lctx.shadowColor = "#66ccff";
-        lctx.shadowBlur = 8;
-        lctx.beginPath();
-        lctx.moveTo(cx, 2);
-        lctx.lineTo(cx - 8, h * 0.34);
-        lctx.lineTo(cx + 6, h * 0.38);
-        lctx.lineTo(cx - 11, h * 0.7);
-        lctx.lineTo(cx + 5, h * 0.66);
-        lctx.lineTo(cx, h - 2);
-        lctx.closePath();
-        lctx.fill();
+        lctx.lineCap = "round";
+        lctx.strokeStyle = "#000000";
+        lctx.lineWidth = 9;
+        boltPath();
         lctx.stroke();
-        lctx.shadowBlur = 0;
+        lctx.fillStyle = "#fff44a";
+        boltPath();
+        lctx.fill();
+        lctx.strokeStyle = "#ffffff";
+        lctx.lineWidth = 2.5;
+        boltPath();
+        lctx.stroke();
         lctx.strokeStyle = "#ffffcc";
         lctx.lineWidth = 1.5;
         lctx.beginPath();
@@ -806,6 +813,16 @@
 
         lightningSprite = canvas;
         lightningPixels = extractCarPixels(canvas);
+      }
+
+      function lightningHalfWidth() {
+        return lightningSprite ? lightningSprite.width / 2 : (CAR_W * LIGHTNING_SCALE) / 2;
+      }
+
+      function wrapLightningUnit(unit) {
+        const hw = lightningHalfWidth();
+        while (unit.x - hw > W) unit.x -= W;
+        while (unit.x + hw < 0) unit.x += W;
       }
 
       function lightningOverlapsSolid(cx, cy) {
@@ -1429,6 +1446,7 @@
 
         unit.lightningVy += accelX * dt;
         moveLightningPixels(unit, unit.lightningVx * dt, unit.lightningVy * dt);
+        wrapLightningUnit(unit);
       }
 
       function stepLightning(dt) {
@@ -1651,7 +1669,11 @@
               if (unit.x + CAR_HW > W) zooxXs.push(unit.x - W);
               for (const x of zooxXs) drawZooxAt(x, unit.y, unit);
             } else if (unit.state === "lightning") {
-              drawLightningAt(unit.x, unit.y);
+              const hw = lightningHalfWidth();
+              const boltXs = [unit.x];
+              if (unit.x - hw < 0) boltXs.push(unit.x + W);
+              if (unit.x + hw > W) boltXs.push(unit.x - W);
+              for (const x of boltXs) drawLightningAt(x, unit.y);
             }
           }
         }
