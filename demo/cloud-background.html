@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28p</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28q</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -597,7 +597,6 @@
         const tireHi = "#1c1c1c";
         const light = "#e8f8ff";
         const lightCore = "#9de8ff";
-        const skirt = "#121216";
 
         const bottom = h - 1;
         const skirtH = 6;
@@ -661,6 +660,8 @@
         ctx.lineTo(w - 12, bodyBottom - 40);
         ctx.quadraticCurveTo(w - 4, bodyBottom - 38, w - 4, bodyBottom - 10);
         ctx.lineTo(w - 4, bodyBottom);
+        ctx.lineTo(rearWheelX + 11, bodyBottom);
+        ctx.quadraticCurveTo(w * 0.5, bodyBottom - 7, frontWheelX - 11, bodyBottom);
         ctx.closePath();
         ctx.fill();
 
@@ -710,8 +711,6 @@
 
         drawEndCap(4, true);
         drawEndCap(w - 4, false);
-        ctx.fillStyle = skirt;
-        ctx.fillRect(0, bodyBottom, w, skirtH);
         drawCornerWheel(frontWheelX);
         drawCornerWheel(rearWheelX);
         ctx.strokeStyle = "rgba(255,255,255,0.16)";
