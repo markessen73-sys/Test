@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">Ford Capri Arena</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28k</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28l</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="active">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -200,6 +200,10 @@
       const ZOOX_PATH_STEP = 16;
       const ZOOX_LOOKAHEAD = 140;
       const ZOOX_MAX_VY = 340;
+      const ZOOX_STALL_EPS = 0.75;
+      const ZOOX_STALL_TIME = 0.1;
+      const ZOOX_REVERSE_DIST = 32;
+      const ZOOX_REVERSE_TIME = 0.24;
       const ZOOX_SPAWN = { x: 209, minY: 400 };
 
       let ball = null;
@@ -865,6 +869,97 @@
         return smoothChannelPath(raw, 8);
       }
 
+      function ensureZooxSpawnFit(x, y, pixels) {
+        if (zooxFits(x, y, pixels)) return y;
+        const intervals = zooxFitIntervalsAt(x, pixels);
+        const pick = pickChannelInterval(intervals, y);
+        if (pick) {
+          const cy = Math.max(pick.lo + 2, Math.min(pick.hi - 2, pick.mid));
+          if (zooxFits(x, cy, pixels)) return cy;
+        }
+        for (let i = 1; i < 200; i++) {
+          if (zooxFits(x, y - i, pixels)) return y - i;
+          if (zooxFits(x, y + i, pixels)) return y + i;
+        }
+        return y;
+      }
+
+      function zooxSlideToChannel(pixels, lookAhead = 48) {
+        const targetY = zooxChannelYAt(zoox.x + lookAhead);
+        const dir = Math.sign(targetY - zoox.y);
+        if (!dir) return false;
+        for (const step of [2, 4, 6, 8, 10, 14, 18, 24, 32, 42]) {
+          const tryY = zoox.y + dir * step;
+          if (zooxFits(zoox.x, tryY, pixels)) {
+            zoox.y = tryY;
+            return true;
+          }
+        }
+        return false;
+      }
+
+      function zooxTryVerticalEscape(pixels) {
+        const channelY = zooxChannelYAt(zoox.x + 40);
+        const primary = Math.sign(channelY - zoox.y);
+        const dirs = [];
+        if (primary) dirs.push(primary);
+        dirs.push(-1, 1);
+        const tried = new Set();
+        for (const dir of dirs) {
+          if (!dir || tried.has(dir)) continue;
+          tried.add(dir);
+          for (const step of [4, 8, 12, 18, 26, 36, 52, 72]) {
+            const tryY = zoox.y + dir * step;
+            if (zooxFits(zoox.x, tryY, pixels)) {
+              zoox.y = tryY;
+              zoox.vy = dir * ZOOX_MAX_VY * 0.4;
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+
+      function zooxReversePixels(dist, pixels) {
+        let moved = 0;
+        for (let i = 0; i < dist; i++) {
+          if (!zooxFits(zoox.x - 1, zoox.y, pixels)) break;
+          zoox.x -= 1;
+          moved++;
+        }
+        return moved;
+      }
+
+      function zooxBeginStallRecovery(pixels) {
+        zooxTryVerticalEscape(pixels);
+        zooxReversePixels(ZOOX_REVERSE_DIST, pixels);
+        if (!zooxFits(zoox.x, zoox.y, pixels)) {
+          zoox.y = ensureZooxSpawnFit(zoox.x, zoox.y, pixels);
+        }
+        zooxSlideToChannel(pixels, 24);
+        zoox.reverseTimer = ZOOX_REVERSE_TIME;
+        zoox.stallTimer = 0;
+        const targetY = zooxChannelYAt(zoox.x + 56);
+        zoox.vy = (targetY - zoox.y) * 2.5;
+      }
+
+      function updateZooxStall(dt, prevX, pixels) {
+        if (zoox.reverseTimer > 0) return;
+
+        const progressed = Math.abs(zoox.x - prevX) > ZOOX_STALL_EPS;
+        const fits = zooxFits(zoox.x, zoox.y, pixels);
+
+        if (progressed && fits) {
+          zoox.stallTimer = 0;
+          return;
+        }
+
+        zoox.stallTimer += dt;
+        if (zoox.stallTimer < ZOOX_STALL_TIME) return;
+
+        zooxBeginStallRecovery(pixels);
+      }
+
       function zooxChannelYAt(x) {
         if (!zooxPath.length) return CAR_HH;
         if (x <= zooxPath[0].x) return zooxPath[0].y;
@@ -885,21 +980,22 @@
 
       function initZoox() {
         const surfaceY = findSurfaceAt(solid, ZOOX_SPAWN.x, ZOOX_SPAWN.minY);
-        const y = surfaceY ? vehicleYOnSurface(surfaceY, zooxPixelsLeft) : CAR_HH;
+        let y = surfaceY ? vehicleYOnSurface(surfaceY, zooxPixelsLeft) : CAR_HH;
+        y = ensureZooxSpawnFit(ZOOX_SPAWN.x, y, zooxPixelsLeft);
+        zooxPath = buildZooxChannel(zooxPixelsLeft);
         zoox = {
           x: ZOOX_SPAWN.x,
           y,
           vx: ZOOX_CRUISE_VX,
           vy: 0,
           wrapCount: 0,
-          stuckTimer: 0,
+          stallTimer: 0,
+          reverseTimer: 0,
         };
-        let guard = 0;
-        while (zooxOverlapsSolid(zoox.x, zoox.y, zooxPixelsLeft) && guard++ < CAR_H) zoox.y -= 1;
-        zooxPath = [{ x: zoox.x, y: zoox.y }];
-        setTimeout(() => {
-          if (zoox) zooxPath = buildZooxChannel(zooxPixelsLeft);
-        }, 0);
+        zoox.y = ensureZooxSpawnFit(zoox.x, zoox.y, zooxPixelsLeft);
+        if (!zooxFits(zoox.x + 12, zoox.y, zooxPixelsLeft)) {
+          zooxBeginStallRecovery(zooxPixelsLeft);
+        }
       }
 
       function buildDebugBackground(img, width, height) {
@@ -978,19 +1074,6 @@
         const probe = zooxSolidAt;
         const overlaps = (cx, cy) => vehicleOverlapsSolidAt(cx, cy, pixels, probe);
 
-        const slideToChannel = () => {
-          const targetY = zooxChannelYAt(zoox.x + 48);
-          const dir = Math.sign(targetY - zoox.y);
-          if (!dir) return;
-          for (const step of [2, 4, 6, 8, 10, 14, 18, 24]) {
-            const tryY = zoox.y + dir * step;
-            if (zooxFits(zoox.x, tryY, pixels)) {
-              zoox.y = tryY;
-              return;
-            }
-          }
-        };
-
         const moveAxis = (axis, delta) => {
           if (delta === 0) return;
           const steps = Math.max(1, Math.ceil(Math.abs(delta)));
@@ -1001,7 +1084,10 @@
             if (overlaps(zoox.x, zoox.y)) {
               if (axis === "x") {
                 zoox.x -= step;
-                slideToChannel();
+                if (!zooxSlideToChannel(pixels)) zooxTryVerticalEscape(pixels);
+                zoox.x += step;
+                if (!overlaps(zoox.x, zoox.y)) continue;
+                zoox.x -= step;
               } else {
                 zoox.y -= step;
                 zoox.vy *= 0.45;
@@ -1013,7 +1099,9 @@
 
         moveAxis("y", dy);
         moveAxis("x", dx);
-        if (overlaps(zoox.x, zoox.y)) slideToChannel();
+        if (overlaps(zoox.x, zoox.y)) {
+          if (!zooxSlideToChannel(pixels)) zooxTryVerticalEscape(pixels);
+        }
         resolveEntityOverlap(zoox, pixels, probe);
       }
 
@@ -1099,29 +1187,32 @@
 
       function unstuckZoox(dt) {
         const pixels = zooxBundle().pixels;
-        if (!zooxOverlapsSolid(zoox.x, zoox.y, pixels)) {
-          zoox.stuckTimer = 0;
-          return;
-        }
-        zoox.stuckTimer += dt;
-        if (zoox.stuckTimer < 0.06) return;
-        zoox.stuckTimer = 0;
-        const targetY = zooxChannelYAt(zoox.x);
-        const dir = Math.sign(targetY - zoox.y) || -1;
-        for (let i = 0; i < 20; i++) {
-          if (!zooxOverlapsSolid(zoox.x, zoox.y + dir, pixels)) zoox.y += dir;
-          else break;
+        if (!zooxOverlapsSolid(zoox.x, zoox.y, pixels)) return;
+        zooxTryVerticalEscape(pixels);
+        if (zooxOverlapsSolid(zoox.x, zoox.y, pixels)) {
+          zooxBeginStallRecovery(pixels);
         }
       }
 
       function stepZoox(dt) {
         if (isWrap() || !zoox) return;
 
-        zoox.vx = ZOOX_CRUISE_VX;
+        const pixels = zooxBundle().pixels;
+        const prevX = zoox.x;
+
         steerZoox(dt);
+
+        if (zoox.reverseTimer > 0) {
+          zoox.reverseTimer -= dt;
+          zoox.vx = -ZOOX_CRUISE_VX * 0.55;
+        } else {
+          zoox.vx = ZOOX_CRUISE_VX;
+        }
+
         moveZooxPixels(zoox.vx * dt, zoox.vy * dt);
+        updateZooxStall(dt, prevX, pixels);
         unstuckZoox(dt);
-        clampEntityToTop(zoox, zooxBundle().pixels, zooxSolidAt);
+        clampEntityToTop(zoox, pixels, zooxSolidAt);
         wrapEntityRight(zoox);
       }
 
