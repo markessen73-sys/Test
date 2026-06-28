@@ -8,6 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#000000" />
     <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="assets/icon-192.png" />
     <title>Ford Capri Arena</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,7 +31,9 @@
         box-shadow: 0 8px 40px rgba(0,0,0,0.6);
         background: #000;
         max-width: 100%;
-        display: inline-block;
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
       }
       canvas { display: block; max-width: 100%; height: auto; vertical-align: top; }
       #status, #timer {
@@ -125,15 +128,14 @@
         -webkit-tap-highlight-color: transparent;
       }
       #lift-btn.pressed,
-      .arrow-up.pressed {
+      #left-lift-btn.pressed,
+      #right-lift-btn.pressed {
         border-color: #9df;
         background: radial-gradient(circle at 35% 30%, #8cd, #245);
         box-shadow: 0 2px 8px rgba(100, 200, 255, 0.35);
       }
       #left-btn.pressed,
-      #right-btn.pressed,
-      .arrow-left.pressed,
-      .arrow-right.pressed {
+      #right-btn.pressed {
         border-color: #fd8;
         background: radial-gradient(circle at 35% 30%, #da8, #432);
         box-shadow: 0 2px 8px rgba(255, 180, 80, 0.35);
@@ -141,6 +143,23 @@
       .control-btn:disabled {
         opacity: 0.35;
         cursor: default;
+      }
+      #chrome-hint {
+        display: none;
+        position: fixed;
+        top: env(safe-area-inset-top, 0);
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 20;
+        max-width: 92vw;
+        padding: 7px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(0, 0, 0, 0.82);
+        color: rgba(255, 255, 255, 0.82);
+        font-size: 0.72rem;
+        text-align: center;
+        pointer-events: none;
       }
 
       @media (orientation: landscape) and (max-height: 520px) {
@@ -155,8 +174,8 @@
           gap: 0;
           overflow: hidden;
           width: 100%;
-          height: 100dvh;
-          min-height: 100dvh;
+          height: 100svh;
+          min-height: 100svh;
         }
         body > h1,
         body > #build-tag,
@@ -176,8 +195,8 @@
           box-shadow: none;
           max-width: none;
           display: block;
-          width: min(100dvw, calc(100dvh * 3 / 2));
-          height: min(100dvh, calc(100dvw * 2 / 3));
+          width: min(100dvw, calc(100svh * 3 / 2));
+          height: min(100svh, calc(100dvw * 2 / 3));
           aspect-ratio: 3 / 2;
         }
         canvas {
@@ -196,17 +215,17 @@
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: clamp(8px, 2.2vh, 14px);
+          gap: clamp(6px, 1.6vh, 12px);
           position: absolute;
           top: 50%;
           transform: translateY(-50%);
           pointer-events: none;
         }
         .control-cluster-left {
-          left: clamp(6px, 1.8vw, 16px);
+          left: clamp(4px, 1.2%, 12px);
         }
         .control-cluster-right {
-          right: clamp(6px, 1.8vw, 16px);
+          right: clamp(4px, 1.2%, 12px);
         }
         .control-portrait-only {
           display: none;
@@ -223,42 +242,52 @@
           font-size: 0;
           filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55));
         }
-        .arrow-left,
-        .arrow-right {
-          width: clamp(62px, 15vh, 92px);
-          height: clamp(46px, 11vh, 68px);
-        }
-        .arrow-up {
-          width: clamp(46px, 11vh, 68px);
-          height: clamp(54px, 13vh, 80px);
-        }
-        .arrow-left {
+        #left-btn {
           clip-path: polygon(0% 50%, 40% 6%, 40% 30%, 100% 30%, 100% 70%, 40% 70%, 40% 94%);
           background: linear-gradient(165deg, rgba(245, 198, 98, 0.94) 0%, rgba(168, 102, 28, 0.96) 100%);
         }
-        .arrow-left.pressed {
+        #left-btn.pressed {
           background: linear-gradient(165deg, rgba(255, 228, 150, 0.98) 0%, rgba(210, 140, 50, 0.98) 100%);
         }
-        .arrow-right {
+        #right-btn {
           clip-path: polygon(100% 50%, 60% 6%, 60% 30%, 0% 30%, 0% 70%, 60% 70%, 60% 94%);
           background: linear-gradient(195deg, rgba(245, 198, 98, 0.94) 0%, rgba(168, 102, 28, 0.96) 100%);
         }
-        .arrow-right.pressed {
+        #right-btn.pressed {
           background: linear-gradient(195deg, rgba(255, 228, 150, 0.98) 0%, rgba(210, 140, 50, 0.98) 100%);
         }
-        .arrow-up {
+        #left-lift-btn,
+        #right-lift-btn {
           clip-path: polygon(50% 0%, 94% 44%, 70% 44%, 70% 100%, 30% 100%, 30% 44%, 6% 44%);
           background: linear-gradient(180deg, rgba(150, 210, 255, 0.94) 0%, rgba(48, 118, 198, 0.96) 100%);
         }
-        .arrow-up.pressed {
+        #left-lift-btn.pressed,
+        #right-lift-btn.pressed {
           background: linear-gradient(180deg, rgba(190, 230, 255, 0.98) 0%, rgba(80, 150, 230, 0.98) 100%);
+        }
+        #left-btn,
+        #right-btn {
+          width: clamp(56px, 13vh, 84px);
+          height: clamp(42px, 10vh, 62px);
+        }
+        #left-lift-btn,
+        #right-lift-btn {
+          width: clamp(42px, 10vh, 62px);
+          height: clamp(48px, 11vh, 72px);
+        }
+        #chrome-hint {
+          display: block;
+        }
+        #chrome-hint.is-hidden {
+          display: none;
         }
       }
     </style>
   </head>
   <body>
+    <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29a</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29b</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -270,16 +299,16 @@
         <div id="mode-badge" class="__BADGE_CLASS__">__BADGE_TEXT__</div>
         <div id="status">Loading…</div>
         <div id="timer">0.00s / 3.00s</div>
-      </div>
-      <div id="control-bar">
-        <div class="control-cluster control-cluster-left">
-          <button type="button" id="left-btn" class="control-btn arrow-left" aria-label="Accelerate left">←</button>
-          <button type="button" id="left-lift-btn" class="control-btn arrow-up control-landscape-only" aria-label="Lift"></button>
-        </div>
-        <button type="button" id="lift-btn" class="control-btn control-portrait-only" aria-label="Apply upward acceleration">↑</button>
-        <div class="control-cluster control-cluster-right">
-          <button type="button" id="right-btn" class="control-btn arrow-right" aria-label="Accelerate right">→</button>
-          <button type="button" id="right-lift-btn" class="control-btn arrow-up control-landscape-only" aria-label="Lift"></button>
+        <div id="control-bar">
+          <div class="control-cluster control-cluster-left">
+            <button type="button" id="left-btn" class="control-btn" aria-label="Accelerate left">←</button>
+            <button type="button" id="left-lift-btn" class="control-btn control-landscape-only" aria-label="Lift"></button>
+          </div>
+          <button type="button" id="lift-btn" class="control-btn control-portrait-only" aria-label="Apply upward acceleration"></button>
+          <div class="control-cluster control-cluster-right">
+            <button type="button" id="right-btn" class="control-btn" aria-label="Accelerate right">→</button>
+            <button type="button" id="right-lift-btn" class="control-btn control-landscape-only" aria-label="Lift"></button>
+          </div>
         </div>
       </div>
     </div>
@@ -308,23 +337,43 @@
       const leftBtn = document.getElementById("left-btn");
       const rightBtn = document.getElementById("right-btn");
       const wrapEl = document.getElementById("wrap");
+      const chromeHintEl = document.getElementById("chrome-hint");
 
       function isLandscapePhone() {
         return window.matchMedia("(orientation: landscape) and (max-height: 520px)").matches;
       }
 
-      let immersiveRequested = false;
+      function isStandaloneDisplay() {
+        return (
+          window.matchMedia("(display-mode: standalone)").matches ||
+          window.matchMedia("(display-mode: fullscreen)").matches ||
+          window.navigator.standalone === true
+        );
+      }
+
+      function isFullscreenActive() {
+        return Boolean(
+          document.fullscreenElement ||
+            document.webkitFullscreenElement ||
+            document.webkitCurrentFullScreenElement,
+        );
+      }
+
+      function updateChromeHint() {
+        if (!chromeHintEl) return;
+        const hide = !isLandscapePhone() || isStandaloneDisplay() || isFullscreenActive();
+        chromeHintEl.classList.toggle("is-hidden", hide);
+      }
 
       function tryImmersiveMode() {
-        if (immersiveRequested) return;
-        immersiveRequested = true;
         const el = document.documentElement;
         const req =
           el.requestFullscreen?.bind(el) ||
           el.webkitRequestFullscreen?.bind(el) ||
           el.webkitEnterFullscreen?.bind(el);
-        if (req) req().catch(() => {});
+        if (req && !isFullscreenActive()) req().catch(() => {});
         hideMobileBrowserChrome();
+        updateChromeHint();
       }
 
       function hideMobileBrowserChrome() {
@@ -332,12 +381,44 @@
         requestAnimationFrame(() => window.scrollTo(0, 0));
       }
 
+      function syncViewportHeight() {
+        if (!isLandscapePhone()) {
+          document.documentElement.style.height = "";
+          document.body.style.height = "";
+          return;
+        }
+        const h = window.visualViewport?.height ?? window.innerHeight;
+        document.documentElement.style.height = `${h}px`;
+        document.body.style.height = `${h}px`;
+      }
+
       window.addEventListener("orientationchange", () => {
-        setTimeout(hideMobileBrowserChrome, 250);
+        setTimeout(() => {
+          syncViewportHeight();
+          hideMobileBrowserChrome();
+          if (isLandscapePhone()) tryImmersiveMode();
+          updateChromeHint();
+        }, 250);
       });
 
-      wrapEl.addEventListener("touchstart", tryImmersiveMode, { once: true, passive: true });
-      wrapEl.addEventListener("click", tryImmersiveMode, { once: true });
+      window.visualViewport?.addEventListener("resize", () => {
+        syncViewportHeight();
+        updateChromeHint();
+      });
+
+      document.addEventListener("fullscreenchange", updateChromeHint);
+      document.addEventListener("webkitfullscreenchange", updateChromeHint);
+
+      wrapEl.addEventListener(
+        "touchstart",
+        () => {
+          if (isLandscapePhone()) tryImmersiveMode();
+        },
+        { passive: true },
+      );
+      wrapEl.addEventListener("click", () => {
+        if (isLandscapePhone()) tryImmersiveMode();
+      });
 
       function parseInitialMode() {
         const baked = window.__ARENA_MODE__;
@@ -2012,6 +2093,8 @@
         ready = true;
         statusEl.style.display = "none";
         lastFrame = 0;
+        syncViewportHeight();
+        updateChromeHint();
         hideMobileBrowserChrome();
         requestAnimationFrame(tick);
         drawFrame();
