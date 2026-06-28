@@ -30,6 +30,13 @@ async function build() {
 
   copyFileSync(SRC, `${ASSETS}/arena-foreground.png`);
   copyFileSync(BACKDROP, `${ASSETS}/arena-backdrop.jpg`);
+  copyFileSync("/workspace/demo/manifest.webmanifest", `${OUT}/manifest.webmanifest`);
+
+  const iconSvg = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#111"/><rect x="96" y="176" width="320" height="128" rx="18" fill="#6eb8e4"/><rect x="128" y="208" width="72" height="40" rx="6" fill="#243848"/><circle cx="160" cy="336" r="44" fill="#111"/><circle cx="352" cy="336" r="44" fill="#111"/></svg>`,
+  );
+  await sharp(iconSvg).resize(192, 192).png().toFile(`${ASSETS}/icon-192.png`);
+  await sharp(iconSvg).resize(512, 512).png().toFile(`${ASSETS}/icon-512.png`);
 
   const debugComposite = buildDebugCompositeRgba(data, width, height, channels);
   await sharp(debugComposite, { raw: { width, height, channels: 4 } })

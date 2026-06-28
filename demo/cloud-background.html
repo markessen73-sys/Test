@@ -2,7 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="manifest" href="manifest.webmanifest" />
     <title>Ford Capri Arena</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -94,6 +99,12 @@
         gap: 14px;
         padding: 14px 0 4px;
       }
+      .control-cluster {
+        display: contents;
+      }
+      .control-landscape-only {
+        display: none;
+      }
       .control-btn {
         width: 2cm;
         height: 2cm;
@@ -111,14 +122,18 @@
         display: grid;
         place-items: center;
         padding: 0;
+        -webkit-tap-highlight-color: transparent;
       }
-      #lift-btn.pressed {
+      #lift-btn.pressed,
+      .arrow-up.pressed {
         border-color: #9df;
         background: radial-gradient(circle at 35% 30%, #8cd, #245);
         box-shadow: 0 2px 8px rgba(100, 200, 255, 0.35);
       }
       #left-btn.pressed,
-      #right-btn.pressed {
+      #right-btn.pressed,
+      .arrow-left.pressed,
+      .arrow-right.pressed {
         border-color: #fd8;
         background: radial-gradient(circle at 35% 30%, #da8, #432);
         box-shadow: 0 2px 8px rgba(255, 180, 80, 0.35);
@@ -129,10 +144,17 @@
       }
 
       @media (orientation: landscape) and (max-height: 520px) {
+        html {
+          height: 100%;
+          overflow: hidden;
+        }
         body {
+          position: fixed;
+          inset: 0;
           padding: 0;
           gap: 0;
           overflow: hidden;
+          width: 100%;
           height: 100dvh;
           min-height: 100dvh;
         }
@@ -144,9 +166,10 @@
         }
         #play-column {
           width: 100%;
-          height: 100dvh;
+          height: 100%;
           gap: 0;
           justify-content: center;
+          position: relative;
         }
         #wrap {
           border: none;
@@ -167,38 +190,75 @@
           inset: 0;
           padding: 0;
           pointer-events: none;
+          z-index: 4;
+        }
+        .control-cluster {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: clamp(8px, 2.2vh, 14px);
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          pointer-events: none;
+        }
+        .control-cluster-left {
+          left: clamp(6px, 1.8vw, 16px);
+        }
+        .control-cluster-right {
+          right: clamp(6px, 1.8vw, 16px);
+        }
+        .control-portrait-only {
+          display: none;
+        }
+        .control-landscape-only {
+          display: block;
         }
         #control-bar .control-btn {
-          position: absolute;
+          position: static;
           pointer-events: auto;
-          width: clamp(38px, 10.5vh, 56px);
-          height: clamp(38px, 10.5vh, 56px);
-          font-size: clamp(0.95rem, 4.2vh, 1.3rem);
-          border-color: rgba(190, 180, 160, 0.55);
-          background: radial-gradient(circle at 35% 30%, rgba(130, 125, 115, 0.82), rgba(28, 26, 22, 0.92));
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+          border: none;
+          border-radius: 0;
+          color: transparent;
+          font-size: 0;
+          filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55));
         }
-        #left-btn {
-          left: 46%;
-          top: 88.4%;
-          transform: translate(-50%, -50%);
+        .arrow-left,
+        .arrow-right {
+          width: clamp(62px, 15vh, 92px);
+          height: clamp(46px, 11vh, 68px);
         }
-        #lift-btn {
-          left: 50%;
-          top: 88.4%;
-          transform: translate(-50%, -50%);
+        .arrow-up {
+          width: clamp(46px, 11vh, 68px);
+          height: clamp(54px, 13vh, 80px);
         }
-        #right-btn {
-          left: 54%;
-          top: 88.4%;
-          transform: translate(-50%, -50%);
+        .arrow-left {
+          clip-path: polygon(0% 50%, 40% 6%, 40% 30%, 100% 30%, 100% 70%, 40% 70%, 40% 94%);
+          background: linear-gradient(165deg, rgba(245, 198, 98, 0.94) 0%, rgba(168, 102, 28, 0.96) 100%);
+        }
+        .arrow-left.pressed {
+          background: linear-gradient(165deg, rgba(255, 228, 150, 0.98) 0%, rgba(210, 140, 50, 0.98) 100%);
+        }
+        .arrow-right {
+          clip-path: polygon(100% 50%, 60% 6%, 60% 30%, 0% 30%, 0% 70%, 60% 70%, 60% 94%);
+          background: linear-gradient(195deg, rgba(245, 198, 98, 0.94) 0%, rgba(168, 102, 28, 0.96) 100%);
+        }
+        .arrow-right.pressed {
+          background: linear-gradient(195deg, rgba(255, 228, 150, 0.98) 0%, rgba(210, 140, 50, 0.98) 100%);
+        }
+        .arrow-up {
+          clip-path: polygon(50% 0%, 94% 44%, 70% 44%, 70% 100%, 30% 100%, 30% 44%, 6% 44%);
+          background: linear-gradient(180deg, rgba(150, 210, 255, 0.94) 0%, rgba(48, 118, 198, 0.96) 100%);
+        }
+        .arrow-up.pressed {
+          background: linear-gradient(180deg, rgba(190, 230, 255, 0.98) 0%, rgba(80, 150, 230, 0.98) 100%);
         }
       }
     </style>
   </head>
   <body>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28z</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29a</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -210,10 +270,16 @@
         <div id="mode-badge" class="__BADGE_CLASS__">__BADGE_TEXT__</div>
         <div id="status">Loading…</div>
         <div id="timer">0.00s / 3.00s</div>
-        <div id="control-bar">
-          <button type="button" id="left-btn" class="control-btn" aria-label="Accelerate left">←</button>
-          <button type="button" id="lift-btn" class="control-btn" aria-label="Apply upward acceleration"></button>
-          <button type="button" id="right-btn" class="control-btn" aria-label="Accelerate right">→</button>
+      </div>
+      <div id="control-bar">
+        <div class="control-cluster control-cluster-left">
+          <button type="button" id="left-btn" class="control-btn arrow-left" aria-label="Accelerate left">←</button>
+          <button type="button" id="left-lift-btn" class="control-btn arrow-up control-landscape-only" aria-label="Lift"></button>
+        </div>
+        <button type="button" id="lift-btn" class="control-btn control-portrait-only" aria-label="Apply upward acceleration">↑</button>
+        <div class="control-cluster control-cluster-right">
+          <button type="button" id="right-btn" class="control-btn arrow-right" aria-label="Accelerate right">→</button>
+          <button type="button" id="right-lift-btn" class="control-btn arrow-up control-landscape-only" aria-label="Lift"></button>
         </div>
       </div>
     </div>
@@ -237,12 +303,41 @@
       const btnWrapRight = document.getElementById("btn-wrap-right");
       const btnWrapLeft = document.getElementById("btn-wrap-left");
       const liftBtn = document.getElementById("lift-btn");
+      const leftLiftBtn = document.getElementById("left-lift-btn");
+      const rightLiftBtn = document.getElementById("right-lift-btn");
       const leftBtn = document.getElementById("left-btn");
       const rightBtn = document.getElementById("right-btn");
+      const wrapEl = document.getElementById("wrap");
 
       function isLandscapePhone() {
         return window.matchMedia("(orientation: landscape) and (max-height: 520px)").matches;
       }
+
+      let immersiveRequested = false;
+
+      function tryImmersiveMode() {
+        if (immersiveRequested) return;
+        immersiveRequested = true;
+        const el = document.documentElement;
+        const req =
+          el.requestFullscreen?.bind(el) ||
+          el.webkitRequestFullscreen?.bind(el) ||
+          el.webkitEnterFullscreen?.bind(el);
+        if (req) req().catch(() => {});
+        hideMobileBrowserChrome();
+      }
+
+      function hideMobileBrowserChrome() {
+        window.scrollTo(0, 1);
+        requestAnimationFrame(() => window.scrollTo(0, 0));
+      }
+
+      window.addEventListener("orientationchange", () => {
+        setTimeout(hideMobileBrowserChrome, 250);
+      });
+
+      wrapEl.addEventListener("touchstart", tryImmersiveMode, { once: true, passive: true });
+      wrapEl.addEventListener("click", tryImmersiveMode, { once: true });
 
       function parseInitialMode() {
         const baked = window.__ARENA_MODE__;
@@ -1814,6 +1909,8 @@
 
         const controlsDisabled = isWrap();
         liftBtn.disabled = controlsDisabled;
+        leftLiftBtn.disabled = controlsDisabled;
+        rightLiftBtn.disabled = controlsDisabled;
         leftBtn.disabled = controlsDisabled;
         rightBtn.disabled = controlsDisabled;
       }
@@ -1823,10 +1920,10 @@
         setTimeout(() => btn.classList.remove("pressed"), 120);
       }
 
-      function tapLift() {
+      function tapLift(btn = liftBtn) {
         if (isWrap() || !ball?.alive) return;
         ball.vy -= tapImpulseY();
-        flashButton(liftBtn);
+        flashButton(btn);
       }
 
       function tapLeft() {
@@ -1859,7 +1956,9 @@
       btnWrapRight.addEventListener("click", () => setMode("wrap-right"));
       btnWrapLeft.addEventListener("click", () => setMode("wrap-left"));
 
-      liftBtn.addEventListener("click", tapLift);
+      liftBtn.addEventListener("click", () => tapLift(liftBtn));
+      leftLiftBtn.addEventListener("click", () => tapLift(leftLiftBtn));
+      rightLiftBtn.addEventListener("click", () => tapLift(rightLiftBtn));
       leftBtn.addEventListener("click", tapLeft);
       rightBtn.addEventListener("click", tapRight);
 
@@ -1913,6 +2012,7 @@
         ready = true;
         statusEl.style.display = "none";
         lastFrame = 0;
+        hideMobileBrowserChrome();
         requestAnimationFrame(tick);
         drawFrame();
       }
