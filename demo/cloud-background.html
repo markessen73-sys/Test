@@ -285,7 +285,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29l</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29m</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -319,7 +319,6 @@
       const SOLID_SEGMENTS = __SOLID_SEGMENTS__;
       const BG_DATA_URL = "__BG_DATA_URL__";
       const BACKDROP_DATA_URL = "__BACKDROP_DATA_URL__";
-      const ENGINE_REV_DATA_URL = "__ENGINE_REV_DATA_URL__";
       const PEW_DATA_URL = "__PEW_DATA_URL__";
       const BEEP_DATA_URL = "__BEEP_DATA_URL__";
       const VEGAS_MUSIC_DATA_URL = "__VEGAS_MUSIC_DATA_URL__";
@@ -347,7 +346,6 @@
         let sfxBus = null;
         let musicBus = null;
         let musicStarted = false;
-        let lastEngine = 0;
         let lastZap = 0;
 
         function ensure() {
@@ -370,15 +368,28 @@
           return sfxBus ?? ac.destination;
         }
 
-        function createSampleVoice(dataUrl, placeholder) {
+        function resolveAssetSrc(src) {
+          if (!src || src.startsWith("data:") || src.startsWith("http")) return src;
+          if (window.location.hostname === "htmlpreview.github.io") {
+            const gh = window.location.search.match(/github\.com\/([^/]+\/[^/]+)\/blob\/([^/]+)\/([^?#]+)/);
+            if (gh) {
+              const [, repo, branch, filePath] = gh;
+              const base = filePath.replace(/[^/]+$/, "");
+              return `https://raw.githubusercontent.com/${repo}/${branch}/${base}${src}`;
+            }
+          }
+          return new URL(src, window.location.href).href;
+        }
+
+        function createSampleVoice(src, placeholder) {
           let buffer = null;
           let load = null;
-          const enabled = dataUrl && !dataUrl.startsWith(placeholder);
+          const enabled = src && !src.startsWith(placeholder);
 
           function loadSample(ac) {
             if (buffer) return Promise.resolve(buffer);
             if (load) return load;
-            load = fetch(dataUrl)
+            load = fetch(resolveAssetSrc(src))
               .then((res) => res.arrayBuffer())
               .then((arr) => ac.decodeAudioData(arr))
               .then((buf) => {
@@ -392,8 +403,8 @@
           function play(ac, now, volume, fadeOut, onMiss) {
             const start = (buf) => {
               const playDur = buf.duration;
-              const src = ac.createBufferSource();
-              src.buffer = buf;
+              const voice = ac.createBufferSource();
+              voice.buffer = buf;
               const gain = ac.createGain();
               gain.gain.setValueAtTime(volume, now);
               if (fadeOut) {
@@ -402,9 +413,9 @@
                 gain.gain.setValueAtTime(volume, now + fadeStart);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + playDur);
               }
-              src.connect(gain);
+              voice.connect(gain);
               gain.connect(outBus(ac));
-              src.start(now, 0, playDur);
+              voice.start(now, 0, playDur);
             };
 
             if (buffer) {
@@ -421,86 +432,9 @@
           return { enabled, play, loadSample };
         }
 
-        const engineRev = createSampleVoice(ENGINE_REV_DATA_URL, "__ENGINE_REV");
         const pew = createSampleVoice(PEW_DATA_URL, "__PEW");
         const beep = createSampleVoice(BEEP_DATA_URL, "__BEEP");
         const vegasMusic = createSampleVoice(VEGAS_MUSIC_DATA_URL, "__VEGAS_MUSIC");
-
-        function playEngineRevSynth(ac, now) {
-          const duration = 0.58;
-          const master = ac.createGain();
-          master.gain.setValueAtTime(0.0001, now);
-          master.gain.exponentialRampToValueAtTime(0.9, now + 0.025);
-          master.gain.exponentialRampToValueAtTime(0.42, now + 0.16);
-          master.gain.setValueAtTime(0.42, now + Math.max(0.12, duration - 0.28));
-          master.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-          master.connect(outBus(ac));
-
-          const osc = ac.createOscillator();
-          osc.type = "sawtooth";
-          osc.frequency.setValueAtTime(68, now);
-          osc.frequency.exponentialRampToValueAtTime(240, now + 0.11);
-          osc.frequency.exponentialRampToValueAtTime(88, now + duration);
-          const oscGain = ac.createGain();
-          oscGain.gain.value = 0.5;
-          osc.connect(oscGain);
-          oscGain.connect(master);
-
-          const osc2 = ac.createOscillator();
-          osc2.type = "square";
-          osc2.frequency.setValueAtTime(136, now);
-          osc2.frequency.exponentialRampToValueAtTime(420, now + 0.09);
-          osc2.frequency.exponentialRampToValueAtTime(120, now + duration);
-          const osc2Gain = ac.createGain();
-          osc2Gain.gain.value = 0.18;
-          osc2.connect(osc2Gain);
-          osc2Gain.connect(master);
-
-          const bufferSize = Math.floor(ac.sampleRate * duration);
-          const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
-          const data = buffer.getChannelData(0);
-          let brown = 0;
-          for (let i = 0; i < bufferSize; i++) {
-            const white = Math.random() * 2 - 1;
-            brown = (brown + 0.018 * white) / 1.018;
-            data[i] = brown * 4.2;
-          }
-          const noise = ac.createBufferSource();
-          noise.buffer = buffer;
-          const noiseFilter = ac.createBiquadFilter();
-          noiseFilter.type = "bandpass";
-          noiseFilter.frequency.setValueAtTime(220, now);
-          noiseFilter.frequency.exponentialRampToValueAtTime(1100, now + 0.1);
-          noiseFilter.frequency.exponentialRampToValueAtTime(180, now + duration);
-          noiseFilter.Q.value = 0.75;
-          const noiseGain = ac.createGain();
-          noiseGain.gain.value = 0.5;
-          noise.connect(noiseFilter);
-          noiseFilter.connect(noiseGain);
-          noiseGain.connect(master);
-
-          osc.start(now);
-          osc2.start(now);
-          noise.start(now);
-          osc.stop(now + duration);
-          osc2.stop(now + duration);
-          noise.stop(now + duration);
-        }
-
-        function playEngineRevSample(ac, now) {
-          engineRev.play(ac, now, 0.88, true, () => playEngineRevSynth(ac, now));
-        }
-
-        function playEngineRev() {
-          const ac = resume();
-          if (!ac) return;
-          const now = ac.currentTime;
-          if (now - lastEngine < 0.07) return;
-          lastEngine = now;
-
-          if (engineRev.enabled) playEngineRevSample(ac, now);
-          else playEngineRevSynth(ac, now);
-        }
 
         function playZapSynth(ac, now) {
           const duration = 0.24;
@@ -611,101 +545,28 @@
           playKerchingSynth(ac, now);
         }
 
-        function midiHz(m) {
-          return 440 * 2 ** ((m - 69) / 12);
-        }
-
-        function buildVegasLoop(ac) {
-          const sr = ac.sampleRate;
-          const bpm = 106;
-          const spb = (sr * 60) / bpm;
-          const beats = 32;
-          const n = Math.floor(spb * beats);
-          const buf = ac.createBuffer(2, n, sr);
-          const ch0 = buf.getChannelData(0);
-          const ch1 = buf.getChannelData(1);
-          const barRoots = [60, 60, 57, 57, 62, 62, 67, 67];
-          const barTypes = ["maj7", "maj7", "m7", "m7", "m7", "m7", "7", "7"];
-          const intervals = { maj7: [0, 4, 7, 11], m7: [0, 3, 7, 10], 7: [0, 4, 7, 10] };
-          const walk = [0, 2, 4, 5, 7, 5, 4, 2];
-          let noise = 0;
-
-          for (let i = 0; i < n; i++) {
-            const beat = i / spb;
-            const beatInt = Math.floor(beat);
-            const beatFrac = beat - beatInt;
-            const bar = Math.floor(beatInt / 4) % 8;
-            const beatInBar = beatInt % 4;
-            const root = barRoots[bar];
-            const type = barTypes[bar];
-            let sample = 0;
-
-            const bassMidi = root - 24 + walk[beatInt % 8];
-            const bassHz = midiHz(bassMidi);
-            const bassEnv = Math.exp(-beatFrac * 2.8) * (beatFrac < 0.92 ? 1 : (1 - beatFrac) / 0.08);
-            sample += Math.sin((2 * Math.PI * bassHz * i) / sr) * bassEnv * 0.34;
-
-            if (beatFrac < 0.22 && (beatInBar === 0 || beatInBar === 2)) {
-              const chordEnv = Math.exp(-beatFrac * 9);
-              for (const iv of intervals[type]) {
-                const hz = midiHz(root + iv);
-                sample += Math.sin((2 * Math.PI * hz * i) / sr) * chordEnv * 0.075;
-                sample += Math.sin((2 * Math.PI * hz * 2 * i) / sr) * chordEnv * 0.018;
-              }
-            }
-
-            const white = Math.random() * 2 - 1;
-            noise = noise * 0.92 + white * 0.08;
-            if (beatFrac < 0.06 && beatInBar % 2 === 1) {
-              sample += noise * 0.07 * (1 - beatFrac / 0.06);
-            }
-
-            if (beatInBar === 3 && beatFrac < 0.1) {
-              const dingHz = midiHz(84 + (beatInt % 5) * 2);
-              sample += Math.sin((2 * Math.PI * dingHz * i) / sr) * (1 - beatFrac / 0.1) * 0.11;
-            }
-
-            if (beatInBar === 0 && beatFrac < 0.04) {
-              const kickEnv = 1 - beatFrac / 0.04;
-              sample += Math.sin((2 * Math.PI * 58 * i) / sr) * kickEnv * 0.22;
-            }
-
-            ch0[i] = sample * 0.82;
-            ch1[i] = sample * 0.82;
-          }
-
-          return buf;
-        }
-
-        function startVegasMusicSynth(ac) {
-          const buf = buildVegasLoop(ac);
-          const src = ac.createBufferSource();
-          src.buffer = buf;
-          src.loop = true;
-          src.connect(musicBus);
-          src.start();
-        }
-
         function startVegasMusic(ac) {
-          if (musicStarted || !musicBus) return;
+          if (musicStarted || !musicBus || !vegasMusic.enabled) return;
           musicStarted = true;
 
-          if (vegasMusic.enabled) {
-            vegasMusic.loadSample(ac).then((buf) => {
-              if (buf) {
-                const src = ac.createBufferSource();
-                src.buffer = buf;
-                src.loop = true;
-                src.connect(musicBus);
-                src.start();
-                return;
-              }
-              startVegasMusicSynth(ac);
-            });
-            return;
-          }
+          vegasMusic.loadSample(ac).then((buf) => {
+            if (!buf) return;
+            const src = ac.createBufferSource();
+            src.buffer = buf;
+            src.loop = true;
+            src.connect(musicBus);
+            src.start();
+          });
+        }
 
-          startVegasMusicSynth(ac);
+        async function preload() {
+          const ac = ensure();
+          if (!ac) return;
+          const loads = [];
+          if (pew.enabled) loads.push(pew.loadSample(ac));
+          if (beep.enabled) loads.push(beep.loadSample(ac));
+          if (vegasMusic.enabled) loads.push(vegasMusic.loadSample(ac));
+          await Promise.all(loads);
         }
 
         function resume() {
@@ -714,7 +575,7 @@
           return ac;
         }
 
-        return { resume, playEngineRev, playZap, playKerching };
+        return { resume, preload, playZap, playKerching };
       }
 
       const sfx = createArenaAudio();
@@ -1436,6 +1297,15 @@
 
         lctx.lineJoin = "round";
         lctx.lineCap = "round";
+
+        lctx.save();
+        lctx.shadowColor = "rgba(120,200,255,0.85)";
+        lctx.shadowBlur = 14;
+        lctx.fillStyle = "#fff44a";
+        boltPath();
+        lctx.fill();
+        lctx.restore();
+
         lctx.strokeStyle = "#000000";
         lctx.lineWidth = 9;
         boltPath();
@@ -1500,7 +1370,7 @@
       }
 
       function activeCarPixels() {
-        return activeCarBundle().pixels;
+        return frameCarPixels ?? activeCarBundle().pixels;
       }
 
       function zooxBundleFor(unit) {
@@ -2270,11 +2140,14 @@
         wrapBallX();
 
         const vBottom = accelX * FALL_SECONDS;
-        timerEl.textContent =
-          `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s  ` +
-          `vy: ${ball.vy.toFixed(0)}  vx: ${ball.vx.toFixed(0)}  ` +
-          `px: ${activeCarPixels().length}  ` +
-          `(v₀=0 → vₘₐₓ=${vBottom.toFixed(0)})`;
+        const paintNow = performance.now();
+        if (paintNow - lastTimerPaint > 100) {
+          lastTimerPaint = paintNow;
+          timerEl.textContent =
+            `${Math.min(fallElapsed, FALL_SECONDS).toFixed(2)}s / ${FALL_SECONDS.toFixed(2)}s  ` +
+            `vy: ${ball.vy.toFixed(0)}  vx: ${ball.vx.toFixed(0)}  ` +
+            `(v₀=0 → vₘₐₓ=${vBottom.toFixed(0)})`;
+        }
       }
 
       function step(dt) {
@@ -2298,11 +2171,7 @@
         if (!lightningSprite) return;
         const w = lightningSprite.width;
         const h = lightningSprite.height;
-        ctx.save();
-        ctx.shadowColor = "rgba(120,200,255,0.9)";
-        ctx.shadowBlur = 14;
         ctx.drawImage(lightningSprite, cx - w / 2, cy - h / 2, w, h);
-        ctx.restore();
       }
 
       function drawVehicle(sprite, cx, cy) {
@@ -2352,6 +2221,8 @@
       }
 
       let lastFrame = 0;
+      let lastTimerPaint = 0;
+      let frameCarPixels = null;
 
       function tick(now) {
         if (!ready) {
@@ -2361,8 +2232,10 @@
         if (!lastFrame) lastFrame = now;
         const dt = Math.min((now - lastFrame) / 1000, 0.05);
         lastFrame = now;
+        frameCarPixels = activeCarBundle().pixels;
         step(dt);
         drawFrame();
+        frameCarPixels = null;
         requestAnimationFrame(tick);
       }
 
@@ -2402,7 +2275,6 @@
       function tapLift(btn = liftBtn) {
         if (isWrap() || !ball?.alive) return;
         sfx.resume();
-        sfx.playEngineRev();
         ball.vy -= tapImpulseY();
         flashButton(btn);
       }
@@ -2487,6 +2359,9 @@
         }
         resolveCapriSpawn();
         initZooxFleet();
+
+        statusEl.textContent = "Loading audio…";
+        await sfx.preload();
 
         canvas.width = W;
         canvas.height = H;

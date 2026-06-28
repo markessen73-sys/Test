@@ -165,18 +165,7 @@ async function build() {
   const foregroundPng = await sharp(SRC).png({ compressionLevel: 9 }).toBuffer();
   const bgDataUrl = `data:image/png;base64,${foregroundPng.toString("base64")}`;
 
-  let engineRevDataUrl = "";
-  const engineRevPath = findEngineRevSource();
-  if (engineRevPath) {
-    engineRevDataUrl = embedAudioDataUrl(engineRevPath);
-    if (engineRevDataUrl) {
-      const ext = engineRevPath.split(".").pop().toLowerCase();
-      copyFileSync(engineRevPath, `${ASSETS}/engine-rev.${ext}`);
-      console.log(`Engine rev SFX: ${engineRevPath} (${readFileSync(engineRevPath).length} bytes)`);
-    }
-  } else {
-    console.log("Engine rev SFX: none found (procedural fallback)");
-  }
+  const AUDIO_EMBED_MAX = 400_000;
 
   let pewDataUrl = "";
   const pewPath = findNamedAudio("pew");
@@ -205,14 +194,19 @@ async function build() {
   let vegasMusicDataUrl = "";
   const vegasMusicPath = findNamedAudio("vegas");
   if (vegasMusicPath) {
-    vegasMusicDataUrl = embedAudioDataUrl(vegasMusicPath);
-    if (vegasMusicDataUrl) {
-      const ext = vegasMusicPath.split(".").pop().toLowerCase();
-      copyFileSync(vegasMusicPath, `${ASSETS}/vegas-music.${ext}`);
-      console.log(`Vegas music: ${vegasMusicPath} (${readFileSync(vegasMusicPath).length} bytes)`);
+    const vegasBytes = readFileSync(vegasMusicPath);
+    const ext = vegasMusicPath.split(".").pop().toLowerCase();
+    copyFileSync(vegasMusicPath, `${ASSETS}/vegas-music.${ext}`);
+    copyFileSync(vegasMusicPath, `/workspace/demo/assets/vegas-music.${ext}`);
+    if (vegasBytes.length <= AUDIO_EMBED_MAX) {
+      vegasMusicDataUrl = embedAudioDataUrl(vegasMusicPath);
+      console.log(`Vegas music: embedded ${vegasMusicPath} (${vegasBytes.length} bytes)`);
+    } else {
+      vegasMusicDataUrl = `assets/vegas-music.${ext}`;
+      console.log(`Vegas music: external ${vegasMusicDataUrl} (${vegasBytes.length} bytes)`);
     }
   } else {
-    console.log("Vegas music: none found (procedural lounge loop)");
+    console.log("Vegas music: none found");
   }
 
   let html = readFileSync("/workspace/demo/cloud-background.html", "utf8");
@@ -254,7 +248,6 @@ async function build() {
       .replace("__SOLID_SEGMENTS__", JSON.stringify(segments))
       .replace("__BG_DATA_URL__", bgDataUrl)
       .replace("__BACKDROP_DATA_URL__", backdropDataUrl)
-      .replace("__ENGINE_REV_DATA_URL__", engineRevDataUrl)
       .replace("__PEW_DATA_URL__", pewDataUrl)
       .replace("__BEEP_DATA_URL__", beepDataUrl)
       .replace("__VEGAS_MUSIC_DATA_URL__", vegasMusicDataUrl)
