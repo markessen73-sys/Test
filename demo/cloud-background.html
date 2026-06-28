@@ -291,7 +291,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29c</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29d</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -306,13 +306,13 @@
       </div>
       <div id="control-bar">
         <div class="control-side control-side-left">
-          <button type="button" id="left-btn" class="control-btn" aria-label="Accelerate left">←</button>
           <button type="button" id="left-lift-btn" class="control-btn control-landscape-only" aria-label="Lift" hidden></button>
+          <button type="button" id="left-btn" class="control-btn" aria-label="Accelerate left">←</button>
         </div>
         <button type="button" id="lift-btn" class="control-btn control-portrait-only" aria-label="Apply upward acceleration"></button>
         <div class="control-side control-side-right">
-          <button type="button" id="right-btn" class="control-btn" aria-label="Accelerate right">→</button>
           <button type="button" id="right-lift-btn" class="control-btn control-landscape-only" aria-label="Lift" hidden></button>
+          <button type="button" id="right-btn" class="control-btn" aria-label="Accelerate right">→</button>
         </div>
       </div>
     </div>
@@ -342,6 +342,181 @@
       const rightBtn = document.getElementById("right-btn");
       const wrapEl = document.getElementById("wrap");
       const chromeHintEl = document.getElementById("chrome-hint");
+
+      function createArenaAudio() {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let ctx = null;
+        let lastEngine = 0;
+        let lastZap = 0;
+
+        function ensure() {
+          if (!AudioCtx) return null;
+          if (!ctx) ctx = new AudioCtx();
+          if (ctx.state === "suspended") ctx.resume();
+          return ctx;
+        }
+
+        function playEngineRev() {
+          const ac = ensure();
+          if (!ac) return;
+          const now = ac.currentTime;
+          if (now - lastEngine < 0.07) return;
+          lastEngine = now;
+
+          const duration = 0.58;
+          const master = ac.createGain();
+          master.gain.setValueAtTime(0.0001, now);
+          master.gain.exponentialRampToValueAtTime(0.9, now + 0.025);
+          master.gain.exponentialRampToValueAtTime(0.42, now + 0.16);
+          master.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+          master.connect(ac.destination);
+
+          const osc = ac.createOscillator();
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(68, now);
+          osc.frequency.exponentialRampToValueAtTime(240, now + 0.11);
+          osc.frequency.exponentialRampToValueAtTime(88, now + duration);
+          const oscGain = ac.createGain();
+          oscGain.gain.value = 0.5;
+          osc.connect(oscGain);
+          oscGain.connect(master);
+
+          const osc2 = ac.createOscillator();
+          osc2.type = "square";
+          osc2.frequency.setValueAtTime(136, now);
+          osc2.frequency.exponentialRampToValueAtTime(420, now + 0.09);
+          osc2.frequency.exponentialRampToValueAtTime(120, now + duration);
+          const osc2Gain = ac.createGain();
+          osc2Gain.gain.value = 0.18;
+          osc2.connect(osc2Gain);
+          osc2Gain.connect(master);
+
+          const bufferSize = Math.floor(ac.sampleRate * duration);
+          const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
+          const data = buffer.getChannelData(0);
+          let brown = 0;
+          for (let i = 0; i < bufferSize; i++) {
+            const white = Math.random() * 2 - 1;
+            brown = (brown + 0.018 * white) / 1.018;
+            data[i] = brown * 4.2;
+          }
+          const noise = ac.createBufferSource();
+          noise.buffer = buffer;
+          const noiseFilter = ac.createBiquadFilter();
+          noiseFilter.type = "bandpass";
+          noiseFilter.frequency.setValueAtTime(220, now);
+          noiseFilter.frequency.exponentialRampToValueAtTime(1100, now + 0.1);
+          noiseFilter.frequency.exponentialRampToValueAtTime(180, now + duration);
+          noiseFilter.Q.value = 0.75;
+          const noiseGain = ac.createGain();
+          noiseGain.gain.value = 0.5;
+          noise.connect(noiseFilter);
+          noiseFilter.connect(noiseGain);
+          noiseGain.connect(master);
+
+          osc.start(now);
+          osc2.start(now);
+          noise.start(now);
+          osc.stop(now + duration);
+          osc2.stop(now + duration);
+          noise.stop(now + duration);
+        }
+
+        function playZap() {
+          const ac = ensure();
+          if (!ac) return;
+          const now = ac.currentTime;
+          if (now - lastZap < 0.05) return;
+          lastZap = now;
+
+          const duration = 0.24;
+          const master = ac.createGain();
+          master.gain.setValueAtTime(0.75, now);
+          master.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+          master.connect(ac.destination);
+
+          const bufferSize = Math.floor(ac.sampleRate * duration);
+          const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+          }
+          const noise = ac.createBufferSource();
+          noise.buffer = buffer;
+          const hp = ac.createBiquadFilter();
+          hp.type = "highpass";
+          hp.frequency.value = 1400;
+          const bp = ac.createBiquadFilter();
+          bp.type = "bandpass";
+          bp.frequency.value = 4200;
+          bp.Q.value = 1.2;
+          noise.connect(hp);
+          hp.connect(bp);
+          bp.connect(master);
+          noise.start(now);
+          noise.stop(now + duration);
+
+          for (let i = 0; i < 5; i++) {
+            const arc = ac.createOscillator();
+            arc.type = "square";
+            arc.frequency.setValueAtTime(700 + Math.random() * 2800, now + i * 0.018);
+            const arcGain = ac.createGain();
+            arcGain.gain.setValueAtTime(0.12, now + i * 0.018);
+            arcGain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.018 + 0.05);
+            arc.connect(arcGain);
+            arcGain.connect(master);
+            arc.start(now + i * 0.018);
+            arc.stop(now + i * 0.018 + 0.06);
+          }
+        }
+
+        function playKerching() {
+          const ac = ensure();
+          if (!ac) return;
+          const now = ac.currentTime;
+
+          const ding = ac.createOscillator();
+          ding.type = "sine";
+          ding.frequency.setValueAtTime(2100, now);
+          ding.frequency.exponentialRampToValueAtTime(3200, now + 0.04);
+          const dingGain = ac.createGain();
+          dingGain.gain.setValueAtTime(0.0001, now);
+          dingGain.gain.exponentialRampToValueAtTime(0.42, now + 0.008);
+          dingGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+          ding.connect(dingGain);
+          dingGain.connect(ac.destination);
+          ding.start(now);
+          ding.stop(now + 0.36);
+
+          const coin = ac.createOscillator();
+          coin.type = "triangle";
+          coin.frequency.setValueAtTime(3800, now + 0.05);
+          const coinGain = ac.createGain();
+          coinGain.gain.setValueAtTime(0.0001, now + 0.05);
+          coinGain.gain.exponentialRampToValueAtTime(0.28, now + 0.06);
+          coinGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+          coin.connect(coinGain);
+          coinGain.connect(ac.destination);
+          coin.start(now + 0.05);
+          coin.stop(now + 0.43);
+
+          const register = ac.createOscillator();
+          register.type = "square";
+          register.frequency.value = 1200;
+          const regGain = ac.createGain();
+          regGain.gain.setValueAtTime(0.0001, now + 0.1);
+          regGain.gain.exponentialRampToValueAtTime(0.14, now + 0.11);
+          regGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+          register.connect(regGain);
+          regGain.connect(ac.destination);
+          register.start(now + 0.1);
+          register.stop(now + 0.3);
+        }
+
+        return { resume: ensure, playEngineRev, playZap, playKerching };
+      }
+
+      const sfx = createArenaAudio();
 
       function isLandscapePhone() {
         return window.matchMedia("(orientation: landscape) and (max-height: 520px)").matches;
@@ -377,6 +552,7 @@
       }
 
       function tryImmersiveMode() {
+        sfx.resume();
         const el = document.documentElement;
         const req =
           el.requestFullscreen?.bind(el) ||
@@ -1660,6 +1836,7 @@
         unit.state = "removed";
         unit.lightningVx = 0;
         unit.lightningVy = 0;
+        sfx.playKerching();
       }
 
       function restoreLightningToZoox(unit) {
@@ -1788,6 +1965,7 @@
             if (zooxOnCapri.overlap && zooxOnCapri.aBottomOnBTop) {
               regenerateCapri();
               unit.hitCooldown = VEHICLE_HIT_COOLDOWN;
+              sfx.playZap();
               continue;
             }
 
@@ -1798,12 +1976,14 @@
             if (capriOnZoox.aBottomOnBTop) {
               convertZooxToLightning(unit);
               ball.hitCooldown = VEHICLE_HIT_COOLDOWN;
+              sfx.playZap();
               continue;
             }
 
             if (isHorizontalVehicleHit(ball.x, ball.y, unit.x, unit.y)) {
               bounceCapriFromZoox(unit);
               zooxReversePath(unit);
+              sfx.playZap();
             }
           }
         }
@@ -1827,6 +2007,7 @@
 
             zooxReversePath(a);
             zooxReversePath(b);
+            sfx.playZap();
           }
         }
       }
@@ -2018,18 +2199,21 @@
 
       function tapLift(btn = liftBtn) {
         if (isWrap() || !ball?.alive) return;
+        sfx.playEngineRev();
         ball.vy -= tapImpulseY();
         flashButton(btn);
       }
 
       function tapLeft() {
         if (isWrap() || !ball?.alive) return;
+        sfx.playEngineRev();
         ball.vx -= tapImpulseX();
         flashButton(leftBtn);
       }
 
       function tapRight() {
         if (isWrap() || !ball?.alive) return;
+        sfx.playEngineRev();
         ball.vx += tapImpulseX();
         flashButton(rightBtn);
       }
