@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28s</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28t</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -208,6 +208,8 @@
       const VEHICLE_HIT_COOLDOWN = 0.35;
       const LIGHTNING_LIFETIME = 5;
       const LIGHTNING_SCALE = 0.82;
+      const LIGHTNING_HSPEED_MULT = 3;
+      const LIGHTNING_TOUCH_GRACE = 0.25;
       const ZOOX_SPAWNS = [
         { x: 209, minY: 400, dir: 1 },
         { x: 768, minY: 700, dir: -1 },
@@ -777,25 +779,28 @@
         const lctx = canvas.getContext("2d");
         const cx = w / 2;
 
-        lctx.fillStyle = "#fff9b0";
-        lctx.strokeStyle = "#ffe240";
-        lctx.lineWidth = 2.5;
+        lctx.fillStyle = "#fff44a";
+        lctx.strokeStyle = "#ffffff";
+        lctx.lineWidth = 3.5;
         lctx.lineJoin = "round";
+        lctx.shadowColor = "#66ccff";
+        lctx.shadowBlur = 8;
         lctx.beginPath();
         lctx.moveTo(cx, 2);
-        lctx.lineTo(cx - 7, h * 0.34);
-        lctx.lineTo(cx + 5, h * 0.38);
-        lctx.lineTo(cx - 10, h * 0.7);
-        lctx.lineTo(cx + 4, h * 0.66);
+        lctx.lineTo(cx - 8, h * 0.34);
+        lctx.lineTo(cx + 6, h * 0.38);
+        lctx.lineTo(cx - 11, h * 0.7);
+        lctx.lineTo(cx + 5, h * 0.66);
         lctx.lineTo(cx, h - 2);
         lctx.closePath();
         lctx.fill();
         lctx.stroke();
-        lctx.strokeStyle = "#ffffff";
-        lctx.lineWidth = 1;
+        lctx.shadowBlur = 0;
+        lctx.strokeStyle = "#ffffcc";
+        lctx.lineWidth = 1.5;
         lctx.beginPath();
         lctx.moveTo(cx, 4);
-        lctx.lineTo(cx - 4, h * 0.32);
+        lctx.lineTo(cx - 5, h * 0.32);
         lctx.lineTo(cx + 2, h * 0.36);
         lctx.stroke();
 
@@ -1343,12 +1348,26 @@
         fallElapsed = 0;
       }
 
+      function placeLightningAwayFromCapri(unit) {
+        const away = Math.sign(unit.x - ball.x) || -unit.dir;
+        unit.x = ball.x + away * CAR_W;
+        unit.y -= 10;
+        for (let i = 0; i < 30; i++) {
+          if (!lightningOverlapsSolid(unit.x, unit.y)) break;
+          unit.y -= 3;
+          unit.x += away * 2;
+        }
+        return away;
+      }
+
       function convertZooxToLightning(unit) {
+        const away = placeLightningAwayFromCapri(unit);
         unit.state = "lightning";
-        unit.lightningVx = -unit.dir * ZOOX_CRUISE_VX * 0.72 + ball.vx * 0.2;
-        unit.lightningVy = Math.min(ball.vy, 0) - tapImpulseY() * 0.4;
+        unit.lightningVx = away * ZOOX_CRUISE_VX * LIGHTNING_HSPEED_MULT;
+        unit.lightningVy = Math.min(ball.vy, 0) - tapImpulseY() * 0.45;
         unit.lightningLanded = false;
         unit.lightningLandTimer = 0;
+        unit.lightningTouchGrace = LIGHTNING_TOUCH_GRACE;
         unit.reverseTimer = 0;
         unit.stallTimer = 0;
         unit.hitCooldown = VEHICLE_HIT_COOLDOWN;
@@ -1398,6 +1417,10 @@
       function stepLightningUnit(unit, dt) {
         if (unit.state !== "lightning") return;
 
+        if (unit.lightningTouchGrace > 0) {
+          unit.lightningTouchGrace -= dt;
+        }
+
         if (unit.lightningLanded) {
           unit.lightningLandTimer += dt;
           if (unit.lightningLandTimer >= LIGHTNING_LIFETIME) removeLightning(unit);
@@ -1415,6 +1438,7 @@
 
       function capriTouchesLightning(unit) {
         if (!ball.alive || unit.state !== "lightning") return false;
+        if (unit.lightningTouchGrace > 0) return false;
         return analyzeVehiclePair(
           ball.x,
           ball.y,
@@ -1591,7 +1615,11 @@
         if (!lightningSprite) return;
         const w = lightningSprite.width;
         const h = lightningSprite.height;
+        ctx.save();
+        ctx.shadowColor = "rgba(120,200,255,0.9)";
+        ctx.shadowBlur = 14;
         ctx.drawImage(lightningSprite, cx - w / 2, cy - h / 2, w, h);
+        ctx.restore();
       }
 
       function drawVehicle(sprite, cx, cy) {
