@@ -291,7 +291,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29d</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29e</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -325,6 +325,7 @@
       const SOLID_SEGMENTS = __SOLID_SEGMENTS__;
       const BG_DATA_URL = "__BG_DATA_URL__";
       const BACKDROP_DATA_URL = "__BACKDROP_DATA_URL__";
+      const ENGINE_REV_DATA_URL = "__ENGINE_REV_DATA_URL__";
       const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("status");
@@ -348,6 +349,10 @@
         let ctx = null;
         let lastEngine = 0;
         let lastZap = 0;
+        let engineRevBuffer = null;
+        let engineRevLoad = null;
+        const hasEngineSample =
+          ENGINE_REV_DATA_URL && !ENGINE_REV_DATA_URL.startsWith("__ENGINE_REV");
 
         function ensure() {
           if (!AudioCtx) return null;
@@ -356,13 +361,21 @@
           return ctx;
         }
 
-        function playEngineRev() {
-          const ac = ensure();
-          if (!ac) return;
-          const now = ac.currentTime;
-          if (now - lastEngine < 0.07) return;
-          lastEngine = now;
+        function loadEngineRev(ac) {
+          if (engineRevBuffer) return Promise.resolve(engineRevBuffer);
+          if (engineRevLoad) return engineRevLoad;
+          engineRevLoad = fetch(ENGINE_REV_DATA_URL)
+            .then((res) => res.arrayBuffer())
+            .then((arr) => ac.decodeAudioData(arr))
+            .then((buf) => {
+              engineRevBuffer = buf;
+              return buf;
+            })
+            .catch(() => null);
+          return engineRevLoad;
+        }
 
+        function playEngineRevSynth(ac, now) {
           const duration = 0.58;
           const master = ac.createGain();
           master.gain.setValueAtTime(0.0001, now);
@@ -420,6 +433,39 @@
           osc.stop(now + duration);
           osc2.stop(now + duration);
           noise.stop(now + duration);
+        }
+
+        function playEngineRevSample(ac, now) {
+          const startSample = (buf) => {
+            const src = ac.createBufferSource();
+            src.buffer = buf;
+            const gain = ac.createGain();
+            gain.gain.setValueAtTime(0.88, now);
+            src.connect(gain);
+            gain.connect(ac.destination);
+            src.start(now);
+          };
+
+          if (engineRevBuffer) {
+            startSample(engineRevBuffer);
+            return;
+          }
+
+          loadEngineRev(ac).then((buf) => {
+            if (buf) startSample(buf);
+            else playEngineRevSynth(ac, now);
+          });
+        }
+
+        function playEngineRev() {
+          const ac = ensure();
+          if (!ac) return;
+          const now = ac.currentTime;
+          if (now - lastEngine < 0.07) return;
+          lastEngine = now;
+
+          if (hasEngineSample) playEngineRevSample(ac, now);
+          else playEngineRevSynth(ac, now);
         }
 
         function playZap() {

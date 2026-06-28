@@ -1,10 +1,22 @@
 import sharp from "sharp";
-import { readFileSync, copyFileSync } from "node:fs";
+import { readFileSync, copyFileSync, existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { buildSolidMask, buildDebugCompositeRgba, solidToSegments } from "./solid-mask.mjs";
 
 const SRC = "/workspace/demo/assets/arena-source.png";
 const BACKDROP = "/workspace/demo/assets/arena-backdrop.jpg";
+const ENGINE_REV_CANDIDATES = [
+  "/workspace/demo/assets/engine-rev.mp3",
+  "/workspace/demo/assets/engine-rev.m4a",
+  "/workspace/demo/assets/engine-rev.wav",
+  "/workspace/demo/assets/engine-rev.ogg",
+];
+const ENGINE_REV_MIME = {
+  mp3: "audio/mpeg",
+  m4a: "audio/mp4",
+  wav: "audio/wav",
+  ogg: "audio/ogg",
+};
 const OUT = "/workspace/docs";
 const ASSETS = `${OUT}/assets`;
 
@@ -87,6 +99,18 @@ async function build() {
   const foregroundPng = await sharp(SRC).png({ compressionLevel: 9 }).toBuffer();
   const bgDataUrl = `data:image/png;base64,${foregroundPng.toString("base64")}`;
 
+  let engineRevDataUrl = "";
+  for (const path of ENGINE_REV_CANDIDATES) {
+    if (!existsSync(path)) continue;
+    const ext = path.split(".").pop();
+    const mime = ENGINE_REV_MIME[ext];
+    if (!mime) continue;
+    const bytes = readFileSync(path);
+    engineRevDataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
+    copyFileSync(path, `${ASSETS}/engine-rev.${ext}`);
+    break;
+  }
+
   let html = readFileSync("/workspace/demo/cloud-background.html", "utf8");
 
   function embedPortable(source, bakedMode) {
@@ -126,6 +150,7 @@ async function build() {
       .replace("__SOLID_SEGMENTS__", JSON.stringify(segments))
       .replace("__BG_DATA_URL__", bgDataUrl)
       .replace("__BACKDROP_DATA_URL__", backdropDataUrl)
+      .replace("__ENGINE_REV_DATA_URL__", engineRevDataUrl)
       .replace("__BAKED_MODE__", bakedMode)
       .replace("__TITLE_TEXT__", copy.title)
       .replace("__DESC_TEXT__", copy.desc)
