@@ -22,6 +22,29 @@ const ENGINE_REV_MIME = {
 const OUT = "/workspace/docs";
 const ASSETS = `${OUT}/assets`;
 
+function findNamedAudio(stem) {
+  const target = `${stem.toLowerCase()}.`;
+  for (const dir of ENGINE_REV_SEARCH_DIRS) {
+    if (!existsSync(dir)) continue;
+    for (const name of readdirSync(dir)) {
+      if (!name.toLowerCase().startsWith(target)) continue;
+      const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+      if (!AUDIO_EXTS.has(ext)) continue;
+      return join(dir, name);
+    }
+  }
+  return null;
+}
+
+function embedAudioDataUrl(path) {
+  if (!path) return "";
+  const ext = path.split(".").pop().toLowerCase();
+  const mime = ENGINE_REV_MIME[ext];
+  if (!mime) return "";
+  const bytes = readFileSync(path);
+  return `data:${mime};base64,${bytes.toString("base64")}`;
+}
+
 function findEngineRevSource() {
   const revMp3Paths = [
     "/workspace/demo/assets/rev.mp3",
@@ -145,16 +168,38 @@ async function build() {
   let engineRevDataUrl = "";
   const engineRevPath = findEngineRevSource();
   if (engineRevPath) {
-    const ext = engineRevPath.split(".").pop().toLowerCase();
-    const mime = ENGINE_REV_MIME[ext];
-    if (mime) {
-      const bytes = readFileSync(engineRevPath);
-      engineRevDataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
+    engineRevDataUrl = embedAudioDataUrl(engineRevPath);
+    if (engineRevDataUrl) {
+      const ext = engineRevPath.split(".").pop().toLowerCase();
       copyFileSync(engineRevPath, `${ASSETS}/engine-rev.${ext}`);
-      console.log(`Engine rev SFX: ${engineRevPath} (${bytes.length} bytes)`);
+      console.log(`Engine rev SFX: ${engineRevPath} (${readFileSync(engineRevPath).length} bytes)`);
     }
   } else {
     console.log("Engine rev SFX: none found (procedural fallback)");
+  }
+
+  let pewDataUrl = "";
+  const pewPath = findNamedAudio("pew");
+  if (pewPath) {
+    pewDataUrl = embedAudioDataUrl(pewPath);
+    if (pewDataUrl) {
+      copyFileSync(pewPath, `${ASSETS}/pew.mp3`);
+      console.log(`Zoox zap SFX: ${pewPath} (${readFileSync(pewPath).length} bytes)`);
+    }
+  } else {
+    console.log("Zoox zap SFX: none found (procedural fallback)");
+  }
+
+  let beepDataUrl = "";
+  const beepPath = findNamedAudio("beep");
+  if (beepPath) {
+    beepDataUrl = embedAudioDataUrl(beepPath);
+    if (beepDataUrl) {
+      copyFileSync(beepPath, `${ASSETS}/beep.mp3`);
+      console.log(`Lightning beep SFX: ${beepPath} (${readFileSync(beepPath).length} bytes)`);
+    }
+  } else {
+    console.log("Lightning beep SFX: none found (procedural fallback)");
   }
 
   let html = readFileSync("/workspace/demo/cloud-background.html", "utf8");
@@ -197,6 +242,8 @@ async function build() {
       .replace("__BG_DATA_URL__", bgDataUrl)
       .replace("__BACKDROP_DATA_URL__", backdropDataUrl)
       .replace("__ENGINE_REV_DATA_URL__", engineRevDataUrl)
+      .replace("__PEW_DATA_URL__", pewDataUrl)
+      .replace("__BEEP_DATA_URL__", beepDataUrl)
       .replace("__BAKED_MODE__", bakedMode)
       .replace("__TITLE_TEXT__", copy.title)
       .replace("__DESC_TEXT__", copy.desc)

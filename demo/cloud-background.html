@@ -285,7 +285,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29j</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29k</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -320,6 +320,8 @@
       const BG_DATA_URL = "__BG_DATA_URL__";
       const BACKDROP_DATA_URL = "__BACKDROP_DATA_URL__";
       const ENGINE_REV_DATA_URL = "__ENGINE_REV_DATA_URL__";
+      const PEW_DATA_URL = "__PEW_DATA_URL__";
+      const BEEP_DATA_URL = "__BEEP_DATA_URL__";
       const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("status");
@@ -343,10 +345,6 @@
         let ctx = null;
         let lastEngine = 0;
         let lastZap = 0;
-        let engineRevBuffer = null;
-        let engineRevLoad = null;
-        const hasEngineSample =
-          ENGINE_REV_DATA_URL && !ENGINE_REV_DATA_URL.startsWith("__ENGINE_REV");
 
         function ensure() {
           if (!AudioCtx) return null;
@@ -355,19 +353,60 @@
           return ctx;
         }
 
-        function loadEngineRev(ac) {
-          if (engineRevBuffer) return Promise.resolve(engineRevBuffer);
-          if (engineRevLoad) return engineRevLoad;
-          engineRevLoad = fetch(ENGINE_REV_DATA_URL)
-            .then((res) => res.arrayBuffer())
-            .then((arr) => ac.decodeAudioData(arr))
-            .then((buf) => {
-              engineRevBuffer = buf;
-              return buf;
-            })
-            .catch(() => null);
-          return engineRevLoad;
+        function createSampleVoice(dataUrl, placeholder) {
+          let buffer = null;
+          let load = null;
+          const enabled = dataUrl && !dataUrl.startsWith(placeholder);
+
+          function loadSample(ac) {
+            if (buffer) return Promise.resolve(buffer);
+            if (load) return load;
+            load = fetch(dataUrl)
+              .then((res) => res.arrayBuffer())
+              .then((arr) => ac.decodeAudioData(arr))
+              .then((buf) => {
+                buffer = buf;
+                return buf;
+              })
+              .catch(() => null);
+            return load;
+          }
+
+          function play(ac, now, volume, fadeOut, onMiss) {
+            const start = (buf) => {
+              const playDur = buf.duration;
+              const src = ac.createBufferSource();
+              src.buffer = buf;
+              const gain = ac.createGain();
+              gain.gain.setValueAtTime(volume, now);
+              if (fadeOut) {
+                const fadeTime = Math.min(0.42, Math.max(0.18, playDur * 0.38));
+                const fadeStart = Math.max(0, playDur - fadeTime);
+                gain.gain.setValueAtTime(volume, now + fadeStart);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + playDur);
+              }
+              src.connect(gain);
+              gain.connect(ac.destination);
+              src.start(now, 0, playDur);
+            };
+
+            if (buffer) {
+              start(buffer);
+              return;
+            }
+
+            loadSample(ac).then((buf) => {
+              if (buf) start(buf);
+              else if (onMiss) onMiss();
+            });
+          }
+
+          return { enabled, play, loadSample };
         }
+
+        const engineRev = createSampleVoice(ENGINE_REV_DATA_URL, "__ENGINE_REV");
+        const pew = createSampleVoice(PEW_DATA_URL, "__PEW");
+        const beep = createSampleVoice(BEEP_DATA_URL, "__BEEP");
 
         function playEngineRevSynth(ac, now) {
           const duration = 0.58;
@@ -431,30 +470,7 @@
         }
 
         function playEngineRevSample(ac, now) {
-          const startSample = (buf) => {
-            const playDur = buf.duration;
-            const fadeTime = Math.min(0.42, Math.max(0.18, playDur * 0.38));
-            const fadeStart = Math.max(0, playDur - fadeTime);
-            const src = ac.createBufferSource();
-            src.buffer = buf;
-            const gain = ac.createGain();
-            gain.gain.setValueAtTime(0.88, now);
-            gain.gain.setValueAtTime(0.88, now + fadeStart);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + playDur);
-            src.connect(gain);
-            gain.connect(ac.destination);
-            src.start(now, 0, playDur);
-          };
-
-          if (engineRevBuffer) {
-            startSample(engineRevBuffer);
-            return;
-          }
-
-          loadEngineRev(ac).then((buf) => {
-            if (buf) startSample(buf);
-            else playEngineRevSynth(ac, now);
-          });
+          engineRev.play(ac, now, 0.88, true, () => playEngineRevSynth(ac, now));
         }
 
         function playEngineRev() {
@@ -464,17 +480,11 @@
           if (now - lastEngine < 0.07) return;
           lastEngine = now;
 
-          if (hasEngineSample) playEngineRevSample(ac, now);
+          if (engineRev.enabled) playEngineRevSample(ac, now);
           else playEngineRevSynth(ac, now);
         }
 
-        function playZap() {
-          const ac = ensure();
-          if (!ac) return;
-          const now = ac.currentTime;
-          if (now - lastZap < 0.05) return;
-          lastZap = now;
-
+        function playZapSynth(ac, now) {
           const duration = 0.24;
           const master = ac.createGain();
           master.gain.setValueAtTime(0.75, now);
@@ -516,11 +526,22 @@
           }
         }
 
-        function playKerching() {
+        function playZap() {
           const ac = ensure();
           if (!ac) return;
           const now = ac.currentTime;
+          if (now - lastZap < 0.05) return;
+          lastZap = now;
 
+          if (pew.enabled) {
+            pew.play(ac, now, 0.9, false);
+            return;
+          }
+
+          playZapSynth(ac, now);
+        }
+
+        function playKerchingSynth(ac, now) {
           const ding = ac.createOscillator();
           ding.type = "sine";
           ding.frequency.setValueAtTime(2100, now);
@@ -557,6 +578,19 @@
           regGain.connect(ac.destination);
           register.start(now + 0.1);
           register.stop(now + 0.3);
+        }
+
+        function playKerching() {
+          const ac = ensure();
+          if (!ac) return;
+          const now = ac.currentTime;
+
+          if (beep.enabled) {
+            beep.play(ac, now, 0.9, false);
+            return;
+          }
+
+          playKerchingSynth(ac, now);
         }
 
         return { resume: ensure, playEngineRev, playZap, playKerching };
