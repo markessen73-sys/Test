@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28q</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28r</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -205,6 +205,7 @@
       const ZOOX_STALL_TIME = 0.1;
       const ZOOX_REVERSE_DIST = 32;
       const ZOOX_REVERSE_TIME = 0.24;
+      const VEHICLE_HIT_COOLDOWN = 0.35;
       const ZOOX_SPAWNS = [
         { x: 209, minY: 400, dir: 1 },
         { x: 768, minY: 700, dir: -1 },
@@ -343,6 +344,8 @@
             vx: mode === "wrap-left" ? -WRAP_SPEED : WRAP_SPEED,
             restTimer: 0,
             wrapCount: 0,
+            alive: true,
+            hitCooldown: 0,
           };
         }
         return {
@@ -354,10 +357,14 @@
           vx: 0,
           restTimer: 0,
           wrapCount: 0,
+          alive: true,
+          hitCooldown: 0,
         };
       }
 
       function resetBall() {
+        ball.alive = true;
+        ball.hitCooldown = 0;
         ball.x = ball.spawnX;
         ball.y = ball.spawnY;
         ball.vy = 0;
@@ -1026,6 +1033,8 @@
           reverseTimer: 0,
           path: buildZooxChannel(pixels, spawn, spawn.dir),
           dir: spawn.dir,
+          alive: true,
+          hitCooldown: 0,
         };
         unit.y = ensureZooxSpawnFit(unit.x, unit.y, pixels);
         if (!zooxFits(unit.x + spawn.dir * 12, unit.y, pixels)) {
@@ -1229,6 +1238,145 @@
         clampEntityToTop(ball, activeCarPixels());
       }
 
+      function vehiclePixelBounds(pixels) {
+        let minDy = Infinity;
+        let maxDy = -Infinity;
+        for (const [, dy] of pixels) {
+          if (dy < minDy) minDy = dy;
+          if (dy > maxDy) maxDy = dy;
+        }
+        return { minDy, maxDy, span: maxDy - minDy };
+      }
+
+      function analyzeVehiclePair(ax, ay, aPix, bx, by, bPix) {
+        const aB = vehiclePixelBounds(aPix);
+        const bB = vehiclePixelBounds(bPix);
+        const aTop = aB.minDy + aB.span * 0.36;
+        const aBot = aB.maxDy - aB.span * 0.36;
+        const bTop = bB.minDy + bB.span * 0.36;
+        const bBot = bB.maxDy - bB.span * 0.36;
+
+        let overlap = false;
+        let aBottomOnBTop = false;
+        let bBottomOnATop = false;
+
+        for (const wrap of [0, W, -W]) {
+          const bMap = new Map();
+          for (const [dx, dy] of bPix) {
+            bMap.set(`${Math.floor(bx + wrap + dx)},${Math.floor(by + dy)}`, dy);
+          }
+          for (const [adx, ady] of aPix) {
+            const bdy = bMap.get(`${Math.floor(ax + adx)},${Math.floor(ay + ady)}`);
+            if (bdy === undefined) continue;
+            overlap = true;
+            if (ady >= aBot && bdy <= bTop) aBottomOnBTop = true;
+            if (bdy >= bBot && ady <= aTop) bBottomOnATop = true;
+          }
+        }
+
+        return { overlap, aBottomOnBTop, bBottomOnATop };
+      }
+
+      function isHorizontalVehicleHit(ax, ay, bx, by) {
+        return Math.abs(ax - bx) >= Math.abs(ay - by) * 0.38;
+      }
+
+      function zooxReversePath(unit) {
+        unit.dir *= -1;
+        unit.vx = ZOOX_CRUISE_VX * unit.dir;
+        unit.path = unit.path.slice().reverse();
+        unit.reverseTimer = ZOOX_REVERSE_TIME;
+        unit.stallTimer = 0;
+        unit.hitCooldown = VEHICLE_HIT_COOLDOWN;
+      }
+
+      function destroyCapri() {
+        ball.alive = false;
+        ball.vx = 0;
+        ball.vy = 0;
+      }
+
+      function destroyZoox(unit) {
+        unit.alive = false;
+        unit.vx = 0;
+        unit.vy = 0;
+      }
+
+      function bounceCapriFromZoox(unit) {
+        const away = Math.sign(ball.x - unit.x) || -unit.dir;
+        ball.x += away * CAR_W;
+        ball.vx = away * Math.max(Math.abs(ball.vx), tapImpulseX() * 10);
+        ball.hitCooldown = VEHICLE_HIT_COOLDOWN;
+        unit.hitCooldown = VEHICLE_HIT_COOLDOWN;
+        resolveEntityOverlap(ball, activeCarPixels(), solidAt);
+      }
+
+      function tickVehicleCooldowns(dt) {
+        if (ball.hitCooldown > 0) ball.hitCooldown -= dt;
+        for (const unit of zooxUnits) {
+          if (unit.hitCooldown > 0) unit.hitCooldown -= dt;
+        }
+      }
+
+      function resolveVehicleCollisions() {
+        if (isWrap()) return;
+
+        const livingZoox = zooxUnits.filter((u) => u.alive);
+
+        if (ball.alive) {
+          const capriPix = activeCarPixels();
+          for (const unit of livingZoox) {
+            if (!unit.alive) continue;
+            if (ball.hitCooldown > 0 && unit.hitCooldown > 0) continue;
+
+            const zooxPix = zooxBundleFor(unit).pixels;
+            const zooxOnCapri = analyzeVehiclePair(unit.x, unit.y, zooxPix, ball.x, ball.y, capriPix);
+            if (zooxOnCapri.overlap && zooxOnCapri.aBottomOnBTop) {
+              destroyCapri();
+              unit.hitCooldown = VEHICLE_HIT_COOLDOWN;
+              continue;
+            }
+
+            const capriOnZoox = analyzeVehiclePair(ball.x, ball.y, capriPix, unit.x, unit.y, zooxPix);
+            if (!capriOnZoox.overlap) continue;
+            if (ball.hitCooldown > 0 || unit.hitCooldown > 0) continue;
+
+            if (capriOnZoox.aBottomOnBTop) {
+              destroyZoox(unit);
+              ball.hitCooldown = VEHICLE_HIT_COOLDOWN;
+              continue;
+            }
+
+            if (isHorizontalVehicleHit(ball.x, ball.y, unit.x, unit.y)) {
+              bounceCapriFromZoox(unit);
+              zooxReversePath(unit);
+            }
+          }
+        }
+
+        for (let i = 0; i < livingZoox.length; i++) {
+          for (let j = i + 1; j < livingZoox.length; j++) {
+            const a = livingZoox[i];
+            const b = livingZoox[j];
+            if (!a.alive || !b.alive) continue;
+            if (a.hitCooldown > 0 && b.hitCooldown > 0) continue;
+
+            const hit = analyzeVehiclePair(
+              a.x,
+              a.y,
+              zooxBundleFor(a).pixels,
+              b.x,
+              b.y,
+              zooxBundleFor(b).pixels,
+            );
+            if (!hit.overlap) continue;
+
+            zooxReversePath(a);
+            zooxReversePath(b);
+          }
+        }
+      }
+
       function steerZooxUnit(unit, dt) {
         const d = unit.dir;
         const nearY = zooxChannelYAt(unit, unit.x + d * 32);
@@ -1271,10 +1419,14 @@
 
       function stepZoox(dt) {
         if (isWrap() || !zooxUnits.length) return;
-        for (const unit of zooxUnits) stepZooxUnit(unit, dt);
+        for (const unit of zooxUnits) {
+          if (!unit.alive) continue;
+          stepZooxUnit(unit, dt);
+        }
       }
 
       function stepDrop(dt) {
+        if (!ball.alive) return;
         ball.vy += accelX * dt;
         moveBallPixels(ball.vx * dt, ball.vy * dt);
         clampBallToTop();
@@ -1300,6 +1452,8 @@
 
         stepDrop(dt);
         stepZoox(dt);
+        tickVehicleCooldowns(dt);
+        resolveVehicleCollisions();
       }
 
       function drawVehicle(sprite, cx, cy) {
@@ -1325,12 +1479,15 @@
 
         if (!isWrap()) {
           for (const unit of zooxUnits) {
+            if (!unit.alive) continue;
             const zooxXs = [unit.x];
             if (unit.x - CAR_HW < 0) zooxXs.push(unit.x + W);
             if (unit.x + CAR_HW > W) zooxXs.push(unit.x - W);
             for (const x of zooxXs) drawZooxAt(x, unit.y, unit);
           }
         }
+
+        if (!ball.alive) return;
 
         const drawXs = [ball.x];
         if (ball.x - CAR_HW < 0) drawXs.push(ball.x + W);
@@ -1385,19 +1542,19 @@
       }
 
       function tapLift() {
-        if (isWrap()) return;
+        if (isWrap() || !ball?.alive) return;
         ball.vy -= tapImpulseY();
         flashButton(liftBtn);
       }
 
       function tapLeft() {
-        if (isWrap()) return;
+        if (isWrap() || !ball?.alive) return;
         ball.vx -= tapImpulseX();
         flashButton(leftBtn);
       }
 
       function tapRight() {
-        if (isWrap()) return;
+        if (isWrap() || !ball?.alive) return;
         ball.vx += tapImpulseX();
         flashButton(rightBtn);
       }
