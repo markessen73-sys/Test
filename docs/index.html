@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">Ford Capri Arena</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28m</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28n</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="active">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -188,6 +188,7 @@
       let ready = false;
       let fallElapsed = 0;
       let dropX = 768;
+      let dropY = CAR_HH;
 
       const BALL_R = 14;
       const CAR_W = BALL_R * 8;
@@ -304,6 +305,17 @@
         return bestX;
       }
 
+      function resolveCapriSpawn() {
+        dropX = Math.floor(W / 2);
+        const surfaceY = findSurfaceAt(solid, dropX, 0);
+        let y = surfaceY ? vehicleYOnSurface(surfaceY, carPixelsLeft) : CAR_HH;
+        for (let i = 0; i < CAR_H; i++) {
+          if (vehicleFits(dropX, y, carPixelsLeft)) break;
+          y -= 1;
+        }
+        dropY = y;
+      }
+
       function createBall() {
         if (isWrap()) {
           return {
@@ -319,9 +331,9 @@
         }
         return {
           x: dropX,
-          y: CAR_HH,
+          y: dropY,
           spawnX: dropX,
-          spawnY: CAR_HH,
+          spawnY: dropY,
           vy: 0,
           vx: 0,
           restTimer: 0,
@@ -1382,6 +1394,7 @@
         mode = next;
         applyModeCopy();
         if (solid) {
+          resolveCapriSpawn();
           ball = createBall();
           resetBall();
           if (!isWrap()) initZooxFleet();
@@ -1426,7 +1439,7 @@
         if (DEBUG_GREEN_BG) {
           debugBackground = buildDebugBackground(background, W, H);
         }
-        dropX = findDropColumn(solid, W, H);
+        resolveCapriSpawn();
         initZooxFleet();
 
         canvas.width = W;
