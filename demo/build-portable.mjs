@@ -202,6 +202,19 @@ async function build() {
     console.log("Lightning beep SFX: none found (procedural fallback)");
   }
 
+  let vegasMusicDataUrl = "";
+  const vegasMusicPath = findNamedAudio("vegas");
+  if (vegasMusicPath) {
+    vegasMusicDataUrl = embedAudioDataUrl(vegasMusicPath);
+    if (vegasMusicDataUrl) {
+      const ext = vegasMusicPath.split(".").pop().toLowerCase();
+      copyFileSync(vegasMusicPath, `${ASSETS}/vegas-music.${ext}`);
+      console.log(`Vegas music: ${vegasMusicPath} (${readFileSync(vegasMusicPath).length} bytes)`);
+    }
+  } else {
+    console.log("Vegas music: none found (procedural lounge loop)");
+  }
+
   let html = readFileSync("/workspace/demo/cloud-background.html", "utf8");
 
   function embedPortable(source, bakedMode) {
@@ -244,6 +257,7 @@ async function build() {
       .replace("__ENGINE_REV_DATA_URL__", engineRevDataUrl)
       .replace("__PEW_DATA_URL__", pewDataUrl)
       .replace("__BEEP_DATA_URL__", beepDataUrl)
+      .replace("__VEGAS_MUSIC_DATA_URL__", vegasMusicDataUrl)
       .replace("__BAKED_MODE__", bakedMode)
       .replace("__TITLE_TEXT__", copy.title)
       .replace("__DESC_TEXT__", copy.desc)

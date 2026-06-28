@@ -285,7 +285,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29k</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29l</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -322,6 +322,7 @@
       const ENGINE_REV_DATA_URL = "__ENGINE_REV_DATA_URL__";
       const PEW_DATA_URL = "__PEW_DATA_URL__";
       const BEEP_DATA_URL = "__BEEP_DATA_URL__";
+      const VEGAS_MUSIC_DATA_URL = "__VEGAS_MUSIC_DATA_URL__";
       const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("status");
@@ -343,14 +344,30 @@
       function createArenaAudio() {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         let ctx = null;
+        let sfxBus = null;
+        let musicBus = null;
+        let musicStarted = false;
         let lastEngine = 0;
         let lastZap = 0;
 
         function ensure() {
           if (!AudioCtx) return null;
-          if (!ctx) ctx = new AudioCtx();
+          if (!ctx) {
+            ctx = new AudioCtx();
+            sfxBus = ctx.createGain();
+            sfxBus.gain.value = 1;
+            sfxBus.connect(ctx.destination);
+            musicBus = ctx.createGain();
+            musicBus.gain.value = 0.16;
+            musicBus.connect(ctx.destination);
+          }
           if (ctx.state === "suspended") ctx.resume();
           return ctx;
+        }
+
+        function outBus(ac) {
+          ensure();
+          return sfxBus ?? ac.destination;
         }
 
         function createSampleVoice(dataUrl, placeholder) {
@@ -386,7 +403,7 @@
                 gain.gain.exponentialRampToValueAtTime(0.001, now + playDur);
               }
               src.connect(gain);
-              gain.connect(ac.destination);
+              gain.connect(outBus(ac));
               src.start(now, 0, playDur);
             };
 
@@ -407,6 +424,7 @@
         const engineRev = createSampleVoice(ENGINE_REV_DATA_URL, "__ENGINE_REV");
         const pew = createSampleVoice(PEW_DATA_URL, "__PEW");
         const beep = createSampleVoice(BEEP_DATA_URL, "__BEEP");
+        const vegasMusic = createSampleVoice(VEGAS_MUSIC_DATA_URL, "__VEGAS_MUSIC");
 
         function playEngineRevSynth(ac, now) {
           const duration = 0.58;
@@ -416,7 +434,7 @@
           master.gain.exponentialRampToValueAtTime(0.42, now + 0.16);
           master.gain.setValueAtTime(0.42, now + Math.max(0.12, duration - 0.28));
           master.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-          master.connect(ac.destination);
+          master.connect(outBus(ac));
 
           const osc = ac.createOscillator();
           osc.type = "sawtooth";
@@ -474,7 +492,7 @@
         }
 
         function playEngineRev() {
-          const ac = ensure();
+          const ac = resume();
           if (!ac) return;
           const now = ac.currentTime;
           if (now - lastEngine < 0.07) return;
@@ -489,7 +507,7 @@
           const master = ac.createGain();
           master.gain.setValueAtTime(0.75, now);
           master.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-          master.connect(ac.destination);
+          master.connect(outBus(ac));
 
           const bufferSize = Math.floor(ac.sampleRate * duration);
           const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
@@ -527,14 +545,14 @@
         }
 
         function playZap() {
-          const ac = ensure();
+          const ac = resume();
           if (!ac) return;
           const now = ac.currentTime;
           if (now - lastZap < 0.05) return;
           lastZap = now;
 
-          if (pew.enabled) {
-            pew.play(ac, now, 0.9, false);
+          if (beep.enabled) {
+            beep.play(ac, now, 0.9, false);
             return;
           }
 
@@ -551,7 +569,7 @@
           dingGain.gain.exponentialRampToValueAtTime(0.42, now + 0.008);
           dingGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
           ding.connect(dingGain);
-          dingGain.connect(ac.destination);
+          dingGain.connect(outBus(ac));
           ding.start(now);
           ding.stop(now + 0.36);
 
@@ -563,7 +581,7 @@
           coinGain.gain.exponentialRampToValueAtTime(0.28, now + 0.06);
           coinGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
           coin.connect(coinGain);
-          coinGain.connect(ac.destination);
+          coinGain.connect(outBus(ac));
           coin.start(now + 0.05);
           coin.stop(now + 0.43);
 
@@ -575,25 +593,128 @@
           regGain.gain.exponentialRampToValueAtTime(0.14, now + 0.11);
           regGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
           register.connect(regGain);
-          regGain.connect(ac.destination);
+          regGain.connect(outBus(ac));
           register.start(now + 0.1);
           register.stop(now + 0.3);
         }
 
         function playKerching() {
-          const ac = ensure();
+          const ac = resume();
           if (!ac) return;
           const now = ac.currentTime;
 
-          if (beep.enabled) {
-            beep.play(ac, now, 0.9, false);
+          if (pew.enabled) {
+            pew.play(ac, now, 0.9, false);
             return;
           }
 
           playKerchingSynth(ac, now);
         }
 
-        return { resume: ensure, playEngineRev, playZap, playKerching };
+        function midiHz(m) {
+          return 440 * 2 ** ((m - 69) / 12);
+        }
+
+        function buildVegasLoop(ac) {
+          const sr = ac.sampleRate;
+          const bpm = 106;
+          const spb = (sr * 60) / bpm;
+          const beats = 32;
+          const n = Math.floor(spb * beats);
+          const buf = ac.createBuffer(2, n, sr);
+          const ch0 = buf.getChannelData(0);
+          const ch1 = buf.getChannelData(1);
+          const barRoots = [60, 60, 57, 57, 62, 62, 67, 67];
+          const barTypes = ["maj7", "maj7", "m7", "m7", "m7", "m7", "7", "7"];
+          const intervals = { maj7: [0, 4, 7, 11], m7: [0, 3, 7, 10], 7: [0, 4, 7, 10] };
+          const walk = [0, 2, 4, 5, 7, 5, 4, 2];
+          let noise = 0;
+
+          for (let i = 0; i < n; i++) {
+            const beat = i / spb;
+            const beatInt = Math.floor(beat);
+            const beatFrac = beat - beatInt;
+            const bar = Math.floor(beatInt / 4) % 8;
+            const beatInBar = beatInt % 4;
+            const root = barRoots[bar];
+            const type = barTypes[bar];
+            let sample = 0;
+
+            const bassMidi = root - 24 + walk[beatInt % 8];
+            const bassHz = midiHz(bassMidi);
+            const bassEnv = Math.exp(-beatFrac * 2.8) * (beatFrac < 0.92 ? 1 : (1 - beatFrac) / 0.08);
+            sample += Math.sin((2 * Math.PI * bassHz * i) / sr) * bassEnv * 0.34;
+
+            if (beatFrac < 0.22 && (beatInBar === 0 || beatInBar === 2)) {
+              const chordEnv = Math.exp(-beatFrac * 9);
+              for (const iv of intervals[type]) {
+                const hz = midiHz(root + iv);
+                sample += Math.sin((2 * Math.PI * hz * i) / sr) * chordEnv * 0.075;
+                sample += Math.sin((2 * Math.PI * hz * 2 * i) / sr) * chordEnv * 0.018;
+              }
+            }
+
+            const white = Math.random() * 2 - 1;
+            noise = noise * 0.92 + white * 0.08;
+            if (beatFrac < 0.06 && beatInBar % 2 === 1) {
+              sample += noise * 0.07 * (1 - beatFrac / 0.06);
+            }
+
+            if (beatInBar === 3 && beatFrac < 0.1) {
+              const dingHz = midiHz(84 + (beatInt % 5) * 2);
+              sample += Math.sin((2 * Math.PI * dingHz * i) / sr) * (1 - beatFrac / 0.1) * 0.11;
+            }
+
+            if (beatInBar === 0 && beatFrac < 0.04) {
+              const kickEnv = 1 - beatFrac / 0.04;
+              sample += Math.sin((2 * Math.PI * 58 * i) / sr) * kickEnv * 0.22;
+            }
+
+            ch0[i] = sample * 0.82;
+            ch1[i] = sample * 0.82;
+          }
+
+          return buf;
+        }
+
+        function startVegasMusicSynth(ac) {
+          const buf = buildVegasLoop(ac);
+          const src = ac.createBufferSource();
+          src.buffer = buf;
+          src.loop = true;
+          src.connect(musicBus);
+          src.start();
+        }
+
+        function startVegasMusic(ac) {
+          if (musicStarted || !musicBus) return;
+          musicStarted = true;
+
+          if (vegasMusic.enabled) {
+            vegasMusic.loadSample(ac).then((buf) => {
+              if (buf) {
+                const src = ac.createBufferSource();
+                src.buffer = buf;
+                src.loop = true;
+                src.connect(musicBus);
+                src.start();
+                return;
+              }
+              startVegasMusicSynth(ac);
+            });
+            return;
+          }
+
+          startVegasMusicSynth(ac);
+        }
+
+        function resume() {
+          const ac = ensure();
+          if (ac) startVegasMusic(ac);
+          return ac;
+        }
+
+        return { resume, playEngineRev, playZap, playKerching };
       }
 
       const sfx = createArenaAudio();
@@ -2280,6 +2401,7 @@
 
       function tapLift(btn = liftBtn) {
         if (isWrap() || !ball?.alive) return;
+        sfx.resume();
         sfx.playEngineRev();
         ball.vy -= tapImpulseY();
         flashButton(btn);
@@ -2287,14 +2409,14 @@
 
       function tapLeft() {
         if (isWrap() || !ball?.alive) return;
-        sfx.playEngineRev();
+        sfx.resume();
         ball.vx -= tapImpulseX();
         flashButton(leftBtn);
       }
 
       function tapRight() {
         if (isWrap() || !ball?.alive) return;
-        sfx.playEngineRev();
+        sfx.resume();
         ball.vx += tapImpulseX();
         flashButton(rightBtn);
       }
