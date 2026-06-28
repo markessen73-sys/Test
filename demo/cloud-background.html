@@ -240,10 +240,14 @@
         }
         #control-bar .control-btn {
           pointer-events: auto;
+          --landscape-control-square: clamp(76px, 16vh, 96px);
+          width: var(--landscape-control-square);
+          height: var(--landscape-control-square);
           border: none;
           border-radius: 0;
           color: transparent;
           font-size: 0;
+          background-color: transparent;
           filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55));
         }
         #left-btn {
@@ -269,16 +273,6 @@
         #right-lift-btn.pressed {
           background: linear-gradient(180deg, rgba(190, 230, 255, 0.98) 0%, rgba(80, 150, 230, 0.98) 100%);
         }
-        #left-btn,
-        #right-btn {
-          width: clamp(56px, 13vh, 84px);
-          height: clamp(42px, 10vh, 62px);
-        }
-        #left-lift-btn,
-        #right-lift-btn {
-          width: clamp(42px, 10vh, 62px);
-          height: clamp(48px, 11vh, 72px);
-        }
         #chrome-hint {
           display: block;
         }
@@ -291,7 +285,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29i</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29j</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -381,6 +375,7 @@
           master.gain.setValueAtTime(0.0001, now);
           master.gain.exponentialRampToValueAtTime(0.9, now + 0.025);
           master.gain.exponentialRampToValueAtTime(0.42, now + 0.16);
+          master.gain.setValueAtTime(0.42, now + Math.max(0.12, duration - 0.28));
           master.gain.exponentialRampToValueAtTime(0.0001, now + duration);
           master.connect(ac.destination);
 
@@ -437,13 +432,17 @@
 
         function playEngineRevSample(ac, now) {
           const startSample = (buf) => {
+            const playDur = buf.duration;
+            const fadeTime = Math.min(0.42, Math.max(0.18, playDur * 0.38));
+            const fadeStart = Math.max(0, playDur - fadeTime);
             const src = ac.createBufferSource();
             src.buffer = buf;
             const gain = ac.createGain();
             gain.gain.setValueAtTime(0.88, now);
+            gain.gain.setValueAtTime(0.88, now + fadeStart);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + playDur);
             src.connect(gain);
             gain.connect(ac.destination);
-            const playDur = Math.min(buf.duration, 0.95);
             src.start(now, 0, playDur);
           };
 
@@ -701,6 +700,7 @@
       const LIGHTNING_TOUCH_GRACE = 0.25;
       const ZOOX_SPAWNS = [
         { x: 209, minY: 400, dir: 1 },
+        { x: 768, minY: 0, dir: 1 },
         { x: 768, minY: 700, dir: -1 },
       ];
 
@@ -2227,7 +2227,7 @@
         } else {
           titleEl.textContent = "Ford Capri Arena";
           descEl.textContent =
-            "Tap ← / lift / → to drive your Capri. A Zoox robotaxi patrols left→right from the middle-left deck, weaving around the rocks.";
+            "Tap ← / lift / → to drive your Capri. Three Zoox robotaxis patrol the decks, weaving around the rocks.";
           modeBadgeEl.textContent = "DROP ↓";
         }
 
