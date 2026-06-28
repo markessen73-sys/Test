@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">Ford Capri Arena</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28o</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28p</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="active">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -305,10 +305,26 @@
         return bestX;
       }
 
+      function findPlatformCenterX(surfaceY) {
+        let x0 = W;
+        let x1 = 0;
+        for (let x = 0; x < W; x++) {
+          if (solid[surfaceY * W + x]) {
+            x0 = Math.min(x0, x);
+            x1 = Math.max(x1, x);
+          }
+        }
+        if (x1 < x0) return Math.floor(W / 2);
+        return Math.floor((x0 + x1) / 2);
+      }
+
       function resolveCapriSpawn() {
-        dropX = Math.floor(W / 2);
-        const surfaceY = findSurfaceAt(solid, dropX, 0);
-        let y = surfaceY ? vehicleYOnSurface(surfaceY, carPixelsLeft) : CAR_HH;
+        const probeX = Math.floor(W / 2);
+        const minY = Math.floor(H * 0.38);
+        const surfaceY = findSurfaceAt(solid, probeX, minY);
+        dropX = surfaceY ? findPlatformCenterX(surfaceY) : probeX;
+        const seatY = findSurfaceAt(solid, dropX, minY) || surfaceY;
+        let y = seatY ? vehicleYOnSurface(seatY, carPixelsLeft) : CAR_HH;
         for (let i = 0; i < CAR_H; i++) {
           if (vehicleFits(dropX, y, carPixelsLeft)) break;
           y -= 1;
@@ -694,8 +710,6 @@
 
         drawEndCap(4, true);
         drawEndCap(w - 4, false);
-        ctx.fillStyle = mintSh;
-        ctx.fillRect(10, bodyBottom - 12, w - 20, 2);
         ctx.fillStyle = skirt;
         ctx.fillRect(0, bodyBottom, w, skirtH);
         drawCornerWheel(frontWheelX);
