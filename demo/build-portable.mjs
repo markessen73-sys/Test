@@ -23,6 +23,14 @@ const OUT = "/workspace/docs";
 const ASSETS = `${OUT}/assets`;
 
 function findEngineRevSource() {
+  const revMp3Paths = [
+    "/workspace/demo/assets/rev.mp3",
+    "/workspace/rev.mp3",
+  ];
+  for (const path of revMp3Paths) {
+    if (existsSync(path)) return path;
+  }
+
   const ranked = [];
 
   for (const dir of ENGINE_REV_SEARCH_DIRS) {
@@ -42,7 +50,9 @@ function findEngineRevSource() {
 
       const lower = name.toLowerCase();
       let score = 0;
+      if (lower === "rev.mp3") score += 200;
       if (/rev|engine|petrol|motor|throttle|accel|v8|car/.test(lower)) score += 100;
+      if (lower.includes("freesound_community")) score -= 80;
       if (lower === "engine-rev.mp3" && st.size <= 7000) score -= 40;
       score += Math.min(st.size / 2000, 30);
       ranked.push({ path, score, mtime: st.mtimeMs, size: st.size });
