@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">Ford Capri Arena</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28r</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28s</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="active">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -206,6 +206,8 @@
       const ZOOX_REVERSE_DIST = 32;
       const ZOOX_REVERSE_TIME = 0.24;
       const VEHICLE_HIT_COOLDOWN = 0.35;
+      const LIGHTNING_LIFETIME = 5;
+      const LIGHTNING_SCALE = 0.82;
       const ZOOX_SPAWNS = [
         { x: 209, minY: 400, dir: 1 },
         { x: 768, minY: 700, dir: -1 },
@@ -221,6 +223,8 @@
       let zooxSpriteRight = null;
       let zooxPixelsLeft = [];
       let zooxPixelsRight = [];
+      let lightningSprite = null;
+      let lightningPixels = [];
 
       function fallDistance() {
         return H - CAR_HH * 2;
@@ -764,6 +768,45 @@
         carPixelsRight = carPixelsLeft.map(([dx, dy]) => [-dx, dy]);
       }
 
+      function buildLightning() {
+        const w = Math.round(CAR_W * LIGHTNING_SCALE);
+        const h = Math.round(CAR_H * LIGHTNING_SCALE);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const lctx = canvas.getContext("2d");
+        const cx = w / 2;
+
+        lctx.fillStyle = "#fff9b0";
+        lctx.strokeStyle = "#ffe240";
+        lctx.lineWidth = 2.5;
+        lctx.lineJoin = "round";
+        lctx.beginPath();
+        lctx.moveTo(cx, 2);
+        lctx.lineTo(cx - 7, h * 0.34);
+        lctx.lineTo(cx + 5, h * 0.38);
+        lctx.lineTo(cx - 10, h * 0.7);
+        lctx.lineTo(cx + 4, h * 0.66);
+        lctx.lineTo(cx, h - 2);
+        lctx.closePath();
+        lctx.fill();
+        lctx.stroke();
+        lctx.strokeStyle = "#ffffff";
+        lctx.lineWidth = 1;
+        lctx.beginPath();
+        lctx.moveTo(cx, 4);
+        lctx.lineTo(cx - 4, h * 0.32);
+        lctx.lineTo(cx + 2, h * 0.36);
+        lctx.stroke();
+
+        lightningSprite = canvas;
+        lightningPixels = extractCarPixels(canvas);
+      }
+
+      function lightningOverlapsSolid(cx, cy) {
+        return vehicleOverlapsSolidAt(cx, cy, lightningPixels, solidAt);
+      }
+
       function buildZoox() {
         const left = document.createElement("canvas");
         left.width = CAR_W;
@@ -1033,7 +1076,7 @@
           reverseTimer: 0,
           path: buildZooxChannel(pixels, spawn, spawn.dir),
           dir: spawn.dir,
-          alive: true,
+          state: "active",
           hitCooldown: 0,
         };
         unit.y = ensureZooxSpawnFit(unit.x, unit.y, pixels);
@@ -1290,16 +1333,96 @@
         unit.hitCooldown = VEHICLE_HIT_COOLDOWN;
       }
 
-      function destroyCapri() {
-        ball.alive = false;
+      function regenerateCapri() {
+        ball.x = ball.spawnX;
+        ball.y = ball.spawnY;
         ball.vx = 0;
         ball.vy = 0;
+        ball.alive = true;
+        ball.hitCooldown = VEHICLE_HIT_COOLDOWN;
+        fallElapsed = 0;
       }
 
-      function destroyZoox(unit) {
-        unit.alive = false;
-        unit.vx = 0;
-        unit.vy = 0;
+      function convertZooxToLightning(unit) {
+        unit.state = "lightning";
+        unit.lightningVx = -unit.dir * ZOOX_CRUISE_VX * 0.72 + ball.vx * 0.2;
+        unit.lightningVy = Math.min(ball.vy, 0) - tapImpulseY() * 0.4;
+        unit.lightningLanded = false;
+        unit.lightningLandTimer = 0;
+        unit.reverseTimer = 0;
+        unit.stallTimer = 0;
+        unit.hitCooldown = VEHICLE_HIT_COOLDOWN;
+        ball.hitCooldown = VEHICLE_HIT_COOLDOWN;
+      }
+
+      function removeLightning(unit) {
+        unit.state = "removed";
+        unit.lightningVx = 0;
+        unit.lightningVy = 0;
+      }
+
+      function moveLightningPixels(unit, dx, dy) {
+        const overlaps = (cx, cy) => lightningOverlapsSolid(cx, cy);
+
+        const moveAxis = (axis, delta) => {
+          if (delta === 0) return;
+          const steps = Math.max(1, Math.ceil(Math.abs(delta)));
+          const step = delta / steps;
+          for (let i = 0; i < steps; i++) {
+            if (axis === "x") unit.x += step;
+            else unit.y += step;
+            if (overlaps(unit.x, unit.y)) {
+              if (axis === "x") {
+                unit.x -= step;
+                unit.lightningVx = 0;
+              } else {
+                unit.y -= step;
+                if (step > 0 && unit.lightningVy >= 0) {
+                  unit.lightningVy = 0;
+                  unit.lightningVx *= 0.5;
+                  while (overlaps(unit.x, unit.y)) unit.y -= 1;
+                  unit.lightningLanded = true;
+                } else {
+                  unit.lightningVy = 0;
+                }
+              }
+              return;
+            }
+          }
+        };
+
+        moveAxis("x", dx);
+        moveAxis("y", dy);
+      }
+
+      function stepLightningUnit(unit, dt) {
+        if (unit.state !== "lightning") return;
+
+        if (unit.lightningLanded) {
+          unit.lightningLandTimer += dt;
+          if (unit.lightningLandTimer >= LIGHTNING_LIFETIME) removeLightning(unit);
+          return;
+        }
+
+        unit.lightningVy += accelX * dt;
+        moveLightningPixels(unit, unit.lightningVx * dt, unit.lightningVy * dt);
+      }
+
+      function stepLightning(dt) {
+        if (isWrap()) return;
+        for (const unit of zooxUnits) stepLightningUnit(unit, dt);
+      }
+
+      function capriTouchesLightning(unit) {
+        if (!ball.alive || unit.state !== "lightning") return false;
+        return analyzeVehiclePair(
+          ball.x,
+          ball.y,
+          activeCarPixels(),
+          unit.x,
+          unit.y,
+          lightningPixels,
+        ).overlap;
       }
 
       function bounceCapriFromZoox(unit) {
@@ -1321,18 +1444,25 @@
       function resolveVehicleCollisions() {
         if (isWrap()) return;
 
-        const livingZoox = zooxUnits.filter((u) => u.alive);
+        const livingZoox = zooxUnits.filter((u) => u.state === "active");
 
         if (ball.alive) {
           const capriPix = activeCarPixels();
+          for (const unit of zooxUnits) {
+            if (unit.state === "lightning") {
+              if (capriTouchesLightning(unit)) removeLightning(unit);
+              continue;
+            }
+          }
+
           for (const unit of livingZoox) {
-            if (!unit.alive) continue;
+            if (unit.state !== "active") continue;
             if (ball.hitCooldown > 0 && unit.hitCooldown > 0) continue;
 
             const zooxPix = zooxBundleFor(unit).pixels;
             const zooxOnCapri = analyzeVehiclePair(unit.x, unit.y, zooxPix, ball.x, ball.y, capriPix);
             if (zooxOnCapri.overlap && zooxOnCapri.aBottomOnBTop) {
-              destroyCapri();
+              regenerateCapri();
               unit.hitCooldown = VEHICLE_HIT_COOLDOWN;
               continue;
             }
@@ -1342,7 +1472,7 @@
             if (ball.hitCooldown > 0 || unit.hitCooldown > 0) continue;
 
             if (capriOnZoox.aBottomOnBTop) {
-              destroyZoox(unit);
+              convertZooxToLightning(unit);
               ball.hitCooldown = VEHICLE_HIT_COOLDOWN;
               continue;
             }
@@ -1358,7 +1488,7 @@
           for (let j = i + 1; j < livingZoox.length; j++) {
             const a = livingZoox[i];
             const b = livingZoox[j];
-            if (!a.alive || !b.alive) continue;
+            if (a.state !== "active" || b.state !== "active") continue;
             if (a.hitCooldown > 0 && b.hitCooldown > 0) continue;
 
             const hit = analyzeVehiclePair(
@@ -1420,7 +1550,7 @@
       function stepZoox(dt) {
         if (isWrap() || !zooxUnits.length) return;
         for (const unit of zooxUnits) {
-          if (!unit.alive) continue;
+          if (unit.state !== "active") continue;
           stepZooxUnit(unit, dt);
         }
       }
@@ -1452,8 +1582,16 @@
 
         stepDrop(dt);
         stepZoox(dt);
+        stepLightning(dt);
         tickVehicleCooldowns(dt);
         resolveVehicleCollisions();
+      }
+
+      function drawLightningAt(cx, cy) {
+        if (!lightningSprite) return;
+        const w = lightningSprite.width;
+        const h = lightningSprite.height;
+        ctx.drawImage(lightningSprite, cx - w / 2, cy - h / 2, w, h);
       }
 
       function drawVehicle(sprite, cx, cy) {
@@ -1479,11 +1617,14 @@
 
         if (!isWrap()) {
           for (const unit of zooxUnits) {
-            if (!unit.alive) continue;
-            const zooxXs = [unit.x];
-            if (unit.x - CAR_HW < 0) zooxXs.push(unit.x + W);
-            if (unit.x + CAR_HW > W) zooxXs.push(unit.x - W);
-            for (const x of zooxXs) drawZooxAt(x, unit.y, unit);
+            if (unit.state === "active") {
+              const zooxXs = [unit.x];
+              if (unit.x - CAR_HW < 0) zooxXs.push(unit.x + W);
+              if (unit.x + CAR_HW > W) zooxXs.push(unit.x - W);
+              for (const x of zooxXs) drawZooxAt(x, unit.y, unit);
+            } else if (unit.state === "lightning") {
+              drawLightningAt(unit.x, unit.y);
+            }
           }
         }
 
@@ -1606,6 +1747,7 @@
         zooxSolid = buildZooxSolidMap(solid, ZOOX_MARGIN);
         buildCapri();
         buildZoox();
+        buildLightning();
         if (DEBUG_GREEN_BG) {
           debugBackground = buildDebugBackground(background, W, H);
         }
