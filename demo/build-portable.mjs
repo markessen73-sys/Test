@@ -1,24 +1,57 @@
 import sharp from "sharp";
-import { readFileSync, copyFileSync, existsSync } from "node:fs";
+import { readFileSync, copyFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import { buildSolidMask, buildDebugCompositeRgba, solidToSegments } from "./solid-mask.mjs";
 
 const SRC = "/workspace/demo/assets/arena-source.png";
 const BACKDROP = "/workspace/demo/assets/arena-backdrop.jpg";
-const ENGINE_REV_CANDIDATES = [
-  "/workspace/demo/assets/engine-rev.mp3",
-  "/workspace/demo/assets/engine-rev.m4a",
-  "/workspace/demo/assets/engine-rev.wav",
-  "/workspace/demo/assets/engine-rev.ogg",
-];
+const ENGINE_REV_SEARCH_DIRS = ["/workspace/demo/assets", "/workspace/demo", "/workspace"];
+const AUDIO_EXTS = new Set(["mp3", "m4a", "wav", "ogg", "aac", "caf", "aiff", "flac", "webm"]);
 const ENGINE_REV_MIME = {
   mp3: "audio/mpeg",
   m4a: "audio/mp4",
   wav: "audio/wav",
   ogg: "audio/ogg",
+  aac: "audio/aac",
+  caf: "audio/x-caf",
+  aiff: "audio/aiff",
+  flac: "audio/flac",
+  webm: "audio/webm",
 };
 const OUT = "/workspace/docs";
 const ASSETS = `${OUT}/assets`;
+
+function findEngineRevSource() {
+  const ranked = [];
+
+  for (const dir of ENGINE_REV_SEARCH_DIRS) {
+    if (!existsSync(dir)) continue;
+    for (const name of readdirSync(dir)) {
+      const path = join(dir, name);
+      let st;
+      try {
+        st = statSync(path);
+      } catch {
+        continue;
+      }
+      if (!st.isFile()) continue;
+
+      const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+      if (!AUDIO_EXTS.has(ext)) continue;
+
+      const lower = name.toLowerCase();
+      let score = 0;
+      if (/rev|engine|petrol|motor|throttle|accel|v8|car/.test(lower)) score += 100;
+      if (lower === "engine-rev.mp3" && st.size <= 7000) score -= 40;
+      score += Math.min(st.size / 2000, 30);
+      ranked.push({ path, score, mtime: st.mtimeMs, size: st.size });
+    }
+  }
+
+  ranked.sort((a, b) => b.score - a.score || b.mtime - a.mtime || b.size - a.size);
+  return ranked[0]?.path ?? null;
+}
 
 async function build() {
   await mkdir(ASSETS, { recursive: true });
@@ -100,15 +133,18 @@ async function build() {
   const bgDataUrl = `data:image/png;base64,${foregroundPng.toString("base64")}`;
 
   let engineRevDataUrl = "";
-  for (const path of ENGINE_REV_CANDIDATES) {
-    if (!existsSync(path)) continue;
-    const ext = path.split(".").pop();
+  const engineRevPath = findEngineRevSource();
+  if (engineRevPath) {
+    const ext = engineRevPath.split(".").pop().toLowerCase();
     const mime = ENGINE_REV_MIME[ext];
-    if (!mime) continue;
-    const bytes = readFileSync(path);
-    engineRevDataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
-    copyFileSync(path, `${ASSETS}/engine-rev.${ext}`);
-    break;
+    if (mime) {
+      const bytes = readFileSync(engineRevPath);
+      engineRevDataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
+      copyFileSync(engineRevPath, `${ASSETS}/engine-rev.${ext}`);
+      console.log(`Engine rev SFX: ${engineRevPath} (${bytes.length} bytes)`);
+    }
+  } else {
+    console.log("Engine rev SFX: none found (procedural fallback)");
   }
 
   let html = readFileSync("/workspace/demo/cloud-background.html", "utf8");
