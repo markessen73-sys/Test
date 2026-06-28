@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">Ford Capri Arena</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28v</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28w</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="active">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -1124,9 +1124,8 @@
       }
 
       function wrapPixelX(px) {
-        let x = px;
-        while (x < 0) x += W;
-        while (x >= W) x -= W;
+        let x = px % W;
+        if (x < 0) x += W;
         return x;
       }
 
@@ -1395,6 +1394,23 @@
         unit.state = "removed";
         unit.lightningVx = 0;
         unit.lightningVy = 0;
+      }
+
+      function restoreLightningToZoox(unit) {
+        unit.state = "active";
+        unit.vx = ZOOX_CRUISE_VX * unit.dir;
+        unit.vy = 0;
+        unit.lightningVx = 0;
+        unit.lightningVy = 0;
+        unit.lightningLanded = false;
+        unit.lightningLandTimer = 0;
+        unit.lightningTouchGrace = 0;
+        unit.reverseTimer = 0;
+        unit.stallTimer = 0;
+        unit.hitCooldown = VEHICLE_HIT_COOLDOWN;
+        const pixels = zooxBundleFor(unit).pixels;
+        unit.y = ensureZooxSpawnFit(unit.x, unit.y, pixels);
+        wrapZooxUnit(unit);
       }
 
       function moveLightningPixels(unit, dx, dy) {
