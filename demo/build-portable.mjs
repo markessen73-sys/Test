@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { buildSolidMask, buildDebugCompositeRgba, solidToSegments } from "./solid-mask.mjs";
 
 const SRC = "/workspace/demo/assets/arena-source.png";
+const BACKDROP = "/workspace/demo/assets/arena-backdrop.jpg";
 const OUT = "/workspace/docs";
 const ASSETS = `${OUT}/assets`;
 
@@ -28,6 +29,7 @@ async function build() {
   }
 
   copyFileSync(SRC, `${ASSETS}/arena-foreground.png`);
+  copyFileSync(BACKDROP, `${ASSETS}/arena-backdrop.jpg`);
 
   const debugComposite = buildDebugCompositeRgba(data, width, height, channels);
   await sharp(debugComposite, { raw: { width, height, channels: 4 } })
@@ -43,6 +45,12 @@ async function build() {
 
   const foregroundPng = await sharp(SRC).png({ compressionLevel: 9 }).toBuffer();
   const bgDataUrl = `data:image/png;base64,${foregroundPng.toString("base64")}`;
+
+  const backdropJpeg = await sharp(BACKDROP)
+    .resize(width, height, { fit: "cover", position: "centre" })
+    .jpeg({ quality: 82 })
+    .toBuffer();
+  const backdropDataUrl = `data:image/jpeg;base64,${backdropJpeg.toString("base64")}`;
 
   let html = readFileSync("/workspace/demo/cloud-background.html", "utf8");
 
@@ -82,6 +90,7 @@ async function build() {
     return source
       .replace("__SOLID_SEGMENTS__", JSON.stringify(segments))
       .replace("__BG_DATA_URL__", bgDataUrl)
+      .replace("__BACKDROP_DATA_URL__", backdropDataUrl)
       .replace("__BAKED_MODE__", bakedMode)
       .replace("__TITLE_TEXT__", copy.title)
       .replace("__DESC_TEXT__", copy.desc)

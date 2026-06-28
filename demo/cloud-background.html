@@ -129,7 +129,7 @@
   </head>
   <body>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28x</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-28y</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -153,9 +153,10 @@
     <script>
       const FALL_SECONDS = 3;
       const WRAP_SPEED = 360;
-      const DEBUG_GREEN_BG = true;
+      const DEBUG_GREEN_BG = false;
       const SOLID_SEGMENTS = __SOLID_SEGMENTS__;
       const BG_DATA_URL = "__BG_DATA_URL__";
+      const BACKDROP_DATA_URL = "__BACKDROP_DATA_URL__";
       const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("status");
@@ -182,6 +183,7 @@
       let H = 1024;
       let accelX = 512;
       let background = null;
+      let backdrop = null;
       let solid = null;
       let zooxSolid = null;
       let debugBackground = null;
@@ -1674,8 +1676,8 @@
       function drawFrame() {
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, W, H);
-        const bg = DEBUG_GREEN_BG && debugBackground ? debugBackground : background;
-        if (bg) ctx.drawImage(bg, 0, 0, W, H);
+        if (backdrop) ctx.drawImage(backdrop, 0, 0, W, H);
+        if (background) ctx.drawImage(background, 0, 0, W, H);
 
         if (!isWrap()) {
           for (const unit of zooxUnits) {
@@ -1791,13 +1793,24 @@
       async function init() {
         applyModeCopy();
 
+        const assetBase = new URL("./assets/", window.location.href);
+
+        if (BACKDROP_DATA_URL && !BACKDROP_DATA_URL.startsWith("__")) {
+          backdrop = await loadImage(BACKDROP_DATA_URL);
+        } else {
+          try {
+            backdrop = await loadImage(new URL("arena-backdrop.jpg", assetBase).href);
+          } catch {
+            // optional scenic layer
+          }
+        }
+
         if (BG_DATA_URL && !BG_DATA_URL.startsWith("__")) {
           background = await loadImage(BG_DATA_URL);
         } else {
-          const base = new URL("./assets/", window.location.href);
           for (const name of ["arena-foreground.png", "arena-source.png", "arena-debug.png"]) {
             try {
-              background = await loadImage(new URL(name, base).href);
+              background = await loadImage(new URL(name, assetBase).href);
               break;
             } catch {
               // try next
