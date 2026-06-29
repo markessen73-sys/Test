@@ -96,7 +96,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 14px;
+        gap: clamp(40px, 12vw, 64px);
         padding: 14px 0 4px;
       }
       .control-side {
@@ -335,7 +335,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29p</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29q</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -389,6 +389,19 @@
       const wrapEl = document.getElementById("wrap");
       const chromeHintEl = document.getElementById("chrome-hint");
 
+      function resolveAssetUrl(src) {
+        if (!src || src.startsWith("data:") || src.startsWith("http")) return src;
+        if (window.location.hostname === "htmlpreview.github.io") {
+          const gh = window.location.search.match(/github\.com\/([^/]+\/[^/]+)\/blob\/([^/]+)\/([^?#]+)/);
+          if (gh) {
+            const [, repo, branch, filePath] = gh;
+            const base = filePath.replace(/[^/]+$/, "");
+            return `https://raw.githubusercontent.com/${repo}/${branch}/${base}${src}`;
+          }
+        }
+        return new URL(src, window.location.href).href;
+      }
+
       function createArenaAudio() {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         let ctx = null;
@@ -418,16 +431,7 @@
         }
 
         function resolveAssetSrc(src) {
-          if (!src || src.startsWith("data:") || src.startsWith("http")) return src;
-          if (window.location.hostname === "htmlpreview.github.io") {
-            const gh = window.location.search.match(/github\.com\/([^/]+\/[^/]+)\/blob\/([^/]+)\/([^?#]+)/);
-            if (gh) {
-              const [, repo, branch, filePath] = gh;
-              const base = filePath.replace(/[^/]+$/, "");
-              return `https://raw.githubusercontent.com/${repo}/${branch}/${base}${src}`;
-            }
-          }
-          return new URL(src, window.location.href).href;
+          return resolveAssetUrl(src);
         }
 
         function createSampleVoice(src, placeholder) {
@@ -608,14 +612,19 @@
           });
         }
 
-        async function preload() {
+        async function preloadSfx() {
           const ac = ensure();
           if (!ac) return;
           const loads = [];
           if (pew.enabled) loads.push(pew.loadSample(ac));
           if (beep.enabled) loads.push(beep.loadSample(ac));
-          if (vegasMusic.enabled) loads.push(vegasMusic.loadSample(ac));
           await Promise.all(loads);
+        }
+
+        function preloadMusic() {
+          const ac = ensure();
+          if (!ac || !vegasMusic.enabled) return;
+          void vegasMusic.loadSample(ac);
         }
 
         function resume() {
@@ -624,7 +633,7 @@
           return ac;
         }
 
-        return { resume, preload, playZap, playKerching };
+        return { resume, preloadSfx, preloadMusic, playZap, playKerching };
       }
 
       const sfx = createArenaAudio();
@@ -639,6 +648,8 @@
         liftBtn.hidden = land;
       }
 
+      const STICK_DRIFT_GAIN = 1.9;
+      const STICK_TAP_MULT = 2;
       let stickDir = 0;
       let stickPointerId = null;
       const STICK_DEAD = 0.22;
@@ -996,11 +1007,12 @@
       }
 
       function loadImage(src) {
+        const url = resolveAssetUrl(src);
         return new Promise((resolve, reject) => {
           const img = new Image();
           img.onload = () => resolve(img);
-          img.onerror = () => reject(new Error(`Failed to load ${src}`));
-          img.src = src;
+          img.onerror = () => reject(new Error(`Failed to load ${url}`));
+          img.src = url;
         });
       }
 
@@ -1779,7 +1791,7 @@
         const vy = ball.vy;
         if (Math.abs(vy) < 24) return;
         const drift = Math.min(Math.abs(vy) / (accelX * 0.8), 1);
-        ball.vx += stickDir * accelX * 0.95 * dt * drift;
+        ball.vx += stickDir * accelX * STICK_DRIFT_GAIN * dt * drift;
       }
 
       function moveEntityPixels(entity, pixels, dx, dy, probe = solidAt) {
@@ -2397,8 +2409,8 @@
         if (isWrap() || !ball?.alive) return;
         sfx.resume();
         ball.vy -= tapImpulseY();
-        if (stickDir < 0) ball.vx -= tapImpulseX();
-        else if (stickDir > 0) ball.vx += tapImpulseX();
+        if (stickDir < 0) ball.vx -= tapImpulseX() * STICK_TAP_MULT;
+        else if (stickDir > 0) ball.vx += tapImpulseX() * STICK_TAP_MULT;
         flashButton(btn);
       }
 
@@ -2428,29 +2440,20 @@
         applyModeCopy();
 
         const assetBase = new URL("./assets/", window.location.href);
+        const bgSrc =
+          BG_DATA_URL && !BG_DATA_URL.startsWith("__") ? BG_DATA_URL : new URL("arena-foreground.png", assetBase).href;
+        const backdropSrc =
+          BACKDROP_DATA_URL && !BACKDROP_DATA_URL.startsWith("__")
+            ? BACKDROP_DATA_URL
+            : new URL("arena-backdrop.jpg", assetBase).href;
 
-        if (BACKDROP_DATA_URL && !BACKDROP_DATA_URL.startsWith("__")) {
-          backdrop = await loadImage(BACKDROP_DATA_URL);
-        } else {
-          try {
-            backdrop = await loadImage(new URL("arena-backdrop.jpg", assetBase).href);
-          } catch {
-            // optional scenic layer
-          }
-        }
-
-        if (BG_DATA_URL && !BG_DATA_URL.startsWith("__")) {
-          background = await loadImage(BG_DATA_URL);
-        } else {
-          for (const name of ["arena-foreground.png", "arena-source.png", "arena-debug.png"]) {
-            try {
-              background = await loadImage(new URL(name, assetBase).href);
-              break;
-            } catch {
-              // try next
-            }
-          }
-        }
+        statusEl.textContent = "Loading…";
+        const [backdropResult, backgroundResult] = await Promise.all([
+          loadImage(backdropSrc).catch(() => null),
+          loadImage(bgSrc),
+        ]);
+        backdrop = backdropResult;
+        background = backgroundResult;
         if (!background) throw new Error("Background image missing");
 
         W = background.naturalWidth;
@@ -2467,15 +2470,14 @@
         resolveCapriSpawn();
         initZooxFleet();
 
-        statusEl.textContent = "Loading audio…";
-        await sfx.preload();
-
         canvas.width = W;
         canvas.height = H;
         ball = createBall();
         resetBall();
         ready = true;
         statusEl.style.display = "none";
+        void sfx.preloadSfx();
+        void sfx.preloadMusic();
         lastFrame = 0;
         syncViewportHeight();
         layoutControls();

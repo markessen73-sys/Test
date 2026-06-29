@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import { readFileSync, copyFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import { buildSolidMask, buildDebugCompositeRgba, solidToSegments } from "./solid-mask.mjs";
@@ -36,13 +37,28 @@ function findNamedAudio(stem) {
   return null;
 }
 
-function embedAudioDataUrl(path) {
+function copyAudioAsset(path, assetName) {
   if (!path) return "";
-  const ext = path.split(".").pop().toLowerCase();
-  const mime = ENGINE_REV_MIME[ext];
-  if (!mime) return "";
-  const bytes = readFileSync(path);
-  return `data:${mime};base64,${bytes.toString("base64")}`;
+  copyFileSync(path, `${ASSETS}/${assetName}`);
+  return `assets/${assetName}`;
+}
+
+function prepareVegasMusic(srcPath) {
+  const assetName = "vegas-music.mp3";
+  const dest = `${ASSETS}/${assetName}`;
+  const demoDest = `/workspace/demo/assets/${assetName}`;
+  const ffmpeg = spawnSync(
+    "ffmpeg",
+    ["-y", "-loglevel", "error", "-i", srcPath, "-b:a", "96k", "-ac", "1", "-ar", "44100", dest],
+    { stdio: "pipe" },
+  );
+  if (ffmpeg.status === 0) {
+    copyFileSync(dest, demoDest);
+    return { ref: `assets/${assetName}`, bytes: readFileSync(dest).length, optimized: true };
+  }
+  copyFileSync(srcPath, dest);
+  copyFileSync(srcPath, demoDest);
+  return { ref: `assets/${assetName}`, bytes: readFileSync(dest).length, optimized: false };
 }
 
 function findEngineRevSource() {
@@ -160,21 +176,17 @@ async function build() {
   await writeFile(`${ASSETS}/arena-backdrop.jpg`, backdropJpegFull);
   await writeFile("/workspace/demo/assets/arena-backdrop.jpg", backdropJpegFull);
 
-  const backdropDataUrl = `data:image/jpeg;base64,${backdropJpegFull.toString("base64")}`;
+  await writeFile(`${ASSETS}/arena-backdrop.jpg`, backdropJpegFull);
+  await writeFile("/workspace/demo/assets/arena-backdrop.jpg", backdropJpegFull);
 
-  const foregroundPng = await sharp(SRC).png({ compressionLevel: 9 }).toBuffer();
-  const bgDataUrl = `data:image/png;base64,${foregroundPng.toString("base64")}`;
-
-  const AUDIO_EMBED_MAX = 400_000;
+  const bgDataUrl = "assets/arena-foreground.png";
+  const backdropDataUrl = "assets/arena-backdrop.jpg";
 
   let pewDataUrl = "";
   const pewPath = findNamedAudio("pew");
   if (pewPath) {
-    pewDataUrl = embedAudioDataUrl(pewPath);
-    if (pewDataUrl) {
-      copyFileSync(pewPath, `${ASSETS}/pew.mp3`);
-      console.log(`Zoox zap SFX: ${pewPath} (${readFileSync(pewPath).length} bytes)`);
-    }
+    pewDataUrl = copyAudioAsset(pewPath, "pew.mp3");
+    console.log(`Zoox zap SFX: ${pewDataUrl} (${readFileSync(pewPath).length} bytes)`);
   } else {
     console.log("Zoox zap SFX: none found (procedural fallback)");
   }
@@ -182,11 +194,8 @@ async function build() {
   let beepDataUrl = "";
   const beepPath = findNamedAudio("beep");
   if (beepPath) {
-    beepDataUrl = embedAudioDataUrl(beepPath);
-    if (beepDataUrl) {
-      copyFileSync(beepPath, `${ASSETS}/beep.mp3`);
-      console.log(`Lightning beep SFX: ${beepPath} (${readFileSync(beepPath).length} bytes)`);
-    }
+    beepDataUrl = copyAudioAsset(beepPath, "beep.mp3");
+    console.log(`Lightning beep SFX: ${beepDataUrl} (${readFileSync(beepPath).length} bytes)`);
   } else {
     console.log("Lightning beep SFX: none found (procedural fallback)");
   }
@@ -194,17 +203,11 @@ async function build() {
   let vegasMusicDataUrl = "";
   const vegasMusicPath = findNamedAudio("vegas");
   if (vegasMusicPath) {
-    const vegasBytes = readFileSync(vegasMusicPath);
-    const ext = vegasMusicPath.split(".").pop().toLowerCase();
-    copyFileSync(vegasMusicPath, `${ASSETS}/vegas-music.${ext}`);
-    copyFileSync(vegasMusicPath, `/workspace/demo/assets/vegas-music.${ext}`);
-    if (vegasBytes.length <= AUDIO_EMBED_MAX) {
-      vegasMusicDataUrl = embedAudioDataUrl(vegasMusicPath);
-      console.log(`Vegas music: embedded ${vegasMusicPath} (${vegasBytes.length} bytes)`);
-    } else {
-      vegasMusicDataUrl = `assets/vegas-music.${ext}`;
-      console.log(`Vegas music: external ${vegasMusicDataUrl} (${vegasBytes.length} bytes)`);
-    }
+    const vegas = prepareVegasMusic(vegasMusicPath);
+    vegasMusicDataUrl = vegas.ref;
+    console.log(
+      `Vegas music: ${vegasMusicDataUrl} (${vegas.bytes} bytes${vegas.optimized ? ", 96k mono" : ""})`,
+    );
   } else {
     console.log("Vegas music: none found");
   }
