@@ -335,7 +335,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29o</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29p</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -1774,6 +1774,14 @@
         return accelX * TAP_IMPULSE_T;
       }
 
+      function applyStickVerticalDrift(dt) {
+        if (!ball?.alive || isWrap() || !stickDir) return;
+        const vy = ball.vy;
+        if (Math.abs(vy) < 24) return;
+        const drift = Math.min(Math.abs(vy) / (accelX * 0.8), 1);
+        ball.vx += stickDir * accelX * 0.95 * dt * drift;
+      }
+
       function moveEntityPixels(entity, pixels, dx, dy, probe = solidAt) {
         const overlaps = (cx, cy) => vehicleOverlapsSolidAt(cx, cy, pixels, probe);
         const moveAxis = (axis, delta) => {
@@ -2245,6 +2253,7 @@
       function stepDrop(dt) {
         if (!ball.alive) return;
         ball.vy += accelX * dt;
+        applyStickVerticalDrift(dt);
         moveBallPixels(ball.vx * dt, ball.vy * dt);
         clampBallToTop();
         wrapBallX();
@@ -2365,7 +2374,7 @@
         } else {
           titleEl.textContent = "Ford Capri Arena";
           descEl.textContent =
-            "Hold ← or → on the stick, then tap ↑ to boost up and sideways. Three Zoox robotaxis patrol the decks.";
+            "Hold ← or → on the stick to steer while falling, then tap ↑ to boost up and sideways. Three Zoox robotaxis patrol the decks.";
           modeBadgeEl.textContent = "DROP ↓";
         }
 
