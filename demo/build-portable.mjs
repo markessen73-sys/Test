@@ -216,7 +216,7 @@ async function build() {
       drop: {
         title: "Ford Capri Arena",
         desc:
-          "Tap ← / lift / → to drive your Capri. Three Zoox robotaxis patrol the decks, weaving around the rocks.",
+          "Hold ← or → on the stick, then tap ↑ to boost up and sideways. Three Zoox robotaxis patrol the decks.",
         btnDrop: "active",
         btnWrapRight: "",
         btnWrapLeft: "",

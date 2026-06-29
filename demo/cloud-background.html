@@ -125,17 +125,61 @@
         -webkit-tap-highlight-color: transparent;
       }
       #lift-btn.pressed,
-      #left-lift-btn.pressed,
-      #right-lift-btn.pressed {
+      #left-lift-btn.pressed {
         border-color: #9df;
         background: radial-gradient(circle at 35% 30%, #8cd, #245);
         box-shadow: 0 2px 8px rgba(100, 200, 255, 0.35);
       }
-      #left-btn.pressed,
-      #right-btn.pressed {
-        border-color: #fd8;
+      .thumbstick {
+        position: relative;
+        width: 2.4cm;
+        height: 2.4cm;
+        border-radius: 50%;
+        border: 2px solid #666;
+        background: radial-gradient(circle at 50% 50%, #3a3a3a, #141414);
+        box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.55), 0 4px 14px rgba(0, 0, 0, 0.45);
+        touch-action: none;
+        flex-shrink: 0;
+        -webkit-tap-highlight-color: transparent;
+        cursor: pointer;
+      }
+      .thumbstick.is-disabled {
+        opacity: 0.35;
+        pointer-events: none;
+        cursor: default;
+      }
+      .thumbstick-track {
+        position: absolute;
+        inset: 18%;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.28);
+        box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.45);
+        pointer-events: none;
+      }
+      .thumbstick-knob {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 34%;
+        height: 34%;
+        margin-left: -17%;
+        margin-top: -17%;
+        border-radius: 50%;
+        border: 2px solid #888;
         background: radial-gradient(circle at 35% 30%, #da8, #432);
-        box-shadow: 0 2px 8px rgba(255, 180, 80, 0.35);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+        transition: transform 0.05s ease-out;
+        pointer-events: none;
+      }
+      .thumbstick.left .thumbstick-knob {
+        transform: translateX(-38%);
+        border-color: #fd8;
+        background: radial-gradient(circle at 35% 30%, #ffc870, #6a4010);
+      }
+      .thumbstick.right .thumbstick-knob {
+        transform: translateX(38%);
+        border-color: #fd8;
+        background: radial-gradient(circle at 35% 30%, #ffc870, #6a4010);
       }
       .control-btn:disabled {
         opacity: 0.35;
@@ -238,9 +282,12 @@
         .control-landscape-only:not([hidden]) {
           display: grid !important;
         }
-        #control-bar .control-btn {
+        #control-bar .control-btn,
+        #control-bar .thumbstick {
           pointer-events: auto;
           --landscape-control-square: clamp(76px, 16vh, 96px);
+        }
+        #control-bar .control-btn {
           width: var(--landscape-control-square);
           height: var(--landscape-control-square);
           border: none;
@@ -250,27 +297,29 @@
           background-color: transparent;
           filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55));
         }
-        #left-btn {
-          clip-path: polygon(0% 50%, 40% 6%, 40% 30%, 100% 30%, 100% 70%, 40% 70%, 40% 94%);
-          background: linear-gradient(165deg, rgba(245, 198, 98, 0.94) 0%, rgba(168, 102, 28, 0.96) 100%);
+        #control-bar .thumbstick {
+          width: var(--landscape-control-square);
+          height: var(--landscape-control-square);
+          border: none;
+          background: transparent;
+          box-shadow: none;
+          filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55));
         }
-        #left-btn.pressed {
-          background: linear-gradient(165deg, rgba(255, 228, 150, 0.98) 0%, rgba(210, 140, 50, 0.98) 100%);
+        #control-bar .thumbstick-track {
+          inset: 14%;
+          background: linear-gradient(90deg, rgba(245, 198, 98, 0.35) 0%, rgba(40, 40, 40, 0.55) 45%, rgba(40, 40, 40, 0.55) 55%, rgba(245, 198, 98, 0.35) 100%);
         }
-        #right-btn {
-          clip-path: polygon(100% 50%, 60% 6%, 60% 30%, 0% 30%, 0% 70%, 60% 70%, 60% 94%);
-          background: linear-gradient(195deg, rgba(245, 198, 98, 0.94) 0%, rgba(168, 102, 28, 0.96) 100%);
+        #control-bar .thumbstick-knob {
+          width: 38%;
+          height: 38%;
+          margin-left: -19%;
+          margin-top: -19%;
         }
-        #right-btn.pressed {
-          background: linear-gradient(195deg, rgba(255, 228, 150, 0.98) 0%, rgba(210, 140, 50, 0.98) 100%);
-        }
-        #left-lift-btn,
-        #right-lift-btn {
+        #left-lift-btn {
           clip-path: polygon(50% 0%, 94% 44%, 70% 44%, 70% 100%, 30% 100%, 30% 44%, 6% 44%);
           background: linear-gradient(180deg, rgba(150, 210, 255, 0.94) 0%, rgba(48, 118, 198, 0.96) 100%);
         }
-        #left-lift-btn.pressed,
-        #right-lift-btn.pressed {
+        #left-lift-btn.pressed {
           background: linear-gradient(180deg, rgba(190, 230, 255, 0.98) 0%, rgba(80, 150, 230, 0.98) 100%);
         }
         #chrome-hint {
@@ -285,7 +334,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29m</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29n</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -300,13 +349,14 @@
       </div>
       <div id="control-bar">
         <div class="control-side control-side-left">
-          <button type="button" id="left-lift-btn" class="control-btn control-landscape-only" aria-label="Lift" hidden></button>
-          <button type="button" id="left-btn" class="control-btn" aria-label="Accelerate left">←</button>
+          <button type="button" id="left-lift-btn" class="control-btn control-landscape-only" aria-label="Lift" hidden>↑</button>
         </div>
-        <button type="button" id="lift-btn" class="control-btn control-portrait-only" aria-label="Apply upward acceleration"></button>
+        <button type="button" id="lift-btn" class="control-btn control-portrait-only" aria-label="Lift">↑</button>
         <div class="control-side control-side-right">
-          <button type="button" id="right-lift-btn" class="control-btn control-landscape-only" aria-label="Lift" hidden></button>
-          <button type="button" id="right-btn" class="control-btn" aria-label="Accelerate right">→</button>
+          <div id="thumbstick" class="thumbstick" role="slider" aria-label="Hold left or right" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0">
+            <div class="thumbstick-track"></div>
+            <div class="thumbstick-knob"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -334,9 +384,7 @@
       const btnWrapLeft = document.getElementById("btn-wrap-left");
       const liftBtn = document.getElementById("lift-btn");
       const leftLiftBtn = document.getElementById("left-lift-btn");
-      const rightLiftBtn = document.getElementById("right-lift-btn");
-      const leftBtn = document.getElementById("left-btn");
-      const rightBtn = document.getElementById("right-btn");
+      const thumbstickEl = document.getElementById("thumbstick");
       const wrapEl = document.getElementById("wrap");
       const chromeHintEl = document.getElementById("chrome-hint");
 
@@ -587,8 +635,58 @@
       function layoutControls() {
         const land = isLandscapePhone();
         leftLiftBtn.hidden = !land;
-        rightLiftBtn.hidden = !land;
         liftBtn.hidden = land;
+      }
+
+      let stickDir = 0;
+      const STICK_DEAD = 0.22;
+
+      function paintThumbstick() {
+        thumbstickEl.classList.toggle("left", stickDir < 0);
+        thumbstickEl.classList.toggle("right", stickDir > 0);
+        thumbstickEl.setAttribute("aria-valuenow", String(stickDir));
+      }
+
+      function stickFromClientX(clientX) {
+        const rect = thumbstickEl.getBoundingClientRect();
+        const x = (clientX - rect.left) / rect.width;
+        if (x < 0.5 - STICK_DEAD) return -1;
+        if (x > 0.5 + STICK_DEAD) return 1;
+        return 0;
+      }
+
+      function bindThumbstick() {
+        function setStick(next) {
+          if (stickDir === next) return;
+          stickDir = next;
+          paintThumbstick();
+        }
+
+        function releaseStick() {
+          setStick(0);
+        }
+
+        thumbstickEl.addEventListener("pointerdown", (e) => {
+          if (thumbstickEl.classList.contains("is-disabled")) return;
+          e.preventDefault();
+          thumbstickEl.setPointerCapture(e.pointerId);
+          setStick(stickFromClientX(e.clientX));
+        });
+
+        thumbstickEl.addEventListener("pointermove", (e) => {
+          if (!thumbstickEl.hasPointerCapture(e.pointerId)) return;
+          setStick(stickFromClientX(e.clientX));
+        });
+
+        thumbstickEl.addEventListener("pointerup", (e) => {
+          if (thumbstickEl.hasPointerCapture(e.pointerId)) {
+            thumbstickEl.releasePointerCapture(e.pointerId);
+          }
+          releaseStick();
+        });
+
+        thumbstickEl.addEventListener("pointercancel", releaseStick);
+        thumbstickEl.addEventListener("lostpointercapture", releaseStick);
       }
 
       function isStandaloneDisplay() {
@@ -2255,16 +2353,18 @@
         } else {
           titleEl.textContent = "Ford Capri Arena";
           descEl.textContent =
-            "Tap ← / lift / → to drive your Capri. Three Zoox robotaxis patrol the decks, weaving around the rocks.";
+            "Hold ← or → on the stick, then tap ↑ to boost up and sideways. Three Zoox robotaxis patrol the decks.";
           modeBadgeEl.textContent = "DROP ↓";
         }
 
         const controlsDisabled = isWrap();
         liftBtn.disabled = controlsDisabled;
         leftLiftBtn.disabled = controlsDisabled;
-        rightLiftBtn.disabled = controlsDisabled;
-        leftBtn.disabled = controlsDisabled;
-        rightBtn.disabled = controlsDisabled;
+        thumbstickEl.classList.toggle("is-disabled", controlsDisabled);
+        if (controlsDisabled) {
+          stickDir = 0;
+          paintThumbstick();
+        }
       }
 
       function flashButton(btn) {
@@ -2276,21 +2376,9 @@
         if (isWrap() || !ball?.alive) return;
         sfx.resume();
         ball.vy -= tapImpulseY();
+        if (stickDir < 0) ball.vx -= tapImpulseX();
+        else if (stickDir > 0) ball.vx += tapImpulseX();
         flashButton(btn);
-      }
-
-      function tapLeft() {
-        if (isWrap() || !ball?.alive) return;
-        sfx.resume();
-        ball.vx -= tapImpulseX();
-        flashButton(leftBtn);
-      }
-
-      function tapRight() {
-        if (isWrap() || !ball?.alive) return;
-        sfx.resume();
-        ball.vx += tapImpulseX();
-        flashButton(rightBtn);
       }
 
       function setMode(next) {
@@ -2313,9 +2401,7 @@
 
       liftBtn.addEventListener("click", () => tapLift(liftBtn));
       leftLiftBtn.addEventListener("click", () => tapLift(leftLiftBtn));
-      rightLiftBtn.addEventListener("click", () => tapLift(rightLiftBtn));
-      leftBtn.addEventListener("click", tapLeft);
-      rightBtn.addEventListener("click", tapRight);
+      bindThumbstick();
 
       async function init() {
         applyModeCopy();
