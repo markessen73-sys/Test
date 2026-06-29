@@ -231,7 +231,7 @@
           justify-content: center;
           align-items: center;
           display: grid;
-          grid-template-columns: auto minmax(0, min(calc(100svh * 3 / 2), calc(100vw - 11rem))) auto;
+          grid-template-columns: auto minmax(0, min(calc(100svh * 3 / 2), calc(100vw - 15rem))) auto;
           column-gap: clamp(6px, 1.4vw, 14px);
         }
         #wrap {
@@ -285,11 +285,12 @@
         #control-bar .control-btn,
         #control-bar .thumbstick {
           pointer-events: auto;
-          --landscape-control-square: clamp(76px, 16vh, 96px);
+          --landscape-lift-square: clamp(76px, 16vh, 96px);
+          --landscape-thumbstick-square: clamp(108px, 26vh, 148px);
         }
         #control-bar .control-btn {
-          width: var(--landscape-control-square);
-          height: var(--landscape-control-square);
+          width: var(--landscape-lift-square);
+          height: var(--landscape-lift-square);
           border: none;
           border-radius: 0;
           color: transparent;
@@ -298,8 +299,8 @@
           filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55));
         }
         #control-bar .thumbstick {
-          width: var(--landscape-control-square);
-          height: var(--landscape-control-square);
+          width: var(--landscape-thumbstick-square);
+          height: var(--landscape-thumbstick-square);
           border: none;
           background: transparent;
           box-shadow: none;
@@ -334,7 +335,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29n</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29o</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -639,6 +640,7 @@
       }
 
       let stickDir = 0;
+      let stickPointerId = null;
       const STICK_DEAD = 0.22;
 
       function paintThumbstick() {
@@ -662,31 +664,41 @@
           paintThumbstick();
         }
 
-        function releaseStick() {
+        function endStick(pointerId) {
+          if (stickPointerId !== pointerId) return;
+          stickPointerId = null;
           setStick(0);
+          window.removeEventListener("pointermove", onStickMove);
+          window.removeEventListener("pointerup", onStickEnd);
+          window.removeEventListener("pointercancel", onStickEnd);
+        }
+
+        function onStickMove(e) {
+          if (e.pointerId !== stickPointerId) return;
+          setStick(stickFromClientX(e.clientX));
+        }
+
+        function onStickEnd(e) {
+          endStick(e.pointerId);
         }
 
         thumbstickEl.addEventListener("pointerdown", (e) => {
           if (thumbstickEl.classList.contains("is-disabled")) return;
+          if (stickPointerId !== null) return;
+          stickPointerId = e.pointerId;
+          setStick(stickFromClientX(e.clientX));
+          window.addEventListener("pointermove", onStickMove);
+          window.addEventListener("pointerup", onStickEnd);
+          window.addEventListener("pointercancel", onStickEnd);
+        });
+      }
+
+      function bindLiftButton(btn) {
+        btn.addEventListener("pointerdown", (e) => {
+          if (btn.disabled) return;
           e.preventDefault();
-          thumbstickEl.setPointerCapture(e.pointerId);
-          setStick(stickFromClientX(e.clientX));
+          tapLift(btn);
         });
-
-        thumbstickEl.addEventListener("pointermove", (e) => {
-          if (!thumbstickEl.hasPointerCapture(e.pointerId)) return;
-          setStick(stickFromClientX(e.clientX));
-        });
-
-        thumbstickEl.addEventListener("pointerup", (e) => {
-          if (thumbstickEl.hasPointerCapture(e.pointerId)) {
-            thumbstickEl.releasePointerCapture(e.pointerId);
-          }
-          releaseStick();
-        });
-
-        thumbstickEl.addEventListener("pointercancel", releaseStick);
-        thumbstickEl.addEventListener("lostpointercapture", releaseStick);
       }
 
       function isStandaloneDisplay() {
@@ -2399,8 +2411,8 @@
       btnWrapRight.addEventListener("click", () => setMode("wrap-right"));
       btnWrapLeft.addEventListener("click", () => setMode("wrap-left"));
 
-      liftBtn.addEventListener("click", () => tapLift(liftBtn));
-      leftLiftBtn.addEventListener("click", () => tapLift(leftLiftBtn));
+      bindLiftButton(liftBtn);
+      bindLiftButton(leftLiftBtn);
       bindThumbstick();
 
       async function init() {
