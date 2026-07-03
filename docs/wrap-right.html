@@ -860,6 +860,7 @@
       const INTRO_CAPRI_URL = "assets/intro-capri.png";
       const INTRO_SERVER_SEC = 3;
       const INTRO_SMOKE_SEC = 2;
+      const INTRO_CROSSFADE_SEC = 1.5;
       const INTRO_TITLE_DELAY_SEC = 1;
 
       let gamePhase = "loading";
@@ -2442,6 +2443,10 @@
         return INTRO_SERVER_SEC + INTRO_SMOKE_SEC;
       }
 
+      function introFadeStartSec() {
+        return introCapriStartSec() - INTRO_CROSSFADE_SEC;
+      }
+
       function introTitleStartSec() {
         return introCapriStartSec() + INTRO_TITLE_DELAY_SEC;
       }
@@ -2483,39 +2488,73 @@
         }
       }
 
+      function draw3DPerspectiveLine(text, cx, cy, size, lineIndex, totalLines) {
+        const depth = Math.max(6, Math.round(size * 0.1));
+        const skew = -0.22 + lineIndex * 0.04;
+        const scaleY = 0.72 + (lineIndex / Math.max(totalLines - 1, 1)) * 0.38;
+        const scaleX = 0.88 + (lineIndex / Math.max(totalLines - 1, 1)) * 0.18;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.transform(scaleX, 0, skew, scaleY, 0, 0);
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `900 ${size}px Impact, "Arial Black", Haettenschweiler, sans-serif`;
+        ctx.lineJoin = "round";
+
+        for (let d = depth; d > 0; d--) {
+          const t = d / depth;
+          ctx.fillStyle = `rgb(${Math.round(90 * t)},${Math.round(8 * t)},${Math.round(8 * t)})`;
+          ctx.fillText(text, d * 0.55, d * 0.7);
+        }
+
+        ctx.lineWidth = Math.max(5, Math.round(size * 0.11));
+        ctx.strokeStyle = "#4a0000";
+        ctx.fillStyle = "#ffd84d";
+        ctx.strokeText(text, 0, 0);
+        ctx.fillText(text, 0, 0);
+
+        ctx.lineWidth = Math.max(2, Math.round(size * 0.03));
+        ctx.strokeStyle = "rgba(255,255,200,0.35)";
+        ctx.strokeText(text, -1, -1);
+        ctx.restore();
+      }
+
       function drawBMovieTitle(age) {
         const w = canvas.width;
         const h = canvas.height;
         const settle = Math.min(age / 0.7, 1);
-        const shake = Math.sin(age * 18) * (1 - settle) * 4;
+        const shake = Math.sin(age * 18) * (1 - settle) * 5;
         const alpha = Math.min(age / 0.55, 1);
+        const zoom = 0.82 + Math.min(age / 0.9, 1) * 0.18;
 
         ctx.save();
         ctx.globalAlpha = alpha;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        const size = Math.round(h * 0.078);
-        ctx.font = `900 ${size}px Impact, "Arial Black", Haettenschweiler, sans-serif`;
-        ctx.lineJoin = "round";
-        ctx.lineWidth = Math.max(4, Math.round(h * 0.009));
-        ctx.strokeStyle = "#6a0000";
-        ctx.fillStyle = "#ffd84d";
-
+        const size = Math.round(h * 0.115 * zoom);
         const lines = ["ADVENTURES OF", "THE CRAPPY CAPRI"];
-        const baseY = h * 0.17 + shake;
+        const baseY = h * 0.15 + shake;
+        const cx = w / 2;
+
         for (let i = 0; i < lines.length; i++) {
-          const y = baseY + i * size * 1.15;
-          ctx.strokeText(lines[i], w / 2, y);
-          ctx.fillText(lines[i], w / 2, y);
+          const y = baseY + i * size * 1.12;
+          draw3DPerspectiveLine(lines[i], cx, y, size, i, lines.length);
         }
 
-        ctx.font = `italic 600 ${Math.round(size * 0.38)}px Georgia, "Times New Roman", serif`;
-        ctx.fillStyle = "rgba(255,230,180,0.92)";
-        ctx.strokeStyle = "rgba(40,0,0,0.8)";
-        ctx.lineWidth = 2;
+        const tagSize = Math.round(size * 0.42);
+        const tagY = baseY + size * 2.45;
+        ctx.save();
+        ctx.translate(cx, tagY);
+        ctx.transform(1.05, 0, -0.12, 0.78, 0, 0);
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `italic 700 ${tagSize}px Georgia, "Times New Roman", serif`;
+        ctx.lineWidth = Math.max(3, Math.round(tagSize * 0.1));
+        ctx.strokeStyle = "rgba(60,0,0,0.9)";
+        ctx.fillStyle = "rgba(255,220,160,0.95)";
         const tag = "A Data Center Disaster!";
-        ctx.strokeText(tag, w / 2, baseY + size * 2.55);
-        ctx.fillText(tag, w / 2, baseY + size * 2.55);
+        ctx.strokeText(tag, 0, 0);
+        ctx.fillText(tag, 0, 0);
+        ctx.restore();
         ctx.restore();
       }
 
@@ -2557,10 +2596,22 @@
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, w, h);
 
-        let img = introServerImg;
-        if (t >= introCapriStartSec()) img = introCapriImg;
-        else if (t >= introSmokeStartSec()) img = introSmokeImg;
-        if (img) ctx.drawImage(img, 0, 0, w, h);
+        if (t >= introCapriStartSec()) {
+          if (introCapriImg) ctx.drawImage(introCapriImg, 0, 0, w, h);
+        } else if (t >= introFadeStartSec()) {
+          const fade = Math.min((t - introFadeStartSec()) / INTRO_CROSSFADE_SEC, 1);
+          if (introCapriImg) ctx.drawImage(introCapriImg, 0, 0, w, h);
+          if (introSmokeImg) {
+            ctx.save();
+            ctx.globalAlpha = 1 - fade;
+            ctx.drawImage(introSmokeImg, 0, 0, w, h);
+            ctx.restore();
+          }
+        } else if (t >= introSmokeStartSec()) {
+          if (introSmokeImg) ctx.drawImage(introSmokeImg, 0, 0, w, h);
+        } else if (introServerImg) {
+          ctx.drawImage(introServerImg, 0, 0, w, h);
+        }
 
         if (t < introSmokeStartSec()) drawElectricity(t);
 
