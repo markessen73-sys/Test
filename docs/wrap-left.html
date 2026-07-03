@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#000000" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="assets/icon-192.png" />
-    <title>Ford Capri Arena</title>
+    <title>Adventures Of The Crappy Capri</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
@@ -335,7 +335,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">Wrap test — exits left, re-enters right</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-06-29r</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-03a</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -350,9 +350,9 @@
       </div>
       <div id="control-bar">
         <div class="control-side control-side-left">
-          <button type="button" id="left-lift-btn" class="control-btn control-landscape-only" aria-label="Lift" hidden>↑</button>
+          <button type="button" id="left-lift-btn" class="control-btn control-landscape-only" aria-label="Fire" hidden>↑</button>
         </div>
-        <button type="button" id="lift-btn" class="control-btn control-portrait-only" aria-label="Lift">↑</button>
+        <button type="button" id="lift-btn" class="control-btn control-portrait-only" aria-label="Fire">↑</button>
         <div class="control-side control-side-right">
           <div id="thumbstick" class="thumbstick" role="slider" aria-label="Hold left or right" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0">
             <div class="thumbstick-track"></div>
@@ -598,6 +598,54 @@
           playKerchingSynth(ac, now);
         }
 
+        function playCrash() {
+          const ac = ensure();
+          if (!ac) return;
+          const now = ac.currentTime;
+          const bus = outBus(ac);
+          const dur = 1.05;
+
+          const master = ac.createGain();
+          master.gain.setValueAtTime(0.0001, now);
+          master.gain.exponentialRampToValueAtTime(0.95, now + 0.02);
+          master.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+          master.connect(bus);
+
+          const bufferSize = Math.floor(ac.sampleRate * dur);
+          const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            const env = 1 - i / bufferSize;
+            data[i] = (Math.random() * 2 - 1) * env * env;
+          }
+          const noise = ac.createBufferSource();
+          noise.buffer = buffer;
+          const hp = ac.createBiquadFilter();
+          hp.type = "highpass";
+          hp.frequency.value = 400;
+          const lp = ac.createBiquadFilter();
+          lp.type = "lowpass";
+          lp.frequency.setValueAtTime(4200, now);
+          lp.frequency.exponentialRampToValueAtTime(180, now + dur);
+          noise.connect(hp);
+          hp.connect(lp);
+          lp.connect(master);
+          noise.start(now);
+          noise.stop(now + dur);
+
+          const thump = ac.createOscillator();
+          thump.type = "sine";
+          thump.frequency.setValueAtTime(110, now);
+          thump.frequency.exponentialRampToValueAtTime(42, now + 0.35);
+          const thumpGain = ac.createGain();
+          thumpGain.gain.setValueAtTime(0.7, now);
+          thumpGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+          thump.connect(thumpGain);
+          thumpGain.connect(bus);
+          thump.start(now);
+          thump.stop(now + 0.52);
+        }
+
         function startVegasMusic(ac) {
           if (musicStarted || !musicBus || !vegasMusic.enabled) return;
           musicStarted = true;
@@ -633,7 +681,7 @@
           return ac;
         }
 
-        return { resume, preloadSfx, preloadMusic, playZap, playKerching };
+        return { resume, preloadSfx, preloadMusic, playZap, playKerching, playCrash };
       }
 
       const sfx = createArenaAudio();
@@ -708,6 +756,11 @@
         btn.addEventListener("pointerdown", (e) => {
           if (btn.disabled) return;
           e.preventDefault();
+          if (gamePhase === "attract") {
+            startGameFromAttract(btn);
+            return;
+          }
+          if (gamePhase !== "playing") return;
           tapLift(btn);
         });
       }
@@ -801,6 +854,28 @@
       }
 
       let mode = parseInitialMode();
+
+      const INTRO_SERVER_URL = "assets/intro-server.png";
+      const INTRO_SMOKE_URL = "assets/intro-smoke.png";
+      const INTRO_CAPRI_URL = "assets/intro-capri.png";
+      const INTRO_SERVER_SEC = 3;
+      const INTRO_SMOKE_SEC = 2;
+      const INTRO_TITLE_DELAY_SEC = 1;
+
+      let gamePhase = "loading";
+      let introT0 = 0;
+      let introCrashPlayed = false;
+      let introServerImg = null;
+      let introSmokeImg = null;
+      let introCapriImg = null;
+
+      const ELEC_ZONES = [
+        { x: 0.1, y0: 0.18, y1: 0.88 },
+        { x: 0.28, y0: 0.22, y1: 0.82 },
+        { x: 0.5, y0: 0.25, y1: 0.78 },
+        { x: 0.72, y0: 0.22, y1: 0.82 },
+        { x: 0.9, y0: 0.18, y1: 0.88 },
+      ];
 
       let W = 1536;
       let H = 1024;
@@ -2355,6 +2430,203 @@
       let lastTimerPaint = 0;
       let frameCarPixels = null;
 
+      function introElapsedSec(now) {
+        return (now - introT0) / 1000;
+      }
+
+      function introSmokeStartSec() {
+        return INTRO_SERVER_SEC;
+      }
+
+      function introCapriStartSec() {
+        return INTRO_SERVER_SEC + INTRO_SMOKE_SEC;
+      }
+
+      function introTitleStartSec() {
+        return introCapriStartSec() + INTRO_TITLE_DELAY_SEC;
+      }
+
+      function drawElectricBolt(x1, y1, x2, y2) {
+        const segments = 10;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        for (let i = 1; i <= segments; i++) {
+          const t = i / segments;
+          const x = x1 + (x2 - x1) * t + (Math.random() - 0.5) * 42;
+          const y = y1 + (y2 - y1) * t + (Math.random() - 0.5) * 28;
+          ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = `rgba(${160 + Math.random() * 80 | 0},${220 + Math.random() * 35 | 0},255,${0.55 + Math.random() * 0.45})`;
+        ctx.lineWidth = 1.5 + Math.random() * 2.5;
+        ctx.shadowColor = "#9df";
+        ctx.shadowBlur = 16;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      function drawElectricity(t) {
+        const w = canvas.width;
+        const h = canvas.height;
+        const bolts = 5 + (Math.sin(t * 22) * 0.5 + 0.5) * 4;
+        for (let i = 0; i < bolts; i++) {
+          const z1 = ELEC_ZONES[Math.floor(Math.random() * ELEC_ZONES.length)];
+          const z2 = ELEC_ZONES[Math.floor(Math.random() * ELEC_ZONES.length)];
+          const x1 = (z1.x + (Math.random() - 0.5) * 0.06) * w;
+          const y1 = (z1.y0 + Math.random() * (z1.y1 - z1.y0)) * h;
+          const x2 = (z2.x + (Math.random() - 0.5) * 0.06) * w;
+          const y2 = (z2.y0 + Math.random() * (z2.y1 - z2.y0)) * h;
+          drawElectricBolt(x1, y1, x2, y2);
+        }
+        if (Math.random() < 0.22) {
+          ctx.fillStyle = "rgba(170,220,255,0.1)";
+          ctx.fillRect(0, 0, w, h);
+        }
+      }
+
+      function drawBMovieTitle(age) {
+        const w = canvas.width;
+        const h = canvas.height;
+        const settle = Math.min(age / 0.7, 1);
+        const shake = Math.sin(age * 18) * (1 - settle) * 4;
+        const alpha = Math.min(age / 0.55, 1);
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const size = Math.round(h * 0.078);
+        ctx.font = `900 ${size}px Impact, "Arial Black", Haettenschweiler, sans-serif`;
+        ctx.lineJoin = "round";
+        ctx.lineWidth = Math.max(4, Math.round(h * 0.009));
+        ctx.strokeStyle = "#6a0000";
+        ctx.fillStyle = "#ffd84d";
+
+        const lines = ["ADVENTURES OF", "THE CRAPPY CAPRI"];
+        const baseY = h * 0.17 + shake;
+        for (let i = 0; i < lines.length; i++) {
+          const y = baseY + i * size * 1.15;
+          ctx.strokeText(lines[i], w / 2, y);
+          ctx.fillText(lines[i], w / 2, y);
+        }
+
+        ctx.font = `italic 600 ${Math.round(size * 0.38)}px Georgia, "Times New Roman", serif`;
+        ctx.fillStyle = "rgba(255,230,180,0.92)";
+        ctx.strokeStyle = "rgba(40,0,0,0.8)";
+        ctx.lineWidth = 2;
+        const tag = "A Data Center Disaster!";
+        ctx.strokeText(tag, w / 2, baseY + size * 2.55);
+        ctx.fillText(tag, w / 2, baseY + size * 2.55);
+        ctx.restore();
+      }
+
+      function drawPressFire(now) {
+        if (Math.floor(now / 480) % 2 === 1) return;
+        const w = canvas.width;
+        const h = canvas.height;
+        const size = Math.round(h * 0.038);
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `bold ${size}px "Courier New", Courier, monospace`;
+        ctx.lineWidth = Math.max(3, Math.round(size * 0.14));
+        ctx.strokeStyle = "#000";
+        ctx.fillStyle = "#fff";
+        const text = "PRESS FIRE TO PLAY";
+        const y = h * 0.9;
+        ctx.strokeText(text, w / 2, y);
+        ctx.fillText(text, w / 2, y);
+        ctx.restore();
+      }
+
+      function updateIntro(now) {
+        const t = introElapsedSec(now);
+        if (t >= introSmokeStartSec() && !introCrashPlayed) {
+          introCrashPlayed = true;
+          sfx.playCrash();
+        }
+        if (t >= introTitleStartSec() && gamePhase === "intro") {
+          gamePhase = "attract";
+          applyModeCopy();
+        }
+      }
+
+      function drawIntro(now) {
+        const t = introElapsedSec(now);
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, w, h);
+
+        let img = introServerImg;
+        if (t >= introCapriStartSec()) img = introCapriImg;
+        else if (t >= introSmokeStartSec()) img = introSmokeImg;
+        if (img) ctx.drawImage(img, 0, 0, w, h);
+
+        if (t < introSmokeStartSec()) drawElectricity(t);
+
+        if (t >= introTitleStartSec()) {
+          drawBMovieTitle(t - introTitleStartSec());
+          drawPressFire(now);
+        }
+      }
+
+      function setHudForPhase() {
+        const playing = gamePhase === "playing";
+        timerEl.style.display = playing ? "" : "none";
+        modeBadgeEl.style.display = playing ? "" : "none";
+      }
+
+      function startGameFromAttract(btn) {
+        sfx.resume();
+        flashButton(btn);
+        gamePhase = "playing";
+        setHudForPhase();
+        applyModeCopy();
+        ball = createBall();
+        resetBall();
+        lastFrame = 0;
+        drawFrame();
+      }
+
+      function beginIntroSequence() {
+        gamePhase = "intro";
+        introT0 = performance.now();
+        introCrashPlayed = false;
+        canvas.width = introServerImg.naturalWidth;
+        canvas.height = introServerImg.naturalHeight;
+        setHudForPhase();
+        applyModeCopy();
+        stickDir = 0;
+        paintThumbstick();
+        ready = true;
+        statusEl.style.display = "none";
+        lastFrame = 0;
+        syncViewportHeight();
+        layoutControls();
+        updateChromeHint();
+        hideMobileBrowserChrome();
+        requestAnimationFrame(tick);
+        drawIntro(introT0);
+      }
+
+      function beginPlayingDirectly() {
+        gamePhase = "playing";
+        setHudForPhase();
+        applyModeCopy();
+        thumbstickEl.classList.remove("is-disabled");
+        ball = createBall();
+        resetBall();
+        ready = true;
+        statusEl.style.display = "none";
+        lastFrame = 0;
+        syncViewportHeight();
+        layoutControls();
+        updateChromeHint();
+        hideMobileBrowserChrome();
+        requestAnimationFrame(tick);
+        drawFrame();
+      }
+
       function tick(now) {
         if (!ready) {
           requestAnimationFrame(tick);
@@ -2363,6 +2635,14 @@
         if (!lastFrame) lastFrame = now;
         const dt = Math.min((now - lastFrame) / 1000, 0.05);
         lastFrame = now;
+
+        if (gamePhase === "intro" || gamePhase === "attract") {
+          updateIntro(now);
+          drawIntro(now);
+          requestAnimationFrame(tick);
+          return;
+        }
+
         frameCarPixels = activeCarBundle().pixels;
         step(dt);
         drawFrame();
@@ -2384,13 +2664,13 @@
           descEl.textContent = "Ford Capri at the top moves left. When it leaves the left edge it wraps to the right.";
           modeBadgeEl.textContent = "WRAP ←";
         } else {
-          titleEl.textContent = "Ford Capri Arena";
+          titleEl.textContent = "Adventures Of The Crappy Capri";
           descEl.textContent =
             "Hold ← or → on the stick to steer while falling, then tap ↑ to boost up and sideways. Three Zoox robotaxis patrol the decks.";
           modeBadgeEl.textContent = "DROP ↓";
         }
 
-        const controlsDisabled = isWrap();
+        const controlsDisabled = isWrap() || gamePhase === "intro";
         liftBtn.disabled = controlsDisabled;
         leftLiftBtn.disabled = controlsDisabled;
         thumbstickEl.classList.toggle("is-disabled", controlsDisabled);
@@ -2406,7 +2686,7 @@
       }
 
       function tapLift(btn = liftBtn) {
-        if (isWrap() || !ball?.alive) return;
+        if (gamePhase !== "playing" || isWrap() || !ball?.alive) return;
         sfx.resume();
         ball.vy -= tapImpulseY();
         if (stickDir < 0) ball.vx -= tapImpulseX() * STICK_TAP_MULT;
@@ -2448,6 +2728,17 @@
             : new URL("arena-backdrop.jpg", assetBase).href;
 
         statusEl.textContent = "Loading…";
+        const introLoads = isWrap()
+          ? [null, null, null]
+          : await Promise.all([
+              loadImage(INTRO_SERVER_URL),
+              loadImage(INTRO_SMOKE_URL),
+              loadImage(INTRO_CAPRI_URL),
+            ]);
+        if (!isWrap()) {
+          [introServerImg, introSmokeImg, introCapriImg] = introLoads;
+        }
+
         const [backdropResult, backgroundResult] = await Promise.all([
           loadImage(backdropSrc).catch(() => null),
           loadImage(bgSrc),
@@ -2472,19 +2763,15 @@
 
         canvas.width = W;
         canvas.height = H;
-        ball = createBall();
-        resetBall();
-        ready = true;
-        statusEl.style.display = "none";
         void sfx.preloadSfx();
         void sfx.preloadMusic();
-        lastFrame = 0;
-        syncViewportHeight();
-        layoutControls();
-        updateChromeHint();
-        hideMobileBrowserChrome();
-        requestAnimationFrame(tick);
-        drawFrame();
+
+        if (!isWrap() && introServerImg && introSmokeImg && introCapriImg) {
+          beginIntroSequence();
+          return;
+        }
+
+        beginPlayingDirectly();
       }
 
       init().catch((err) => {

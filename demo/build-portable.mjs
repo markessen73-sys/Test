@@ -125,6 +125,23 @@ async function build() {
   copyFileSync(SRC, `${ASSETS}/arena-foreground.png`);
   copyFileSync("/workspace/demo/manifest.webmanifest", `${OUT}/manifest.webmanifest`);
 
+  const INTRO_SOURCES = [
+    ["/workspace/demo/assets/intro-server.png", "intro-server.png"],
+    ["/workspace/demo/assets/intro-smoke.png", "intro-smoke.png"],
+    ["/workspace/demo/assets/intro-capri.png", "intro-capri.png"],
+    ["/workspace/file_00000000c3987246bb410932dd4c3a33.png", "intro-server.png"],
+    ["/workspace/file_00000000502471f4961279e1dcfd9ef2.png", "intro-smoke.png"],
+    ["/workspace/file_0000000001cc724381f0d7d1368fa96e.png", "intro-capri.png"],
+  ];
+  const copiedIntro = new Set();
+  for (const [src, name] of INTRO_SOURCES) {
+    if (copiedIntro.has(name) || !existsSync(src)) continue;
+    copyFileSync(src, `${ASSETS}/${name}`);
+    copyFileSync(src, `/workspace/demo/assets/${name}`);
+    copiedIntro.add(name);
+    console.log(`Intro asset: ${name} (${readFileSync(src).length} bytes)`);
+  }
+
   const iconSvg = Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#111"/><rect x="96" y="176" width="320" height="128" rx="18" fill="#6eb8e4"/><rect x="128" y="208" width="72" height="40" rx="6" fill="#243848"/><circle cx="160" cy="336" r="44" fill="#111"/><circle cx="352" cy="336" r="44" fill="#111"/></svg>`,
   );
@@ -217,9 +234,9 @@ async function build() {
   function embedPortable(source, bakedMode) {
     const copies = {
       drop: {
-        title: "Ford Capri Arena",
+        title: "Adventures Of The Crappy Capri",
         desc:
-          "Hold ← or → on the stick to steer while falling, then tap ↑ to boost up and sideways. Three Zoox robotaxis patrol the decks.",
+          "Hold ← or → on the stick to steer while falling, then tap ↑ (fire) to boost up and sideways. Three Zoox robotaxis patrol the decks.",
         btnDrop: "active",
         btnWrapRight: "",
         btnWrapLeft: "",
