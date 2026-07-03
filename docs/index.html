@@ -335,7 +335,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">Adventures Of The Crappy Capri</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-03f</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-03g</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="active">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -880,6 +880,7 @@
       const INTRO_SMOKE_URL = "assets/intro-smoke.png";
       const INTRO_CAPRI_URL = "assets/intro-capri.png";
       const INTRO_SERVER_SEC = 3;
+      const INTRO_SCREEN_FLASH_SEC = 0.45;
       const CLOUD_FADE_IN_SEC = 2;
       const CLOUD_HOLD_FULL_SEC = 2;
       const CLOUD_HALF_FADE_SEC = 2;
@@ -894,8 +895,8 @@
       const INTRO_HEADLIGHT_FLASH_SEC = 2.5;
 
       const INTRO_HEADLIGHTS = [
-        { x: 0.457, y: 0.461, r: 0.063 },
-        { x: 0.538, y: 0.491, r: 0.063 },
+        { x: 0.482, y: 0.486, r: 0.063 },
+        { x: 0.563, y: 0.516, r: 0.063 },
       ];
 
       let gamePhase = "loading";
@@ -2488,6 +2489,25 @@
         );
       }
 
+      function introScreenFlashAlpha(t) {
+        const age = t - INTRO_SERVER_SEC;
+        if (age < 0 || age > INTRO_SCREEN_FLASH_SEC) return 0;
+        const peak = 0.1;
+        let alpha;
+        if (age < peak) alpha = age / peak;
+        else alpha = 1 - (age - peak) / (INTRO_SCREEN_FLASH_SEC - peak);
+        return Math.max(0, Math.min(1, alpha));
+      }
+
+      function drawTransitionFlash(t, w, h) {
+        const alpha = introScreenFlashAlpha(t);
+        if (alpha <= 0) return;
+        ctx.save();
+        ctx.fillStyle = `rgba(255,255,255,${alpha * 0.97})`;
+        ctx.fillRect(0, 0, w, h);
+        ctx.restore();
+      }
+
       function cloudAlpha(localT) {
         if (localT <= 0) return 0;
         let t = localT;
@@ -2771,6 +2791,8 @@
           ctx.drawImage(introCapriImg, 0, 0, w, h);
           drawIntroOverlay(t, w, h, now);
         }
+
+        drawTransitionFlash(t, w, h);
       }
 
       function setHudForPhase() {
