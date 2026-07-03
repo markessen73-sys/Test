@@ -335,7 +335,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">Wrap test — exits right, re-enters left</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-03c</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-03d</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="active-wrap">→ Wrap right</button>
@@ -859,8 +859,23 @@
       const INTRO_SMOKE_URL = "assets/intro-smoke.png";
       const INTRO_CAPRI_URL = "assets/intro-capri.png";
       const INTRO_SERVER_SEC = 3;
-      const INTRO_SMOKE_FADE_SEC = 3;
-      const INTRO_TITLE_DELAY_SEC = 1;
+      const CLOUD_FADE_IN_SEC = 2;
+      const CLOUD_HOLD_FULL_SEC = 2;
+      const CLOUD_HALF_FADE_SEC = 2;
+      const CLOUD_HOLD_SEMI_SEC = 2;
+      const CLOUD_FADE_OUT_SEC = 2;
+      const INTRO_CLOUD_TOTAL_SEC =
+        CLOUD_FADE_IN_SEC +
+        CLOUD_HOLD_FULL_SEC +
+        CLOUD_HALF_FADE_SEC +
+        CLOUD_HOLD_SEMI_SEC +
+        CLOUD_FADE_OUT_SEC;
+      const INTRO_HEADLIGHT_FLASH_SEC = 1.5;
+
+      const INTRO_HEADLIGHTS = [
+        { x: 0.58, y: 0.56, r: 0.055 },
+        { x: 0.66, y: 0.54, r: 0.048 },
+      ];
 
       let gamePhase = "loading";
       let introT0 = 0;
@@ -2439,27 +2454,72 @@
       }
 
       function introSmokeEndSec() {
-        return INTRO_SERVER_SEC + INTRO_SMOKE_FADE_SEC;
+        return INTRO_SERVER_SEC + INTRO_CLOUD_TOTAL_SEC;
       }
 
-      function introCapriStartSec() {
+      function introHeadlightStartSec() {
         return introSmokeEndSec();
       }
 
+      function introCapriStartSec() {
+        return INTRO_SERVER_SEC + CLOUD_FADE_IN_SEC + CLOUD_HOLD_FULL_SEC;
+      }
+
       function introTitleStartSec() {
-        return introCapriStartSec() + INTRO_TITLE_DELAY_SEC;
+        return introHeadlightStartSec() + INTRO_HEADLIGHT_FLASH_SEC;
       }
 
-      function smokeFadeAlpha(localT) {
-        if (localT <= 0 || localT >= INTRO_SMOKE_FADE_SEC) return 0;
-        const half = INTRO_SMOKE_FADE_SEC * 0.5;
-        if (localT < half) return localT / half;
-        return 1 - (localT - half) / half;
+      function cloudAlpha(localT) {
+        if (localT <= 0) return 0;
+        let t = localT;
+
+        if (t < CLOUD_FADE_IN_SEC) return t / CLOUD_FADE_IN_SEC;
+        t -= CLOUD_FADE_IN_SEC;
+
+        if (t < CLOUD_HOLD_FULL_SEC) return 1;
+        t -= CLOUD_HOLD_FULL_SEC;
+
+        if (t < CLOUD_HALF_FADE_SEC) return 1 - (t / CLOUD_HALF_FADE_SEC) * 0.5;
+        t -= CLOUD_HALF_FADE_SEC;
+
+        if (t < CLOUD_HOLD_SEMI_SEC) return 0.5;
+        t -= CLOUD_HOLD_SEMI_SEC;
+
+        if (t < CLOUD_FADE_OUT_SEC) return 0.5 * (1 - t / CLOUD_FADE_OUT_SEC);
+        return 0;
       }
 
-      function capriRevealAlpha(localT) {
-        if (localT <= INTRO_SMOKE_FADE_SEC * 0.5) return 0;
-        return Math.min((localT - INTRO_SMOKE_FADE_SEC * 0.5) / (INTRO_SMOKE_FADE_SEC * 0.5), 1);
+      function capriVisibleUnderCloud(localT) {
+        return localT >= CLOUD_FADE_IN_SEC + CLOUD_HOLD_FULL_SEC;
+      }
+
+      function drawHeadlightFlashes(age, w, h) {
+        const tail = Math.max(0, 1 - age / INTRO_HEADLIGHT_FLASH_SEC);
+        const pulse = Math.max(0, Math.sin(age * Math.PI * 5.5)) ** 1.6;
+        const intensity = pulse * tail;
+        if (intensity <= 0.02) return;
+
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        for (const lamp of INTRO_HEADLIGHTS) {
+          const cx = lamp.x * w;
+          const cy = lamp.y * h;
+          const r = lamp.r * w;
+          const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+          g.addColorStop(0, `rgba(255,255,235,${0.95 * intensity})`);
+          g.addColorStop(0.35, `rgba(255,240,160,${0.55 * intensity})`);
+          g.addColorStop(1, "rgba(255,210,90,0)");
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = `rgba(255,255,255,${0.85 * intensity})`;
+          ctx.beginPath();
+          ctx.arc(cx, cy, r * 0.18, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
       }
 
       function drawElectricBolt(x1, y1, x2, y2) {
@@ -2656,15 +2716,12 @@
           drawElectricity(t);
         } else if (t < introSmokeEndSec()) {
           const local = t - introSmokeStartSec();
-          if (introServerImg) ctx.drawImage(introServerImg, 0, 0, w, h);
-          const capriA = capriRevealAlpha(local);
-          if (capriA > 0 && introCapriImg) {
-            ctx.save();
-            ctx.globalAlpha = capriA;
+          if (capriVisibleUnderCloud(local) && introCapriImg) {
             ctx.drawImage(introCapriImg, 0, 0, w, h);
-            ctx.restore();
+          } else if (introServerImg) {
+            ctx.drawImage(introServerImg, 0, 0, w, h);
           }
-          const smokeA = smokeFadeAlpha(local);
+          const smokeA = cloudAlpha(local);
           if (smokeA > 0 && introSmokeImg) {
             ctx.save();
             ctx.globalAlpha = smokeA;
@@ -2673,6 +2730,9 @@
           }
         } else if (introCapriImg) {
           ctx.drawImage(introCapriImg, 0, 0, w, h);
+          if (t < introTitleStartSec()) {
+            drawHeadlightFlashes(t - introHeadlightStartSec(), w, h);
+          }
         }
 
         if (t >= introTitleStartSec()) {
