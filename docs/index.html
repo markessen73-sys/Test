@@ -335,7 +335,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">Adventures Of The Crappy Capri</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-03d</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-03f</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="active">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -646,17 +646,24 @@
           thump.stop(now + 0.52);
         }
 
+        let musicSource = null;
+
         function startVegasMusic(ac) {
-          if (musicStarted || !musicBus || !vegasMusic.enabled) return;
+          if (musicStarted || !musicBus || !vegasMusic.enabled) return Promise.resolve();
           musicStarted = true;
 
-          vegasMusic.loadSample(ac).then((buf) => {
-            if (!buf) return;
-            const src = ac.createBufferSource();
-            src.buffer = buf;
-            src.loop = true;
-            src.connect(musicBus);
-            src.start();
+          return vegasMusic.loadSample(ac).then((buf) => {
+            if (!buf || !musicBus) return;
+            if (musicSource) {
+              try {
+                musicSource.stop();
+              } catch (_) {}
+            }
+            musicSource = ac.createBufferSource();
+            musicSource.buffer = buf;
+            musicSource.loop = true;
+            musicSource.connect(musicBus);
+            musicSource.start(0);
           });
         }
 
@@ -681,7 +688,21 @@
           return ac;
         }
 
-        return { resume, preloadSfx, preloadMusic, playZap, playKerching, playCrash };
+        function startIntroMusic() {
+          const ac = ensure();
+          if (!ac) return Promise.resolve();
+          return startVegasMusic(ac);
+        }
+
+        return {
+          resume,
+          preloadSfx,
+          preloadMusic,
+          startIntroMusic,
+          playZap,
+          playKerching,
+          playCrash,
+        };
       }
 
       const sfx = createArenaAudio();
@@ -870,11 +891,11 @@
         CLOUD_HALF_FADE_SEC +
         CLOUD_HOLD_SEMI_SEC +
         CLOUD_FADE_OUT_SEC;
-      const INTRO_HEADLIGHT_FLASH_SEC = 1.5;
+      const INTRO_HEADLIGHT_FLASH_SEC = 2.5;
 
       const INTRO_HEADLIGHTS = [
-        { x: 0.58, y: 0.56, r: 0.055 },
-        { x: 0.66, y: 0.54, r: 0.048 },
+        { x: 0.457, y: 0.461, r: 0.063 },
+        { x: 0.538, y: 0.491, r: 0.063 },
       ];
 
       let gamePhase = "loading";
@@ -2458,15 +2479,13 @@
       }
 
       function introHeadlightStartSec() {
-        return introSmokeEndSec();
-      }
-
-      function introCapriStartSec() {
         return INTRO_SERVER_SEC + CLOUD_FADE_IN_SEC + CLOUD_HOLD_FULL_SEC;
       }
 
       function introTitleStartSec() {
-        return introHeadlightStartSec() + INTRO_HEADLIGHT_FLASH_SEC;
+        return (
+          INTRO_SERVER_SEC + CLOUD_FADE_IN_SEC + CLOUD_HOLD_FULL_SEC + CLOUD_HALF_FADE_SEC
+        );
       }
 
       function cloudAlpha(localT) {
@@ -2494,32 +2513,41 @@
       }
 
       function drawHeadlightFlashes(age, w, h) {
-        const tail = Math.max(0, 1 - age / INTRO_HEADLIGHT_FLASH_SEC);
-        const pulse = Math.max(0, Math.sin(age * Math.PI * 5.5)) ** 1.6;
-        const intensity = pulse * tail;
-        if (intensity <= 0.02) return;
+        if (age < 0 || age > INTRO_HEADLIGHT_FLASH_SEC) return;
+        const period = 0.26;
+        if (Math.floor(age / period) % 2 === 1) return;
 
-        ctx.save();
-        ctx.globalCompositeOperation = "screen";
+        const pulse = 0.78 + 0.22 * Math.sin(age * 28);
+        const unit = Math.min(w, h);
+
         for (const lamp of INTRO_HEADLIGHTS) {
           const cx = lamp.x * w;
           const cy = lamp.y * h;
-          const r = lamp.r * w;
-          const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-          g.addColorStop(0, `rgba(255,255,235,${0.95 * intensity})`);
-          g.addColorStop(0.35, `rgba(255,240,160,${0.55 * intensity})`);
-          g.addColorStop(1, "rgba(255,210,90,0)");
-          ctx.fillStyle = g;
-          ctx.beginPath();
-          ctx.arc(cx, cy, r, 0, Math.PI * 2);
-          ctx.fill();
+          const r = lamp.r * unit;
 
-          ctx.fillStyle = `rgba(255,255,255,${0.85 * intensity})`;
+          ctx.save();
+          ctx.globalCompositeOperation = "lighter";
+          const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.92);
+          core.addColorStop(0, `rgba(255,255,255,${0.98 * pulse})`);
+          core.addColorStop(0.55, `rgba(255,252,220,${0.72 * pulse})`);
+          core.addColorStop(1, "rgba(255,240,160,0)");
+          ctx.fillStyle = core;
           ctx.beginPath();
-          ctx.arc(cx, cy, r * 0.18, 0, Math.PI * 2);
+          ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
           ctx.fill();
+          ctx.restore();
+
+          ctx.save();
+          ctx.globalCompositeOperation = "screen";
+          const halo = ctx.createRadialGradient(cx, cy, r * 0.35, cx, cy, r * 1.35);
+          halo.addColorStop(0, `rgba(255,255,230,${0.55 * pulse})`);
+          halo.addColorStop(1, "rgba(255,220,120,0)");
+          ctx.fillStyle = halo;
+          ctx.beginPath();
+          ctx.arc(cx, cy, r * 1.35, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
         }
-        ctx.restore();
       }
 
       function drawElectricBolt(x1, y1, x2, y2) {
@@ -2594,12 +2622,12 @@
       function drawBMovieTitle(age) {
         const w = canvas.width;
         const h = canvas.height;
-        const stampDur = 0.72;
+        const stampDur = 0.9;
         const stamp = 1 - (1 - Math.min(age / stampDur, 1)) ** 3;
-        const alpha = Math.min(age / 0.35, 1);
-        const scale = 3.4 - stamp * 2.4;
-        const yDrop = (1 - stamp) * h * 0.28;
-        const shake = Math.sin(age * 22) * (1 - stamp) * 7;
+        const alpha = Math.min(age / 0.4, 1);
+        const scale = 4.8 - stamp * 3.8;
+        const yDrop = (1 - stamp) * h * 0.32;
+        const shake = Math.sin(age * 22) * (1 - stamp) * 8;
 
         ctx.save();
         ctx.globalAlpha = alpha;
@@ -2704,6 +2732,16 @@
         }
       }
 
+      function drawIntroOverlay(t, w, h, now) {
+        if (t >= introHeadlightStartSec()) {
+          drawHeadlightFlashes(t - introHeadlightStartSec(), w, h);
+        }
+        if (t >= introTitleStartSec()) {
+          drawBMovieTitle(t - introTitleStartSec());
+          drawPressFire(now);
+        }
+      }
+
       function drawIntro(now) {
         const t = introElapsedSec(now);
         const w = canvas.width;
@@ -2728,16 +2766,10 @@
             ctx.drawImage(introSmokeImg, 0, 0, w, h);
             ctx.restore();
           }
+          drawIntroOverlay(t, w, h, now);
         } else if (introCapriImg) {
           ctx.drawImage(introCapriImg, 0, 0, w, h);
-          if (t < introTitleStartSec()) {
-            drawHeadlightFlashes(t - introHeadlightStartSec(), w, h);
-          }
-        }
-
-        if (t >= introTitleStartSec()) {
-          drawBMovieTitle(t - introTitleStartSec());
-          drawPressFire(now);
+          drawIntroOverlay(t, w, h, now);
         }
       }
 
@@ -2772,6 +2804,8 @@
         ready = true;
         statusEl.style.display = "none";
         lastFrame = 0;
+        void sfx.preloadMusic();
+        void sfx.startIntroMusic();
         syncViewportHeight();
         layoutControls();
         updateChromeHint();
