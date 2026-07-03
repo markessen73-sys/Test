@@ -1,7 +1,7 @@
 {
-  "name": "Ford Capri Arena",
-  "short_name": "Capri Arena",
-  "description": "Drive your Ford Capri through the Vegas arena.",
+  "name": "Adventures Of The Crappy Capri",
+  "short_name": "Crappy Capri",
+  "description": "Drive your Capri through the Vegas arena. A data center disaster!",
   "start_url": "./index.html",
   "display": "fullscreen",
   "orientation": "any",
