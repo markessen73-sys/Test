@@ -46,18 +46,16 @@ export async function buildLevel2Data(imagePath) {
     }
   }
 
-  // Thicken wall edges so the larger car cannot clip through brick corners.
+  // Nudge wall edges outward slightly so the car cannot clip brick corners.
   const dilated = solid.slice();
-  for (let y = 2; y < height - 2; y++) {
-    for (let x = 2; x < width - 2; x++) {
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
       const pi = y * width + x;
       if (!solid[pi]) continue;
-      for (let dy = -2; dy <= 2; dy++) {
-        for (let dx = -2; dx <= 2; dx++) {
-          if (dx * dx + dy * dy > 6) continue;
-          dilated[(y + dy) * width + (x + dx)] = 1;
-        }
-      }
+      dilated[(y - 1) * width + x] = 1;
+      dilated[(y + 1) * width + x] = 1;
+      dilated[y * width + (x - 1)] = 1;
+      dilated[y * width + (x + 1)] = 1;
     }
   }
 
@@ -97,16 +95,63 @@ export async function buildLevel2Data(imagePath) {
   }
 
   let spawn = null;
-  for (let y = height - 20; y > height - 220; y--) {
-    for (let x = Math.floor(width * 0.48); x < Math.floor(width * 0.52); x++) {
-      if (!dilated[y * width + x]) {
-        spawn = { x, y };
-        break;
+  let spawnCone = null;
+  const midX = Math.floor(width / 2);
+  const bottomHalfY = height * 0.5;
+  const targetY = height * 0.82;
+  const SPAWN_HW = 20;
+  const SPAWN_HH = 11;
+
+  function carFitsAt(map, x, y) {
+    for (let py = Math.floor(y - SPAWN_HH); py <= Math.ceil(y + SPAWN_HH); py++) {
+      for (let px = Math.floor(x - SPAWN_HW); px <= Math.ceil(x + SPAWN_HW); px++) {
+        if (px < 0 || py < 0 || px >= width || py >= height) return false;
+        if (map[py * width + px]) return false;
       }
     }
-    if (spawn) break;
+    return true;
   }
-  if (!spawn) spawn = { x: Math.floor(width / 2), y: height - 40 };
+
+  const anchorCone =
+    cones
+      .filter((c) => c.y >= bottomHalfY)
+      .sort(
+        (a, b) =>
+          Math.abs(a.x - midX) - Math.abs(b.x - midX) ||
+          Math.abs(a.y - targetY) - Math.abs(b.y - targetY),
+      )[0] ?? null;
+
+  if (anchorCone) {
+    spawnCone = { x: anchorCone.x, y: anchorCone.y };
+    if (carFitsAt(dilated, anchorCone.x, anchorCone.y)) {
+      spawn = { x: anchorCone.x, y: anchorCone.y };
+    } else {
+      let best = null;
+      for (let dy = 0; dy <= 96; dy++) {
+        for (const tryY of [anchorCone.y + dy, anchorCone.y - dy]) {
+          if (tryY < bottomHalfY || tryY >= height - SPAWN_HH - 2) continue;
+          if (!carFitsAt(dilated, anchorCone.x, tryY)) continue;
+          const score = Math.abs(tryY - anchorCone.y) + (tryY < anchorCone.y ? 2 : 0);
+          if (!best || score < best.score) best = { x: anchorCone.x, y: tryY, score };
+        }
+        if (best?.score === 0) break;
+      }
+      if (best) spawn = { x: best.x, y: best.y };
+    }
+  }
+
+  if (!spawn) {
+    for (let y = Math.floor(height * 0.55); y < height - SPAWN_HH - 4; y += 2) {
+      for (let x = midX - 120; x < midX + 120; x += 2) {
+        if (!carFitsAt(dilated, x, y)) continue;
+        const score = Math.hypot(x - midX, y - targetY);
+        if (!spawn || score < spawn.score) spawn = { x, y, score };
+      }
+    }
+    if (spawn) delete spawn.score;
+  }
+
+  if (!spawn) spawn = { x: midX, y: Math.floor(height * 0.72) };
 
   return {
     width,
@@ -114,6 +159,7 @@ export async function buildLevel2Data(imagePath) {
     solid: dilated,
     cones,
     spawn,
+    spawnCone,
     coneCount: cones.length,
     solidPct: ((dilated.reduce((a, b) => a + b, 0) / (width * height)) * 100).toFixed(1),
   };
@@ -125,6 +171,7 @@ export async function writeLevel2Assets(data, assetsDir) {
     width: data.width,
     height: data.height,
     spawn: data.spawn,
+    spawnCone: data.spawnCone ?? data.spawn,
     cones: data.cones,
   };
 }

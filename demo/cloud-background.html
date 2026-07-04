@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04v</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04w</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -2168,6 +2168,29 @@
         lastFrame = performance.now();
       }
 
+      function ensureLevel2SpawnFit() {
+        if (!ball || currentLevel !== 2) return;
+        ball.level2Facing = "side";
+        const pixels = level2CarBundle().pixels;
+        if (!vehicleOverlapsSolidAt(ball.x, ball.y, pixels, solidAt)) return;
+        const originX = ball.x;
+        const originY = ball.y;
+        for (let dist = 1; dist <= 24; dist++) {
+          for (const [dx, dy] of [
+            [0, 1],
+            [0, -1],
+            [1, 0],
+            [-1, 0],
+          ]) {
+            ball.x = originX + dx * dist;
+            ball.y = originY + dy * dist;
+            if (!vehicleOverlapsSolidAt(ball.x, ball.y, pixels, solidAt)) return;
+          }
+        }
+        ball.x = originX;
+        ball.y = originY;
+      }
+
       function level2CarBundle() {
         const facing = ball?.level2Facing || "front";
         if (facing === "rear") {
@@ -2924,6 +2947,8 @@
         showLevelBanner();
         ball = createBall();
         resetBall();
+        ball.level2Facing = "side";
+        ensureLevel2SpawnFit();
         fallElapsed = 0;
         syncTickClock();
         paintLives();
