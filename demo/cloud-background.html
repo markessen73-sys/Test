@@ -393,7 +393,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04t</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04u</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1203,8 +1203,22 @@
         audioStartOverlay?.classList.add("is-hidden");
       }
 
+      function wantsLevelTwoTest() {
+        const q = new URLSearchParams(location.search);
+        if (q.get("level") === "2" || q.get("test") === "level2") return true;
+        const hash = location.hash.replace(/^#/, "");
+        if (!hash) return false;
+        if (hash === "level2" || hash === "level=2") return true;
+        const hq = new URLSearchParams(hash);
+        return hq.get("level") === "2" || hq.get("test") === "level2";
+      }
+
       function tryStartAfterAudioGate() {
         if (!assetsReady || !audioGatePassed || gamePhase !== "loading") return;
+        if (startMode === "level2") {
+          beginLevelTwoTest();
+          return;
+        }
         if (startMode === "intro") beginIntroSequence();
         else if (startMode === "playing") {
           void sfx.startGameMusic();
@@ -2144,14 +2158,19 @@
       }
 
       function collectLevel2Cones() {
-        const r2 = LEVEL2_CONE_RADIUS * LEVEL2_CONE_RADIUS;
+        const { pixels } = level2CarBundle();
         for (const cone of level2Cones) {
           if (cone.collected) continue;
-          const dx = ball.x - cone.x;
-          const dy = ball.y - cone.y;
-          if (dx * dx + dy * dy <= r2) {
-            cone.collected = true;
-            sfx.playKerching();
+          for (const [dx, dy] of pixels) {
+            const px = Math.floor(ball.x + dx);
+            const py = Math.floor(ball.y + dy);
+            const cdx = px - cone.x;
+            const cdy = py - cone.y;
+            if (cdx * cdx + cdy * cdy <= LEVEL2_CONE_RADIUS * LEVEL2_CONE_RADIUS) {
+              cone.collected = true;
+              sfx.playKerching();
+              break;
+            }
           }
         }
       }
@@ -2816,6 +2835,23 @@
         void sfx.preloadLevelTwoMusic();
         setHudForPhase();
         paintLives();
+      }
+
+      function beginLevelTwoTest() {
+        lives = MAX_LIVES;
+        gamePhase = "playing";
+        setHudForPhase();
+        applyModeCopy();
+        thumbstickEl.classList.remove("is-disabled");
+        ready = true;
+        statusEl.style.display = "none";
+        syncViewportHeight();
+        layoutControls();
+        updateChromeHint();
+        hideMobileBrowserChrome();
+        void sfx.startLevelTwoMusic();
+        beginLevelTwo();
+        requestAnimationFrame(tick);
       }
 
       function beginLevelTwo() {
@@ -3849,7 +3885,7 @@
       function applyModeCopy() {
         descEl.textContent =
           currentLevel === 2
-            ? "Use the stick to drive along the cone channels. Left moves up, right moves down. Tap fire for a boost. Collect every traffic cone."
+            ? "Drive anywhere that is not a red brick wall. Stick left moves up, right moves down. Tap fire for a boost. Cones vanish when touched."
             : "Hold ← or → on the stick to steer while falling, then tap fire to boost up and sideways. Three Zoox robotaxis patrol the decks. You have three lives.";
 
         const controlsDisabled = gamePhase === "intro";
@@ -3951,8 +3987,10 @@
         void sfx.preloadLevelTwoMusic();
         assetsReady = true;
 
-        if (introServerImg && introSmokeImg && introCapriImg) {
+        if (introServerImg && introSmokeImg && introCapriImg && !wantsLevelTwoTest()) {
           startMode = "intro";
+        } else if (wantsLevelTwoTest()) {
+          startMode = "level2";
         } else {
           startMode = "playing";
         }

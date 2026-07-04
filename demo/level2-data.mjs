@@ -5,8 +5,24 @@ function isConePixel(r, g, b) {
   return r > 170 && g > 70 && g < 210 && b < 90;
 }
 
-function isPathPixel(r, g, b) {
-  return r < 55 && g < 55 && b < 55;
+function isBrickWallPixel(r, g, b) {
+  return r > 110 && r > g * 1.25 && b < 90 && g < 110;
+}
+
+function isMortarPixel(r, g, b) {
+  return (
+    r >= 75 &&
+    r <= 125 &&
+    g >= 68 &&
+    g <= 118 &&
+    b >= 68 &&
+    b <= 118 &&
+    Math.max(r, g, b) - Math.min(r, g, b) < 32
+  );
+}
+
+function isWallPixel(r, g, b) {
+  return isBrickWallPixel(r, g, b) || isMortarPixel(r, g, b);
 }
 
 export async function buildLevel2Data(imagePath) {
@@ -24,23 +40,22 @@ export async function buildLevel2Data(imagePath) {
       const pi = y * width + x;
       if (isConePixel(r, g, b)) {
         coneMask[pi] = 1;
-      } else if (!isPathPixel(r, g, b)) {
+      } else if (isWallPixel(r, g, b)) {
         solid[pi] = 1;
       }
     }
   }
 
-  // Slightly thicken walls so the car cannot clip brick edges.
+  // Nudge wall edges outward by one pixel so the car cannot clip brick corners.
   const dilated = solid.slice();
   for (let y = 1; y < height - 1; y++) {
     for (let x = 1; x < width - 1; x++) {
       const pi = y * width + x;
       if (!solid[pi]) continue;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          dilated[(y + dy) * width + (x + dx)] = 1;
-        }
-      }
+      dilated[(y - 1) * width + x] = 1;
+      dilated[(y + 1) * width + x] = 1;
+      dilated[y * width + (x - 1)] = 1;
+      dilated[y * width + (x + 1)] = 1;
     }
   }
 
