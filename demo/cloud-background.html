@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zd</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04ze</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1392,6 +1392,7 @@
       const LEVEL2_CAR_H = 58;
       const LEVEL2_CAR_HW = LEVEL2_CAR_W / 2;
       const LEVEL2_CAR_HH = LEVEL2_CAR_H / 2;
+      const LEVEL2_FREE_MOVE = true;
       const LEVEL2_CRUISE_SPEED = 220;
       const LEVEL2_BOOST = 180;
       const LEVEL2_CONE_RADIUS = 26;
@@ -2203,8 +2204,8 @@
           id,
           collected: false,
         }));
-        dropX = LEVEL2_ARENA.spawn.x;
-        dropY = LEVEL2_ARENA.spawn.y;
+        dropX = LEVEL2_FREE_MOVE ? W / 2 : LEVEL2_ARENA.spawn.x;
+        dropY = LEVEL2_FREE_MOVE ? H / 2 : LEVEL2_ARENA.spawn.y;
       }
 
       function restoreLevelOneArena() {
@@ -2370,7 +2371,20 @@
         if (shift && !overlaps(ball.x, ball.y + shift)) ball.y += shift;
       }
 
+      function clampLevel2CarPosition() {
+        if (!ball) return;
+        ball.x = Math.max(LEVEL2_CAR_HW, Math.min(W - LEVEL2_CAR_HW, ball.x));
+        ball.y = Math.max(LEVEL2_CAR_HH, Math.min(H - LEVEL2_CAR_HH, ball.y));
+      }
+
       function moveLevel2Car(dx, dy) {
+        if (LEVEL2_FREE_MOVE) {
+          ball.x += dx;
+          ball.y += dy;
+          clampLevel2CarPosition();
+          return;
+        }
+
         const { wallPixels } = level2CarBundle();
         const overlaps = (cx, cy) => vehicleOverlapsSolidAt(cx, cy, wallPixels, solidAt);
 
@@ -2475,7 +2489,7 @@
         ball.vx = motion.vx;
         ball.vy = motion.vy;
         moveLevel2Car(ball.vx * dt, ball.vy * dt);
-        fitLevel2FacingToLane();
+        if (!LEVEL2_FREE_MOVE) fitLevel2FacingToLane();
         collectLevel2Cones();
       }
 
@@ -3156,7 +3170,8 @@
         ball = createBall();
         resetBall();
         ball.level2Facing = "side";
-        ensureLevel2SpawnFit();
+        if (!LEVEL2_FREE_MOVE) ensureLevel2SpawnFit();
+        else clampLevel2CarPosition();
         fallElapsed = 0;
         syncTickClock();
         paintLives();
