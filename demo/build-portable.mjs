@@ -208,6 +208,35 @@ async function build() {
     console.log("Level two background: none found");
   }
 
+  const BUS_SRC_CANDIDATES = [
+    join(DEMO_ASSETS, "routemaster-bus.png"),
+    join(ROOT, "cHJpdmF0ZS9sci9pbWFnZXMvd2Vic2l0ZS8yMDIyLTA4L2pvYjk1My0yMjctcC5wbmc.jpeg"),
+  ];
+  const BUS_OUT = join(DEMO_ASSETS, "routemaster-bus.png");
+  let busSource = BUS_SRC_CANDIDATES.find((path) => existsSync(path));
+  if (busSource && busSource !== BUS_OUT) {
+    const { data, info } = await sharp(busSource).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    for (let i = 0; i < info.width * info.height; i++) {
+      const o = i * 4;
+      const r = data[o];
+      const g = data[o + 1];
+      const b = data[o + 2];
+      if (r > 235 && g > 235 && b > 235) data[o + 3] = 0;
+    }
+    await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+      .resize(38, 58, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png()
+      .toFile(BUS_OUT);
+    console.log(`Routemaster bus: routemaster-bus.png (${readFileSync(BUS_OUT).length} bytes)`);
+  } else if (existsSync(BUS_OUT)) {
+    console.log(`Routemaster bus: routemaster-bus.png (${readFileSync(BUS_OUT).length} bytes)`);
+  } else {
+    console.log("Routemaster bus: none found");
+  }
+  if (existsSync(BUS_OUT)) {
+    copyFileSync(BUS_OUT, `${ASSETS}/routemaster-bus.png`);
+  }
+
   const iconSvg = Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#111"/><rect x="96" y="176" width="320" height="128" rx="18" fill="#6eb8e4"/><rect x="128" y="208" width="72" height="40" rx="6" fill="#243848"/><circle cx="160" cy="336" r="44" fill="#111"/><circle cx="352" cy="336" r="44" fill="#111"/></svg>`,
   );
@@ -339,6 +368,19 @@ async function build() {
     console.log("Level two music: none found (royal baroque)");
   }
 
+  let routemasterBellDataUrl = "";
+  const routemasterBellPath =
+    findNamedAudio("routemaster-bell") ??
+    findAudioByNamePart("routemaster") ??
+    join(ROOT, "freesound_community-routemaster-bell-nice-98345.mp3");
+  if (existsSync(routemasterBellPath)) {
+    routemasterBellDataUrl = copyAudioAsset(routemasterBellPath, "routemaster-bell.mp3");
+    copyFileSync(routemasterBellPath, join(DEMO_ASSETS, "routemaster-bell.mp3"));
+    console.log(`Routemaster bell: ${routemasterBellDataUrl} (${readFileSync(routemasterBellPath).length} bytes)`);
+  } else {
+    console.log("Routemaster bell: none found");
+  }
+
   let html = readFileSync(join(DEMO, "cloud-background.html"), "utf8");
 
   function embedPortable(source) {
@@ -353,6 +395,7 @@ async function build() {
       .replace("__HYPNOTIZED_MUSIC_DATA_URL__", toPortableUrl(hypnotizedMusicDataUrl))
       .replace("__ROYAL_BAROQUE_MUSIC_DATA_URL__", toPortableUrl(royalBaroqueMusicDataUrl))
       .replace("__CAR_CRASH_DATA_URL__", toPortableUrl(carCrashDataUrl))
+      .replace("__ROUTEMASTER_BELL_DATA_URL__", toPortableUrl(routemasterBellDataUrl))
       .replace("__PORTABLE_ASSET_BASE__", portableAssetBase)
       .replace(
         'const INTRO_SERVER_URL = "assets/intro-server.png";',
@@ -368,7 +411,11 @@ async function build() {
       )
       .replace(
         'const LEVEL2_BACKGROUND_URL = "assets/level2-background.png";',
-        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png?v=zn";`,
+        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png?v=zo";`,
+      )
+      .replace(
+        'const LEVEL2_BUS_URL = "assets/routemaster-bus.png";',
+        `const LEVEL2_BUS_URL = "${portableAssetBase}routemaster-bus.png";`,
       )
       .replace("__BAKED_MODE__", "drop")
       .replace("__TITLE_TEXT__", "Adventures Of Crappy Capri")

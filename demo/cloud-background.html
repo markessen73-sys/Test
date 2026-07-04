@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zn</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zo</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -445,6 +445,7 @@
       const HYPNOTIZED_MUSIC_DATA_URL = "__HYPNOTIZED_MUSIC_DATA_URL__";
       const ROYAL_BAROQUE_MUSIC_DATA_URL = "__ROYAL_BAROQUE_MUSIC_DATA_URL__";
       const CAR_CRASH_DATA_URL = "__CAR_CRASH_DATA_URL__";
+      const ROUTEMASTER_BELL_DATA_URL = "__ROUTEMASTER_BELL_DATA_URL__";
       const PORTABLE_ASSET_BASE = "__PORTABLE_ASSET_BASE__";
       const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
@@ -599,6 +600,7 @@
         const pew = createSampleVoice(PEW_DATA_URL, "__PEW");
         const beep = createSampleVoice(BEEP_DATA_URL, "__BEEP");
         const carCrash = createSampleVoice(CAR_CRASH_DATA_URL, "__CAR_CRASH");
+        const routemasterBell = createSampleVoice(ROUTEMASTER_BELL_DATA_URL, "__ROUTEMASTER_BELL");
         const titleMusic = createSampleVoice(HYPNOTIZED_MUSIC_DATA_URL, "__HYPNOTIZED_MUSIC");
         const vegasMusic = createSampleVoice(VEGAS_MUSIC_DATA_URL, "__VEGAS_MUSIC");
         const levelTwoMusic = createSampleVoice(ROYAL_BAROQUE_MUSIC_DATA_URL, "__ROYAL_BAROQUE_MUSIC");
@@ -1017,6 +1019,17 @@
           return ac;
         }
 
+        function playBusBell() {
+          const ac = resume();
+          if (!ac) return;
+          const now = ac.currentTime;
+          if (routemasterBell.enabled) {
+            routemasterBell.play(ac, now, 0.95, false);
+            return;
+          }
+          playKerchingSynth(ac, now);
+        }
+
         return {
           resume,
           preloadSfx,
@@ -1036,6 +1049,7 @@
           playZap,
           playKerching,
           playCrash,
+          playBusBell,
         };
       }
 
@@ -1346,6 +1360,7 @@
 
       const INTRO_SERVER_URL = "assets/intro-server.png";
       const LEVEL2_BACKGROUND_URL = "assets/level2-background.png";
+      const LEVEL2_BUS_URL = "assets/routemaster-bus.png";
       const INTRO_SMOKE_URL = "assets/intro-smoke.png";
       const INTRO_CAPRI_URL = "assets/intro-capri.png";
       const INTRO_SERVER_SEC = 5;
@@ -1416,6 +1431,13 @@
       const LEVEL2_BOOST = 180;
       const LEVEL2_CONE_RADIUS = 26;
       const LEVEL2_BANNER_HOLD_SEC = 1.5;
+      const LEVEL2_BUS_SPEED = 200;
+      const LEVEL2_BUS_STEER_MIN = 1.4;
+      const LEVEL2_BUS_STEER_MAX = 3.8;
+      const LEVEL2_BUS_COUNT = 4;
+      const LEVEL2_FIREBALL_SPEED = 420;
+      const LEVEL2_FIREBALL_R = 8;
+      const LEVEL2_FIRE_COOLDOWN = 0.32;
       const BALL_R = 14;
       const CAR_W = BALL_R * 8;
       const CAR_H = BALL_R * 4;
@@ -1460,6 +1482,12 @@
       let level2WallPixelsRear = [];
       let level2WallPixelsSide = [];
       let level2MovePixels = [];
+      let level2BusSprite = null;
+      let level2BusPixels = [];
+      let level2BusMovePixels = [];
+      let level2Buses = [];
+      let level2Fireballs = [];
+      let level2FireCooldown = 0;
       let zooxSpriteLeft = null;
       let zooxSpriteRight = null;
       let zooxPixelsLeft = [];
@@ -2276,6 +2304,8 @@
         canvas.width = W;
         canvas.height = H;
         level2Cones = [];
+        level2Buses = [];
+        level2Fireballs = [];
       }
 
       function syncTickClock() {
@@ -2440,9 +2470,8 @@
         ball.y = Math.max(LEVEL2_CAR_HH, Math.min(H - LEVEL2_CAR_HH, ball.y));
       }
 
-      function moveLevel2Car(dx, dy) {
+      function moveLevel2Entity(entity, dx, dy, pixels) {
         if (!dx && !dy) return;
-        const pixels = level2CollisionPixels();
         const overlaps = (cx, cy) => vehicleOverlapsSolidAt(cx, cy, pixels, solidAt);
         const dist = Math.hypot(dx, dy);
         const steps = Math.max(1, Math.ceil(dist));
@@ -2450,18 +2479,237 @@
         const stepY = dy / steps;
 
         for (let i = 0; i < steps; i++) {
-          const nx = ball.x + stepX;
-          const ny = ball.y + stepY;
+          const nx = entity.x + stepX;
+          const ny = entity.y + stepY;
           if (!overlaps(nx, ny)) {
-            ball.x = nx;
-            ball.y = ny;
+            entity.x = nx;
+            entity.y = ny;
             continue;
           }
-          if (!overlaps(nx, ball.y)) ball.x = nx;
-          else if (!overlaps(ball.x, ny)) ball.y = ny;
+          if (!overlaps(entity.x + stepX, entity.y)) entity.x += stepX;
+          else if (!overlaps(entity.x, entity.y + stepY)) entity.y += stepY;
         }
+      }
 
-        if (overlaps(ball.x, ball.y)) resolveLevel2Overlap();
+      function moveLevel2Car(dx, dy) {
+        moveLevel2Entity(ball, dx, dy, level2CollisionPixels());
+        if (vehicleOverlapsSolidAt(ball.x, ball.y, level2CollisionPixels(), solidAt)) {
+          resolveLevel2Overlap();
+        }
+      }
+
+      function level2BusCollisionPixels() {
+        return level2BusMovePixels.length ? level2BusMovePixels : level2BusPixels;
+      }
+
+      function findLevel2SpawnNear(tx, ty, pixels) {
+        const probe = pixels.length ? pixels : level2CollisionPixels();
+        for (let ring = 0; ring < 240; ring += 10) {
+          for (let a = 0; a < Math.PI * 2; a += Math.PI / 10) {
+            const x = tx + Math.cos(a) * ring;
+            const y = ty + Math.sin(a) * ring;
+            if (x < LEVEL2_CAR_HW || y < LEVEL2_CAR_HH || x > W - LEVEL2_CAR_HW || y > H - LEVEL2_CAR_HH) {
+              continue;
+            }
+            if (!vehicleOverlapsSolidAt(x, y, probe, solidAt)) return { x, y };
+          }
+        }
+        return { x: tx, y: ty };
+      }
+
+      function initLevel2Buses() {
+        level2Buses = [];
+        level2Fireballs = [];
+        level2FireCooldown = 0;
+        if (!level2BusCollisionPixels().length) return;
+
+        const margin = 92;
+        const corners = [
+          { x: margin, y: margin },
+          { x: W - margin, y: margin },
+          { x: margin, y: H - margin },
+          { x: W - margin, y: H - margin },
+        ];
+        const probe = level2BusCollisionPixels();
+
+        for (let i = 0; i < LEVEL2_BUS_COUNT; i++) {
+          const corner = corners[i % corners.length];
+          const spot = findLevel2SpawnNear(corner.x, corner.y, probe);
+          const angle = Math.random() * Math.PI * 2;
+          level2Buses.push({
+            x: spot.x,
+            y: spot.y,
+            vx: 0,
+            vy: 0,
+            dirX: Math.cos(angle),
+            dirY: Math.sin(angle),
+            steerTimer: LEVEL2_BUS_STEER_MIN + Math.random() * (LEVEL2_BUS_STEER_MAX - LEVEL2_BUS_STEER_MIN),
+            alive: true,
+            hitCooldown: 0,
+          });
+        }
+      }
+
+      function level2FireDirection() {
+        const moveMag = Math.hypot(ball.vx, ball.vy);
+        if (moveMag > 20) return { x: ball.vx / moveMag, y: ball.vy / moveMag };
+        const stickMag = Math.hypot(stickNormX, stickNormY);
+        if (stickMag >= LEVEL2_STICK_DEAD) return { x: stickNormX / stickMag, y: stickNormY / stickMag };
+        if (ball.level2Facing === "side") return { x: 1, y: 0 };
+        if (ball.level2Facing === "rear") return { x: 0, y: -1 };
+        return { x: 0, y: 1 };
+      }
+
+      function fireLevel2Fireball() {
+        if (level2FireCooldown > 0) return;
+        const dir = level2FireDirection();
+        const spawnDist = LEVEL2_CAR_HH + 6;
+        level2Fireballs.push({
+          x: ball.x + dir.x * spawnDist,
+          y: ball.y + dir.y * spawnDist,
+          vx: dir.x * LEVEL2_FIREBALL_SPEED,
+          vy: dir.y * LEVEL2_FIREBALL_SPEED,
+          alive: true,
+        });
+        level2FireCooldown = LEVEL2_FIRE_COOLDOWN;
+      }
+
+      function fireballHitsBus(fb, bus) {
+        const pixels = level2BusCollisionPixels();
+        const r2 = LEVEL2_FIREBALL_R * LEVEL2_FIREBALL_R;
+        for (const [dx, dy] of pixels) {
+          const px = bus.x + dx;
+          const py = bus.y + dy;
+          const ddx = fb.x - px;
+          const ddy = fb.y - py;
+          if (ddx * ddx + ddy * ddy <= r2) return true;
+        }
+        return false;
+      }
+
+      function stepLevel2Fireballs(dt) {
+        const next = [];
+        for (const fb of level2Fireballs) {
+          if (!fb.alive) continue;
+          const dist = Math.hypot(fb.vx, fb.vy) * dt;
+          const steps = Math.max(1, Math.ceil(dist));
+          const stepX = (fb.vx * dt) / steps;
+          const stepY = (fb.vy * dt) / steps;
+          let alive = true;
+
+          for (let i = 0; i < steps && alive; i++) {
+            fb.x += stepX;
+            fb.y += stepY;
+            if (solidAt(Math.floor(fb.x), Math.floor(fb.y))) {
+              alive = false;
+              break;
+            }
+            for (const bus of level2Buses) {
+              if (!bus.alive) continue;
+              if (fireballHitsBus(fb, bus)) {
+                bus.alive = false;
+                alive = false;
+                sfx.playBusBell();
+                break;
+              }
+            }
+          }
+
+          if (alive) next.push(fb);
+        }
+        level2Fireballs = next;
+      }
+
+      function stepLevel2Buses(dt) {
+        const pixels = level2BusCollisionPixels();
+        if (!pixels.length) return;
+
+        for (const bus of level2Buses) {
+          if (!bus.alive) continue;
+          if (bus.hitCooldown > 0) bus.hitCooldown -= dt;
+
+          bus.steerTimer -= dt;
+          if (bus.steerTimer <= 0) {
+            const angle = Math.random() * Math.PI * 2;
+            bus.dirX = Math.cos(angle);
+            bus.dirY = Math.sin(angle);
+            bus.steerTimer =
+              LEVEL2_BUS_STEER_MIN + Math.random() * (LEVEL2_BUS_STEER_MAX - LEVEL2_BUS_STEER_MIN);
+          }
+
+          bus.vx = bus.dirX * LEVEL2_BUS_SPEED;
+          bus.vy = bus.dirY * LEVEL2_BUS_SPEED;
+          moveLevel2Entity(bus, bus.vx * dt, bus.vy * dt, pixels);
+        }
+      }
+
+      function regenerateLevel2Capri() {
+        ball.x = dropX;
+        ball.y = dropY;
+        ball.spawnX = dropX;
+        ball.spawnY = dropY;
+        ensureLevel2SpawnFit();
+        ball.vx = 0;
+        ball.vy = 0;
+        ball.alive = true;
+        ball.hitCooldown = VEHICLE_HIT_COOLDOWN;
+      }
+
+      function triggerLevel2BusHit(bus) {
+        if (gamePhase !== "playing" || !ball?.alive) return;
+        lives = Math.max(0, lives - 1);
+        paintLives();
+        ball.hitCooldown = VEHICLE_HIT_COOLDOWN;
+        if (bus) bus.hitCooldown = VEHICLE_HIT_COOLDOWN;
+        sfx.playCrash();
+        if (lives > 0) {
+          regenerateLevel2Capri();
+          return;
+        }
+        beginGameOver();
+      }
+
+      function resolveLevel2BusCapriCollisions() {
+        if (!ball?.alive || currentLevel !== 2) return;
+        if (ball.hitCooldown > 0) return;
+        const capriPix = level2CollisionPixels();
+        for (const bus of level2Buses) {
+          if (!bus.alive || bus.hitCooldown > 0) continue;
+          const busPix = level2BusCollisionPixels();
+          const hit = analyzeVehiclePair(ball.x, ball.y, capriPix, bus.x, bus.y, busPix);
+          if (hit.overlap) {
+            triggerLevel2BusHit(bus);
+            return;
+          }
+        }
+      }
+
+      function drawLevel2Bus(bus) {
+        if (!bus.alive || !level2BusSprite) return;
+        const w = LEVEL2_CAR_W;
+        const h = LEVEL2_CAR_H;
+        ctx.save();
+        ctx.translate(bus.x, bus.y);
+        if (bus.vx >= 0) ctx.scale(-1, 1);
+        ctx.drawImage(level2BusSprite, -w / 2, -h / 2, w, h);
+        ctx.restore();
+      }
+
+      function drawLevel2Fireballs() {
+        for (const fb of level2Fireballs) {
+          ctx.save();
+          ctx.shadowColor = "rgba(255,120,20,0.85)";
+          ctx.shadowBlur = 14;
+          const grad = ctx.createRadialGradient(fb.x, fb.y, 0, fb.x, fb.y, LEVEL2_FIREBALL_R);
+          grad.addColorStop(0, "#fff6a0");
+          grad.addColorStop(0.45, "#ff6a10");
+          grad.addColorStop(1, "rgba(180,20,0,0)");
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(fb.x, fb.y, LEVEL2_FIREBALL_R, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
       }
 
       function collectLevel2Cones() {
@@ -2517,11 +2765,16 @@
 
       function stepLevel2(dt) {
         if (!ball?.alive) return;
+        if (level2FireCooldown > 0) level2FireCooldown -= dt;
         const motion = level2DesiredMotion();
         if (motion.vx !== 0 || motion.vy !== 0) ball.level2Facing = motion.facing;
         ball.vx = motion.vx;
         ball.vy = motion.vy;
         moveLevel2Car(ball.vx * dt, ball.vy * dt);
+        stepLevel2Buses(dt);
+        stepLevel2Fireballs(dt);
+        resolveLevel2BusCapriCollisions();
+        if (ball.hitCooldown > 0) ball.hitCooldown -= dt;
         collectLevel2Cones();
       }
 
@@ -3203,6 +3456,9 @@
         resetBall();
         ball.level2Facing = "side";
         ensureLevel2SpawnFit();
+        ball.spawnX = ball.x;
+        ball.spawnY = ball.y;
+        initLevel2Buses();
         fallElapsed = 0;
         syncTickClock();
         paintLives();
@@ -3617,6 +3873,8 @@
         } else if (currentLevel === 2 && level2Background) {
           ctx.drawImage(level2Background, 0, 0, W, H);
           drawLevel2CollectedPatches();
+          for (const bus of level2Buses) drawLevel2Bus(bus);
+          drawLevel2Fireballs();
         }
 
         if (!isWrap() && currentLevel !== 2) {
@@ -4230,7 +4488,7 @@
       function applyModeCopy() {
         descEl.textContent =
           currentLevel === 2
-            ? "Omnidirectional stick: drive in any direction through black corridors. Red brick walls block you. Tap fire for a boost."
+            ? "Omnidirectional stick to drive. Fire shoots in your movement direction. Destroy the four Routemasters — they cost a life on contact."
             : "Hold ← or → on the stick to steer while falling, then tap fire to boost up and sideways. Three Zoox robotaxis patrol the decks. You have three lives.";
 
         const controlsDisabled = gamePhase === "intro";
@@ -4253,15 +4511,7 @@
         if (gamePhase !== "playing" || !ball?.alive) return;
         sfx.resume();
         if (currentLevel === 2) {
-          const boost = LEVEL2_BOOST;
-          const maxV = LEVEL2_CRUISE_SPEED * 1.6;
-          const mag = Math.hypot(stickNormX, stickNormY);
-          if (mag >= 0.05) {
-            ball.vx = Math.max(-maxV, Math.min(maxV, ball.vx + (stickNormX / mag) * boost));
-            ball.vy = Math.max(-maxV, Math.min(maxV, ball.vy + (stickNormY / mag) * boost));
-          } else if (ball.level2Facing === "front") ball.vy = Math.min(ball.vy + boost, maxV);
-          else if (ball.level2Facing === "rear") ball.vy = Math.max(ball.vy - boost, -maxV);
-          else ball.vx += Math.sign(ball.vx || 1) * boost;
+          fireLevel2Fireball();
           flashButton(btn);
           return;
         }
@@ -4296,14 +4546,21 @@
           loadImage(INTRO_CAPRI_URL),
         ]);
 
-        const [backdropResult, backgroundResult, level2BackgroundResult] = await Promise.all([
+        const [backdropResult, backgroundResult, level2BackgroundResult, level2BusResult] = await Promise.all([
           loadImage(backdropSrc).catch(() => null),
           loadImage(bgSrc),
           loadImage(resolveAssetUrl(LEVEL2_BACKGROUND_URL)).catch(() => null),
+          loadImage(resolveAssetUrl(LEVEL2_BUS_URL)).catch(() => null),
         ]);
         backdrop = backdropResult;
         background = backgroundResult;
         level2Background = level2BackgroundResult;
+        level2BusSprite = level2BusResult;
+        if (level2BusSprite) {
+          level2BusPixels = extractCarPixels(level2BusSprite);
+          level2BusMovePixels = shrinkCarPixels(level2BusPixels, 3, 4);
+          if (!level2BusMovePixels.length) level2BusMovePixels = level2BusPixels.slice();
+        }
         level2Solid = await loadLevel2SolidMask();
         if (!background) throw new Error("Background image missing");
 
