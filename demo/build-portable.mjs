@@ -1,13 +1,17 @@
 import sharp from "sharp";
 import { readFileSync, copyFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { mkdir, writeFile } from "node:fs/promises";
 import { buildSolidMask, buildDebugCompositeRgba, solidToSegments } from "./solid-mask.mjs";
 
-const SRC = "/workspace/demo/assets/arena-source.png";
-const BACKDROP = "/workspace/demo/assets/arena-backdrop.jpg";
-const ENGINE_REV_SEARCH_DIRS = ["/workspace/demo/assets", "/workspace/demo", "/workspace"];
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const DEMO = join(ROOT, "demo");
+const DEMO_ASSETS = join(DEMO, "assets");
+const SRC = join(DEMO_ASSETS, "arena-source.png");
+const BACKDROP = join(DEMO_ASSETS, "arena-backdrop.jpg");
+const ENGINE_REV_SEARCH_DIRS = [DEMO_ASSETS, DEMO, ROOT];
 const AUDIO_EXTS = new Set(["mp3", "m4a", "wav", "ogg", "aac", "caf", "aiff", "flac", "webm"]);
 const ENGINE_REV_MIME = {
   mp3: "audio/mpeg",
@@ -20,7 +24,7 @@ const ENGINE_REV_MIME = {
   flac: "audio/flac",
   webm: "audio/webm",
 };
-const OUT = "/workspace/docs";
+const OUT = join(ROOT, "docs");
 const ASSETS = `${OUT}/assets`;
 
 function findNamedAudio(stem) {
@@ -69,7 +73,7 @@ function copyAudioAsset(path, assetName) {
 
 function prepareMusicAsset(srcPath, assetName) {
   const dest = `${ASSETS}/${assetName}`;
-  const demoDest = `/workspace/demo/assets/${assetName}`;
+  const demoDest = join(DEMO_ASSETS, assetName);
   const ffmpeg = spawnSync(
     "ffmpeg",
     ["-y", "-loglevel", "error", "-i", srcPath, "-b:a", "96k", "-ac", "1", "-ar", "44100", dest],
@@ -90,8 +94,8 @@ function prepareVegasMusic(srcPath) {
 
 function findEngineRevSource() {
   const revMp3Paths = [
-    "/workspace/demo/assets/rev.mp3",
-    "/workspace/rev.mp3",
+    join(DEMO_ASSETS, "rev.mp3"),
+    join(ROOT, "rev.mp3"),
   ];
   for (const path of revMp3Paths) {
     if (existsSync(path)) return path;
@@ -150,21 +154,21 @@ async function build() {
   }
 
   copyFileSync(SRC, `${ASSETS}/arena-foreground.png`);
-  copyFileSync("/workspace/demo/manifest.webmanifest", `${OUT}/manifest.webmanifest`);
+  copyFileSync(join(DEMO, "manifest.webmanifest"), `${OUT}/manifest.webmanifest`);
 
   const INTRO_SOURCES = [
-    ["/workspace/demo/assets/intro-server.png", "intro-server.png"],
-    ["/workspace/demo/assets/intro-smoke.png", "intro-smoke.png"],
-    ["/workspace/demo/assets/intro-capri.png", "intro-capri.png"],
-    ["/workspace/file_00000000c3987246bb410932dd4c3a33.png", "intro-server.png"],
-    ["/workspace/file_00000000502471f4961279e1dcfd9ef2.png", "intro-smoke.png"],
-    ["/workspace/file_0000000001cc724381f0d7d1368fa96e.png", "intro-capri.png"],
+    [join(DEMO_ASSETS, "intro-server.png"), "intro-server.png"],
+    [join(DEMO_ASSETS, "intro-smoke.png"), "intro-smoke.png"],
+    [join(DEMO_ASSETS, "intro-capri.png"), "intro-capri.png"],
+    [join(ROOT, "file_00000000c3987246bb410932dd4c3a33.png"), "intro-server.png"],
+    [join(ROOT, "file_00000000502471f4961279e1dcfd9ef2.png"), "intro-smoke.png"],
+    [join(ROOT, "file_0000000001cc724381f0d7d1368fa96e.png"), "intro-capri.png"],
   ];
   const copiedIntro = new Set();
   for (const [src, name] of INTRO_SOURCES) {
     if (copiedIntro.has(name) || !existsSync(src)) continue;
     copyFileSync(src, `${ASSETS}/${name}`);
-    copyFileSync(src, `/workspace/demo/assets/${name}`);
+    copyFileSync(src, join(DEMO_ASSETS, name));
     copiedIntro.add(name);
     console.log(`Intro asset: ${name} (${readFileSync(src).length} bytes)`);
   }
@@ -218,10 +222,7 @@ async function build() {
     .toBuffer();
 
   await writeFile(`${ASSETS}/arena-backdrop.jpg`, backdropJpegFull);
-  await writeFile("/workspace/demo/assets/arena-backdrop.jpg", backdropJpegFull);
-
-  await writeFile(`${ASSETS}/arena-backdrop.jpg`, backdropJpegFull);
-  await writeFile("/workspace/demo/assets/arena-backdrop.jpg", backdropJpegFull);
+  await writeFile(join(DEMO_ASSETS, "arena-backdrop.jpg"), backdropJpegFull);
 
   const bgDataUrl = "assets/arena-foreground.png";
   const backdropDataUrl = "assets/arena-backdrop.jpg";
@@ -273,13 +274,13 @@ async function build() {
   const carCrashPath = findAudioByNamePart("car_crash");
   if (carCrashPath) {
     carCrashDataUrl = copyAudioAsset(carCrashPath, "car-crash.mp3");
-    copyFileSync(carCrashPath, "/workspace/demo/assets/car-crash.mp3");
+    copyFileSync(carCrashPath, join(DEMO_ASSETS, "car-crash.mp3"));
     console.log(`Car crash SFX: ${carCrashDataUrl} (${readFileSync(carCrashPath).length} bytes)`);
   } else {
     console.log("Car crash SFX: none found (procedural fallback)");
   }
 
-  let html = readFileSync("/workspace/demo/cloud-background.html", "utf8");
+  let html = readFileSync(join(DEMO, "cloud-background.html"), "utf8");
 
   function embedPortable(source, bakedMode) {
     const copies = {

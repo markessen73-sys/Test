@@ -1,10 +1,13 @@
 import sharp from "sharp";
 import { mkdir, access } from "node:fs/promises";
 import { constants } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { buildSolidMask } from "./solid-mask.mjs";
 
-const SRC = "/workspace/demo/assets/arena-source.png";
-const OUT_DIR = "/workspace/demo/assets";
+const DEMO_ASSETS = join(dirname(fileURLToPath(import.meta.url)), "assets");
+const SRC = join(DEMO_ASSETS, "arena-source.png");
+const OUT_DIR = DEMO_ASSETS;
 
 async function build() {
   await access(SRC, constants.R_OK);
