@@ -106,6 +106,41 @@ export function encodeSolidRle(solid) {
   return Buffer.from(chunks).toString("base64");
 }
 
+export function shrinkPixels(pixels, insetX, insetY) {
+  if (!pixels.length || (insetX <= 0 && insetY <= 0)) return pixels;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const [dx, dy] of pixels) {
+    minX = Math.min(minX, dx);
+    maxX = Math.max(maxX, dx);
+    minY = Math.min(minY, dy);
+    maxY = Math.max(maxY, dy);
+  }
+  return pixels.filter(
+    ([dx, dy]) =>
+      dx > minX + insetX && dx < maxX - insetX && dy > minY + insetY && dy < maxY - insetY,
+  );
+}
+
+export async function buildBusPixels(pngPath) {
+  const { data, info } = await sharp(pngPath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { width, height, channels } = info;
+  const cx = width / 2;
+  const cy = height / 2;
+  const full = [];
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * channels;
+      const a = channels > 3 ? data[i + 3] : 255;
+      if (a > 32) full.push([Math.round(x - cx), Math.round(y - cy)]);
+    }
+  }
+  const move = shrinkPixels(full, 3, 4);
+  return { full, move: move.length ? move : full };
+}
+
 export async function writeLevel2Assets(data, assetsDir) {
   await writeFile(`${assetsDir}/level2-solid.bin`, data.solid);
   return {
