@@ -2,7 +2,9 @@ import sharp from "sharp";
 import { writeFile } from "node:fs/promises";
 
 function isConePixel(r, g, b) {
-  return r > 170 && g > 70 && g < 210 && b < 90;
+  if (r > 170 && g > 70 && g < 210 && b < 90) return true;
+  if (r > 205 && g > 205 && b > 190 && Math.max(r, g, b) - Math.min(r, g, b) < 35) return true;
+  return false;
 }
 
 function isBrickWallPixel(r, g, b) {
@@ -28,7 +30,34 @@ export async function buildLevel2Data(imagePath) {
       const pi = y * width + x;
       if (isConePixel(r, g, b)) {
         coneMask[pi] = 1;
-      } else if (isWallPixel(r, g, b)) {
+      }
+    }
+  }
+
+  const expandedConeMask = coneMask.slice();
+  for (let pass = 0; pass < 3; pass++) {
+    const next = expandedConeMask.slice();
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const pi = y * width + x;
+        if (!expandedConeMask[pi]) continue;
+        for (const ni of [pi - 1, pi + 1, pi - width, pi + width]) {
+          next[ni] = 1;
+        }
+      }
+    }
+    expandedConeMask.set(next);
+  }
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * channels;
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const pi = y * width + x;
+      if (expandedConeMask[pi]) continue;
+      if (isWallPixel(r, g, b)) {
         solid[pi] = 1;
       }
     }

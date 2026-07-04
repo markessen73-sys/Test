@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04za</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zb</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1394,7 +1394,7 @@
       const LEVEL2_CAR_HH = LEVEL2_CAR_H / 2;
       const LEVEL2_CRUISE_SPEED = 220;
       const LEVEL2_BOOST = 180;
-      const LEVEL2_CONE_RADIUS = 20;
+      const LEVEL2_CONE_RADIUS = 26;
       const LEVEL2_BANNER_HOLD_SEC = 1.5;
       const BALL_R = 14;
       const CAR_W = BALL_R * 8;
@@ -2420,14 +2420,24 @@
 
       function collectLevel2Cones() {
         const { pixels } = level2CarBundle();
+        const pickupRadius = LEVEL2_CONE_RADIUS;
+
         for (const cone of level2Cones) {
           if (cone.collected) continue;
+
+          const centerDx = ball.x - cone.x;
+          const centerDy = ball.y - cone.y;
+          if (centerDx * centerDx + centerDy * centerDy <= pickupRadius * pickupRadius) {
+            cone.collected = true;
+            continue;
+          }
+
           for (const [dx, dy] of pixels) {
             const px = Math.floor(ball.x + dx);
             const py = Math.floor(ball.y + dy);
             const cdx = px - cone.x;
             const cdy = py - cone.y;
-            if (cdx * cdx + cdy * cdy <= LEVEL2_CONE_RADIUS * LEVEL2_CONE_RADIUS) {
+            if (cdx * cdx + cdy * cdy <= pickupRadius * pickupRadius) {
               cone.collected = true;
               break;
             }
