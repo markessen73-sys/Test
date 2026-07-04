@@ -24,7 +24,7 @@
         font-family: system-ui, sans-serif;
         padding: 12px;
       }
-      h1 { font-size: 1rem; font-weight: 500; }
+      h1 { display: none; }
       #wrap {
         position: relative;
         border: 1px solid #333;
@@ -109,17 +109,12 @@
         display: none;
       }
       #lives-bar {
-        position: absolute;
-        top: 10px;
-        left: 0;
-        right: 0;
-        z-index: 3;
         display: flex;
         gap: 10px;
         justify-content: center;
         align-items: center;
         min-height: 1.25rem;
-        pointer-events: none;
+        margin-bottom: 8px;
       }
       #lives-bar.is-hidden {
         display: none;
@@ -290,11 +285,18 @@
           align-items: center;
           display: grid;
           grid-template-columns: auto minmax(0, min(calc(100svh * 3 / 2), calc(100vw - 15rem))) auto;
+          grid-template-rows: auto minmax(0, 1fr);
           column-gap: clamp(6px, 1.4vw, 14px);
+        }
+        #lives-bar {
+          grid-column: 2;
+          grid-row: 1;
+          align-self: end;
+          margin-bottom: 4px;
         }
         #wrap {
           grid-column: 2;
-          grid-row: 1;
+          grid-row: 2;
           border: none;
           box-shadow: none;
           max-width: none;
@@ -313,7 +315,7 @@
         }
         .control-side-left {
           grid-column: 1;
-          grid-row: 1;
+          grid-row: 1 / span 2;
           display: flex !important;
           flex-direction: column;
           align-items: center;
@@ -323,7 +325,7 @@
         }
         .control-side-right {
           grid-column: 3;
-          grid-row: 1;
+          grid-row: 1 / span 2;
           display: flex !important;
           flex-direction: column;
           align-items: center;
@@ -391,10 +393,10 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04q</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04r</p>
     <div id="play-column">
+      <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
-        <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
         <canvas id="view"></canvas>
         <button type="button" id="audio-start-overlay" class="is-hidden" aria-label="Tap to start">
           Tap to Start
@@ -430,6 +432,7 @@
       const BEEP_DATA_URL = "__BEEP_DATA_URL__";
       const VEGAS_MUSIC_DATA_URL = "__VEGAS_MUSIC_DATA_URL__";
       const HYPNOTIZED_MUSIC_DATA_URL = "__HYPNOTIZED_MUSIC_DATA_URL__";
+      const ROYAL_BAROQUE_MUSIC_DATA_URL = "__ROYAL_BAROQUE_MUSIC_DATA_URL__";
       const CAR_CRASH_DATA_URL = "__CAR_CRASH_DATA_URL__";
       const PORTABLE_ASSET_BASE = "__PORTABLE_ASSET_BASE__";
       const canvas = document.getElementById("view");
@@ -587,6 +590,7 @@
         const carCrash = createSampleVoice(CAR_CRASH_DATA_URL, "__CAR_CRASH");
         const titleMusic = createSampleVoice(HYPNOTIZED_MUSIC_DATA_URL, "__HYPNOTIZED_MUSIC");
         const vegasMusic = createSampleVoice(VEGAS_MUSIC_DATA_URL, "__VEGAS_MUSIC");
+        const levelTwoMusic = createSampleVoice(ROYAL_BAROQUE_MUSIC_DATA_URL, "__ROYAL_BAROQUE_MUSIC");
 
         let titleAudio = null;
         let titleMusicPending = false;
@@ -595,6 +599,9 @@
         let vegasMusicSource = null;
         let vegasMusicStarted = false;
         let vegasMusicPending = false;
+        let levelTwoMusicSource = null;
+        let levelTwoMusicStarted = false;
+        let levelTwoMusicPending = false;
 
         function unlockAudio(ac) {
           if (!ac) return Promise.resolve(false);
@@ -734,8 +741,54 @@
           vegasMusicPending = false;
         }
 
+        function stopLevelTwoMusic() {
+          if (levelTwoMusicSource) {
+            try {
+              levelTwoMusicSource.stop();
+            } catch (_) {}
+            levelTwoMusicSource = null;
+          }
+          levelTwoMusicStarted = false;
+          levelTwoMusicPending = false;
+        }
+
+        function stopGameMusic() {
+          stopVegasMusic();
+          stopLevelTwoMusic();
+        }
+
+        function startLevelTwoMusic() {
+          stopTitleMusic();
+          stopVegasMusic();
+          const ac = ensure();
+          if (!ac) return Promise.resolve();
+          return unlockAudio(ac).then((running) => {
+            if (!running) {
+              levelTwoMusicPending = true;
+              return;
+            }
+            return startLoopingTrack(
+              ac,
+              levelTwoMusic,
+              () => levelTwoMusicSource,
+              (v) => {
+                levelTwoMusicSource = v;
+              },
+              () => levelTwoMusicStarted,
+              (v) => {
+                levelTwoMusicStarted = v;
+              },
+              () => levelTwoMusicPending,
+              (v) => {
+                levelTwoMusicPending = v;
+              },
+            );
+          });
+        }
+
         function startGameMusic() {
           stopTitleMusic();
+          stopLevelTwoMusic();
           const ac = ensure();
           if (!ac) return Promise.resolve();
           return unlockAudio(ac).then((running) => {
@@ -943,6 +996,7 @@
           const ac = ensure();
           if (allowTitleMusic && titleMusicPending) void unlockTitleMusic();
           if (ac && vegasMusicPending) void startVegasMusic(ac);
+          if (ac && levelTwoMusicPending) void startLevelTwoMusic();
           return ac;
         }
 
@@ -959,7 +1013,8 @@
           isTitleMusicPlaying,
           isTitleMusicPending: () => titleMusicPending,
           startGameMusic,
-          stopGameMusic: stopVegasMusic,
+          startLevelTwoMusic,
+          stopGameMusic,
           playZap,
           playKerching,
           playCrash,
@@ -1040,6 +1095,10 @@
           e.preventDefault();
           if (gamePhase === "attract") {
             startGameFromAttract(btn);
+            return;
+          }
+          if (gamePhase === "gameover") {
+            returnToAttractFromGameOver(btn);
             return;
           }
           if (gamePhase !== "playing") return;
@@ -1214,9 +1273,9 @@
       ];
 
       const MAX_LIVES = 3;
-      const GAME_OVER_SEC = 5;
       let lives = MAX_LIVES;
       let gameOverT0 = 0;
+      let currentLevel = 1;
 
       let gamePhase = "loading";
       let audioGatePassed = false;
@@ -2168,7 +2227,7 @@
         zooxBeginStallRecovery(unit, pixels);
       }
 
-      function createZooxUnit(spawn) {
+      function createZooxUnit(spawn, spawnIndex) {
         const pixels = zooxPixelsLeft;
         const surfaceY = findSurfaceAt(solid, spawn.x, spawn.minY);
         let y = surfaceY ? vehicleYOnSurface(surfaceY, pixels) : CAR_HH;
@@ -2183,6 +2242,7 @@
           reverseTimer: 0,
           path: buildZooxChannel(pixels, spawn, spawn.dir),
           dir: spawn.dir,
+          spawnIndex,
           state: "active",
           hitCooldown: 0,
         };
@@ -2194,7 +2254,25 @@
       }
 
       function initZooxFleet() {
-        zooxUnits = ZOOX_SPAWNS.map(createZooxUnit);
+        zooxUnits = ZOOX_SPAWNS.map((spawn, i) => createZooxUnit(spawn, i));
+      }
+
+      function zooxUnitsOverlap(a, b) {
+        return analyzeVehiclePair(
+          a.x,
+          a.y,
+          zooxBundleFor(a).pixels,
+          b.x,
+          b.y,
+          zooxBundleFor(b).pixels,
+        ).overlap;
+      }
+
+      function respawnZooxElsewhere(unit) {
+        const choices = ZOOX_SPAWNS.map((_, i) => i).filter((i) => i !== unit.spawnIndex);
+        const pick = choices[Math.floor(Math.random() * choices.length)] ?? 0;
+        const fresh = createZooxUnit(ZOOX_SPAWNS[pick], pick);
+        Object.assign(unit, fresh);
       }
 
       function buildDebugBackground(img, width, height) {
@@ -2438,6 +2516,37 @@
         return Math.abs(ax - bx) >= Math.abs(ay - by) * 0.38;
       }
 
+      function regenerateCapri() {
+        ball.x = ball.spawnX;
+        ball.y = ball.spawnY;
+        ball.vx = 0;
+        ball.vy = 0;
+        ball.alive = true;
+        ball.hitCooldown = VEHICLE_HIT_COOLDOWN;
+        fallElapsed = 0;
+      }
+
+      function allZooxCleared() {
+        return zooxUnits.length > 0 && zooxUnits.every((u) => u.state === "removed");
+      }
+
+      function checkLevelComplete() {
+        if (gamePhase !== "playing" || currentLevel !== 1) return;
+        if (allZooxCleared()) beginLevelTwo();
+      }
+
+      function beginLevelTwo() {
+        currentLevel = 2;
+        sfx.stopGameMusic();
+        void sfx.startLevelTwoMusic();
+        showLevelBanner();
+        ball = createBall();
+        resetBall();
+        initZooxFleet();
+        fallElapsed = 0;
+        lastFrame = 0;
+      }
+
       function zooxReversePath(unit) {
         unit.dir *= -1;
         unit.vx = ZOOX_CRUISE_VX * unit.dir;
@@ -2453,6 +2562,10 @@
         paintLives();
         unit.hitCooldown = VEHICLE_HIT_COOLDOWN;
         sfx.playZap();
+        if (lives > 0) {
+          regenerateCapri();
+          return;
+        }
         beginGameOver();
       }
 
@@ -2461,21 +2574,28 @@
         gameOverT0 = performance.now();
         levelBannerT0 = 0;
         sfx.stopGameMusic();
-        void sfx.unlockTitleMusic();
         setHudForPhase();
       }
 
-      function returnToAttract() {
+      function returnToAttractFromGameOver(btn) {
+        flashButton(btn);
         gamePhase = "attract";
         gameOverT0 = 0;
+        currentLevel = 1;
+        lives = MAX_LIVES;
         ball = createBall();
         resetBall();
         initZooxFleet();
         fallElapsed = 0;
         lastFrame = 0;
+        void sfx.beginTitleScreens();
         setHudForPhase();
         paintLives();
         applyModeCopy();
+      }
+
+      function returnToAttract() {
+        returnToAttractFromGameOver(liftBtn);
       }
 
       function placeLightningAwayFromCapri(unit) {
@@ -2509,6 +2629,7 @@
         unit.lightningVx = 0;
         unit.lightningVy = 0;
         sfx.playKerching();
+        checkLevelComplete();
       }
 
       function restoreLightningToZoox(unit) {
@@ -2678,8 +2799,11 @@
             zooxReversePath(a);
             zooxReversePath(b);
             sfx.playZap();
+            if (zooxUnitsOverlap(a, b)) respawnZooxElsewhere(b);
           }
         }
+
+        checkLevelComplete();
       }
 
       function steerZooxUnit(unit, dt) {
@@ -2791,8 +2915,10 @@
       function drawFrame() {
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, W, H);
-        if (backdrop) ctx.drawImage(backdrop, 0, 0, W, H);
-        if (background) ctx.drawImage(background, 0, 0, W, H);
+        if (currentLevel === 1) {
+          if (backdrop) ctx.drawImage(backdrop, 0, 0, W, H);
+          if (background) ctx.drawImage(background, 0, 0, W, H);
+        }
 
         if (!isWrap()) {
           for (const unit of zooxUnits) {
@@ -2835,8 +2961,15 @@
         return introSmokeStartSec() - 0.5;
       }
 
-      const LEVEL_BANNER_SEC = 3;
+      const LEVEL_BANNER_HOLD_SEC = 4;
+      const LEVEL_BANNER_FADE_SEC = 1;
+      const LEVEL_BANNER_SEC = LEVEL_BANNER_HOLD_SEC + LEVEL_BANNER_FADE_SEC;
       let levelBannerT0 = 0;
+
+      function levelBannerLines() {
+        if (currentLevel === 2) return ["LEVEL TWO", "ELECTRIC ROUTEMASTER"];
+        return ["LEVEL ONE", "ZOOX TAXIS"];
+      }
 
       function showLevelBanner() {
         levelBannerT0 = performance.now();
@@ -2849,7 +2982,10 @@
           levelBannerT0 = 0;
           return;
         }
-        const alpha = 1 - elapsed / LEVEL_BANNER_SEC;
+        let alpha = 1;
+        if (elapsed > LEVEL_BANNER_HOLD_SEC) {
+          alpha = 1 - (elapsed - LEVEL_BANNER_HOLD_SEC) / LEVEL_BANNER_FADE_SEC;
+        }
         const w = canvas.width;
         const h = canvas.height;
         const size = Math.round(h * 0.055);
@@ -2863,9 +2999,9 @@
         ctx.fillStyle = "#fff";
         const y = h * 0.5;
         const gap = size * 1.15;
-        const lines = ["LEVEL ONE", "ZOOX TAXIS"];
+        const lines = levelBannerLines();
         for (let i = 0; i < lines.length; i++) {
-          const ly = y + (i - 0.5) * gap;
+          const ly = y + (i - (lines.length - 1) / 2) * gap;
           ctx.strokeText(lines[i], w / 2, ly);
           ctx.fillText(lines[i], w / 2, ly);
         }
@@ -3155,6 +3291,8 @@
         }
         ctx.restore();
         ctx.restore();
+
+        if (age >= 0.85) drawPressFire(performance.now());
       }
 
       function drawPressFire(now) {
@@ -3240,6 +3378,7 @@
 
       function startGameFromAttract(btn) {
         if (lives <= 0) lives = MAX_LIVES;
+        currentLevel = 1;
         paintLives();
         void sfx.startGameMusic();
         flashButton(btn);
@@ -3315,9 +3454,6 @@
         if (gamePhase === "gameover") {
           drawFrame();
           drawGameOverBanner((now - gameOverT0) / 1000);
-          if ((now - gameOverT0) / 1000 >= GAME_OVER_SEC) {
-            returnToAttract();
-          }
           requestAnimationFrame(tick);
           return;
         }
@@ -3331,7 +3467,6 @@
       }
 
       function applyModeCopy() {
-        titleEl.textContent = "Adventures Of Crappy Capri";
         descEl.textContent =
           "Hold ← or → on the stick to steer while falling, then tap fire to boost up and sideways. Three Zoox robotaxis patrol the decks. You have three lives.";
 

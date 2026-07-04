@@ -297,6 +297,21 @@ async function build() {
     console.log("Car crash SFX: none found (procedural fallback)");
   }
 
+  let royalBaroqueMusicDataUrl = "";
+  const royalBaroquePath =
+    findAudioByNamePart("royal-baroque") ??
+    findAudioByNamePart("royal_baroque") ??
+    findAudioByNamePart("royal");
+  if (royalBaroquePath) {
+    const royal = prepareMusicAsset(royalBaroquePath, "royal-baroque-music.mp3");
+    royalBaroqueMusicDataUrl = royal.ref;
+    console.log(
+      `Level two music: ${royalBaroqueMusicDataUrl} (${royal.bytes} bytes${royal.optimized ? ", 96k mono" : ""})`,
+    );
+  } else {
+    console.log("Level two music: none found (royal baroque)");
+  }
+
   let html = readFileSync(join(DEMO, "cloud-background.html"), "utf8");
 
   function embedPortable(source) {
@@ -308,6 +323,7 @@ async function build() {
       .replace("__BEEP_DATA_URL__", toPortableUrl(beepDataUrl))
       .replace("__VEGAS_MUSIC_DATA_URL__", toPortableUrl(vegasMusicDataUrl))
       .replace("__HYPNOTIZED_MUSIC_DATA_URL__", toPortableUrl(hypnotizedMusicDataUrl))
+      .replace("__ROYAL_BAROQUE_MUSIC_DATA_URL__", toPortableUrl(royalBaroqueMusicDataUrl))
       .replace("__CAR_CRASH_DATA_URL__", toPortableUrl(carCrashDataUrl))
       .replace("__PORTABLE_ASSET_BASE__", portableAssetBase)
       .replace(
