@@ -208,14 +208,10 @@ async function build() {
     console.log("Level two background: none found");
   }
 
-  const BUS_SRC_CANDIDATES = [
-    join(DEMO_ASSETS, "routemaster-bus.png"),
-    join(ROOT, "cHJpdmF0ZS9sci9pbWFnZXMvd2Vic2l0ZS8yMDIyLTA4L2pvYjk1My0yMjctcC5wbmc.jpeg"),
-  ];
+  const BUS_SRC = join(ROOT, "cHJpdmF0ZS9sci9pbWFnZXMvd2Vic2l0ZS8yMDIyLTA4L2pvYjk1My0yMjctcC5wbmc.jpeg");
   const BUS_OUT = join(DEMO_ASSETS, "routemaster-bus.png");
-  let busSource = BUS_SRC_CANDIDATES.find((path) => existsSync(path));
-  if (busSource && busSource !== BUS_OUT) {
-    const { data, info } = await sharp(busSource).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  if (existsSync(BUS_SRC)) {
+    const { data, info } = await sharp(BUS_SRC).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     for (let i = 0; i < info.width * info.height; i++) {
       const o = i * 4;
       const r = data[o];
@@ -227,11 +223,11 @@ async function build() {
       .resize(38, 58, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .png()
       .toFile(BUS_OUT);
-    console.log(`Routemaster bus: routemaster-bus.png (${readFileSync(BUS_OUT).length} bytes)`);
+    console.log(`Routemaster bus: ${BUS_SRC} -> routemaster-bus.png (${readFileSync(BUS_OUT).length} bytes)`);
   } else if (existsSync(BUS_OUT)) {
     console.log(`Routemaster bus: routemaster-bus.png (${readFileSync(BUS_OUT).length} bytes)`);
   } else {
-    console.log("Routemaster bus: none found");
+    console.log(`Routemaster bus: none found (expected ${BUS_SRC})`);
   }
   if (existsSync(BUS_OUT)) {
     copyFileSync(BUS_OUT, `${ASSETS}/routemaster-bus.png`);
@@ -411,7 +407,7 @@ async function build() {
       )
       .replace(
         'const LEVEL2_BACKGROUND_URL = "assets/level2-background.png";',
-        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png?v=zo";`,
+        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png?v=zp";`,
       )
       .replace(
         'const LEVEL2_BUS_URL = "assets/routemaster-bus.png";',
