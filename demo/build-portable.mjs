@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, writeFile } from "node:fs/promises";
 import { buildSolidMask, buildDebugCompositeRgba, solidToSegments } from "./solid-mask.mjs";
-import { buildLevel2Data, writeLevel2Assets } from "./level2-data.mjs";
+import { buildLevel2Data, writeLevel2Assets, encodeSolidRle } from "./level2-data.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DEMO = join(ROOT, "demo");
@@ -193,6 +193,8 @@ async function build() {
     console.log(`Level two background: level2-background.png (${readFileSync(LEVEL2_BG).length} bytes)`);
     const level2 = await buildLevel2Data(LEVEL2_BG);
     const level2Arena = await writeLevel2Assets(level2, ASSETS);
+    level2Arena.solidLen = level2.solid.length;
+    level2Arena.solidRle = encodeSolidRle(level2.solid);
     copyFileSync(`${ASSETS}/level2-solid.bin`, join(DEMO_ASSETS, "level2-solid.bin"));
     level2ArenaJson = JSON.stringify(level2Arena);
     console.log(

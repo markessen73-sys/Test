@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zh</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zi</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1392,7 +1392,6 @@
       const LEVEL2_CAR_H = 58;
       const LEVEL2_CAR_HW = LEVEL2_CAR_W / 2;
       const LEVEL2_CAR_HH = LEVEL2_CAR_H / 2;
-      const LEVEL2_WALKABLE_MAX = 24;
       const LEVEL2_CRUISE_SPEED = 220;
       const LEVEL2_BOOST = 180;
       const LEVEL2_CONE_RADIUS = 26;
@@ -1615,18 +1614,33 @@
         fallElapsed = 0;
       }
 
-      function loadImage(src, { cors = false } = {}) {
+      function loadImage(src) {
         const url = resolveAssetUrl(src);
         return new Promise((resolve, reject) => {
           const img = new Image();
-          if (cors) img.crossOrigin = "anonymous";
           img.onload = () => resolve(img);
           img.onerror = () => reject(new Error(`Failed to load ${url}`));
           img.src = url;
         });
       }
 
+      function decodeSolidRle(b64, length) {
+        const bin = atob(b64);
+        const solid = new Uint8Array(length);
+        let pos = 0;
+        for (let i = 0; i < bin.length; ) {
+          const v = bin.charCodeAt(i++);
+          const n = bin.charCodeAt(i++) | (bin.charCodeAt(i++) << 8);
+          solid.fill(v, pos, pos + n);
+          pos += n;
+        }
+        return solid;
+      }
+
       async function loadLevel2SolidMask() {
+        if (LEVEL2_ARENA?.solidRle && LEVEL2_ARENA?.solidLen) {
+          return decodeSolidRle(LEVEL2_ARENA.solidRle, LEVEL2_ARENA.solidLen);
+        }
         if (LEVEL2_ARENA?.width) {
           try {
             const solidBuf = await fetch(resolveAssetUrl("assets/level2-solid.bin")).then((res) =>
@@ -1635,12 +1649,7 @@
             if (solidBuf) return new Uint8Array(solidBuf);
           } catch (_) {}
         }
-        if (!level2Background) return null;
-        try {
-          return buildLevel2SolidFromImage(level2Background).solid;
-        } catch (_) {
-          return null;
-        }
+        return null;
       }
 
       function drawCapriLeft(ctx, w, h) {
@@ -2207,30 +2216,6 @@
           dropX,
           dropY,
         };
-      }
-
-      function buildLevel2SolidFromImage(img) {
-        const width = img.naturalWidth;
-        const height = img.naturalHeight;
-        const scratch = document.createElement("canvas");
-        scratch.width = width;
-        scratch.height = height;
-        const sctx = scratch.getContext("2d", { willReadFrequently: true });
-        sctx.drawImage(img, 0, 0);
-        const data = sctx.getImageData(0, 0, width, height).data;
-        const map = new Uint8Array(width * height);
-        for (let y = 0; y < height; y++) {
-          for (let x = 0; x < width; x++) {
-            const i = (y * width + x) * 4;
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-            if (r > LEVEL2_WALKABLE_MAX || g > LEVEL2_WALKABLE_MAX || b > LEVEL2_WALKABLE_MAX) {
-              map[y * width + x] = 1;
-            }
-          }
-        }
-        return { width, height, solid: map };
       }
 
       function level2CollisionPixels() {
@@ -4308,9 +4293,7 @@
         const [backdropResult, backgroundResult, level2BackgroundResult] = await Promise.all([
           loadImage(backdropSrc).catch(() => null),
           loadImage(bgSrc),
-          loadImage(resolveAssetUrl(LEVEL2_BACKGROUND_URL), { cors: true }).catch(() =>
-            loadImage(resolveAssetUrl(LEVEL2_BACKGROUND_URL)).catch(() => null),
-          ),
+          loadImage(resolveAssetUrl(LEVEL2_BACKGROUND_URL)).catch(() => null),
         ]);
         backdrop = backdropResult;
         background = backgroundResult;

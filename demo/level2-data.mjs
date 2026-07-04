@@ -77,6 +77,7 @@ export async function buildLevel2Data(imagePath) {
   }
 
   if (!spawn) spawn = { x: midX, y: Math.floor(height * 0.76) };
+  else if (spawn.score !== undefined) delete spawn.score;
 
   return {
     width,
@@ -88,6 +89,19 @@ export async function buildLevel2Data(imagePath) {
     coneCount: cones.length,
     solidPct: ((solid.reduce((a, b) => a + b, 0) / (width * height)) * 100).toFixed(1),
   };
+}
+
+export function encodeSolidRle(solid) {
+  const chunks = [];
+  let i = 0;
+  while (i < solid.length) {
+    const v = solid[i];
+    let n = 1;
+    while (i + n < solid.length && solid[i + n] === v && n < 65535) n++;
+    chunks.push(v, n & 0xff, (n >> 8) & 0xff);
+    i += n;
+  }
+  return Buffer.from(chunks).toString("base64");
 }
 
 export async function writeLevel2Assets(data, assetsDir) {
