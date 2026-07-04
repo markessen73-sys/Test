@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#000000" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="assets/icon-192.png" />
-    <title>Adventures Of The Crappy Capri</title>
+    <title>Adventures Of Crappy Capri</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
@@ -335,7 +335,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">Wrap test — exits left, re-enters right</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-03d</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04f</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -646,17 +646,24 @@
           thump.stop(now + 0.52);
         }
 
+        let musicSource = null;
+
         function startVegasMusic(ac) {
-          if (musicStarted || !musicBus || !vegasMusic.enabled) return;
+          if (musicStarted || !musicBus || !vegasMusic.enabled) return Promise.resolve();
           musicStarted = true;
 
-          vegasMusic.loadSample(ac).then((buf) => {
-            if (!buf) return;
-            const src = ac.createBufferSource();
-            src.buffer = buf;
-            src.loop = true;
-            src.connect(musicBus);
-            src.start();
+          return vegasMusic.loadSample(ac).then((buf) => {
+            if (!buf || !musicBus) return;
+            if (musicSource) {
+              try {
+                musicSource.stop();
+              } catch (_) {}
+            }
+            musicSource = ac.createBufferSource();
+            musicSource.buffer = buf;
+            musicSource.loop = true;
+            musicSource.connect(musicBus);
+            musicSource.start(0);
           });
         }
 
@@ -681,7 +688,21 @@
           return ac;
         }
 
-        return { resume, preloadSfx, preloadMusic, playZap, playKerching, playCrash };
+        function startIntroMusic() {
+          const ac = ensure();
+          if (!ac) return Promise.resolve();
+          return startVegasMusic(ac);
+        }
+
+        return {
+          resume,
+          preloadSfx,
+          preloadMusic,
+          startIntroMusic,
+          playZap,
+          playKerching,
+          playCrash,
+        };
       }
 
       const sfx = createArenaAudio();
@@ -859,22 +880,24 @@
       const INTRO_SMOKE_URL = "assets/intro-smoke.png";
       const INTRO_CAPRI_URL = "assets/intro-capri.png";
       const INTRO_SERVER_SEC = 3;
-      const CLOUD_FADE_IN_SEC = 2;
-      const CLOUD_HOLD_FULL_SEC = 2;
+      const INTRO_FLASH_SEC = 1.45;
+      const CLOUD_HOLD_FULL_SEC = 3;
       const CLOUD_HALF_FADE_SEC = 2;
       const CLOUD_HOLD_SEMI_SEC = 2;
       const CLOUD_FADE_OUT_SEC = 2;
       const INTRO_CLOUD_TOTAL_SEC =
-        CLOUD_FADE_IN_SEC +
+        INTRO_FLASH_SEC +
         CLOUD_HOLD_FULL_SEC +
         CLOUD_HALF_FADE_SEC +
         CLOUD_HOLD_SEMI_SEC +
         CLOUD_FADE_OUT_SEC;
-      const INTRO_HEADLIGHT_FLASH_SEC = 1.5;
+      const INTRO_HEADLIGHT_FLICKER_SEC = 2.2;
+
+      const INTRO_PLATE = { x: 0.515, y: 0.63, w: 0.11, h: 0.062 };
 
       const INTRO_HEADLIGHTS = [
-        { x: 0.58, y: 0.56, r: 0.055 },
-        { x: 0.66, y: 0.54, r: 0.048 },
+        { x: 0.415, y: 0.428, r: 0.099 },
+        { x: 0.467, y: 0.435, r: 0.099 },
       ];
 
       let gamePhase = "loading";
@@ -2458,26 +2481,41 @@
       }
 
       function introHeadlightStartSec() {
-        return introSmokeEndSec();
-      }
-
-      function introCapriStartSec() {
-        return INTRO_SERVER_SEC + CLOUD_FADE_IN_SEC + CLOUD_HOLD_FULL_SEC;
+        return (
+          INTRO_SERVER_SEC + INTRO_FLASH_SEC + CLOUD_HOLD_FULL_SEC - 1
+        );
       }
 
       function introTitleStartSec() {
-        return introHeadlightStartSec() + INTRO_HEADLIGHT_FLASH_SEC;
+        return (
+          INTRO_SERVER_SEC + INTRO_FLASH_SEC + CLOUD_HOLD_FULL_SEC + CLOUD_HALF_FADE_SEC
+        );
+      }
+
+      function introScreenFlashAlpha(t) {
+        const local = t - introSmokeStartSec();
+        if (local < 0 || local >= INTRO_FLASH_SEC) return 0;
+        const rise = 0.1;
+        if (local < rise) return local / rise;
+        const fade = (local - rise) / (INTRO_FLASH_SEC - rise);
+        return Math.max(0, 1 - fade);
+      }
+
+      function drawTransitionFlash(t, w, h) {
+        const alpha = introScreenFlashAlpha(t);
+        if (alpha <= 0) return;
+        ctx.save();
+        ctx.fillStyle = `rgba(255,255,255,${alpha * 0.97})`;
+        ctx.fillRect(0, 0, w, h);
+        ctx.restore();
       }
 
       function cloudAlpha(localT) {
         if (localT <= 0) return 0;
         let t = localT;
 
-        if (t < CLOUD_FADE_IN_SEC) return t / CLOUD_FADE_IN_SEC;
-        t -= CLOUD_FADE_IN_SEC;
-
-        if (t < CLOUD_HOLD_FULL_SEC) return 1;
-        t -= CLOUD_HOLD_FULL_SEC;
+        if (t < INTRO_FLASH_SEC + CLOUD_HOLD_FULL_SEC) return 1;
+        t -= INTRO_FLASH_SEC + CLOUD_HOLD_FULL_SEC;
 
         if (t < CLOUD_HALF_FADE_SEC) return 1 - (t / CLOUD_HALF_FADE_SEC) * 0.5;
         t -= CLOUD_HALF_FADE_SEC;
@@ -2490,36 +2528,77 @@
       }
 
       function capriVisibleUnderCloud(localT) {
-        return localT >= CLOUD_FADE_IN_SEC + CLOUD_HOLD_FULL_SEC;
+        return localT >= INTRO_FLASH_SEC + CLOUD_HOLD_FULL_SEC - 1;
+      }
+
+      function headlightIntensity(age) {
+        if (age < 0) return 0;
+        if (age < INTRO_HEADLIGHT_FLICKER_SEC) {
+          const ramp = age / INTRO_HEADLIGHT_FLICKER_SEC;
+          const base = 0.22 + ramp * 0.38;
+          const flicker =
+            0.1 * Math.sin(age * 19) +
+            0.07 * Math.sin(age * 31) +
+            0.05 * Math.sin(age * 53);
+          return Math.max(0.12, Math.min(0.72, base + flicker));
+        }
+        return 0.94 + 0.06 * Math.sin(age * 5);
+      }
+
+      function drawCapriPlate(w, h) {
+        const px = INTRO_PLATE.x * w;
+        const py = INTRO_PLATE.y * h;
+        const pw = INTRO_PLATE.w * w;
+        const ph = INTRO_PLATE.h * h;
+        ctx.save();
+        ctx.fillStyle = "#f4f4f4";
+        ctx.fillRect(px - pw / 2, py - ph / 2, pw, ph);
+        ctx.strokeStyle = "#1a1a1a";
+        ctx.lineWidth = Math.max(1.5, ph * 0.07);
+        ctx.strokeRect(px - pw / 2, py - ph / 2, pw, ph);
+        const fontSize = Math.round(ph * 0.58);
+        ctx.fillStyle = "#111";
+        ctx.font = `900 ${fontSize}px Impact, "Arial Black", sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("CC", px, py + ph * 0.03);
+        ctx.restore();
       }
 
       function drawHeadlightFlashes(age, w, h) {
-        const tail = Math.max(0, 1 - age / INTRO_HEADLIGHT_FLASH_SEC);
-        const pulse = Math.max(0, Math.sin(age * Math.PI * 5.5)) ** 1.6;
-        const intensity = pulse * tail;
-        if (intensity <= 0.02) return;
+        const pulse = headlightIntensity(age);
+        if (pulse <= 0) return;
 
-        ctx.save();
-        ctx.globalCompositeOperation = "screen";
+        const unit = Math.min(w, h);
+
         for (const lamp of INTRO_HEADLIGHTS) {
           const cx = lamp.x * w;
           const cy = lamp.y * h;
-          const r = lamp.r * w;
-          const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-          g.addColorStop(0, `rgba(255,255,235,${0.95 * intensity})`);
-          g.addColorStop(0.35, `rgba(255,240,160,${0.55 * intensity})`);
-          g.addColorStop(1, "rgba(255,210,90,0)");
-          ctx.fillStyle = g;
-          ctx.beginPath();
-          ctx.arc(cx, cy, r, 0, Math.PI * 2);
-          ctx.fill();
+          const r = lamp.r * unit;
 
-          ctx.fillStyle = `rgba(255,255,255,${0.85 * intensity})`;
+          ctx.save();
+          ctx.globalCompositeOperation = "lighter";
+          const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.92);
+          core.addColorStop(0, `rgba(255,255,255,${0.98 * pulse})`);
+          core.addColorStop(0.55, `rgba(255,252,220,${0.72 * pulse})`);
+          core.addColorStop(1, "rgba(255,240,160,0)");
+          ctx.fillStyle = core;
           ctx.beginPath();
-          ctx.arc(cx, cy, r * 0.18, 0, Math.PI * 2);
+          ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
           ctx.fill();
+          ctx.restore();
+
+          ctx.save();
+          ctx.globalCompositeOperation = "screen";
+          const halo = ctx.createRadialGradient(cx, cy, r * 0.35, cx, cy, r * 1.35);
+          halo.addColorStop(0, `rgba(255,255,230,${0.55 * pulse})`);
+          halo.addColorStop(1, "rgba(255,220,120,0)");
+          ctx.fillStyle = halo;
+          ctx.beginPath();
+          ctx.arc(cx, cy, r * 1.35, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
         }
-        ctx.restore();
       }
 
       function drawElectricBolt(x1, y1, x2, y2) {
@@ -2594,17 +2673,17 @@
       function drawBMovieTitle(age) {
         const w = canvas.width;
         const h = canvas.height;
-        const stampDur = 0.72;
+        const stampDur = 0.9;
         const stamp = 1 - (1 - Math.min(age / stampDur, 1)) ** 3;
-        const alpha = Math.min(age / 0.35, 1);
-        const scale = 3.4 - stamp * 2.4;
-        const yDrop = (1 - stamp) * h * 0.28;
-        const shake = Math.sin(age * 22) * (1 - stamp) * 7;
+        const alpha = Math.min(age / 0.4, 1);
+        const scale = 4.8 - stamp * 3.8;
+        const yDrop = (1 - stamp) * h * 0.32;
+        const shake = Math.sin(age * 22) * (1 - stamp) * 8;
 
         ctx.save();
         ctx.globalAlpha = alpha;
         const size = Math.round(h * 0.115);
-        const lines = ["ADVENTURES OF", "THE CRAPPY CAPRI"];
+        const lines = ["ADVENTURES OF", "CRAPPY CAPRI"];
         const baseY = h * 0.15 + yDrop + shake;
         const cx = w / 2;
 
@@ -2619,10 +2698,11 @@
         }
         ctx.restore();
 
-        const tagSize = Math.round(size * 0.4);
-        const tagY = baseY + size * 2.5 + yDrop * 0.15;
+        const tagSize = Math.round(size * 0.7);
+        const tagY = baseY + size * 2.45 + yDrop * 0.15;
         const tagStamp = Math.min(Math.max((age - 0.12) / 0.55, 0), 1);
         const tagScale = 1.8 - tagStamp * 0.8;
+        const tagLineH = tagSize * 1.14;
 
         ctx.save();
         ctx.globalAlpha = alpha * tagStamp;
@@ -2631,43 +2711,23 @@
         ctx.transform(1.05, 0, -0.12, 0.78, 0, 0);
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.font = `900 ${tagSize}px Impact, "Arial Black", sans-serif`;
         ctx.lineJoin = "round";
 
-        const part1 = "PART ONE";
-        const dash = " — ";
-        const part2 = "EV TAKEDOWN";
-        ctx.font = `900 ${tagSize}px Impact, "Arial Black", sans-serif`;
-        const w1 = ctx.measureText(part1).width;
-        ctx.font = `700 ${Math.round(tagSize * 0.82)}px "Courier New", monospace`;
-        const wDash = ctx.measureText(dash).width;
-        ctx.font = `900 ${Math.round(tagSize * 1.05)}px Impact, "Arial Black", sans-serif`;
-        const w2 = ctx.measureText(part2).width;
-        const totalW = w1 + wDash + w2;
-        let x = -totalW / 2;
+        const tagLines = [
+          { text: "PART ONE", fill: "#00e5ff", stroke: "#003344", font: `900 ${tagSize}px Impact, "Arial Black", sans-serif` },
+          { text: "Electric Takedown", fill: "#ff3b30", stroke: "#4a0000", font: `900 ${Math.round(tagSize * 0.92)}px Impact, "Arial Black", sans-serif` },
+        ];
 
-        ctx.font = `900 ${tagSize}px Impact, "Arial Black", sans-serif`;
-        ctx.lineWidth = Math.max(3, Math.round(tagSize * 0.12));
-        ctx.strokeStyle = "#003344";
-        ctx.fillStyle = "#00e5ff";
-        ctx.strokeText(part1, x + w1 / 2, 0);
-        ctx.fillText(part1, x + w1 / 2, 0);
-        x += w1;
-
-        ctx.font = `700 ${Math.round(tagSize * 0.82)}px "Courier New", monospace`;
-        ctx.strokeStyle = "#222";
-        ctx.fillStyle = "#f0f0f0";
-        ctx.lineWidth = 2;
-        ctx.strokeText(dash, x + wDash / 2, 0);
-        ctx.fillText(dash, x + wDash / 2, 0);
-        x += wDash;
-
-        ctx.font = `900 ${Math.round(tagSize * 1.05)}px Impact, "Arial Black", sans-serif`;
-        ctx.lineWidth = Math.max(4, Math.round(tagSize * 0.13));
-        ctx.strokeStyle = "#4a0000";
-        ctx.fillStyle = "#ff3b30";
-        ctx.strokeText(part2, x + w2 / 2, 0);
-        ctx.fillText(part2, x + w2 / 2, 0);
+        for (let i = 0; i < tagLines.length; i++) {
+          const line = tagLines[i];
+          const y = (i - (tagLines.length - 1) / 2) * tagLineH;
+          ctx.font = line.font;
+          ctx.lineWidth = Math.max(3, Math.round(tagSize * 0.12));
+          ctx.strokeStyle = line.stroke;
+          ctx.fillStyle = line.fill;
+          ctx.strokeText(line.text, 0, y);
+          ctx.fillText(line.text, 0, y);
+        }
 
         ctx.restore();
         ctx.restore();
@@ -2704,6 +2764,16 @@
         }
       }
 
+      function drawIntroOverlay(t, w, h, now) {
+        if (t >= introHeadlightStartSec()) {
+          drawHeadlightFlashes(t - introHeadlightStartSec(), w, h);
+        }
+        if (t >= introTitleStartSec()) {
+          drawBMovieTitle(t - introTitleStartSec());
+          drawPressFire(now);
+        }
+      }
+
       function drawIntro(now) {
         const t = introElapsedSec(now);
         const w = canvas.width;
@@ -2718,6 +2788,7 @@
           const local = t - introSmokeStartSec();
           if (capriVisibleUnderCloud(local) && introCapriImg) {
             ctx.drawImage(introCapriImg, 0, 0, w, h);
+            drawCapriPlate(w, h);
           } else if (introServerImg) {
             ctx.drawImage(introServerImg, 0, 0, w, h);
           }
@@ -2728,17 +2799,14 @@
             ctx.drawImage(introSmokeImg, 0, 0, w, h);
             ctx.restore();
           }
+          drawIntroOverlay(t, w, h, now);
         } else if (introCapriImg) {
           ctx.drawImage(introCapriImg, 0, 0, w, h);
-          if (t < introTitleStartSec()) {
-            drawHeadlightFlashes(t - introHeadlightStartSec(), w, h);
-          }
+          drawCapriPlate(w, h);
+          drawIntroOverlay(t, w, h, now);
         }
 
-        if (t >= introTitleStartSec()) {
-          drawBMovieTitle(t - introTitleStartSec());
-          drawPressFire(now);
-        }
+        drawTransitionFlash(t, w, h);
       }
 
       function setHudForPhase() {
@@ -2772,6 +2840,8 @@
         ready = true;
         statusEl.style.display = "none";
         lastFrame = 0;
+        void sfx.preloadMusic();
+        void sfx.startIntroMusic();
         syncViewportHeight();
         layoutControls();
         updateChromeHint();
@@ -2835,7 +2905,7 @@
           descEl.textContent = "Ford Capri at the top moves left. When it leaves the left edge it wraps to the right.";
           modeBadgeEl.textContent = "WRAP ←";
         } else {
-          titleEl.textContent = "Adventures Of The Crappy Capri";
+          titleEl.textContent = "Adventures Of Crappy Capri";
           descEl.textContent =
             "Hold ← or → on the stick to steer while falling, then tap ↑ to boost up and sideways. Three Zoox robotaxis patrol the decks.";
           modeBadgeEl.textContent = "DROP ↓";

@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#000000" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="assets/icon-192.png" />
-    <title>Adventures Of The Crappy Capri</title>
+    <title>Adventures Of Crappy Capri</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
@@ -334,8 +334,8 @@
   </head>
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
-    <h1 id="title">Adventures Of The Crappy Capri</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04e</p>
+    <h1 id="title">Adventures Of Crappy Capri</h1>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04f</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="active">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -892,6 +892,8 @@
         CLOUD_HOLD_SEMI_SEC +
         CLOUD_FADE_OUT_SEC;
       const INTRO_HEADLIGHT_FLICKER_SEC = 2.2;
+
+      const INTRO_PLATE = { x: 0.515, y: 0.63, w: 0.11, h: 0.062 };
 
       const INTRO_HEADLIGHTS = [
         { x: 0.415, y: 0.428, r: 0.099 },
@@ -2543,6 +2545,26 @@
         return 0.94 + 0.06 * Math.sin(age * 5);
       }
 
+      function drawCapriPlate(w, h) {
+        const px = INTRO_PLATE.x * w;
+        const py = INTRO_PLATE.y * h;
+        const pw = INTRO_PLATE.w * w;
+        const ph = INTRO_PLATE.h * h;
+        ctx.save();
+        ctx.fillStyle = "#f4f4f4";
+        ctx.fillRect(px - pw / 2, py - ph / 2, pw, ph);
+        ctx.strokeStyle = "#1a1a1a";
+        ctx.lineWidth = Math.max(1.5, ph * 0.07);
+        ctx.strokeRect(px - pw / 2, py - ph / 2, pw, ph);
+        const fontSize = Math.round(ph * 0.58);
+        ctx.fillStyle = "#111";
+        ctx.font = `900 ${fontSize}px Impact, "Arial Black", sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("CC", px, py + ph * 0.03);
+        ctx.restore();
+      }
+
       function drawHeadlightFlashes(age, w, h) {
         const pulse = headlightIntensity(age);
         if (pulse <= 0) return;
@@ -2661,7 +2683,7 @@
         ctx.save();
         ctx.globalAlpha = alpha;
         const size = Math.round(h * 0.115);
-        const lines = ["ADVENTURES OF", "THE CRAPPY CAPRI"];
+        const lines = ["ADVENTURES OF", "CRAPPY CAPRI"];
         const baseY = h * 0.15 + yDrop + shake;
         const cx = w / 2;
 
@@ -2693,7 +2715,7 @@
 
         const tagLines = [
           { text: "PART ONE", fill: "#00e5ff", stroke: "#003344", font: `900 ${tagSize}px Impact, "Arial Black", sans-serif` },
-          { text: "EV TAKEDOWN", fill: "#ff3b30", stroke: "#4a0000", font: `900 ${Math.round(tagSize * 1.05)}px Impact, "Arial Black", sans-serif` },
+          { text: "Electric Takedown", fill: "#ff3b30", stroke: "#4a0000", font: `900 ${Math.round(tagSize * 0.92)}px Impact, "Arial Black", sans-serif` },
         ];
 
         for (let i = 0; i < tagLines.length; i++) {
@@ -2766,6 +2788,7 @@
           const local = t - introSmokeStartSec();
           if (capriVisibleUnderCloud(local) && introCapriImg) {
             ctx.drawImage(introCapriImg, 0, 0, w, h);
+            drawCapriPlate(w, h);
           } else if (introServerImg) {
             ctx.drawImage(introServerImg, 0, 0, w, h);
           }
@@ -2779,6 +2802,7 @@
           drawIntroOverlay(t, w, h, now);
         } else if (introCapriImg) {
           ctx.drawImage(introCapriImg, 0, 0, w, h);
+          drawCapriPlate(w, h);
           drawIntroOverlay(t, w, h, now);
         }
 
@@ -2881,7 +2905,7 @@
           descEl.textContent = "Ford Capri at the top moves left. When it leaves the left edge it wraps to the right.";
           modeBadgeEl.textContent = "WRAP ←";
         } else {
-          titleEl.textContent = "Adventures Of The Crappy Capri";
+          titleEl.textContent = "Adventures Of Crappy Capri";
           descEl.textContent =
             "Hold ← or → on the stick to steer while falling, then tap ↑ to boost up and sideways. Three Zoox robotaxis patrol the decks.";
           modeBadgeEl.textContent = "DROP ↓";

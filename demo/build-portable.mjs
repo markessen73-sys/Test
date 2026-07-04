@@ -234,7 +234,7 @@ async function build() {
   function embedPortable(source, bakedMode) {
     const copies = {
       drop: {
-        title: "Adventures Of The Crappy Capri",
+        title: "Adventures Of Crappy Capri",
         desc:
           "Hold ← or → on the stick to steer while falling, then tap ↑ (fire) to boost up and sideways. Three Zoox robotaxis patrol the decks.",
         btnDrop: "active",
