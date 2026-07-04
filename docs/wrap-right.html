@@ -335,7 +335,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">Wrap test — exits right, re-enters left</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04f</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04g</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="active-wrap">→ Wrap right</button>
@@ -647,24 +647,39 @@
         }
 
         let musicSource = null;
+        let musicPending = false;
+
+        function unlockAudio(ac) {
+          if (!ac) return Promise.resolve(false);
+          if (ac.state === "running") return Promise.resolve(true);
+          return ac.resume().then(() => ac.state === "running");
+        }
 
         function startVegasMusic(ac) {
-          if (musicStarted || !musicBus || !vegasMusic.enabled) return Promise.resolve();
-          musicStarted = true;
+          if (!musicBus || !vegasMusic.enabled) return Promise.resolve();
+          if (musicStarted && musicSource) return Promise.resolve();
 
-          return vegasMusic.loadSample(ac).then((buf) => {
-            if (!buf || !musicBus) return;
-            if (musicSource) {
-              try {
-                musicSource.stop();
-              } catch (_) {}
-            }
-            musicSource = ac.createBufferSource();
-            musicSource.buffer = buf;
-            musicSource.loop = true;
-            musicSource.connect(musicBus);
-            musicSource.start(0);
-          });
+          return unlockAudio(ac).then((running) =>
+            vegasMusic.loadSample(ac).then((buf) => {
+              if (!buf || !musicBus) return;
+              if (!running) {
+                musicPending = true;
+                return;
+              }
+              if (musicSource) {
+                try {
+                  musicSource.stop();
+                } catch (_) {}
+              }
+              musicSource = ac.createBufferSource();
+              musicSource.buffer = buf;
+              musicSource.loop = true;
+              musicSource.connect(musicBus);
+              musicSource.start(0);
+              musicStarted = true;
+              musicPending = false;
+            }),
+          );
         }
 
         async function preloadSfx() {
@@ -678,13 +693,13 @@
 
         function preloadMusic() {
           const ac = ensure();
-          if (!ac || !vegasMusic.enabled) return;
-          void vegasMusic.loadSample(ac);
+          if (!ac || !vegasMusic.enabled) return Promise.resolve();
+          return vegasMusic.loadSample(ac);
         }
 
         function resume() {
           const ac = ensure();
-          if (ac) startVegasMusic(ac);
+          if (ac && (!musicStarted || musicPending)) void startVegasMusic(ac);
           return ac;
         }
 
@@ -860,13 +875,23 @@
       wrapEl.addEventListener(
         "touchstart",
         () => {
+          sfx.resume();
           if (isLandscapePhone()) tryImmersiveMode();
         },
         { passive: true },
       );
       wrapEl.addEventListener("click", () => {
+        sfx.resume();
         if (isLandscapePhone()) tryImmersiveMode();
       });
+
+      document.addEventListener(
+        "pointerdown",
+        () => {
+          sfx.resume();
+        },
+        { passive: true },
+      );
 
       function parseInitialMode() {
         const baked = window.__ARENA_MODE__;
@@ -892,8 +917,6 @@
         CLOUD_HOLD_SEMI_SEC +
         CLOUD_FADE_OUT_SEC;
       const INTRO_HEADLIGHT_FLICKER_SEC = 2.2;
-
-      const INTRO_PLATE = { x: 0.515, y: 0.63, w: 0.11, h: 0.062 };
 
       const INTRO_HEADLIGHTS = [
         { x: 0.415, y: 0.428, r: 0.099 },
@@ -2545,26 +2568,6 @@
         return 0.94 + 0.06 * Math.sin(age * 5);
       }
 
-      function drawCapriPlate(w, h) {
-        const px = INTRO_PLATE.x * w;
-        const py = INTRO_PLATE.y * h;
-        const pw = INTRO_PLATE.w * w;
-        const ph = INTRO_PLATE.h * h;
-        ctx.save();
-        ctx.fillStyle = "#f4f4f4";
-        ctx.fillRect(px - pw / 2, py - ph / 2, pw, ph);
-        ctx.strokeStyle = "#1a1a1a";
-        ctx.lineWidth = Math.max(1.5, ph * 0.07);
-        ctx.strokeRect(px - pw / 2, py - ph / 2, pw, ph);
-        const fontSize = Math.round(ph * 0.58);
-        ctx.fillStyle = "#111";
-        ctx.font = `900 ${fontSize}px Impact, "Arial Black", sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("CC", px, py + ph * 0.03);
-        ctx.restore();
-      }
-
       function drawHeadlightFlashes(age, w, h) {
         const pulse = headlightIntensity(age);
         if (pulse <= 0) return;
@@ -2788,7 +2791,6 @@
           const local = t - introSmokeStartSec();
           if (capriVisibleUnderCloud(local) && introCapriImg) {
             ctx.drawImage(introCapriImg, 0, 0, w, h);
-            drawCapriPlate(w, h);
           } else if (introServerImg) {
             ctx.drawImage(introServerImg, 0, 0, w, h);
           }
@@ -2802,7 +2804,6 @@
           drawIntroOverlay(t, w, h, now);
         } else if (introCapriImg) {
           ctx.drawImage(introCapriImg, 0, 0, w, h);
-          drawCapriPlate(w, h);
           drawIntroOverlay(t, w, h, now);
         }
 
@@ -2840,8 +2841,7 @@
         ready = true;
         statusEl.style.display = "none";
         lastFrame = 0;
-        void sfx.preloadMusic();
-        void sfx.startIntroMusic();
+        void sfx.preloadMusic().then(() => sfx.startIntroMusic());
         syncViewportHeight();
         layoutControls();
         updateChromeHint();
@@ -3012,6 +3012,7 @@
           return;
         }
 
+        void sfx.startIntroMusic();
         beginPlayingDirectly();
       }
 
