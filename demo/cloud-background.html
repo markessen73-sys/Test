@@ -75,7 +75,7 @@
         color: #888;
         background: rgba(0,0,0,0.92);
       }
-      #timer { top: 8px; right: 10px; }
+      #timer { display: none; }
       #mode-bar {
         display: flex;
         gap: 8px;
@@ -151,11 +151,18 @@
         padding: 0;
         -webkit-tap-highlight-color: transparent;
       }
+      #lift-btn,
+      #left-lift-btn {
+        border-color: #8a2020;
+        background: radial-gradient(circle at 35% 30%, #e84040, #a01010);
+        color: transparent;
+        font-size: 0;
+      }
       #lift-btn.pressed,
       #left-lift-btn.pressed {
-        border-color: #9df;
-        background: radial-gradient(circle at 35% 30%, #8cd, #245);
-        box-shadow: 0 2px 8px rgba(100, 200, 255, 0.35);
+        border-color: #ff6060;
+        background: radial-gradient(circle at 35% 30%, #ff7070, #c02020);
+        box-shadow: 0 2px 8px rgba(255, 60, 60, 0.45);
       }
       .thumbstick {
         position: relative;
@@ -343,13 +350,6 @@
           margin-left: -19%;
           margin-top: -19%;
         }
-        #left-lift-btn {
-          clip-path: polygon(50% 0%, 94% 44%, 70% 44%, 70% 100%, 30% 100%, 30% 44%, 6% 44%);
-          background: linear-gradient(180deg, rgba(150, 210, 255, 0.94) 0%, rgba(48, 118, 198, 0.96) 100%);
-        }
-        #left-lift-btn.pressed {
-          background: linear-gradient(180deg, rgba(190, 230, 255, 0.98) 0%, rgba(80, 150, 230, 0.98) 100%);
-        }
         #chrome-hint {
           display: block;
         }
@@ -362,7 +362,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04k</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04l</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -381,9 +381,9 @@
       </div>
       <div id="control-bar">
         <div class="control-side control-side-left">
-          <button type="button" id="left-lift-btn" class="control-btn control-landscape-only" aria-label="Fire" hidden>↑</button>
+          <button type="button" id="left-lift-btn" class="control-btn control-landscape-only" aria-label="Fire" hidden></button>
         </div>
-        <button type="button" id="lift-btn" class="control-btn control-portrait-only" aria-label="Fire">↑</button>
+        <button type="button" id="lift-btn" class="control-btn control-portrait-only" aria-label="Fire"></button>
         <div class="control-side control-side-right">
           <div id="thumbstick" class="thumbstick" role="slider" aria-label="Hold left or right" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0">
             <div class="thumbstick-track"></div>
@@ -405,6 +405,7 @@
       const BEEP_DATA_URL = "__BEEP_DATA_URL__";
       const VEGAS_MUSIC_DATA_URL = "__VEGAS_MUSIC_DATA_URL__";
       const HYPNOTIZED_MUSIC_DATA_URL = "__HYPNOTIZED_MUSIC_DATA_URL__";
+      const CAR_CRASH_DATA_URL = "__CAR_CRASH_DATA_URL__";
       const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("status");
@@ -519,6 +520,7 @@
 
         const pew = createSampleVoice(PEW_DATA_URL, "__PEW");
         const beep = createSampleVoice(BEEP_DATA_URL, "__BEEP");
+        const carCrash = createSampleVoice(CAR_CRASH_DATA_URL, "__CAR_CRASH");
         const titleMusic = createSampleVoice(HYPNOTIZED_MUSIC_DATA_URL, "__HYPNOTIZED_MUSIC");
         const vegasMusic = createSampleVoice(VEGAS_MUSIC_DATA_URL, "__VEGAS_MUSIC");
 
@@ -790,10 +792,7 @@
           playKerchingSynth(ac, now);
         }
 
-        function playCrash() {
-          const ac = ensure();
-          if (!ac) return;
-          const now = ac.currentTime;
+        function playCrashSynth(ac, now) {
           const bus = outBus(ac);
           const dur = 1.05;
 
@@ -838,12 +837,24 @@
           thump.stop(now + 0.52);
         }
 
+        function playCrash() {
+          const ac = resume();
+          if (!ac) return;
+          const now = ac.currentTime;
+          if (carCrash.enabled) {
+            carCrash.play(ac, now, 0.95, false, () => playCrashSynth(ac, now));
+            return;
+          }
+          playCrashSynth(ac, now);
+        }
+
         async function preloadSfx() {
           const ac = ensure();
           if (!ac) return;
           const loads = [];
           if (pew.enabled) loads.push(pew.loadSample(ac));
           if (beep.enabled) loads.push(beep.loadSample(ac));
+          if (carCrash.enabled) loads.push(carCrash.loadSample(ac));
           await Promise.all(loads);
         }
 
@@ -2722,6 +2733,47 @@
         return INTRO_SERVER_SEC;
       }
 
+      function introCrashStartSec() {
+        return introSmokeStartSec() - 0.5;
+      }
+
+      const LEVEL_BANNER_SEC = 1;
+      let levelBannerT0 = 0;
+
+      function showLevelBanner() {
+        levelBannerT0 = performance.now();
+      }
+
+      function drawLevelBanner(now) {
+        if (!levelBannerT0) return;
+        const elapsed = (now - levelBannerT0) / 1000;
+        if (elapsed >= LEVEL_BANNER_SEC) {
+          levelBannerT0 = 0;
+          return;
+        }
+        const alpha = 1 - elapsed / LEVEL_BANNER_SEC;
+        const w = canvas.width;
+        const h = canvas.height;
+        const size = Math.round(h * 0.055);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `bold ${size}px "Courier New", Courier, monospace`;
+        ctx.lineWidth = Math.max(3, Math.round(size * 0.12));
+        ctx.strokeStyle = "rgba(0,0,0,0.85)";
+        ctx.fillStyle = "#fff";
+        const y = h * 0.5;
+        const gap = size * 1.15;
+        const lines = ["LEVEL ONE", "ZOOX TAXIS"];
+        for (let i = 0; i < lines.length; i++) {
+          const ly = y + (i - 0.5) * gap;
+          ctx.strokeText(lines[i], w / 2, ly);
+          ctx.fillText(lines[i], w / 2, ly);
+        }
+        ctx.restore();
+      }
+
       function introSmokeEndSec() {
         return INTRO_SERVER_SEC + INTRO_CLOUD_TOTAL_SEC;
       }
@@ -2980,7 +3032,7 @@
 
       function updateIntro(now) {
         const t = introElapsedSec(now);
-        if (t >= introSmokeStartSec() && !introCrashPlayed) {
+        if (t >= introCrashStartSec() && !introCrashPlayed) {
           introCrashPlayed = true;
           sfx.playCrash();
         }
@@ -3035,7 +3087,7 @@
 
       function setHudForPhase() {
         const playing = gamePhase === "playing";
-        timerEl.style.display = playing ? "" : "none";
+        timerEl.style.display = "none";
         modeBadgeEl.style.display = playing ? "" : "none";
       }
 
@@ -3047,6 +3099,7 @@
         applyModeCopy();
         ball = createBall();
         resetBall();
+        if (!isWrap()) showLevelBanner();
         lastFrame = 0;
         drawFrame();
       }
@@ -3079,6 +3132,7 @@
         thumbstickEl.classList.remove("is-disabled");
         ball = createBall();
         resetBall();
+        if (!isWrap()) showLevelBanner();
         ready = true;
         statusEl.style.display = "none";
         lastFrame = 0;
@@ -3109,6 +3163,7 @@
         frameCarPixels = activeCarBundle().pixels;
         step(dt);
         drawFrame();
+        drawLevelBanner(now);
         frameCarPixels = null;
         requestAnimationFrame(tick);
       }

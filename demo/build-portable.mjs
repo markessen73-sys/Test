@@ -269,6 +269,16 @@ async function build() {
     console.log("Title music: none found (hypnotized)");
   }
 
+  let carCrashDataUrl = "";
+  const carCrashPath = findAudioByNamePart("car_crash");
+  if (carCrashPath) {
+    carCrashDataUrl = copyAudioAsset(carCrashPath, "car-crash.mp3");
+    copyFileSync(carCrashPath, "/workspace/demo/assets/car-crash.mp3");
+    console.log(`Car crash SFX: ${carCrashDataUrl} (${readFileSync(carCrashPath).length} bytes)`);
+  } else {
+    console.log("Car crash SFX: none found (procedural fallback)");
+  }
+
   let html = readFileSync("/workspace/demo/cloud-background.html", "utf8");
 
   function embedPortable(source, bakedMode) {
@@ -312,6 +322,7 @@ async function build() {
       .replace("__BEEP_DATA_URL__", beepDataUrl)
       .replace("__VEGAS_MUSIC_DATA_URL__", vegasMusicDataUrl)
       .replace("__HYPNOTIZED_MUSIC_DATA_URL__", hypnotizedMusicDataUrl)
+      .replace("__CAR_CRASH_DATA_URL__", carCrashDataUrl)
       .replace("__BAKED_MODE__", bakedMode)
       .replace("__TITLE_TEXT__", copy.title)
       .replace("__DESC_TEXT__", copy.desc)
