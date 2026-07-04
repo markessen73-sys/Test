@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zk</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zl</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1380,7 +1380,6 @@
       let level2Background = null;
       let level2Solid = null;
       let level2Cones = [];
-      let level2Track = [];
       let level1Arena = null;
       let backdrop = null;
       let solid = null;
@@ -1636,24 +1635,6 @@
           pos += n;
         }
         return solid;
-      }
-
-      function decodeTrack(b64) {
-        if (!b64) return [];
-        const bin = atob(b64);
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        const view = new Int16Array(bytes.buffer);
-        if (view.length < 2) return [];
-        const out = [{ x: view[0], y: view[1] }];
-        let x = view[0];
-        let y = view[1];
-        for (let i = 2; i < view.length; i += 2) {
-          x += view[i];
-          y += view[i + 1];
-          out.push({ x, y });
-        }
-        return out;
       }
 
       async function loadLevel2SolidMask() {
@@ -2502,20 +2483,6 @@
             }
           }
         }
-      }
-
-      function drawLevel2Track() {
-        if (!level2Track.length) return;
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 3;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.beginPath();
-        ctx.moveTo(level2Track[0].x, level2Track[0].y);
-        for (let i = 1; i < level2Track.length; i++) {
-          ctx.lineTo(level2Track[i].x, level2Track[i].y);
-        }
-        ctx.stroke();
       }
 
       function drawLevel2CollectedPatches() {
@@ -3644,7 +3611,6 @@
           if (background) ctx.drawImage(background, 0, 0, W, H);
         } else if (currentLevel === 2 && level2Background) {
           ctx.drawImage(level2Background, 0, 0, W, H);
-          drawLevel2Track();
           drawLevel2CollectedPatches();
         }
 
@@ -4333,7 +4299,6 @@
         background = backgroundResult;
         level2Background = level2BackgroundResult;
         level2Solid = await loadLevel2SolidMask();
-        level2Track = decodeTrack(LEVEL2_ARENA?.track);
         if (!background) throw new Error("Background image missing");
 
         W = background.naturalWidth;
