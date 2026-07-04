@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zt</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zu</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1438,6 +1438,7 @@
       const LEVEL2_FIREBALL_SPEED = 420;
       const LEVEL2_FIREBALL_R = 8;
       const LEVEL2_FIRE_COOLDOWN = 0.32;
+      const LEVEL2_WALL_CLEARANCE = 2;
       const BALL_R = 14;
       const CAR_W = BALL_R * 8;
       const CAR_H = BALL_R * 4;
@@ -1683,8 +1684,8 @@
       }
 
       function defaultLevel2BusMovePixels() {
-        const hw = Math.floor(LEVEL2_CAR_HW - 1);
-        const hh = Math.floor(LEVEL2_CAR_HH - 1);
+        const hw = Math.floor(LEVEL2_CAR_HW - LEVEL2_WALL_CLEARANCE);
+        const hh = Math.floor(LEVEL2_CAR_HH - LEVEL2_WALL_CLEARANCE);
         const pixels = [];
         for (let y = -hh; y <= hh; y++) {
           for (let x = -hw; x <= hw; x++) pixels.push([x, y]);
@@ -2264,8 +2265,8 @@
         level2CarSide = makeSprite(drawCapriSideTop);
         level2PixelsSide = extractCarPixels(level2CarSide);
         level2WallPixelsSide = shrinkCarPixels(level2PixelsSide, 5, 2);
-        level2MovePixels = level2PixelsFront.slice();
-        if (!level2MovePixels.length) level2MovePixels = level2PixelsFront;
+        level2MovePixels = shrinkCarPixels(level2PixelsFront, LEVEL2_WALL_CLEARANCE, LEVEL2_WALL_CLEARANCE);
+        if (!level2MovePixels.length) level2MovePixels = level2PixelsFront.slice();
       }
 
       function level2CarBundle() {
@@ -2589,11 +2590,17 @@
         }
       }
 
+      function snapCardinalDirection(dx, dy) {
+        if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return { x: 0, y: 1 };
+        if (Math.abs(dx) >= Math.abs(dy)) return { x: dx < 0 ? -1 : 1, y: 0 };
+        return { x: 0, y: dy < 0 ? -1 : 1 };
+      }
+
       function level2FireDirection() {
         const moveMag = Math.hypot(ball.vx, ball.vy);
-        if (moveMag > 20) return { x: ball.vx / moveMag, y: ball.vy / moveMag };
+        if (moveMag > 20) return snapCardinalDirection(ball.vx, ball.vy);
         const stickMag = Math.hypot(stickNormX, stickNormY);
-        if (stickMag >= LEVEL2_STICK_DEAD) return { x: stickNormX / stickMag, y: stickNormY / stickMag };
+        if (stickMag >= LEVEL2_STICK_DEAD) return snapCardinalDirection(stickNormX, stickNormY);
         if (ball.level2Facing === "side") return { x: 1, y: 0 };
         if (ball.level2Facing === "rear") return { x: 0, y: -1 };
         return { x: 0, y: 1 };

@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { writeFile } from "node:fs/promises";
 
+export const LEVEL2_WALL_CLEARANCE = 2;
 export const LEVEL2_WALKABLE_MAX = 24;
 
 export function isWalkablePixel(r, g, b, a = 255) {
@@ -57,8 +58,6 @@ export async function buildLevel2Data(imagePath) {
       if (isSolidPixel(r, g, b, a)) solid[y * width + x] = 1;
     }
   }
-
-  solid.set(erodeSolid(solid, width, height, 1));
 
   const cones = [];
   let spawn = null;
@@ -169,7 +168,7 @@ export async function buildBusPixels(pngPath) {
       if (a > 32) full.push([Math.round(x - cx), Math.round(y - cy)]);
     }
   }
-  const move = shrinkPixels(full, 0, 0);
+  const move = shrinkPixels(full, LEVEL2_WALL_CLEARANCE, LEVEL2_WALL_CLEARANCE);
   return { full, move: move.length ? move : full };
 }
 
