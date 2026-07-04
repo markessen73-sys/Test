@@ -335,7 +335,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04b</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04c</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -880,18 +880,18 @@
       const INTRO_SMOKE_URL = "assets/intro-smoke.png";
       const INTRO_CAPRI_URL = "assets/intro-capri.png";
       const INTRO_SERVER_SEC = 3;
-      const CLOUD_FADE_IN_SEC = 2;
-      const CLOUD_HOLD_FULL_SEC = 2;
+      const INTRO_FLASH_SEC = 0.45;
+      const CLOUD_HOLD_FULL_SEC = 3;
       const CLOUD_HALF_FADE_SEC = 2;
       const CLOUD_HOLD_SEMI_SEC = 2;
       const CLOUD_FADE_OUT_SEC = 2;
       const INTRO_CLOUD_TOTAL_SEC =
-        CLOUD_FADE_IN_SEC +
+        INTRO_FLASH_SEC +
         CLOUD_HOLD_FULL_SEC +
         CLOUD_HALF_FADE_SEC +
         CLOUD_HOLD_SEMI_SEC +
         CLOUD_FADE_OUT_SEC;
-      const INTRO_HEADLIGHT_FLICKER_SEC = 1.6;
+      const INTRO_HEADLIGHT_FLICKER_SEC = 2.2;
 
       const INTRO_HEADLIGHTS = [
         { x: 0.415, y: 0.428, r: 0.099 },
@@ -2479,20 +2479,23 @@
       }
 
       function introHeadlightStartSec() {
-        return INTRO_SERVER_SEC + CLOUD_FADE_IN_SEC + CLOUD_HOLD_FULL_SEC;
+        return (
+          INTRO_SERVER_SEC + INTRO_FLASH_SEC + CLOUD_HOLD_FULL_SEC - 1
+        );
       }
 
       function introTitleStartSec() {
         return (
-          INTRO_SERVER_SEC + CLOUD_FADE_IN_SEC + CLOUD_HOLD_FULL_SEC + CLOUD_HALF_FADE_SEC
+          INTRO_SERVER_SEC + INTRO_FLASH_SEC + CLOUD_HOLD_FULL_SEC + CLOUD_HALF_FADE_SEC
         );
       }
 
       function introScreenFlashAlpha(t) {
         const local = t - introSmokeStartSec();
-        if (local < 0 || local >= CLOUD_FADE_IN_SEC) return 0;
-        const smokeIn = cloudAlpha(local);
-        return (1 - smokeIn) * 0.97;
+        if (local < 0 || local >= INTRO_FLASH_SEC) return 0;
+        const peak = 0.12;
+        if (local < peak) return local / peak;
+        return 1 - (local - peak) / (INTRO_FLASH_SEC - peak);
       }
 
       function drawTransitionFlash(t, w, h) {
@@ -2508,8 +2511,8 @@
         if (localT <= 0) return 0;
         let t = localT;
 
-        if (t < CLOUD_FADE_IN_SEC) return t / CLOUD_FADE_IN_SEC;
-        t -= CLOUD_FADE_IN_SEC;
+        if (t < INTRO_FLASH_SEC) return 0;
+        t -= INTRO_FLASH_SEC;
 
         if (t < CLOUD_HOLD_FULL_SEC) return 1;
         t -= CLOUD_HOLD_FULL_SEC;
@@ -2525,15 +2528,19 @@
       }
 
       function capriVisibleUnderCloud(localT) {
-        return localT >= CLOUD_FADE_IN_SEC + CLOUD_HOLD_FULL_SEC;
+        return localT >= INTRO_FLASH_SEC + CLOUD_HOLD_FULL_SEC - 1;
       }
 
       function headlightIntensity(age) {
         if (age < 0) return 0;
         if (age < INTRO_HEADLIGHT_FLICKER_SEC) {
-          const period = 0.2;
-          if (Math.floor(age / period) % 2 === 1) return 0;
-          return 0.5 + 0.5 * (0.5 + 0.5 * Math.sin(age * 38));
+          const ramp = age / INTRO_HEADLIGHT_FLICKER_SEC;
+          const base = 0.22 + ramp * 0.38;
+          const flicker =
+            0.1 * Math.sin(age * 19) +
+            0.07 * Math.sin(age * 31) +
+            0.05 * Math.sin(age * 53);
+          return Math.max(0.12, Math.min(0.72, base + flicker));
         }
         return 0.94 + 0.06 * Math.sin(age * 5);
       }
@@ -2671,10 +2678,11 @@
         }
         ctx.restore();
 
-        const tagSize = Math.round(size * 0.55);
-        const tagY = baseY + size * 2.5 + yDrop * 0.15;
+        const tagSize = Math.round(size * 0.7);
+        const tagY = baseY + size * 2.45 + yDrop * 0.15;
         const tagStamp = Math.min(Math.max((age - 0.12) / 0.55, 0), 1);
         const tagScale = 1.8 - tagStamp * 0.8;
+        const tagLineH = tagSize * 1.14;
 
         ctx.save();
         ctx.globalAlpha = alpha * tagStamp;
@@ -2683,43 +2691,23 @@
         ctx.transform(1.05, 0, -0.12, 0.78, 0, 0);
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.font = `900 ${tagSize}px Impact, "Arial Black", sans-serif`;
         ctx.lineJoin = "round";
 
-        const part1 = "PART ONE";
-        const dash = " — ";
-        const part2 = "EV TAKEDOWN";
-        ctx.font = `900 ${tagSize}px Impact, "Arial Black", sans-serif`;
-        const w1 = ctx.measureText(part1).width;
-        ctx.font = `700 ${Math.round(tagSize * 0.82)}px "Courier New", monospace`;
-        const wDash = ctx.measureText(dash).width;
-        ctx.font = `900 ${Math.round(tagSize * 1.05)}px Impact, "Arial Black", sans-serif`;
-        const w2 = ctx.measureText(part2).width;
-        const totalW = w1 + wDash + w2;
-        let x = -totalW / 2;
+        const tagLines = [
+          { text: "PART ONE", fill: "#00e5ff", stroke: "#003344", font: `900 ${tagSize}px Impact, "Arial Black", sans-serif` },
+          { text: "EV TAKEDOWN", fill: "#ff3b30", stroke: "#4a0000", font: `900 ${Math.round(tagSize * 1.05)}px Impact, "Arial Black", sans-serif` },
+        ];
 
-        ctx.font = `900 ${tagSize}px Impact, "Arial Black", sans-serif`;
-        ctx.lineWidth = Math.max(3, Math.round(tagSize * 0.12));
-        ctx.strokeStyle = "#003344";
-        ctx.fillStyle = "#00e5ff";
-        ctx.strokeText(part1, x + w1 / 2, 0);
-        ctx.fillText(part1, x + w1 / 2, 0);
-        x += w1;
-
-        ctx.font = `700 ${Math.round(tagSize * 0.82)}px "Courier New", monospace`;
-        ctx.strokeStyle = "#222";
-        ctx.fillStyle = "#f0f0f0";
-        ctx.lineWidth = 2;
-        ctx.strokeText(dash, x + wDash / 2, 0);
-        ctx.fillText(dash, x + wDash / 2, 0);
-        x += wDash;
-
-        ctx.font = `900 ${Math.round(tagSize * 1.05)}px Impact, "Arial Black", sans-serif`;
-        ctx.lineWidth = Math.max(4, Math.round(tagSize * 0.13));
-        ctx.strokeStyle = "#4a0000";
-        ctx.fillStyle = "#ff3b30";
-        ctx.strokeText(part2, x + w2 / 2, 0);
-        ctx.fillText(part2, x + w2 / 2, 0);
+        for (let i = 0; i < tagLines.length; i++) {
+          const line = tagLines[i];
+          const y = (i - (tagLines.length - 1) / 2) * tagLineH;
+          ctx.font = line.font;
+          ctx.lineWidth = Math.max(3, Math.round(tagSize * 0.12));
+          ctx.strokeStyle = line.stroke;
+          ctx.fillStyle = line.fill;
+          ctx.strokeText(line.text, 0, y);
+          ctx.fillText(line.text, 0, y);
+        }
 
         ctx.restore();
         ctx.restore();
