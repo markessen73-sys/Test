@@ -282,39 +282,7 @@ async function build() {
 
   let html = readFileSync(join(DEMO, "cloud-background.html"), "utf8");
 
-  function embedPortable(source, bakedMode) {
-    const copies = {
-      drop: {
-        title: "Adventures Of Crappy Capri",
-        desc:
-          "Hold ← or → on the stick to steer while falling, then tap ↑ (fire) to boost up and sideways. Three Zoox robotaxis patrol the decks.",
-        btnDrop: "active",
-        btnWrapRight: "",
-        btnWrapLeft: "",
-        badgeClass: "",
-        badgeText: "DROP ↓",
-      },
-      "wrap-right": {
-        title: "Wrap test — exits right, re-enters left",
-        desc: "Single red ball at the top moves right. When it leaves the right edge it wraps to the left.",
-        btnDrop: "",
-        btnWrapRight: "active-wrap",
-        btnWrapLeft: "",
-        badgeClass: "",
-        badgeText: "WRAP →",
-      },
-      "wrap-left": {
-        title: "Wrap test — exits left, re-enters right",
-        desc: "Single red ball at the top moves left. When it leaves the left edge it wraps to the right.",
-        btnDrop: "",
-        btnWrapRight: "",
-        btnWrapLeft: "active-wrap",
-        badgeClass: "",
-        badgeText: "WRAP ←",
-      },
-    };
-    const copy = copies[bakedMode];
-
+  function embedPortable(source) {
     return source
       .replace("__SOLID_SEGMENTS__", JSON.stringify(segments))
       .replace("__BG_DATA_URL__", bgDataUrl)
@@ -324,19 +292,16 @@ async function build() {
       .replace("__VEGAS_MUSIC_DATA_URL__", vegasMusicDataUrl)
       .replace("__HYPNOTIZED_MUSIC_DATA_URL__", hypnotizedMusicDataUrl)
       .replace("__CAR_CRASH_DATA_URL__", carCrashDataUrl)
-      .replace("__BAKED_MODE__", bakedMode)
-      .replace("__TITLE_TEXT__", copy.title)
-      .replace("__DESC_TEXT__", copy.desc)
-      .replace("__BTN_DROP_CLASS__", copy.btnDrop)
-      .replace("__BTN_WRAP_RIGHT_CLASS__", copy.btnWrapRight)
-      .replace("__BTN_WRAP_LEFT_CLASS__", copy.btnWrapLeft)
-      .replace("__BADGE_CLASS__", copy.badgeClass)
-      .replace("__BADGE_TEXT__", copy.badgeText);
+      .replace("__BAKED_MODE__", "drop")
+      .replace("__TITLE_TEXT__", "Adventures Of Crappy Capri")
+      .replace(
+        "__DESC_TEXT__",
+        "Hold ← or → on the stick to steer while falling, then tap fire to boost up and sideways. Three Zoox robotaxis patrol the decks. You have three lives.",
+      )
+      .replace("__BADGE_TEXT__", "");
   }
 
-  await writeFile(`${OUT}/index.html`, embedPortable(html, "drop"));
-  await writeFile(`${OUT}/wrap-right.html`, embedPortable(html, "wrap-right"));
-  await writeFile(`${OUT}/wrap-left.html`, embedPortable(html, "wrap-left"));
+  await writeFile(`${OUT}/index.html`, embedPortable(html));
   await writeFile(`${OUT}/.nojekyll`, "");
   console.log(
     `Portable build: ${width}x${height}, solid ${solidCount} px (${((100 * solidCount) / (width * height)).toFixed(1)}%)`,
