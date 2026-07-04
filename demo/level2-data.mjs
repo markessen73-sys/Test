@@ -1,0 +1,113 @@
+import sharp from "sharp";
+import { writeFile } from "node:fs/promises";
+
+function isConePixel(r, g, b) {
+  return r > 170 && g > 70 && g < 210 && b < 90;
+}
+
+function isPathPixel(r, g, b) {
+  return r < 55 && g < 55 && b < 55;
+}
+
+export async function buildLevel2Data(imagePath) {
+  const { data, info } = await sharp(imagePath).raw().toBuffer({ resolveWithObject: true });
+  const { width, height, channels } = info;
+  const solid = new Uint8Array(width * height);
+  const coneMask = new Uint8Array(width * height);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * channels;
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const pi = y * width + x;
+      if (isConePixel(r, g, b)) {
+        coneMask[pi] = 1;
+      } else if (!isPathPixel(r, g, b)) {
+        solid[pi] = 1;
+      }
+    }
+  }
+
+  // Slightly thicken walls so the car cannot clip brick edges.
+  const dilated = solid.slice();
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const pi = y * width + x;
+      if (!solid[pi]) continue;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          dilated[(y + dy) * width + (x + dx)] = 1;
+        }
+      }
+    }
+  }
+
+  const visited = new Uint8Array(width * height);
+  const cones = [];
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const start = y * width + x;
+      if (!coneMask[start] || visited[start]) continue;
+      const queue = [[x, y]];
+      visited[start] = 1;
+      let sx = 0;
+      let sy = 0;
+      let n = 0;
+      while (queue.length) {
+        const [cx, cy] = queue.pop();
+        sx += cx;
+        sy += cy;
+        n++;
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const nx = cx + dx;
+          const ny = cy + dy;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+          const ni = ny * width + nx;
+          if (!coneMask[ni] || visited[ni]) continue;
+          visited[ni] = 1;
+          queue.push([nx, ny]);
+        }
+      }
+      if (n > 20) cones.push({ x: Math.round(sx / n), y: Math.round(sy / n) });
+    }
+  }
+
+  let spawn = null;
+  for (let y = height - 20; y > height - 220; y--) {
+    for (let x = Math.floor(width * 0.48); x < Math.floor(width * 0.52); x++) {
+      if (!dilated[y * width + x]) {
+        spawn = { x, y };
+        break;
+      }
+    }
+    if (spawn) break;
+  }
+  if (!spawn) spawn = { x: Math.floor(width / 2), y: height - 40 };
+
+  return {
+    width,
+    height,
+    solid: dilated,
+    cones,
+    spawn,
+    coneCount: cones.length,
+    solidPct: ((dilated.reduce((a, b) => a + b, 0) / (width * height)) * 100).toFixed(1),
+  };
+}
+
+export async function writeLevel2Assets(data, assetsDir) {
+  await writeFile(`${assetsDir}/level2-solid.bin`, data.solid);
+  return {
+    width: data.width,
+    height: data.height,
+    spawn: data.spawn,
+    cones: data.cones,
+  };
+}

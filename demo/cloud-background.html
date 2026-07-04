@@ -393,7 +393,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04s</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04t</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -426,6 +426,7 @@
       const WRAP_SPEED = 360;
       const DEBUG_GREEN_BG = false;
       const SOLID_SEGMENTS = __SOLID_SEGMENTS__;
+      const LEVEL2_ARENA = __LEVEL2_ARENA__;
       const BG_DATA_URL = "__BG_DATA_URL__";
       const BACKDROP_DATA_URL = "__BACKDROP_DATA_URL__";
       const PEW_DATA_URL = "__PEW_DATA_URL__";
@@ -988,8 +989,14 @@
           return vegasMusic.loadSample(ac);
         }
 
+        function preloadLevelTwoMusic() {
+          const ac = ensure();
+          if (!ac || !levelTwoMusic.enabled) return Promise.resolve();
+          return levelTwoMusic.loadSample(ac);
+        }
+
         function preloadMusic() {
-          return Promise.all([preloadTitleMusic(), preloadVegasMusic()]);
+          return Promise.all([preloadTitleMusic(), preloadVegasMusic(), preloadLevelTwoMusic()]);
         }
 
         function resume() {
@@ -1006,6 +1013,7 @@
           preloadMusic,
           preloadTitleMusic,
           preloadVegasMusic,
+          preloadLevelTwoMusic,
           beginTitleScreens,
           unlockTitleMusic,
           unlockTitleMusicFromGesture,
@@ -1309,6 +1317,9 @@
       let accelX = 512;
       let background = null;
       let level2Background = null;
+      let level2Solid = null;
+      let level2Cones = [];
+      let level1Arena = null;
       let backdrop = null;
       let solid = null;
       let zooxSolid = null;
@@ -1316,6 +1327,14 @@
       let ready = false;
       let fallElapsed = 0;
 
+      const LEVEL2_CAR_W = 30;
+      const LEVEL2_CAR_H = 48;
+      const LEVEL2_CAR_HW = LEVEL2_CAR_W / 2;
+      const LEVEL2_CAR_HH = LEVEL2_CAR_H / 2;
+      const LEVEL2_CRUISE_SPEED = 220;
+      const LEVEL2_BOOST = 180;
+      const LEVEL2_CONE_RADIUS = 20;
+      const LEVEL2_BANNER_HOLD_SEC = 1.5;
       const BALL_R = 14;
       const CAR_W = BALL_R * 8;
       const CAR_H = BALL_R * 4;
@@ -1350,6 +1369,12 @@
       let carSpriteRight = null;
       let carPixelsLeft = [];
       let carPixelsRight = [];
+      let level2CarFront = null;
+      let level2CarRear = null;
+      let level2CarSide = null;
+      let level2PixelsFront = [];
+      let level2PixelsRear = [];
+      let level2PixelsSide = [];
       let zooxSpriteLeft = null;
       let zooxSpriteRight = null;
       let zooxPixelsLeft = [];
@@ -1509,6 +1534,7 @@
           wrapCount: 0,
           alive: true,
           hitCooldown: 0,
+          level2Facing: "front",
         };
       }
 
@@ -1915,6 +1941,241 @@
         carPixelsRight = carPixelsLeft.map(([dx, dy]) => [-dx, dy]);
       }
 
+      function drawCapriFront(ctx, w, h) {
+        ctx.clearRect(0, 0, w, h);
+        const blue = "#6eb8e4";
+        const blueHi = "#a8d8f6";
+        const blueLo = "#3f8fbe";
+        const glass = "#243848";
+        const chrome = "#d8dde6";
+        const cx = w / 2;
+        const bottom = h - 2;
+        const bodyGrad = ctx.createLinearGradient(0, 8, 0, bottom);
+        bodyGrad.addColorStop(0, blueHi);
+        bodyGrad.addColorStop(1, blueLo);
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.moveTo(cx - 10, bottom - 4);
+        ctx.lineTo(cx - 7, bottom - 18);
+        ctx.lineTo(cx - 4, bottom - 30);
+        ctx.lineTo(cx + 4, bottom - 30);
+        ctx.lineTo(cx + 7, bottom - 18);
+        ctx.lineTo(cx + 10, bottom - 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = glass;
+        ctx.beginPath();
+        ctx.moveTo(cx - 5, bottom - 28);
+        ctx.lineTo(cx + 5, bottom - 28);
+        ctx.lineTo(cx + 3, bottom - 18);
+        ctx.lineTo(cx - 3, bottom - 18);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = chrome;
+        ctx.fillRect(cx - 8, bottom - 8, 16, 2);
+        ctx.fillStyle = "#f0f4fa";
+        ctx.fillRect(cx - 7, bottom - 6, 3, 2);
+        ctx.fillRect(cx + 4, bottom - 6, 3, 2);
+        ctx.fillStyle = "#e07820";
+        ctx.fillRect(cx - 6, bottom - 12, 2, 2);
+        ctx.fillRect(cx + 4, bottom - 12, 2, 2);
+      }
+
+      function drawCapriRear(ctx, w, h) {
+        ctx.clearRect(0, 0, w, h);
+        const blue = "#5aa8d4";
+        const blueLo = "#2f6f98";
+        const glass = "#1a2830";
+        const cx = w / 2;
+        const bottom = h - 2;
+        ctx.fillStyle = blue;
+        ctx.beginPath();
+        ctx.moveTo(cx - 10, bottom - 4);
+        ctx.lineTo(cx - 7, bottom - 16);
+        ctx.lineTo(cx - 4, bottom - 26);
+        ctx.lineTo(cx + 4, bottom - 26);
+        ctx.lineTo(cx + 7, bottom - 16);
+        ctx.lineTo(cx + 10, bottom - 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = glass;
+        ctx.beginPath();
+        ctx.moveTo(cx - 4, bottom - 24);
+        ctx.lineTo(cx + 4, bottom - 24);
+        ctx.lineTo(cx + 3, bottom - 16);
+        ctx.lineTo(cx - 3, bottom - 16);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = blueLo;
+        ctx.fillRect(cx - 9, bottom - 6, 18, 3);
+        ctx.fillStyle = "#c01818";
+        ctx.fillRect(cx - 6, bottom - 10, 3, 2);
+        ctx.fillRect(cx + 3, bottom - 10, 3, 2);
+        ctx.fillStyle = "#141416";
+        ctx.fillRect(cx - 2, bottom - 4, 4, 2);
+      }
+
+      function drawCapriSideTop(ctx, w, h) {
+        ctx.clearRect(0, 0, w, h);
+        const blue = "#6eb8e4";
+        const blueLo = "#3f8fbe";
+        const glass = "#243848";
+        const bottom = h - 2;
+        ctx.fillStyle = blue;
+        ctx.beginPath();
+        ctx.moveTo(4, bottom - 6);
+        ctx.lineTo(w - 4, bottom - 6);
+        ctx.lineTo(w - 6, bottom - 20);
+        ctx.lineTo(6, bottom - 22);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = glass;
+        ctx.fillRect(10, bottom - 21, w - 20, 6);
+        ctx.fillStyle = blueLo;
+        ctx.fillRect(2, bottom - 8, w - 4, 3);
+        ctx.fillStyle = "#080808";
+        ctx.beginPath();
+        ctx.ellipse(10, bottom - 1, 5, 4, 0, 0, Math.PI * 2);
+        ctx.ellipse(w - 10, bottom - 1, 5, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function buildLevel2Capri() {
+        const front = document.createElement("canvas");
+        front.width = LEVEL2_CAR_W;
+        front.height = LEVEL2_CAR_H;
+        drawCapriFront(front.getContext("2d"), LEVEL2_CAR_W, LEVEL2_CAR_H);
+        level2CarFront = front;
+        level2PixelsFront = extractCarPixels(front);
+
+        const rear = document.createElement("canvas");
+        rear.width = LEVEL2_CAR_W;
+        rear.height = LEVEL2_CAR_H;
+        drawCapriRear(rear.getContext("2d"), LEVEL2_CAR_W, LEVEL2_CAR_H);
+        level2CarRear = rear;
+        level2PixelsRear = extractCarPixels(rear);
+
+        const side = document.createElement("canvas");
+        side.width = LEVEL2_CAR_W;
+        side.height = LEVEL2_CAR_H;
+        drawCapriSideTop(side.getContext("2d"), LEVEL2_CAR_W, LEVEL2_CAR_H);
+        level2CarSide = side;
+        level2PixelsSide = extractCarPixels(side);
+      }
+
+      function saveLevelOneArena() {
+        level1Arena = {
+          W,
+          H,
+          solid,
+          zooxSolid,
+          dropX,
+          dropY,
+        };
+      }
+
+      function enterLevelTwoArena() {
+        if (!level2Solid || !LEVEL2_ARENA?.width) return;
+        W = LEVEL2_ARENA.width;
+        H = LEVEL2_ARENA.height;
+        solid = level2Solid;
+        canvas.width = W;
+        canvas.height = H;
+        level2Cones = LEVEL2_ARENA.cones.map((cone, id) => ({
+          x: cone.x,
+          y: cone.y,
+          id,
+          collected: false,
+        }));
+        dropX = LEVEL2_ARENA.spawn.x;
+        dropY = LEVEL2_ARENA.spawn.y;
+      }
+
+      function restoreLevelOneArena() {
+        if (!level1Arena) return;
+        W = level1Arena.W;
+        H = level1Arena.H;
+        solid = level1Arena.solid;
+        zooxSolid = level1Arena.zooxSolid;
+        dropX = level1Arena.dropX;
+        dropY = level1Arena.dropY;
+        canvas.width = W;
+        canvas.height = H;
+        level2Cones = [];
+      }
+
+      function syncTickClock() {
+        lastFrame = performance.now();
+      }
+
+      function level2CarBundle() {
+        const facing = ball?.level2Facing || "front";
+        if (facing === "rear") {
+          return { sprite: level2CarRear, pixels: level2PixelsRear, w: LEVEL2_CAR_W, h: LEVEL2_CAR_H };
+        }
+        if (facing === "side") {
+          return { sprite: level2CarSide, pixels: level2PixelsSide, w: LEVEL2_CAR_W, h: LEVEL2_CAR_H };
+        }
+        return { sprite: level2CarFront, pixels: level2PixelsFront, w: LEVEL2_CAR_W, h: LEVEL2_CAR_H };
+      }
+
+      function level2ProbeAhead(dx, dy) {
+        const { pixels } = level2CarBundle();
+        const probeX = ball.x + dx;
+        const probeY = ball.y + dy;
+        return !vehicleOverlapsSolidAt(probeX, probeY, pixels, solidAt);
+      }
+
+      function level2DesiredMotion() {
+        const speed = LEVEL2_CRUISE_SPEED;
+        if (stickDir < 0) {
+          if (level2ProbeAhead(0, -8)) return { vx: 0, vy: -speed, facing: "rear" };
+          if (level2ProbeAhead(-8, 0)) return { vx: -speed, vy: 0, facing: "side" };
+        } else if (stickDir > 0) {
+          if (level2ProbeAhead(0, 8)) return { vx: 0, vy: speed, facing: "front" };
+          if (level2ProbeAhead(8, 0)) return { vx: speed, vy: 0, facing: "side" };
+        }
+        return { vx: 0, vy: 0, facing: ball.level2Facing || "front" };
+      }
+
+      function moveLevel2Car(dx, dy) {
+        const bundle = level2CarBundle();
+        moveEntityPixels(ball, bundle.pixels, dx, dy, solidAt);
+      }
+
+      function collectLevel2Cones() {
+        const r2 = LEVEL2_CONE_RADIUS * LEVEL2_CONE_RADIUS;
+        for (const cone of level2Cones) {
+          if (cone.collected) continue;
+          const dx = ball.x - cone.x;
+          const dy = ball.y - cone.y;
+          if (dx * dx + dy * dy <= r2) {
+            cone.collected = true;
+            sfx.playKerching();
+          }
+        }
+      }
+
+      function drawLevel2CollectedPatches() {
+        for (const cone of level2Cones) {
+          if (!cone.collected) continue;
+          ctx.fillStyle = "#000";
+          ctx.beginPath();
+          ctx.ellipse(cone.x, cone.y, 15, 13, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      function stepLevel2(dt) {
+        if (!ball?.alive) return;
+        const motion = level2DesiredMotion();
+        ball.level2Facing = motion.facing;
+        ball.vx = motion.vx;
+        ball.vy = motion.vy;
+        moveLevel2Car(ball.vx * dt, ball.vy * dt);
+        collectLevel2Cones();
+      }
+
       function buildLightning() {
         const w = Math.round(CAR_W * LIGHTNING_SCALE);
         const h = Math.round(CAR_H * LIGHTNING_SCALE);
@@ -2003,10 +2264,11 @@
       }
 
       function activeCarBundle() {
+        if (currentLevel === 2) return level2CarBundle();
         if (ball.vx < 0) {
-          return { sprite: carSpriteRight, pixels: carPixelsRight };
+          return { sprite: carSpriteRight, pixels: carPixelsRight, w: CAR_W, h: CAR_H };
         }
-        return { sprite: carSpriteLeft, pixels: carPixelsLeft };
+        return { sprite: carSpriteLeft, pixels: carPixelsLeft, w: CAR_W, h: CAR_H };
       }
 
       function activeCarPixels() {
@@ -2304,7 +2566,7 @@
       }
 
       function solidAt(px, py) {
-        if (py < 0 || py >= H) return false;
+        if (py < 0 || py >= H) return currentLevel === 2;
         return solid[py * W + wrapPixelX(px)] === 1;
       }
 
@@ -2551,6 +2813,7 @@
         level1BeatT0 = performance.now();
         levelBannerT0 = 0;
         sfx.stopGameMusic();
+        void sfx.preloadLevelTwoMusic();
         setHudForPhase();
         paintLives();
       }
@@ -2559,15 +2822,18 @@
         gamePhase = "playing";
         level1BeatT0 = 0;
         currentLevel = 2;
+        enterLevelTwoArena();
+        if (!level2CarFront) buildLevel2Capri();
         sfx.stopGameMusic();
         void sfx.startLevelTwoMusic();
         showLevelBanner();
         ball = createBall();
         resetBall();
-        initZooxFleet();
         fallElapsed = 0;
-        lastFrame = 0;
+        syncTickClock();
         paintLives();
+        applyModeCopy();
+        drawFrame();
       }
 
       function zooxReversePath(unit) {
@@ -2602,6 +2868,11 @@
 
       function returnToAttractFromGameOver(btn) {
         flashButton(btn);
+        restoreLevelOneArena();
+        if (introServerImg) {
+          canvas.width = introServerImg.naturalWidth;
+          canvas.height = introServerImg.naturalHeight;
+        }
         gamePhase = "attract";
         gameOverT0 = 0;
         level1BeatT0 = 0;
@@ -2612,7 +2883,7 @@
         resetBall();
         initZooxFleet();
         fallElapsed = 0;
-        lastFrame = 0;
+        syncTickClock();
         void sfx.beginTitleScreens();
         setHudForPhase();
         paintLives();
@@ -2921,6 +3192,11 @@
           return;
         }
 
+        if (currentLevel === 2) {
+          stepLevel2(dt);
+          return;
+        }
+
         stepDrop(dt);
         stepZoox(dt);
         stepLightning(dt);
@@ -2935,14 +3211,14 @@
         ctx.drawImage(lightningSprite, cx - w / 2, cy - h / 2, w, h);
       }
 
-      function drawVehicle(sprite, cx, cy) {
+      function drawVehicle(sprite, cx, cy, w = CAR_W, h = CAR_H) {
         if (!sprite) return;
-        ctx.drawImage(sprite, cx - CAR_HW, cy - CAR_HH, CAR_W, CAR_H);
+        ctx.drawImage(sprite, cx - w / 2, cy - h / 2, w, h);
       }
 
       function drawCarAt(cx, cy) {
-        const { sprite } = activeCarBundle();
-        drawVehicle(sprite, cx, cy);
+        const { sprite, w, h } = activeCarBundle();
+        drawVehicle(sprite, cx, cy, w, h);
       }
 
       function drawZooxAt(cx, cy, unit) {
@@ -2958,9 +3234,10 @@
           if (background) ctx.drawImage(background, 0, 0, W, H);
         } else if (currentLevel === 2 && level2Background) {
           ctx.drawImage(level2Background, 0, 0, W, H);
+          drawLevel2CollectedPatches();
         }
 
-        if (!isWrap()) {
+        if (!isWrap() && currentLevel !== 2) {
           for (const unit of zooxUnits) {
             if (unit.state === "active") {
               const zooxXs = [unit.x];
@@ -2979,9 +3256,11 @@
 
         if (!ball.alive) return;
 
+        const { w: carW } = activeCarBundle();
+        const carHw = carW / 2;
         const drawXs = [ball.x];
-        if (ball.x - CAR_HW < 0) drawXs.push(ball.x + W);
-        if (ball.x + CAR_HW > W) drawXs.push(ball.x - W);
+        if (ball.x - carHw < 0) drawXs.push(ball.x + W);
+        if (ball.x + carHw > W) drawXs.push(ball.x - W);
         for (const x of drawXs) drawCarAt(x, ball.y);
       }
 
@@ -3017,14 +3296,16 @@
 
       function drawLevelBanner(now) {
         if (!levelBannerT0) return;
+        const holdSec = currentLevel === 2 ? LEVEL2_BANNER_HOLD_SEC : LEVEL_BANNER_HOLD_SEC;
+        const bannerSec = holdSec + LEVEL_BANNER_FADE_SEC;
         const elapsed = (now - levelBannerT0) / 1000;
-        if (elapsed >= LEVEL_BANNER_SEC) {
+        if (elapsed >= bannerSec) {
           levelBannerT0 = 0;
           return;
         }
         let alpha = 1;
-        if (elapsed > LEVEL_BANNER_HOLD_SEC) {
-          alpha = 1 - (elapsed - LEVEL_BANNER_HOLD_SEC) / LEVEL_BANNER_FADE_SEC;
+        if (elapsed > holdSec) {
+          alpha = 1 - (elapsed - holdSec) / LEVEL_BANNER_FADE_SEC;
         }
         const w = canvas.width;
         const h = canvas.height;
@@ -3332,7 +3613,7 @@
         ctx.restore();
         ctx.restore();
 
-        drawPressFire(performance.now(), "PRESS FIRE");
+        drawPressFire(performance.now(), "PRESS FIRE", false);
       }
 
       function drawLevelOneBeatBanner(age) {
@@ -3382,11 +3663,11 @@
         ctx.restore();
         ctx.restore();
 
-        drawPressFire(performance.now(), "PRESS FIRE");
+        drawPressFire(performance.now(), "PRESS FIRE", false);
       }
 
-      function drawPressFire(now, text = "PRESS FIRE TO PLAY") {
-        if (Math.floor(now / 480) % 2 === 1) return;
+      function drawPressFire(now, text = "PRESS FIRE TO PLAY", blink = true) {
+        if (blink && Math.floor(now / 480) % 2 === 1) return;
         const w = canvas.width;
         const h = canvas.height;
         const size = Math.round(h * 0.038);
@@ -3467,7 +3748,10 @@
 
       function startGameFromAttract(btn) {
         if (lives <= 0) lives = MAX_LIVES;
+        restoreLevelOneArena();
         currentLevel = 1;
+        canvas.width = W;
+        canvas.height = H;
         paintLives();
         void sfx.startGameMusic();
         flashButton(btn);
@@ -3478,7 +3762,7 @@
         resetBall();
         initZooxFleet();
         showLevelBanner();
-        lastFrame = 0;
+        syncTickClock();
         drawFrame();
       }
 
@@ -3564,7 +3848,9 @@
 
       function applyModeCopy() {
         descEl.textContent =
-          "Hold ← or → on the stick to steer while falling, then tap fire to boost up and sideways. Three Zoox robotaxis patrol the decks. You have three lives.";
+          currentLevel === 2
+            ? "Use the stick to drive along the cone channels. Left moves up, right moves down. Tap fire for a boost. Collect every traffic cone."
+            : "Hold ← or → on the stick to steer while falling, then tap fire to boost up and sideways. Three Zoox robotaxis patrol the decks. You have three lives.";
 
         const controlsDisabled = gamePhase === "intro";
         liftBtn.disabled = controlsDisabled;
@@ -3585,6 +3871,14 @@
       function tapLift(btn = liftBtn) {
         if (gamePhase !== "playing" || !ball?.alive) return;
         sfx.resume();
+        if (currentLevel === 2) {
+          const boost = LEVEL2_BOOST;
+          if (ball.level2Facing === "front") ball.vy = Math.min(ball.vy + boost, LEVEL2_CRUISE_SPEED * 1.6);
+          else if (ball.level2Facing === "rear") ball.vy = Math.max(ball.vy - boost, -LEVEL2_CRUISE_SPEED * 1.6);
+          else ball.vx += Math.sign(ball.vx || stickDir || 1) * boost;
+          flashButton(btn);
+          return;
+        }
         ball.vy -= tapImpulseY();
         if (stickDir < 0) ball.vx -= tapImpulseX() * STICK_TAP_MULT;
         else if (stickDir > 0) ball.vx += tapImpulseX() * STICK_TAP_MULT;
@@ -3632,17 +3926,29 @@
         solid = buildSolidMap(SOLID_SEGMENTS, W, H);
         zooxSolid = buildZooxSolidMap(solid, ZOOX_MARGIN);
         buildCapri();
+        buildLevel2Capri();
         buildZoox();
         buildLightning();
         if (DEBUG_GREEN_BG) {
           debugBackground = buildDebugBackground(background, W, H);
         }
         resolveCapriSpawn();
+        saveLevelOneArena();
         initZooxFleet();
+
+        if (LEVEL2_ARENA?.width) {
+          try {
+            const solidBuf = await fetch(resolveAssetUrl("assets/level2-solid.bin")).then((res) =>
+              res.ok ? res.arrayBuffer() : null,
+            );
+            if (solidBuf) level2Solid = new Uint8Array(solidBuf);
+          } catch (_) {}
+        }
 
         canvas.width = W;
         canvas.height = H;
         void sfx.preloadSfx();
+        void sfx.preloadLevelTwoMusic();
         assetsReady = true;
 
         if (introServerImg && introSmokeImg && introCapriImg) {

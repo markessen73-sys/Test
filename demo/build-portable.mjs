@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, writeFile } from "node:fs/promises";
 import { buildSolidMask, buildDebugCompositeRgba, solidToSegments } from "./solid-mask.mjs";
+import { buildLevel2Data, writeLevel2Assets } from "./level2-data.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DEMO = join(ROOT, "demo");
@@ -183,12 +184,20 @@ async function build() {
 
   const LEVEL2_BG = join(DEMO_ASSETS, "level2-background.png");
   const LEVEL2_BG_ROOT = join(ROOT, "file_000000007298724693505eed12bd3d5c.png");
+  let level2ArenaJson = '{"width":0,"height":0,"spawn":{"x":0,"y":0},"cones":[]}';
   if (!existsSync(LEVEL2_BG) && existsSync(LEVEL2_BG_ROOT)) {
     copyFileSync(LEVEL2_BG_ROOT, LEVEL2_BG);
   }
   if (existsSync(LEVEL2_BG)) {
     copyFileSync(LEVEL2_BG, `${ASSETS}/level2-background.png`);
     console.log(`Level two background: level2-background.png (${readFileSync(LEVEL2_BG).length} bytes)`);
+    const level2 = await buildLevel2Data(LEVEL2_BG);
+    const level2Arena = await writeLevel2Assets(level2, ASSETS);
+    copyFileSync(`${ASSETS}/level2-solid.bin`, join(DEMO_ASSETS, "level2-solid.bin"));
+    level2ArenaJson = JSON.stringify(level2Arena);
+    console.log(
+      `Level two arena: ${level2Arena.width}x${level2Arena.height}, ${level2Arena.cones.length} cones, ${level2.solidPct}% solid`,
+    );
   } else {
     console.log("Level two background: none found");
   }
@@ -329,6 +338,7 @@ async function build() {
   function embedPortable(source) {
     return source
       .replace("__SOLID_SEGMENTS__", JSON.stringify(segments))
+      .replace("__LEVEL2_ARENA__", level2ArenaJson)
       .replace("__BG_DATA_URL__", bgDataUrl)
       .replace("__BACKDROP_DATA_URL__", backdropDataUrl)
       .replace("__PEW_DATA_URL__", toPortableUrl(pewDataUrl))
