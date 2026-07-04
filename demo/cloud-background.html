@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04w</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04x</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1388,8 +1388,8 @@
       let ready = false;
       let fallElapsed = 0;
 
-      const LEVEL2_CAR_W = 40;
-      const LEVEL2_CAR_H = 62;
+      const LEVEL2_CAR_W = 48;
+      const LEVEL2_CAR_H = 74;
       const LEVEL2_CAR_HW = LEVEL2_CAR_W / 2;
       const LEVEL2_CAR_HH = LEVEL2_CAR_H / 2;
       const LEVEL2_CRUISE_SPEED = 220;
@@ -2175,12 +2175,12 @@
         if (!vehicleOverlapsSolidAt(ball.x, ball.y, pixels, solidAt)) return;
         const originX = ball.x;
         const originY = ball.y;
-        for (let dist = 1; dist <= 24; dist++) {
+        for (let dist = 1; dist <= 64; dist++) {
           for (const [dx, dy] of [
-            [0, 1],
             [0, -1],
-            [1, 0],
+            [0, 1],
             [-1, 0],
+            [1, 0],
           ]) {
             ball.x = originX + dx * dist;
             ball.y = originY + dy * dist;

@@ -99,8 +99,8 @@ export async function buildLevel2Data(imagePath) {
   const midX = Math.floor(width / 2);
   const bottomHalfY = height * 0.5;
   const targetY = height * 0.82;
-  const SPAWN_HW = 20;
-  const SPAWN_HH = 11;
+  const SPAWN_HW = 24;
+  const SPAWN_HH = 14;
 
   function carFitsAt(map, x, y) {
     for (let py = Math.floor(y - SPAWN_HH); py <= Math.ceil(y + SPAWN_HH); py++) {
@@ -126,17 +126,24 @@ export async function buildLevel2Data(imagePath) {
     if (carFitsAt(dilated, anchorCone.x, anchorCone.y)) {
       spawn = { x: anchorCone.x, y: anchorCone.y };
     } else {
-      let best = null;
       for (let dy = 0; dy <= 96; dy++) {
-        for (const tryY of [anchorCone.y + dy, anchorCone.y - dy]) {
-          if (tryY < bottomHalfY || tryY >= height - SPAWN_HH - 2) continue;
-          if (!carFitsAt(dilated, anchorCone.x, tryY)) continue;
-          const score = Math.abs(tryY - anchorCone.y) + (tryY < anchorCone.y ? 2 : 0);
-          if (!best || score < best.score) best = { x: anchorCone.x, y: tryY, score };
+        const tryY = anchorCone.y - dy;
+        if (tryY < bottomHalfY) break;
+        if (carFitsAt(dilated, anchorCone.x, tryY)) {
+          spawn = { x: anchorCone.x, y: tryY };
+          break;
         }
-        if (best?.score === 0) break;
       }
-      if (best) spawn = { x: best.x, y: best.y };
+      if (!spawn) {
+        for (let dy = 1; dy <= 48; dy++) {
+          const tryY = anchorCone.y + dy;
+          if (tryY >= height - SPAWN_HH - 2) break;
+          if (carFitsAt(dilated, anchorCone.x, tryY)) {
+            spawn = { x: anchorCone.x, y: tryY };
+            break;
+          }
+        }
+      }
     }
   }
 
