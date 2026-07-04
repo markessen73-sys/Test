@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zf</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zg</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1392,7 +1392,7 @@
       const LEVEL2_CAR_H = 58;
       const LEVEL2_CAR_HW = LEVEL2_CAR_W / 2;
       const LEVEL2_CAR_HH = LEVEL2_CAR_H / 2;
-      const LEVEL2_FREE_MOVE = false;
+      const LEVEL2_WALKABLE_MAX = 24;
       const LEVEL2_CRUISE_SPEED = 220;
       const LEVEL2_BOOST = 180;
       const LEVEL2_CONE_RADIUS = 26;
@@ -2191,21 +2191,52 @@
         };
       }
 
+      function buildLevel2SolidFromImage(img) {
+        const width = img.naturalWidth;
+        const height = img.naturalHeight;
+        const scratch = document.createElement("canvas");
+        scratch.width = width;
+        scratch.height = height;
+        const sctx = scratch.getContext("2d", { willReadFrequently: true });
+        sctx.drawImage(img, 0, 0);
+        const data = sctx.getImageData(0, 0, width, height).data;
+        const map = new Uint8Array(width * height);
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const i = (y * width + x) * 4;
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            if (r > LEVEL2_WALKABLE_MAX || g > LEVEL2_WALKABLE_MAX || b > LEVEL2_WALKABLE_MAX) {
+              map[y * width + x] = 1;
+            }
+          }
+        }
+        return { width, height, solid: map };
+      }
+
+      function level2CollisionPixels() {
+        return level2CarBundle().pixels;
+      }
+
       function enterLevelTwoArena() {
-        if (!level2Solid || !LEVEL2_ARENA?.width) return;
-        W = LEVEL2_ARENA.width;
-        H = LEVEL2_ARENA.height;
+        if (!level2Solid) return;
+        const arenaW = level2Background?.naturalWidth || LEVEL2_ARENA?.width;
+        const arenaH = level2Background?.naturalHeight || LEVEL2_ARENA?.height;
+        if (!arenaW || !arenaH) return;
+        W = arenaW;
+        H = arenaH;
         solid = level2Solid;
         canvas.width = W;
         canvas.height = H;
-        level2Cones = LEVEL2_ARENA.cones.map((cone, id) => ({
+        level2Cones = (LEVEL2_ARENA?.cones ?? []).map((cone, id) => ({
           x: cone.x,
           y: cone.y,
           id,
           collected: false,
         }));
-        dropX = LEVEL2_FREE_MOVE ? W / 2 : LEVEL2_ARENA.spawn.x;
-        dropY = LEVEL2_FREE_MOVE ? H / 2 : LEVEL2_ARENA.spawn.y;
+        dropX = LEVEL2_ARENA?.spawn?.x ?? W / 2;
+        dropY = LEVEL2_ARENA?.spawn?.y ?? H / 2;
       }
 
       function restoreLevelOneArena() {
@@ -2228,8 +2259,8 @@
       function ensureLevel2SpawnFit() {
         if (!ball || currentLevel !== 2) return;
         const candidates = [
-          { facing: "side", pixels: level2WallPixelsSide },
-          { facing: "front", pixels: level2WallPixelsFront },
+          { facing: "side", pixels: level2PixelsSide },
+          { facing: "front", pixels: level2PixelsFront },
         ].filter((entry) => entry.pixels.length);
 
         function clearAt(x, y, pixels) {
@@ -2307,8 +2338,8 @@
 
       function resolveLevel2Overlap() {
         if (!ball || currentLevel !== 2) return;
-        const { wallPixels } = level2CarBundle();
-        if (!vehicleOverlapsSolidAt(ball.x, ball.y, wallPixels, solidAt)) return;
+        const pixels = level2CollisionPixels();
+        if (!vehicleOverlapsSolidAt(ball.x, ball.y, pixels, solidAt)) return;
 
         const originX = ball.x;
         const originY = ball.y;
@@ -2331,7 +2362,7 @@
           for (const [dx, dy] of dirs) {
             ball.x = originX + dx * dist;
             ball.y = originY + dy * dist;
-            if (!vehicleOverlapsSolidAt(ball.x, ball.y, wallPixels, solidAt)) {
+            if (!vehicleOverlapsSolidAt(ball.x, ball.y, pixels, solidAt)) {
               return;
             }
           }
@@ -2343,8 +2374,8 @@
 
       function centerLevel2InLane(axis) {
         if (!ball || currentLevel !== 2) return;
-        const { wallPixels } = level2CarBundle();
-        const overlaps = (cx, cy) => vehicleOverlapsSolidAt(cx, cy, wallPixels, solidAt);
+        const pixels = level2CollisionPixels();
+        const overlaps = (cx, cy) => vehicleOverlapsSolidAt(cx, cy, pixels, solidAt);
         if (overlaps(ball.x, ball.y)) return;
 
         if (axis === "x") {
@@ -2378,15 +2409,8 @@
       }
 
       function moveLevel2Car(dx, dy) {
-        if (LEVEL2_FREE_MOVE) {
-          ball.x += dx;
-          ball.y += dy;
-          clampLevel2CarPosition();
-          return;
-        }
-
-        const { wallPixels } = level2CarBundle();
-        const overlaps = (cx, cy) => vehicleOverlapsSolidAt(cx, cy, wallPixels, solidAt);
+        const pixels = level2CollisionPixels();
+        const overlaps = (cx, cy) => vehicleOverlapsSolidAt(cx, cy, pixels, solidAt);
 
         const trySlidePast = (axis, step) => {
           const slideAxis = axis === "x" ? "y" : "x";
@@ -2471,9 +2495,9 @@
       function fitLevel2FacingToLane() {
         if (!ball || ball.vx !== 0 || ball.vy !== 0) return;
         if (ball.level2Facing !== "side") return;
-        if (!vehicleOverlapsSolidAt(ball.x, ball.y, level2WallPixelsSide, solidAt)) return;
+        if (!vehicleOverlapsSolidAt(ball.x, ball.y, level2PixelsSide, solidAt)) return;
         for (const facing of ["front", "rear"]) {
-          const pixels = facing === "front" ? level2WallPixelsFront : level2WallPixelsRear;
+          const pixels = facing === "front" ? level2PixelsFront : level2PixelsRear;
           if (!vehicleOverlapsSolidAt(ball.x, ball.y, pixels, solidAt)) {
             ball.level2Facing = facing;
             resolveLevel2Overlap();
@@ -2489,7 +2513,7 @@
         ball.vx = motion.vx;
         ball.vy = motion.vy;
         moveLevel2Car(ball.vx * dt, ball.vy * dt);
-        if (!LEVEL2_FREE_MOVE) fitLevel2FacingToLane();
+        fitLevel2FacingToLane();
         collectLevel2Cones();
       }
 
@@ -3170,8 +3194,7 @@
         ball = createBall();
         resetBall();
         ball.level2Facing = "side";
-        if (!LEVEL2_FREE_MOVE) ensureLevel2SpawnFit();
-        else clampLevel2CarPosition();
+        ensureLevel2SpawnFit();
         fallElapsed = 0;
         syncTickClock();
         paintLives();
@@ -4272,6 +4295,17 @@
         backdrop = backdropResult;
         background = backgroundResult;
         level2Background = level2BackgroundResult;
+        if (level2Background) {
+          const built = buildLevel2SolidFromImage(level2Background);
+          level2Solid = built.solid;
+        } else if (LEVEL2_ARENA?.width) {
+          try {
+            const solidBuf = await fetch(resolveAssetUrl("assets/level2-solid.bin")).then((res) =>
+              res.ok ? res.arrayBuffer() : null,
+            );
+            if (solidBuf) level2Solid = new Uint8Array(solidBuf);
+          } catch (_) {}
+        }
         if (!background) throw new Error("Background image missing");
 
         W = background.naturalWidth;
@@ -4289,15 +4323,6 @@
         resolveCapriSpawn();
         saveLevelOneArena();
         initZooxFleet();
-
-        if (LEVEL2_ARENA?.width) {
-          try {
-            const solidBuf = await fetch(resolveAssetUrl("assets/level2-solid.bin")).then((res) =>
-              res.ok ? res.arrayBuffer() : null,
-            );
-            if (solidBuf) level2Solid = new Uint8Array(solidBuf);
-          } catch (_) {}
-        }
 
         canvas.width = W;
         canvas.height = H;

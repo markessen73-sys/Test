@@ -1,25 +1,20 @@
 import sharp from "sharp";
 import { writeFile } from "node:fs/promises";
 
-function isConePixel(r, g, b) {
-  if (r > 170 && g > 70 && g < 210 && b < 90) return true;
-  if (r > 205 && g > 205 && b > 190 && Math.max(r, g, b) - Math.min(r, g, b) < 35) return true;
-  return false;
+export const LEVEL2_WALKABLE_MAX = 24;
+
+export function isWalkablePixel(r, g, b) {
+  return r <= LEVEL2_WALKABLE_MAX && g <= LEVEL2_WALKABLE_MAX && b <= LEVEL2_WALKABLE_MAX;
 }
 
-function isBrickWallPixel(r, g, b) {
-  return r > 110 && r > g && r > b && g < 120 && b < 100;
-}
-
-function isWallPixel(r, g, b) {
-  return isBrickWallPixel(r, g, b);
+export function isSolidPixel(r, g, b) {
+  return !isWalkablePixel(r, g, b);
 }
 
 export async function buildLevel2Data(imagePath) {
   const { data, info } = await sharp(imagePath).raw().toBuffer({ resolveWithObject: true });
   const { width, height, channels } = info;
   const solid = new Uint8Array(width * height);
-  const coneMask = new Uint8Array(width * height);
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -27,81 +22,13 @@ export async function buildLevel2Data(imagePath) {
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
-      const pi = y * width + x;
-      if (isConePixel(r, g, b)) {
-        coneMask[pi] = 1;
-      }
+      if (isSolidPixel(r, g, b)) solid[y * width + x] = 1;
     }
   }
 
-  const expandedConeMask = coneMask.slice();
-  for (let pass = 0; pass < 3; pass++) {
-    const next = expandedConeMask.slice();
-    for (let y = 1; y < height - 1; y++) {
-      for (let x = 1; x < width - 1; x++) {
-        const pi = y * width + x;
-        if (!expandedConeMask[pi]) continue;
-        for (const ni of [pi - 1, pi + 1, pi - width, pi + width]) {
-          next[ni] = 1;
-        }
-      }
-    }
-    expandedConeMask.set(next);
-  }
-
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const i = (y * width + x) * channels;
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      const pi = y * width + x;
-      if (expandedConeMask[pi]) continue;
-      if (isWallPixel(r, g, b)) {
-        solid[pi] = 1;
-      }
-    }
-  }
-
-  const visited = new Uint8Array(width * height);
   const cones = [];
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const start = y * width + x;
-      if (!coneMask[start] || visited[start]) continue;
-      const queue = [[x, y]];
-      visited[start] = 1;
-      let sx = 0;
-      let sy = 0;
-      let n = 0;
-      while (queue.length) {
-        const [cx, cy] = queue.pop();
-        sx += cx;
-        sy += cy;
-        n++;
-        for (const [dx, dy] of [
-          [1, 0],
-          [-1, 0],
-          [0, 1],
-          [0, -1],
-        ]) {
-          const nx = cx + dx;
-          const ny = cy + dy;
-          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-          const ni = ny * width + nx;
-          if (!coneMask[ni] || visited[ni]) continue;
-          visited[ni] = 1;
-          queue.push([nx, ny]);
-        }
-      }
-      if (n > 200) cones.push({ x: Math.round(sx / n), y: Math.round(sy / n) });
-    }
-  }
-
   let spawn = null;
-  let spawnCone = null;
   const midX = Math.floor(width / 2);
-  const bottomHalfY = height * 0.5;
   const targetY = height * 0.82;
   const SPAWN_HW = 10;
   const SPAWN_HH = 29;
@@ -138,52 +65,15 @@ export async function buildLevel2Data(imagePath) {
     return Math.abs(x - midX) * 0.35 + Math.abs(y - targetY) * 0.25 - vClear * 0.55 - hClear * 0.08;
   }
 
-  const anchorCone =
-    cones
-      .filter((c) => c.y >= bottomHalfY)
-      .sort(
-        (a, b) =>
-          Math.abs(a.x - midX) - Math.abs(b.x - midX) ||
-          Math.abs(a.y - targetY) - Math.abs(b.y - targetY),
-      )[0] ?? null;
-
-  if (anchorCone) {
-    spawnCone = { x: anchorCone.x, y: anchorCone.y };
-    let best = null;
-    for (let dy = 0; dy <= 120; dy++) {
-      for (let dx = 0; dx <= 96; dx++) {
-        const xs = dx === 0 ? [0] : [-dx, dx];
-        for (const sx of xs) {
-          const tryX = anchorCone.x + sx;
-          const tryY = anchorCone.y - dy;
-          if (tryY < bottomHalfY || tryY > anchorCone.y - 24) continue;
-          if (!carFitsAt(solid, tryX, tryY)) continue;
-          const vClear = verticalClearance(solid, tryX, tryY);
-          const hClear = horizontalClearance(solid, tryX, tryY);
-          if (vClear < MIN_VERT_CLEARANCE || hClear < MIN_HORIZ_CLEARANCE) continue;
-          const score = spawnScore(tryX, tryY, vClear, hClear) + dy * 0.5 + Math.abs(sx) * 0.25;
-          if (!best || score < best.score) best = { x: tryX, y: tryY, score };
-        }
-      }
-      if (best && best.score <= dy * 2) break;
+  for (let y = Math.floor(height * 0.45); y < height - SPAWN_HH - 4; y += 2) {
+    for (let x = 40; x < width - 40; x += 2) {
+      if (!carFitsAt(solid, x, y)) continue;
+      const vClear = verticalClearance(solid, x, y);
+      const hClear = horizontalClearance(solid, x, y);
+      if (vClear < MIN_VERT_CLEARANCE || hClear < MIN_HORIZ_CLEARANCE) continue;
+      const score = spawnScore(x, y, vClear, hClear);
+      if (!spawn || score < spawn.score) spawn = { x, y, score };
     }
-    if (best) {
-      spawn = { x: best.x, y: best.y };
-    }
-  }
-
-  if (!spawn) {
-    for (let y = Math.floor(height * 0.45); y < height - SPAWN_HH - 4; y += 2) {
-      for (let x = midX - 220; x < midX + 220; x += 2) {
-        if (!carFitsAt(solid, x, y)) continue;
-        const vClear = verticalClearance(solid, x, y);
-        const hClear = horizontalClearance(solid, x, y);
-        if (vClear < MIN_VERT_CLEARANCE || hClear < MIN_HORIZ_CLEARANCE) continue;
-        const score = spawnScore(x, y, vClear, hClear);
-        if (!spawn || score < spawn.score) spawn = { x, y, score };
-      }
-    }
-    if (spawn) delete spawn.score;
   }
 
   if (!spawn) spawn = { x: midX, y: Math.floor(height * 0.76) };
@@ -194,7 +84,7 @@ export async function buildLevel2Data(imagePath) {
     solid,
     cones,
     spawn,
-    spawnCone,
+    spawnCone: spawn,
     coneCount: cones.length,
     solidPct: ((solid.reduce((a, b) => a + b, 0) / (width * height)) * 100).toFixed(1),
   };
