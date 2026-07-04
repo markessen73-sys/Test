@@ -32,6 +32,33 @@
         background: #000;
         max-width: 100%;
       }
+      #audio-start-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 12;
+        display: grid;
+        place-items: center;
+        margin: 0;
+        padding: 24px;
+        border: none;
+        background: rgba(0, 0, 0, 0.94);
+        color: #fff;
+        cursor: pointer;
+        font: 900 clamp(1.1rem, 4.5vw, 1.6rem) Impact, "Arial Black", sans-serif;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      #audio-start-overlay.is-hidden {
+        display: none;
+      }
+      #audio-start-overlay .audio-start-sub {
+        display: block;
+        margin-top: 12px;
+        font: 0.72rem "Courier New", monospace;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.55);
+      }
       canvas { display: block; max-width: 100%; height: auto; vertical-align: top; }
       #status, #timer {
         position: absolute;
@@ -335,7 +362,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">Wrap test — exits left, re-enters right</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04j</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04k</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -344,6 +371,10 @@
     <div id="play-column">
       <div id="wrap">
         <canvas id="view"></canvas>
+        <button type="button" id="audio-start-overlay" class="is-hidden" aria-label="Tap to start">
+          Tap to Start
+          <span class="audio-start-sub">Sound on · Intro begins</span>
+        </button>
         <div id="mode-badge" class="">WRAP ←</div>
         <div id="status">Loading…</div>
         <div id="timer">0.00s / 3.00s</div>
@@ -389,6 +420,7 @@
       const thumbstickEl = document.getElementById("thumbstick");
       const wrapEl = document.getElementById("wrap");
       const chromeHintEl = document.getElementById("chrome-hint");
+      const audioStartOverlay = document.getElementById("audio-start-overlay");
 
       function resolveAssetUrl(src) {
         if (!src || src.startsWith("data:") || src.startsWith("http")) return src;
@@ -539,6 +571,21 @@
               if (epoch === titleMusicEpoch) titleMusicPending = true;
               return false;
             });
+        }
+
+        function unlockTitleMusicFromGesture() {
+          allowTitleMusic = true;
+          titleMusicEpoch++;
+          const audio = ensureTitleAudio();
+          if (!audio) return false;
+          const playPromise = audio.play();
+          titleMusicPending = false;
+          if (playPromise) {
+            playPromise.catch(() => {
+              titleMusicPending = true;
+            });
+          }
+          return true;
         }
 
         function stopTitleMusic() {
@@ -832,6 +879,8 @@
           preloadVegasMusic,
           beginTitleScreens,
           unlockTitleMusic,
+          unlockTitleMusicFromGesture,
+          hasTitleMusic: () => titleMusic.enabled,
           isTitleMusicPlaying,
           isTitleMusicPending: () => titleMusicPending,
           startGameMusic,
@@ -993,7 +1042,52 @@
       document.addEventListener("fullscreenchange", updateChromeHint);
       document.addEventListener("webkitfullscreenchange", updateChromeHint);
 
+      function needsAudioStartGate() {
+        return !isWrap() && sfx.hasTitleMusic();
+      }
+
+      function showAudioStartOverlay() {
+        if (!audioStartOverlay || !needsAudioStartGate()) return;
+        audioStartOverlay.classList.remove("is-hidden");
+      }
+
+      function hideAudioStartOverlay() {
+        audioStartOverlay?.classList.add("is-hidden");
+      }
+
+      function tryStartAfterAudioGate() {
+        if (!assetsReady || !audioGatePassed || gamePhase !== "loading") return;
+        if (startMode === "intro") beginIntroSequence();
+        else if (startMode === "playing") {
+          void sfx.startGameMusic();
+          beginPlayingDirectly();
+        }
+      }
+
+      function passAudioGateFromGesture() {
+        if (audioGatePassed) return;
+        audioGatePassed = true;
+        hideAudioStartOverlay();
+        sfx.unlockTitleMusicFromGesture();
+        sfx.resume();
+        tryStartAfterAudioGate();
+      }
+
+      if (audioStartOverlay) {
+        audioStartOverlay.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
+          passAudioGateFromGesture();
+        });
+        audioStartOverlay.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            passAudioGateFromGesture();
+          }
+        });
+      }
+
       function unlockIntroAudio() {
+        if (!audioGatePassed && needsAudioStartGate()) return;
         if (gamePhase === "intro" || gamePhase === "attract") void sfx.unlockTitleMusic();
         else sfx.resume();
       }
@@ -1050,6 +1144,9 @@
       ];
 
       let gamePhase = "loading";
+      let audioGatePassed = false;
+      let assetsReady = false;
+      let startMode = null;
       let introT0 = 0;
       let introCrashPlayed = false;
       let introServerImg = null;
@@ -2893,25 +2990,6 @@
         }
       }
 
-      function drawTapForSoundHint() {
-        if (!sfx.isTitleMusicPending()) return;
-        const w = canvas.width;
-        const h = canvas.height;
-        const size = Math.round(h * 0.028);
-        ctx.save();
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.font = `bold ${size}px "Courier New", Courier, monospace`;
-        ctx.lineWidth = Math.max(2, Math.round(size * 0.12));
-        ctx.strokeStyle = "#000";
-        ctx.fillStyle = "rgba(255,255,255,0.82)";
-        const text = "Tap screen for sound";
-        const y = h * 0.96;
-        ctx.strokeText(text, w / 2, y);
-        ctx.fillText(text, w / 2, y);
-        ctx.restore();
-      }
-
       function drawIntroOverlay(t, w, h, now) {
         if (t >= introHeadlightStartSec()) {
           drawHeadlightFlashes(t - introHeadlightStartSec(), w, h);
@@ -2920,7 +2998,6 @@
           drawBMovieTitle(t - introTitleStartSec());
           drawPressFire(now);
         }
-        drawTapForSoundHint();
       }
 
       function drawIntro(now) {
@@ -2993,7 +3070,6 @@
         hideMobileBrowserChrome();
         requestAnimationFrame(tick);
         drawIntro(introT0);
-        void sfx.beginTitleScreens();
       }
 
       function beginPlayingDirectly() {
@@ -3153,14 +3229,32 @@
         canvas.width = W;
         canvas.height = H;
         void sfx.preloadSfx();
+        assetsReady = true;
 
         if (!isWrap() && introServerImg && introSmokeImg && introCapriImg) {
-          beginIntroSequence();
+          startMode = "intro";
+        } else {
+          startMode = "playing";
+        }
+
+        if (needsAudioStartGate()) {
+          showAudioStartOverlay();
+          if (audioGatePassed) {
+            tryStartAfterAudioGate();
+            return;
+          }
+          void sfx.beginTitleScreens().then((started) => {
+            if (started) {
+              audioGatePassed = true;
+              hideAudioStartOverlay();
+              tryStartAfterAudioGate();
+            }
+          });
           return;
         }
 
-        void sfx.startGameMusic();
-        beginPlayingDirectly();
+        audioGatePassed = true;
+        tryStartAfterAudioGate();
       }
 
       init().catch((err) => {
