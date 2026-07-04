@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">Adventures Of Crappy Capri</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zp</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zq</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1359,7 +1359,7 @@
       const mode = "drop";
 
       const INTRO_SERVER_URL = "https://raw.githubusercontent.com/markessen73-sys/Test/cursor/fix-level2-wall-sticking-7190/docs/assets/intro-server.png";
-      const LEVEL2_BACKGROUND_URL = "https://raw.githubusercontent.com/markessen73-sys/Test/cursor/fix-level2-wall-sticking-7190/docs/assets/level2-background.png?v=zp";
+      const LEVEL2_BACKGROUND_URL = "https://raw.githubusercontent.com/markessen73-sys/Test/cursor/fix-level2-wall-sticking-7190/docs/assets/level2-background.png?v=zq";
       const LEVEL2_BUS_URL = "https://raw.githubusercontent.com/markessen73-sys/Test/cursor/fix-level2-wall-sticking-7190/docs/assets/routemaster-bus.png";
       const INTRO_SMOKE_URL = "https://raw.githubusercontent.com/markessen73-sys/Test/cursor/fix-level2-wall-sticking-7190/docs/assets/intro-smoke.png";
       const INTRO_CAPRI_URL = "https://raw.githubusercontent.com/markessen73-sys/Test/cursor/fix-level2-wall-sticking-7190/docs/assets/intro-capri.png";
@@ -2046,7 +2046,15 @@
         ctx.stroke();
       }
 
-      function extractCarPixels(canvas) {
+      function extractCarPixels(surface) {
+        let canvas = surface;
+        if (surface instanceof HTMLImageElement || surface instanceof ImageBitmap) {
+          const tmp = document.createElement("canvas");
+          tmp.width = surface.naturalWidth || surface.width;
+          tmp.height = surface.naturalHeight || surface.height;
+          tmp.getContext("2d").drawImage(surface, 0, 0);
+          canvas = tmp;
+        }
         const w = canvas.width;
         const h = canvas.height;
         const data = canvas.getContext("2d").getImageData(0, 0, w, h).data;
