@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, writeFile } from "node:fs/promises";
 import { buildSolidMask, buildDebugCompositeRgba, solidToSegments } from "./solid-mask.mjs";
-import { buildLevel2Data, writeLevel2Assets, encodeSolidRle, buildLevel2Track, encodeTrack } from "./level2-data.mjs";
+import { buildLevel2Data, writeLevel2Assets, encodeSolidRle } from "./level2-data.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DEMO = join(ROOT, "demo");
@@ -199,9 +199,6 @@ async function build() {
     const level2Arena = await writeLevel2Assets(level2, ASSETS);
     level2Arena.solidLen = level2.solid.length;
     level2Arena.solidRle = encodeSolidRle(level2.solid);
-    const track = buildLevel2Track(level2.solid, level2.width, level2.height, level2.spawn);
-    level2Arena.track = encodeTrack(track);
-    console.log(`Level two track: ${track.length} points`);
     copyFileSync(`${ASSETS}/level2-solid.bin`, join(DEMO_ASSETS, "level2-solid.bin"));
     level2ArenaJson = JSON.stringify(level2Arena);
     console.log(
@@ -371,7 +368,7 @@ async function build() {
       )
       .replace(
         'const LEVEL2_BACKGROUND_URL = "assets/level2-background.png";',
-        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png";`,
+        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png?v=zm";`,
       )
       .replace("__BAKED_MODE__", "drop")
       .replace("__TITLE_TEXT__", "Adventures Of Crappy Capri")

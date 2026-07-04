@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">Adventures Of Crappy Capri</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zl</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zm</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1055,23 +1055,37 @@
       const STICK_TAP_MULT = 2;
       let stickDir = 0;
       let stickDirY = 0;
+      let stickNormX = 0;
+      let stickNormY = 0;
       let stickPointerId = null;
       const STICK_DEAD = 0.22;
+      const thumbstickKnobEl = thumbstickEl.querySelector(".thumbstick-knob");
 
       function usingLevel2Stick() {
         return currentLevel === 2 && gamePhase === "playing";
       }
 
       function paintThumbstick() {
-        thumbstickEl.classList.toggle("left", stickDir < 0 && !stickDirY);
-        thumbstickEl.classList.toggle("right", stickDir > 0 && !stickDirY);
-        thumbstickEl.classList.toggle("up", stickDirY < 0);
-        thumbstickEl.classList.toggle("down", stickDirY > 0);
-        thumbstickEl.setAttribute(
-          "aria-label",
-          usingLevel2Stick() ? "Hold for up, down, left, or right" : "Hold left or right",
-        );
-        thumbstickEl.setAttribute("aria-valuenow", String(stickDir || stickDirY));
+        if (usingLevel2Stick()) {
+          thumbstickEl.classList.remove("left", "right", "up", "down");
+          if (thumbstickKnobEl) {
+            thumbstickKnobEl.style.transform = `translate(${stickNormX * 38}%, ${stickNormY * 38}%)`;
+          }
+          thumbstickEl.setAttribute("aria-label", "Hold any direction to drive");
+          thumbstickEl.setAttribute(
+            "aria-valuenow",
+            String(Math.round(Math.hypot(stickNormX, stickNormY) * 100)),
+          );
+          return;
+        }
+
+        if (thumbstickKnobEl) thumbstickKnobEl.style.transform = "";
+        thumbstickEl.classList.toggle("left", stickDir < 0);
+        thumbstickEl.classList.toggle("right", stickDir > 0);
+        thumbstickEl.classList.toggle("up", false);
+        thumbstickEl.classList.toggle("down", false);
+        thumbstickEl.setAttribute("aria-label", "Hold left or right");
+        thumbstickEl.setAttribute("aria-valuenow", String(stickDir));
       }
 
       function stickFromClientX(clientX) {
@@ -1082,28 +1096,31 @@
         return 0;
       }
 
-      function stickFromPointer(clientX, clientY) {
+      function stickFromPointerOmni(clientX, clientY) {
         const rect = thumbstickEl.getBoundingClientRect();
-        const nx = (clientX - rect.left) / rect.width - 0.5;
-        const ny = (clientY - rect.top) / rect.height - 0.5;
-        const ax = Math.abs(nx);
-        const ay = Math.abs(ny);
-        if (ax < STICK_DEAD * 0.45 && ay < STICK_DEAD * 0.45) return { x: 0, y: 0 };
-        if (ax >= ay) return { x: nx < 0 ? -1 : 1, y: 0 };
-        return { x: 0, y: ny < 0 ? -1 : 1 };
+        const nx = ((clientX - rect.left) / rect.width - 0.5) * 2;
+        const ny = ((clientY - rect.top) / rect.height - 0.5) * 2;
+        const mag = Math.hypot(nx, ny);
+        if (mag < STICK_DEAD) return { x: 0, y: 0 };
+        const scale = Math.min(mag, 1) / mag;
+        return { x: nx * scale, y: ny * scale };
       }
 
       function updateStickFromPointer(clientX, clientY) {
         if (usingLevel2Stick()) {
-          const next = stickFromPointer(clientX, clientY);
-          if (stickDir === next.x && stickDirY === next.y) return;
-          stickDir = next.x;
-          stickDirY = next.y;
+          const next = stickFromPointerOmni(clientX, clientY);
+          if (stickNormX === next.x && stickNormY === next.y) return;
+          stickNormX = next.x;
+          stickNormY = next.y;
+          stickDir = Math.abs(next.x) >= Math.abs(next.y) ? Math.sign(next.x) || 0 : 0;
+          stickDirY = Math.abs(next.y) > Math.abs(next.x) ? Math.sign(next.y) || 0 : 0;
         } else {
           const next = stickFromClientX(clientX);
           if (stickDir === next) return;
           stickDir = next;
           stickDirY = 0;
+          stickNormX = next;
+          stickNormY = 0;
         }
         paintThumbstick();
       }
@@ -1111,6 +1128,8 @@
       function resetStick() {
         stickDir = 0;
         stickDirY = 0;
+        stickNormX = 0;
+        stickNormY = 0;
         paintThumbstick();
       }
 
@@ -1325,7 +1344,7 @@
       const mode = "drop";
 
       const INTRO_SERVER_URL = "https://raw.githubusercontent.com/markessen73-sys/Test/cursor/fix-level2-wall-sticking-7190/docs/assets/intro-server.png";
-      const LEVEL2_BACKGROUND_URL = "https://raw.githubusercontent.com/markessen73-sys/Test/cursor/fix-level2-wall-sticking-7190/docs/assets/level2-background.png";
+      const LEVEL2_BACKGROUND_URL = "https://raw.githubusercontent.com/markessen73-sys/Test/cursor/fix-level2-wall-sticking-7190/docs/assets/level2-background.png?v=zm";
       const INTRO_SMOKE_URL = "https://raw.githubusercontent.com/markessen73-sys/Test/cursor/fix-level2-wall-sticking-7190/docs/assets/intro-smoke.png";
       const INTRO_CAPRI_URL = "https://raw.githubusercontent.com/markessen73-sys/Test/cursor/fix-level2-wall-sticking-7190/docs/assets/intro-capri.png";
       const INTRO_SERVER_SEC = 5;
@@ -2332,11 +2351,15 @@
 
       function level2DesiredMotion() {
         const speed = LEVEL2_CRUISE_SPEED;
-        if (stickDirY < 0) return { vx: 0, vy: -speed, facing: "rear" };
-        if (stickDirY > 0) return { vx: 0, vy: speed, facing: "front" };
-        if (stickDir < 0) return { vx: -speed, vy: 0, facing: "side" };
-        if (stickDir > 0) return { vx: speed, vy: 0, facing: "side" };
-        return { vx: 0, vy: 0, facing: ball.level2Facing || "front" };
+        const mag = Math.hypot(stickNormX, stickNormY);
+        if (mag < 0.05) return { vx: 0, vy: 0, facing: ball.level2Facing || "front" };
+        const vx = stickNormX * speed;
+        const vy = stickNormY * speed;
+        let facing = ball.level2Facing || "front";
+        if (Math.abs(stickNormX) > Math.abs(stickNormY) * 0.55) facing = "side";
+        else if (stickNormY < 0) facing = "rear";
+        else facing = "front";
+        return { vx, vy, facing };
       }
 
       function resolveLevel2Overlap() {
@@ -2454,7 +2477,7 @@
 
         moveAxis("x", dx);
         moveAxis("y", dy);
-        if (dx !== 0) centerLevel2InLane("x");
+        if (dx !== 0 && Math.abs(dx) > Math.abs(dy) * 1.4) centerLevel2InLane("x");
         resolveLevel2Overlap();
       }
 
@@ -3587,7 +3610,7 @@
 
       function drawCarAt(cx, cy) {
         const { sprite, w, h } = activeCarBundle();
-        if (currentLevel === 2 && ball.level2Facing === "side" && ball.vx <= 0 && stickDir <= 0) {
+        if (currentLevel === 2 && ball.level2Facing === "side" && ball.vx <= 0 && stickNormX <= 0) {
           ctx.save();
           ctx.translate(cx, cy);
           ctx.scale(-1, 1);
@@ -4225,7 +4248,7 @@
       function applyModeCopy() {
         descEl.textContent =
           currentLevel === 2
-            ? "Four-way stick: up, down, left, right. Drive anywhere except red brick walls. Tap fire for a boost. Cones vanish when touched."
+            ? "Omnidirectional stick: drive in any direction through black corridors. Red brick walls block you. Tap fire for a boost."
             : "Hold ← or → on the stick to steer while falling, then tap fire to boost up and sideways. Three Zoox robotaxis patrol the decks. You have three lives.";
 
         const controlsDisabled = gamePhase === "intro";
@@ -4249,12 +4272,13 @@
         sfx.resume();
         if (currentLevel === 2) {
           const boost = LEVEL2_BOOST;
-          if (stickDirY < 0) ball.vy = Math.max(ball.vy - boost, -LEVEL2_CRUISE_SPEED * 1.6);
-          else if (stickDirY > 0) ball.vy = Math.min(ball.vy + boost, LEVEL2_CRUISE_SPEED * 1.6);
-          else if (stickDir < 0) ball.vx = Math.max(ball.vx - boost, -LEVEL2_CRUISE_SPEED * 1.6);
-          else if (stickDir > 0) ball.vx = Math.min(ball.vx + boost, LEVEL2_CRUISE_SPEED * 1.6);
-          else if (ball.level2Facing === "front") ball.vy = Math.min(ball.vy + boost, LEVEL2_CRUISE_SPEED * 1.6);
-          else if (ball.level2Facing === "rear") ball.vy = Math.max(ball.vy - boost, -LEVEL2_CRUISE_SPEED * 1.6);
+          const maxV = LEVEL2_CRUISE_SPEED * 1.6;
+          const mag = Math.hypot(stickNormX, stickNormY);
+          if (mag >= 0.05) {
+            ball.vx = Math.max(-maxV, Math.min(maxV, ball.vx + (stickNormX / mag) * boost));
+            ball.vy = Math.max(-maxV, Math.min(maxV, ball.vy + (stickNormY / mag) * boost));
+          } else if (ball.level2Facing === "front") ball.vy = Math.min(ball.vy + boost, maxV);
+          else if (ball.level2Facing === "rear") ball.vy = Math.max(ball.vy - boost, -maxV);
           else ball.vx += Math.sign(ball.vx || 1) * boost;
           flashButton(btn);
           return;
