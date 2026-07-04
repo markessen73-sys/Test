@@ -335,7 +335,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04g</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04h</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -373,6 +373,7 @@
       const PEW_DATA_URL = "__PEW_DATA_URL__";
       const BEEP_DATA_URL = "__BEEP_DATA_URL__";
       const VEGAS_MUSIC_DATA_URL = "__VEGAS_MUSIC_DATA_URL__";
+      const HYPNOTIZED_MUSIC_DATA_URL = "__HYPNOTIZED_MUSIC_DATA_URL__";
       const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("status");
@@ -407,7 +408,6 @@
         let ctx = null;
         let sfxBus = null;
         let musicBus = null;
-        let musicStarted = false;
         let lastZap = 0;
 
         function ensure() {
@@ -487,7 +487,117 @@
 
         const pew = createSampleVoice(PEW_DATA_URL, "__PEW");
         const beep = createSampleVoice(BEEP_DATA_URL, "__BEEP");
+        const titleMusic = createSampleVoice(HYPNOTIZED_MUSIC_DATA_URL, "__HYPNOTIZED_MUSIC");
         const vegasMusic = createSampleVoice(VEGAS_MUSIC_DATA_URL, "__VEGAS_MUSIC");
+
+        let titleMusicSource = null;
+        let titleMusicStarted = false;
+        let titleMusicPending = false;
+        let vegasMusicSource = null;
+        let vegasMusicStarted = false;
+        let vegasMusicPending = false;
+
+        function unlockAudio(ac) {
+          if (!ac) return Promise.resolve(false);
+          if (ac.state === "running") return Promise.resolve(true);
+          return ac.resume().then(() => ac.state === "running");
+        }
+
+        function startLoopingTrack(ac, voice, getSource, setSource, getStarted, setStarted, getPending, setPending) {
+          if (!musicBus || !voice.enabled) return Promise.resolve();
+          if (getStarted() && getSource()) return Promise.resolve();
+
+          return unlockAudio(ac).then((running) =>
+            voice.loadSample(ac).then((buf) => {
+              if (!buf || !musicBus) return;
+              if (!running) {
+                setPending(true);
+                return;
+              }
+              const prev = getSource();
+              if (prev) {
+                try {
+                  prev.stop();
+                } catch (_) {}
+              }
+              const src = ac.createBufferSource();
+              src.buffer = buf;
+              src.loop = true;
+              src.connect(musicBus);
+              src.start(0);
+              setSource(src);
+              setStarted(true);
+              setPending(false);
+            }),
+          );
+        }
+
+        function startTitleMusic(ac) {
+          return startLoopingTrack(
+            ac,
+            titleMusic,
+            () => titleMusicSource,
+            (v) => {
+              titleMusicSource = v;
+            },
+            () => titleMusicStarted,
+            (v) => {
+              titleMusicStarted = v;
+            },
+            () => titleMusicPending,
+            (v) => {
+              titleMusicPending = v;
+            },
+          );
+        }
+
+        function stopTitleMusic() {
+          if (titleMusicSource) {
+            try {
+              titleMusicSource.stop();
+            } catch (_) {}
+            titleMusicSource = null;
+          }
+          titleMusicStarted = false;
+          titleMusicPending = false;
+        }
+
+        function startVegasMusic(ac) {
+          return startLoopingTrack(
+            ac,
+            vegasMusic,
+            () => vegasMusicSource,
+            (v) => {
+              vegasMusicSource = v;
+            },
+            () => vegasMusicStarted,
+            (v) => {
+              vegasMusicStarted = v;
+            },
+            () => vegasMusicPending,
+            (v) => {
+              vegasMusicPending = v;
+            },
+          );
+        }
+
+        function stopVegasMusic() {
+          if (vegasMusicSource) {
+            try {
+              vegasMusicSource.stop();
+            } catch (_) {}
+            vegasMusicSource = null;
+          }
+          vegasMusicStarted = false;
+          vegasMusicPending = false;
+        }
+
+        function startGameMusic() {
+          stopTitleMusic();
+          const ac = ensure();
+          if (!ac) return Promise.resolve();
+          return startVegasMusic(ac);
+        }
 
         function playZapSynth(ac, now) {
           const duration = 0.24;
@@ -646,42 +756,6 @@
           thump.stop(now + 0.52);
         }
 
-        let musicSource = null;
-        let musicPending = false;
-
-        function unlockAudio(ac) {
-          if (!ac) return Promise.resolve(false);
-          if (ac.state === "running") return Promise.resolve(true);
-          return ac.resume().then(() => ac.state === "running");
-        }
-
-        function startVegasMusic(ac) {
-          if (!musicBus || !vegasMusic.enabled) return Promise.resolve();
-          if (musicStarted && musicSource) return Promise.resolve();
-
-          return unlockAudio(ac).then((running) =>
-            vegasMusic.loadSample(ac).then((buf) => {
-              if (!buf || !musicBus) return;
-              if (!running) {
-                musicPending = true;
-                return;
-              }
-              if (musicSource) {
-                try {
-                  musicSource.stop();
-                } catch (_) {}
-              }
-              musicSource = ac.createBufferSource();
-              musicSource.buffer = buf;
-              musicSource.loop = true;
-              musicSource.connect(musicBus);
-              musicSource.start(0);
-              musicStarted = true;
-              musicPending = false;
-            }),
-          );
-        }
-
         async function preloadSfx() {
           const ac = ensure();
           if (!ac) return;
@@ -691,29 +765,41 @@
           await Promise.all(loads);
         }
 
-        function preloadMusic() {
+        function preloadTitleMusic() {
+          const ac = ensure();
+          if (!ac || !titleMusic.enabled) return Promise.resolve();
+          return titleMusic.loadSample(ac);
+        }
+
+        function preloadVegasMusic() {
           const ac = ensure();
           if (!ac || !vegasMusic.enabled) return Promise.resolve();
           return vegasMusic.loadSample(ac);
         }
 
-        function resume() {
-          const ac = ensure();
-          if (ac && (!musicStarted || musicPending)) void startVegasMusic(ac);
-          return ac;
+        function preloadMusic() {
+          return Promise.all([preloadTitleMusic(), preloadVegasMusic()]);
         }
 
-        function startIntroMusic() {
+        function resume() {
           const ac = ensure();
-          if (!ac) return Promise.resolve();
-          return startVegasMusic(ac);
+          if (ac && (!titleMusicStarted || titleMusicPending)) void startTitleMusic(ac);
+          if (ac && vegasMusicPending) void startVegasMusic(ac);
+          return ac;
         }
 
         return {
           resume,
           preloadSfx,
           preloadMusic,
-          startIntroMusic,
+          preloadTitleMusic,
+          preloadVegasMusic,
+          startTitleMusic: () => {
+            const ac = ensure();
+            if (!ac) return Promise.resolve();
+            return startTitleMusic(ac);
+          },
+          startGameMusic,
           playZap,
           playKerching,
           playCrash,
@@ -2817,7 +2903,7 @@
       }
 
       function startGameFromAttract(btn) {
-        sfx.resume();
+        void sfx.startGameMusic();
         flashButton(btn);
         gamePhase = "playing";
         setHudForPhase();
@@ -2841,7 +2927,6 @@
         ready = true;
         statusEl.style.display = "none";
         lastFrame = 0;
-        void sfx.preloadMusic().then(() => sfx.startIntroMusic());
         syncViewportHeight();
         layoutControls();
         updateChromeHint();
@@ -2959,6 +3044,9 @@
 
       async function init() {
         applyModeCopy();
+        void sfx.preloadTitleMusic();
+        void sfx.preloadVegasMusic();
+        void sfx.startTitleMusic();
 
         const assetBase = new URL("./assets/", window.location.href);
         const bgSrc =
@@ -3005,14 +3093,13 @@
         canvas.width = W;
         canvas.height = H;
         void sfx.preloadSfx();
-        void sfx.preloadMusic();
 
         if (!isWrap() && introServerImg && introSmokeImg && introCapriImg) {
           beginIntroSequence();
           return;
         }
 
-        void sfx.startIntroMusic();
+        void sfx.startGameMusic();
         beginPlayingDirectly();
       }
 

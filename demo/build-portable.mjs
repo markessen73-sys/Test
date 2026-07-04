@@ -37,14 +37,37 @@ function findNamedAudio(stem) {
   return null;
 }
 
+function findAudioByNamePart(part) {
+  const needle = part.toLowerCase();
+  const ranked = [];
+  for (const dir of ENGINE_REV_SEARCH_DIRS) {
+    if (!existsSync(dir)) continue;
+    for (const name of readdirSync(dir)) {
+      const path = join(dir, name);
+      let st;
+      try {
+        st = statSync(path);
+      } catch {
+        continue;
+      }
+      if (!st.isFile()) continue;
+      const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+      if (!AUDIO_EXTS.has(ext)) continue;
+      if (!name.toLowerCase().includes(needle)) continue;
+      ranked.push({ path, mtime: st.mtimeMs, size: st.size });
+    }
+  }
+  ranked.sort((a, b) => b.mtime - a.mtime || b.size - a.size);
+  return ranked[0]?.path ?? null;
+}
+
 function copyAudioAsset(path, assetName) {
   if (!path) return "";
   copyFileSync(path, `${ASSETS}/${assetName}`);
   return `assets/${assetName}`;
 }
 
-function prepareVegasMusic(srcPath) {
-  const assetName = "vegas-music.mp3";
+function prepareMusicAsset(srcPath, assetName) {
   const dest = `${ASSETS}/${assetName}`;
   const demoDest = `/workspace/demo/assets/${assetName}`;
   const ffmpeg = spawnSync(
@@ -59,6 +82,10 @@ function prepareVegasMusic(srcPath) {
   copyFileSync(srcPath, dest);
   copyFileSync(srcPath, demoDest);
   return { ref: `assets/${assetName}`, bytes: readFileSync(dest).length, optimized: false };
+}
+
+function prepareVegasMusic(srcPath) {
+  return prepareMusicAsset(srcPath, "vegas-music.mp3");
 }
 
 function findEngineRevSource() {
@@ -229,6 +256,18 @@ async function build() {
     console.log("Vegas music: none found");
   }
 
+  let hypnotizedMusicDataUrl = "";
+  const hypnotizedMusicPath = findAudioByNamePart("hypnotized");
+  if (hypnotizedMusicPath) {
+    const hypnotized = prepareMusicAsset(hypnotizedMusicPath, "hypnotized-music.mp3");
+    hypnotizedMusicDataUrl = hypnotized.ref;
+    console.log(
+      `Title music: ${hypnotizedMusicDataUrl} (${hypnotized.bytes} bytes${hypnotized.optimized ? ", 96k mono" : ""})`,
+    );
+  } else {
+    console.log("Title music: none found (hypnotized)");
+  }
+
   let html = readFileSync("/workspace/demo/cloud-background.html", "utf8");
 
   function embedPortable(source, bakedMode) {
@@ -271,6 +310,7 @@ async function build() {
       .replace("__PEW_DATA_URL__", pewDataUrl)
       .replace("__BEEP_DATA_URL__", beepDataUrl)
       .replace("__VEGAS_MUSIC_DATA_URL__", vegasMusicDataUrl)
+      .replace("__HYPNOTIZED_MUSIC_DATA_URL__", hypnotizedMusicDataUrl)
       .replace("__BAKED_MODE__", bakedMode)
       .replace("__TITLE_TEXT__", copy.title)
       .replace("__DESC_TEXT__", copy.desc)
