@@ -34,6 +34,23 @@ export async function buildLevel2Data(imagePath) {
     }
   }
 
+  // Trim one pixel from exposed brick edges so channels match playable clearance.
+  const eroded = solid.slice();
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const pi = y * width + x;
+      if (!solid[pi]) continue;
+      if (
+        !solid[pi - 1] ||
+        !solid[pi + 1] ||
+        !solid[pi - width] ||
+        !solid[pi + width]
+      ) {
+        eroded[pi] = 0;
+      }
+    }
+  }
+
   const visited = new Uint8Array(width * height);
   const cones = [];
   for (let y = 0; y < height; y++) {
@@ -74,8 +91,8 @@ export async function buildLevel2Data(imagePath) {
   const midX = Math.floor(width / 2);
   const bottomHalfY = height * 0.5;
   const targetY = height * 0.82;
-  const SPAWN_HW = 18;
-  const SPAWN_HH = 35;
+  const SPAWN_HW = 15;
+  const SPAWN_HH = 29;
 
   function carFitsAt(map, x, y) {
     for (let py = Math.floor(y - SPAWN_HH); py <= Math.ceil(y + SPAWN_HH); py++) {
@@ -113,9 +130,9 @@ export async function buildLevel2Data(imagePath) {
         for (const sx of xs) {
           const tryX = anchorCone.x + sx;
           const tryY = anchorCone.y - dy;
-          if (tryY < bottomHalfY) continue;
-          if (!carFitsAt(solid, tryX, tryY)) continue;
-          const clearance = horizontalClearance(solid, tryX, tryY);
+          if (tryY < bottomHalfY || tryY > anchorCone.y - 24) continue;
+          if (!carFitsAt(eroded, tryX, tryY)) continue;
+          const clearance = horizontalClearance(eroded, tryX, tryY);
           const score = dy * 2 + Math.abs(sx) + Math.abs(tryX - midX) * 0.1 - clearance * 0.35;
           if (!best || score < best.score) best = { x: tryX, y: tryY, score };
         }
@@ -130,7 +147,7 @@ export async function buildLevel2Data(imagePath) {
   if (!spawn) {
     for (let y = Math.floor(height * 0.55); y < height - SPAWN_HH - 4; y += 2) {
       for (let x = midX - 160; x < midX + 160; x += 2) {
-        if (!carFitsAt(solid, x, y)) continue;
+        if (!carFitsAt(eroded, x, y)) continue;
         const score = Math.hypot(x - midX, y - targetY);
         if (!spawn || score < spawn.score) spawn = { x, y, score };
       }
@@ -143,12 +160,12 @@ export async function buildLevel2Data(imagePath) {
   return {
     width,
     height,
-    solid,
+    solid: eroded,
     cones,
     spawn,
     spawnCone,
     coneCount: cones.length,
-    solidPct: ((solid.reduce((a, b) => a + b, 0) / (width * height)) * 100).toFixed(1),
+    solidPct: ((eroded.reduce((a, b) => a + b, 0) / (width * height)) * 100).toFixed(1),
   };
 }
 

@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04z</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04za</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1388,8 +1388,8 @@
       let ready = false;
       let fallElapsed = 0;
 
-      const LEVEL2_CAR_W = 48;
-      const LEVEL2_CAR_H = 74;
+      const LEVEL2_CAR_W = 38;
+      const LEVEL2_CAR_H = 58;
       const LEVEL2_CAR_HW = LEVEL2_CAR_W / 2;
       const LEVEL2_CAR_HH = LEVEL2_CAR_H / 2;
       const LEVEL2_CRUISE_SPEED = 220;
@@ -2108,20 +2108,20 @@
         const bottom = h - 2;
         ctx.fillStyle = blue;
         ctx.beginPath();
-        ctx.moveTo(4, bottom - 6);
-        ctx.lineTo(w - 4, bottom - 6);
-        ctx.lineTo(w - 6, bottom - 20);
-        ctx.lineTo(6, bottom - 22);
+        ctx.moveTo(6, bottom - 6);
+        ctx.lineTo(w - 6, bottom - 6);
+        ctx.lineTo(w - 7, bottom - 18);
+        ctx.lineTo(7, bottom - 20);
         ctx.closePath();
         ctx.fill();
         ctx.fillStyle = glass;
-        ctx.fillRect(10, bottom - 21, w - 20, 6);
+        ctx.fillRect(11, bottom - 19, w - 22, 5);
         ctx.fillStyle = blueLo;
-        ctx.fillRect(2, bottom - 8, w - 4, 3);
+        ctx.fillRect(4, bottom - 8, w - 8, 3);
         ctx.fillStyle = "#080808";
         ctx.beginPath();
-        ctx.ellipse(10, bottom - 1, 5, 4, 0, 0, Math.PI * 2);
-        ctx.ellipse(w - 10, bottom - 1, 5, 4, 0, 0, Math.PI * 2);
+        ctx.ellipse(11, bottom - 1, 4, 3, 0, 0, Math.PI * 2);
+        ctx.ellipse(w - 11, bottom - 1, 4, 3, 0, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -2147,7 +2147,7 @@
         level2WallPixelsRear = shrinkCarPixels(level2PixelsRear, 1, 2);
         level2CarSide = makeSprite(drawCapriSideTop);
         level2PixelsSide = extractCarPixels(level2CarSide);
-        level2WallPixelsSide = shrinkCarPixels(level2PixelsSide, 3, 2);
+        level2WallPixelsSide = shrinkCarPixels(level2PixelsSide, 5, 2);
       }
 
       function level2CarBundle() {
@@ -2225,58 +2225,74 @@
       }
 
       function ensureLevel2SpawnFit() {
-        if (!ball || currentLevel !== 2 || !level2WallPixelsSide.length) return;
-        ball.level2Facing = "side";
-        const pixels = level2WallPixelsSide;
+        if (!ball || currentLevel !== 2) return;
+        const candidates = [
+          { facing: "side", pixels: level2WallPixelsSide },
+          { facing: "front", pixels: level2WallPixelsFront },
+        ].filter((entry) => entry.pixels.length);
 
-        function clearAt(x, y) {
+        function clearAt(x, y, pixels) {
           return !vehicleOverlapsSolidAt(x, y, pixels, solidAt);
         }
 
-        if (clearAt(ball.x, ball.y)) return;
+        for (const entry of candidates) {
+          if (clearAt(ball.x, ball.y, entry.pixels)) {
+            ball.level2Facing = entry.facing;
+            return;
+          }
+        }
 
         const originX = ball.x;
         const originY = ball.y;
         let best = null;
 
-        for (let dy = 0; dy <= 120; dy++) {
-          for (let dx = 0; dx <= 96; dx++) {
-            const xs = dx === 0 ? [0] : [-dx, dx];
-            for (const sx of xs) {
-              const x = originX + sx;
-              const y = originY - dy;
-              if (!clearAt(x, y)) continue;
-              const score = dy * 2 + Math.abs(sx);
-              if (!best || score < best.score) best = { x, y, score };
+        for (const entry of candidates) {
+          for (let dy = 0; dy <= 120; dy++) {
+            for (let dx = 0; dx <= 96; dx++) {
+              const xs = dx === 0 ? [0] : [-dx, dx];
+              for (const sx of xs) {
+                const x = originX + sx;
+                const y = originY - dy;
+                if (!clearAt(x, y, entry.pixels)) continue;
+                const score = dy * 2 + Math.abs(sx) + (entry.facing === "side" ? 4 : 0);
+                if (!best || score < best.score) best = { x, y, facing: entry.facing, score };
+              }
             }
+            if (best && best.score <= dy * 2 + 4) break;
           }
-          if (best && best.score <= dy * 2) break;
         }
 
         if (best) {
           ball.x = best.x;
           ball.y = best.y;
+          ball.level2Facing = best.facing;
+          resolveLevel2Overlap();
           return;
         }
 
         for (let dist = 1; dist <= 64; dist++) {
-          for (const [dx, dy] of [
-            [0, 1],
-            [-1, 0],
-            [1, 0],
-          ]) {
-            const x = originX + dx * dist;
-            const y = originY + dy * dist;
-            if (clearAt(x, y)) {
-              ball.x = x;
-              ball.y = y;
-              return;
+          for (const entry of candidates) {
+            for (const [dx, dy] of [
+              [0, 1],
+              [-1, 0],
+              [1, 0],
+            ]) {
+              const x = originX + dx * dist;
+              const y = originY + dy * dist;
+              if (clearAt(x, y, entry.pixels)) {
+                ball.x = x;
+                ball.y = y;
+                ball.level2Facing = entry.facing;
+                resolveLevel2Overlap();
+                return;
+              }
             }
           }
         }
 
         ball.x = originX;
         ball.y = originY;
+        resolveLevel2Overlap();
       }
 
       function level2DesiredMotion() {
@@ -2288,13 +2304,79 @@
         return { vx: 0, vy: 0, facing: ball.level2Facing || "front" };
       }
 
+      function resolveLevel2Overlap() {
+        if (!ball || currentLevel !== 2) return;
+        const { wallPixels } = level2CarBundle();
+        if (!vehicleOverlapsSolidAt(ball.x, ball.y, wallPixels, solidAt)) return;
+
+        const originX = ball.x;
+        const originY = ball.y;
+        const dirs = [
+          [0, -1],
+          [0, 1],
+          [-1, 0],
+          [1, 0],
+          [-2, 0],
+          [2, 0],
+          [0, -2],
+          [0, 2],
+          [-1, -1],
+          [1, -1],
+          [-1, 1],
+          [1, 1],
+        ];
+
+        for (let dist = 1; dist <= LEVEL2_CAR_HW + 8; dist++) {
+          for (const [dx, dy] of dirs) {
+            ball.x = originX + dx * dist;
+            ball.y = originY + dy * dist;
+            if (!vehicleOverlapsSolidAt(ball.x, ball.y, wallPixels, solidAt)) {
+              return;
+            }
+          }
+        }
+
+        ball.x = originX;
+        ball.y = originY;
+      }
+
+      function centerLevel2InLane(axis) {
+        if (!ball || currentLevel !== 2) return;
+        const { wallPixels } = level2CarBundle();
+        const overlaps = (cx, cy) => vehicleOverlapsSolidAt(cx, cy, wallPixels, solidAt);
+        if (overlaps(ball.x, ball.y)) return;
+
+        if (axis === "x") {
+          let left = ball.x;
+          let right = ball.x;
+          while (!overlaps(left - 1, ball.y)) left--;
+          while (!overlaps(right + 1, ball.y)) right++;
+          const lane = right - left;
+          if (lane < LEVEL2_CAR_W + 6) return;
+          const targetX = (left + right) * 0.5;
+          const shift = Math.sign(targetX - ball.x) * Math.min(Math.abs(targetX - ball.x), 3);
+          if (shift && !overlaps(ball.x + shift, ball.y)) ball.x += shift;
+          return;
+        }
+
+        let top = ball.y;
+        let bottom = ball.y;
+        while (!overlaps(ball.x, top - 1)) top--;
+        while (!overlaps(ball.x, bottom + 1)) bottom++;
+        const lane = bottom - top;
+        if (lane < LEVEL2_CAR_H + 6) return;
+        const targetY = (top + bottom) * 0.5;
+        const shift = Math.sign(targetY - ball.y) * Math.min(Math.abs(targetY - ball.y), 3);
+        if (shift && !overlaps(ball.x, ball.y + shift)) ball.y += shift;
+      }
+
       function moveLevel2Car(dx, dy) {
         const { wallPixels } = level2CarBundle();
         const overlaps = (cx, cy) => vehicleOverlapsSolidAt(cx, cy, wallPixels, solidAt);
 
         const trySlidePast = (axis, step) => {
           const slideAxis = axis === "x" ? "y" : "x";
-          for (const nudge of [1, -1, 2, -2, 3, -3, 4, -4]) {
+          for (const nudge of [1, -1, 2, -2, 3, -3, 4, -4, 6, -6, 8, -8]) {
             const savedX = ball.x;
             const savedY = ball.y;
             if (slideAxis === "y") ball.y += nudge;
@@ -2331,6 +2413,9 @@
 
         moveAxis("x", dx);
         moveAxis("y", dy);
+        if (dx !== 0) centerLevel2InLane("x");
+        else if (dy !== 0) centerLevel2InLane("y");
+        resolveLevel2Overlap();
       }
 
       function collectLevel2Cones() {
@@ -2360,6 +2445,20 @@
         }
       }
 
+      function fitLevel2FacingToLane() {
+        if (!ball || ball.vx !== 0 || ball.vy !== 0) return;
+        if (ball.level2Facing !== "side") return;
+        if (!vehicleOverlapsSolidAt(ball.x, ball.y, level2WallPixelsSide, solidAt)) return;
+        for (const facing of ["front", "rear"]) {
+          const pixels = facing === "front" ? level2WallPixelsFront : level2WallPixelsRear;
+          if (!vehicleOverlapsSolidAt(ball.x, ball.y, pixels, solidAt)) {
+            ball.level2Facing = facing;
+            resolveLevel2Overlap();
+            return;
+          }
+        }
+      }
+
       function stepLevel2(dt) {
         if (!ball?.alive) return;
         const motion = level2DesiredMotion();
@@ -2367,6 +2466,7 @@
         ball.vx = motion.vx;
         ball.vy = motion.vy;
         moveLevel2Car(ball.vx * dt, ball.vy * dt);
+        fitLevel2FacingToLane();
         collectLevel2Cones();
       }
 
