@@ -8,7 +8,7 @@ function isConePixel(r, g, b) {
 }
 
 function isBrickWallPixel(r, g, b) {
-  return r > 130 && r > g * 1.35 && b < 80 && g < 100;
+  return r > 110 && r > g && r > b && g < 120 && b < 100;
 }
 
 function isWallPixel(r, g, b) {
@@ -59,23 +59,6 @@ export async function buildLevel2Data(imagePath) {
       if (expandedConeMask[pi]) continue;
       if (isWallPixel(r, g, b)) {
         solid[pi] = 1;
-      }
-    }
-  }
-
-  // Trim one pixel from exposed brick edges so channels match playable clearance.
-  const eroded = solid.slice();
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      const pi = y * width + x;
-      if (!solid[pi]) continue;
-      if (
-        !solid[pi - 1] ||
-        !solid[pi + 1] ||
-        !solid[pi - width] ||
-        !solid[pi + width]
-      ) {
-        eroded[pi] = 0;
       }
     }
   }
@@ -174,9 +157,9 @@ export async function buildLevel2Data(imagePath) {
           const tryX = anchorCone.x + sx;
           const tryY = anchorCone.y - dy;
           if (tryY < bottomHalfY || tryY > anchorCone.y - 24) continue;
-          if (!carFitsAt(eroded, tryX, tryY)) continue;
-          const vClear = verticalClearance(eroded, tryX, tryY);
-          const hClear = horizontalClearance(eroded, tryX, tryY);
+          if (!carFitsAt(solid, tryX, tryY)) continue;
+          const vClear = verticalClearance(solid, tryX, tryY);
+          const hClear = horizontalClearance(solid, tryX, tryY);
           if (vClear < MIN_VERT_CLEARANCE || hClear < MIN_HORIZ_CLEARANCE) continue;
           const score = spawnScore(tryX, tryY, vClear, hClear) + dy * 0.5 + Math.abs(sx) * 0.25;
           if (!best || score < best.score) best = { x: tryX, y: tryY, score };
@@ -192,9 +175,9 @@ export async function buildLevel2Data(imagePath) {
   if (!spawn) {
     for (let y = Math.floor(height * 0.45); y < height - SPAWN_HH - 4; y += 2) {
       for (let x = midX - 220; x < midX + 220; x += 2) {
-        if (!carFitsAt(eroded, x, y)) continue;
-        const vClear = verticalClearance(eroded, x, y);
-        const hClear = horizontalClearance(eroded, x, y);
+        if (!carFitsAt(solid, x, y)) continue;
+        const vClear = verticalClearance(solid, x, y);
+        const hClear = horizontalClearance(solid, x, y);
         if (vClear < MIN_VERT_CLEARANCE || hClear < MIN_HORIZ_CLEARANCE) continue;
         const score = spawnScore(x, y, vClear, hClear);
         if (!spawn || score < spawn.score) spawn = { x, y, score };
@@ -208,12 +191,12 @@ export async function buildLevel2Data(imagePath) {
   return {
     width,
     height,
-    solid: eroded,
+    solid,
     cones,
     spawn,
     spawnCone,
     coneCount: cones.length,
-    solidPct: ((eroded.reduce((a, b) => a + b, 0) / (width * height)) * 100).toFixed(1),
+    solidPct: ((solid.reduce((a, b) => a + b, 0) / (width * height)) * 100).toFixed(1),
   };
 }
 
