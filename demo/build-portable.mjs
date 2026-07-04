@@ -421,7 +421,7 @@ async function build() {
       )
       .replace(
         'const LEVEL2_BACKGROUND_URL = "assets/level2-background.png";',
-        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png?v=zu";`,
+        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png?v=zv";`,
       )
       .replace(
         'const LEVEL2_BUS_URL = "assets/routemaster-bus.png";',

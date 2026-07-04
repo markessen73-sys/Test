@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zu</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zv</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -2592,16 +2592,20 @@
 
       function snapCardinalDirection(dx, dy) {
         if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return { x: 0, y: 1 };
-        if (Math.abs(dx) >= Math.abs(dy)) return { x: dx < 0 ? -1 : 1, y: 0 };
-        return { x: 0, y: dy < 0 ? -1 : 1 };
+        if (Math.abs(dx) > Math.abs(dy)) return { x: dx < 0 ? -1 : 1, y: 0 };
+        if (Math.abs(dy) > Math.abs(dx)) return { x: 0, y: dy < 0 ? -1 : 1 };
+        return { x: dx < 0 ? -1 : 1, y: 0 };
       }
 
       function level2FireDirection() {
-        const moveMag = Math.hypot(ball.vx, ball.vy);
-        if (moveMag > 20) return snapCardinalDirection(ball.vx, ball.vy);
         const stickMag = Math.hypot(stickNormX, stickNormY);
         if (stickMag >= LEVEL2_STICK_DEAD) return snapCardinalDirection(stickNormX, stickNormY);
-        if (ball.level2Facing === "side") return { x: 1, y: 0 };
+        const moveMag = Math.hypot(ball.vx, ball.vy);
+        if (moveMag > 20) return snapCardinalDirection(ball.vx, ball.vy);
+        if (ball.level2Facing === "side") {
+          const hx = ball.vx || stickNormX || stickDir || 1;
+          return { x: hx < 0 ? -1 : 1, y: 0 };
+        }
         if (ball.level2Facing === "rear") return { x: 0, y: -1 };
         return { x: 0, y: 1 };
       }
@@ -2609,12 +2613,14 @@
       function fireLevel2Fireball() {
         if (level2FireCooldown > 0) return;
         const dir = level2FireDirection();
-        const spawnDist = LEVEL2_CAR_HH + 6;
+        const axis = dir.x !== 0 ? "x" : "y";
+        const sign = dir.x !== 0 ? dir.x : dir.y;
+        const spawnDist = (axis === "x" ? LEVEL2_CAR_HW : LEVEL2_CAR_HH) + 6;
         level2Fireballs.push({
           x: ball.x + dir.x * spawnDist,
           y: ball.y + dir.y * spawnDist,
-          vx: dir.x * LEVEL2_FIREBALL_SPEED,
-          vy: dir.y * LEVEL2_FIREBALL_SPEED,
+          axis,
+          sign,
           alive: true,
         });
         level2FireCooldown = LEVEL2_FIRE_COOLDOWN;
@@ -2635,17 +2641,16 @@
 
       function stepLevel2Fireballs(dt) {
         const next = [];
+        const travel = LEVEL2_FIREBALL_SPEED * dt;
         for (const fb of level2Fireballs) {
           if (!fb.alive) continue;
-          const dist = Math.hypot(fb.vx, fb.vy) * dt;
-          const steps = Math.max(1, Math.ceil(dist));
-          const stepX = (fb.vx * dt) / steps;
-          const stepY = (fb.vy * dt) / steps;
           let alive = true;
+          const steps = Math.max(1, Math.ceil(travel));
+          const delta = (travel / steps) * fb.sign;
 
           for (let i = 0; i < steps && alive; i++) {
-            fb.x += stepX;
-            fb.y += stepY;
+            if (fb.axis === "x") fb.x += delta;
+            else fb.y += delta;
             if (solidAt(Math.floor(fb.x), Math.floor(fb.y))) {
               alive = false;
               break;
@@ -2743,16 +2748,19 @@
 
       function drawLevel2Fireballs() {
         for (const fb of level2Fireballs) {
+          const horiz = fb.axis === "x";
+          const rx = horiz ? LEVEL2_FIREBALL_R * 1.55 : LEVEL2_FIREBALL_R * 0.8;
+          const ry = horiz ? LEVEL2_FIREBALL_R * 0.8 : LEVEL2_FIREBALL_R * 1.55;
           ctx.save();
           ctx.shadowColor = "rgba(255,120,20,0.85)";
           ctx.shadowBlur = 14;
-          const grad = ctx.createRadialGradient(fb.x, fb.y, 0, fb.x, fb.y, LEVEL2_FIREBALL_R);
+          const grad = ctx.createRadialGradient(fb.x, fb.y, 0, fb.x, fb.y, Math.max(rx, ry));
           grad.addColorStop(0, "#fff6a0");
           grad.addColorStop(0.45, "#ff6a10");
           grad.addColorStop(1, "rgba(180,20,0,0)");
           ctx.fillStyle = grad;
           ctx.beginPath();
-          ctx.arc(fb.x, fb.y, LEVEL2_FIREBALL_R, 0, Math.PI * 2);
+          ctx.ellipse(fb.x, fb.y, rx, ry, 0, 0, Math.PI * 2);
           ctx.fill();
           ctx.restore();
         }
