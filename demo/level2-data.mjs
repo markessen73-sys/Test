@@ -12,6 +12,36 @@ export function isSolidPixel(r, g, b, a = 255) {
   return !isWalkablePixel(r, g, b, a);
 }
 
+export function erodeSolid(solid, width, height, passes = 1) {
+  let map = solid;
+  for (let pass = 0; pass < passes; pass++) {
+    const next = new Uint8Array(map);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = y * width + x;
+        if (!map[i]) continue;
+        let keep = true;
+        for (const [dx, dy] of [
+          [0, -1],
+          [0, 1],
+          [-1, 0],
+          [1, 0],
+        ]) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height || !map[ny * width + nx]) {
+            keep = false;
+            break;
+          }
+        }
+        if (!keep) next[i] = 0;
+      }
+    }
+    map = next;
+  }
+  return map;
+}
+
 export async function buildLevel2Data(imagePath) {
   const { data, info } = await sharp(imagePath).raw().toBuffer({ resolveWithObject: true });
   const { width, height, channels } = info;
@@ -27,6 +57,8 @@ export async function buildLevel2Data(imagePath) {
       if (isSolidPixel(r, g, b, a)) solid[y * width + x] = 1;
     }
   }
+
+  solid.set(erodeSolid(solid, width, height, 1));
 
   const cones = [];
   let spawn = null;
@@ -137,7 +169,7 @@ export async function buildBusPixels(pngPath) {
       if (a > 32) full.push([Math.round(x - cx), Math.round(y - cy)]);
     }
   }
-  const move = shrinkPixels(full, 3, 4);
+  const move = shrinkPixels(full, 0, 0);
   return { full, move: move.length ? move : full };
 }
 

@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zs</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zt</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1683,8 +1683,8 @@
       }
 
       function defaultLevel2BusMovePixels() {
-        const hw = Math.floor(LEVEL2_CAR_HW - 3);
-        const hh = Math.floor(LEVEL2_CAR_HH - 2);
+        const hw = Math.floor(LEVEL2_CAR_HW - 1);
+        const hh = Math.floor(LEVEL2_CAR_HH - 1);
         const pixels = [];
         for (let y = -hh; y <= hh; y++) {
           for (let x = -hw; x <= hw; x++) pixels.push([x, y]);
@@ -2264,8 +2264,8 @@
         level2CarSide = makeSprite(drawCapriSideTop);
         level2PixelsSide = extractCarPixels(level2CarSide);
         level2WallPixelsSide = shrinkCarPixels(level2PixelsSide, 5, 2);
-        level2MovePixels = shrinkCarPixels(level2PixelsFront, 3, 4);
-        if (!level2MovePixels.length) level2MovePixels = level2PixelsFront.slice();
+        level2MovePixels = level2PixelsFront.slice();
+        if (!level2MovePixels.length) level2MovePixels = level2PixelsFront;
       }
 
       function level2CarBundle() {
