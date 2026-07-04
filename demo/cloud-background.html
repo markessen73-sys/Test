@@ -391,7 +391,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04n</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04o</p>
     <div id="play-column">
       <div id="wrap">
         <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
@@ -449,9 +449,22 @@
       function resolveAssetUrl(src) {
         if (!src || src.startsWith("data:") || src.startsWith("http")) return src;
         if (window.location.hostname === "htmlpreview.github.io") {
-          const gh = window.location.search.match(/github\.com\/([^/]+\/[^/]+)\/blob\/([^/]+)\/([^?#]+)/);
-          if (gh) {
-            const [, repo, branch, filePath] = gh;
+          const q = window.location.search.slice(1);
+          const blob = q.match(/github\.com\/([^/]+\/[^/]+)\/blob\/([^/]+)\/(.+?)(?:\?|#|$)/);
+          if (blob) {
+            const [, repo, branch, filePath] = blob;
+            const base = filePath.replace(/[^/]+$/, "");
+            return `https://raw.githubusercontent.com/${repo}/${branch}/${base}${src}`;
+          }
+          const raw = q.match(/raw\.githubusercontent\.com\/([^/]+\/[^/]+)\/([^/]+)\/(.+?)(?:\?|#|$)/);
+          if (raw) {
+            const [, repo, branch, filePath] = raw;
+            const base = filePath.replace(/[^/]+$/, "");
+            return `https://raw.githubusercontent.com/${repo}/${branch}/${base}${src}`;
+          }
+          const ghRaw = q.match(/github\.com\/([^/]+\/[^/]+)\/raw\/([^/]+)\/(.+?)(?:\?|#|$)/);
+          if (ghRaw) {
+            const [, repo, branch, filePath] = ghRaw;
             const base = filePath.replace(/[^/]+$/, "");
             return `https://raw.githubusercontent.com/${repo}/${branch}/${base}${src}`;
           }
