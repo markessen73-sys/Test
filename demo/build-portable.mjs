@@ -181,6 +181,18 @@ async function build() {
     console.log(`Intro asset: ${name} (${readFileSync(src).length} bytes)`);
   }
 
+  const LEVEL2_BG = join(DEMO_ASSETS, "level2-background.png");
+  const LEVEL2_BG_ROOT = join(ROOT, "file_000000007298724693505eed12bd3d5c.png");
+  if (!existsSync(LEVEL2_BG) && existsSync(LEVEL2_BG_ROOT)) {
+    copyFileSync(LEVEL2_BG_ROOT, LEVEL2_BG);
+  }
+  if (existsSync(LEVEL2_BG)) {
+    copyFileSync(LEVEL2_BG, `${ASSETS}/level2-background.png`);
+    console.log(`Level two background: level2-background.png (${readFileSync(LEVEL2_BG).length} bytes)`);
+  } else {
+    console.log("Level two background: none found");
+  }
+
   const iconSvg = Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#111"/><rect x="96" y="176" width="320" height="128" rx="18" fill="#6eb8e4"/><rect x="128" y="208" width="72" height="40" rx="6" fill="#243848"/><circle cx="160" cy="336" r="44" fill="#111"/><circle cx="352" cy="336" r="44" fill="#111"/></svg>`,
   );
@@ -337,6 +349,10 @@ async function build() {
       .replace(
         'const INTRO_CAPRI_URL = "assets/intro-capri.png";',
         `const INTRO_CAPRI_URL = "${portableAssetBase}intro-capri.png";`,
+      )
+      .replace(
+        'const LEVEL2_BACKGROUND_URL = "assets/level2-background.png";',
+        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png";`,
       )
       .replace("__BAKED_MODE__", "drop")
       .replace("__TITLE_TEXT__", "Adventures Of Crappy Capri")
