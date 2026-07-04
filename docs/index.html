@@ -335,7 +335,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">Adventures Of Crappy Capri</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04i</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04j</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="active">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="">→ Wrap right</button>
@@ -490,9 +490,10 @@
         const titleMusic = createSampleVoice(HYPNOTIZED_MUSIC_DATA_URL, "__HYPNOTIZED_MUSIC");
         const vegasMusic = createSampleVoice(VEGAS_MUSIC_DATA_URL, "__VEGAS_MUSIC");
 
-        let titleMusicSource = null;
-        let titleMusicStarted = false;
+        let titleAudio = null;
         let titleMusicPending = false;
+        let titleMusicEpoch = 0;
+        let allowTitleMusic = false;
         let vegasMusicSource = null;
         let vegasMusicStarted = false;
         let vegasMusicPending = false;
@@ -501,6 +502,64 @@
           if (!ac) return Promise.resolve(false);
           if (ac.state === "running") return Promise.resolve(true);
           return ac.resume().then(() => ac.state === "running");
+        }
+
+        function ensureTitleAudio() {
+          if (!titleMusic.enabled) return null;
+          if (!titleAudio) {
+            titleAudio = new Audio(resolveAssetSrc(HYPNOTIZED_MUSIC_DATA_URL));
+            titleAudio.loop = true;
+            titleAudio.volume = 0.16;
+            titleAudio.preload = "auto";
+          }
+          return titleAudio;
+        }
+
+        function isTitleMusicPlaying() {
+          return Boolean(titleAudio && !titleAudio.paused);
+        }
+
+        function tryPlayTitleMusic() {
+          if (!allowTitleMusic) return Promise.resolve(false);
+          const audio = ensureTitleAudio();
+          if (!audio) return Promise.resolve(false);
+          const epoch = titleMusicEpoch;
+          return audio
+            .play()
+            .then(() => {
+              if (!allowTitleMusic || epoch !== titleMusicEpoch) {
+                audio.pause();
+                audio.currentTime = 0;
+                return false;
+              }
+              titleMusicPending = false;
+              return true;
+            })
+            .catch(() => {
+              if (epoch === titleMusicEpoch) titleMusicPending = true;
+              return false;
+            });
+        }
+
+        function stopTitleMusic() {
+          titleMusicEpoch++;
+          allowTitleMusic = false;
+          titleMusicPending = false;
+          if (titleAudio) {
+            titleAudio.pause();
+            titleAudio.currentTime = 0;
+          }
+        }
+
+        function beginTitleScreens() {
+          allowTitleMusic = true;
+          titleMusicEpoch++;
+          return tryPlayTitleMusic();
+        }
+
+        function unlockTitleMusic() {
+          if (!allowTitleMusic || isTitleMusicPlaying()) return Promise.resolve(isTitleMusicPlaying());
+          return tryPlayTitleMusic();
         }
 
         function startLoopingTrack(ac, voice, getSource, setSource, getStarted, setStarted, getPending, setPending) {
@@ -530,36 +589,6 @@
               setPending(false);
             }),
           );
-        }
-
-        function startTitleMusic(ac) {
-          return startLoopingTrack(
-            ac,
-            titleMusic,
-            () => titleMusicSource,
-            (v) => {
-              titleMusicSource = v;
-            },
-            () => titleMusicStarted,
-            (v) => {
-              titleMusicStarted = v;
-            },
-            () => titleMusicPending,
-            (v) => {
-              titleMusicPending = v;
-            },
-          );
-        }
-
-        function stopTitleMusic() {
-          if (titleMusicSource) {
-            try {
-              titleMusicSource.stop();
-            } catch (_) {}
-            titleMusicSource = null;
-          }
-          titleMusicStarted = false;
-          titleMusicPending = false;
         }
 
         function startVegasMusic(ac) {
@@ -596,7 +625,13 @@
           stopTitleMusic();
           const ac = ensure();
           if (!ac) return Promise.resolve();
-          return startVegasMusic(ac);
+          return unlockAudio(ac).then((running) => {
+            if (!running) {
+              vegasMusicPending = true;
+              return;
+            }
+            return startVegasMusic(ac);
+          });
         }
 
         function playZapSynth(ac, now) {
@@ -766,9 +801,10 @@
         }
 
         function preloadTitleMusic() {
-          const ac = ensure();
-          if (!ac || !titleMusic.enabled) return Promise.resolve();
-          return titleMusic.loadSample(ac);
+          const audio = ensureTitleAudio();
+          if (!audio) return Promise.resolve();
+          audio.load();
+          return Promise.resolve();
         }
 
         function preloadVegasMusic() {
@@ -783,7 +819,7 @@
 
         function resume() {
           const ac = ensure();
-          if (ac && (!titleMusicStarted || titleMusicPending)) void startTitleMusic(ac);
+          if (allowTitleMusic && titleMusicPending) void unlockTitleMusic();
           if (ac && vegasMusicPending) void startVegasMusic(ac);
           return ac;
         }
@@ -794,11 +830,10 @@
           preloadMusic,
           preloadTitleMusic,
           preloadVegasMusic,
-          startTitleMusic: () => {
-            const ac = ensure();
-            if (!ac) return Promise.resolve();
-            return startTitleMusic(ac);
-          },
+          beginTitleScreens,
+          unlockTitleMusic,
+          isTitleMusicPlaying,
+          isTitleMusicPending: () => titleMusicPending,
           startGameMusic,
           playZap,
           playKerching,
@@ -958,23 +993,28 @@
       document.addEventListener("fullscreenchange", updateChromeHint);
       document.addEventListener("webkitfullscreenchange", updateChromeHint);
 
+      function unlockIntroAudio() {
+        if (gamePhase === "intro" || gamePhase === "attract") void sfx.unlockTitleMusic();
+        else sfx.resume();
+      }
+
       wrapEl.addEventListener(
         "touchstart",
         () => {
-          sfx.resume();
+          unlockIntroAudio();
           if (isLandscapePhone()) tryImmersiveMode();
         },
         { passive: true },
       );
       wrapEl.addEventListener("click", () => {
-        sfx.resume();
+        unlockIntroAudio();
         if (isLandscapePhone()) tryImmersiveMode();
       });
 
       document.addEventListener(
         "pointerdown",
         () => {
-          sfx.resume();
+          unlockIntroAudio();
         },
         { passive: true },
       );
@@ -2853,6 +2893,25 @@
         }
       }
 
+      function drawTapForSoundHint() {
+        if (!sfx.isTitleMusicPending()) return;
+        const w = canvas.width;
+        const h = canvas.height;
+        const size = Math.round(h * 0.028);
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `bold ${size}px "Courier New", Courier, monospace`;
+        ctx.lineWidth = Math.max(2, Math.round(size * 0.12));
+        ctx.strokeStyle = "#000";
+        ctx.fillStyle = "rgba(255,255,255,0.82)";
+        const text = "Tap screen for sound";
+        const y = h * 0.96;
+        ctx.strokeText(text, w / 2, y);
+        ctx.fillText(text, w / 2, y);
+        ctx.restore();
+      }
+
       function drawIntroOverlay(t, w, h, now) {
         if (t >= introHeadlightStartSec()) {
           drawHeadlightFlashes(t - introHeadlightStartSec(), w, h);
@@ -2861,6 +2920,7 @@
           drawBMovieTitle(t - introTitleStartSec());
           drawPressFire(now);
         }
+        drawTapForSoundHint();
       }
 
       function drawIntro(now) {
@@ -2933,6 +2993,7 @@
         hideMobileBrowserChrome();
         requestAnimationFrame(tick);
         drawIntro(introT0);
+        void sfx.beginTitleScreens();
       }
 
       function beginPlayingDirectly() {
@@ -3046,7 +3107,6 @@
         applyModeCopy();
         void sfx.preloadTitleMusic();
         void sfx.preloadVegasMusic();
-        void sfx.startTitleMusic();
 
         const assetBase = new URL("./assets/", window.location.href);
         const bgSrc =
