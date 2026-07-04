@@ -120,8 +120,10 @@ export async function buildLevel2Data(imagePath) {
   const midX = Math.floor(width / 2);
   const bottomHalfY = height * 0.5;
   const targetY = height * 0.82;
-  const SPAWN_HW = 15;
+  const SPAWN_HW = 10;
   const SPAWN_HH = 29;
+  const MIN_VERT_CLEARANCE = 100;
+  const MIN_HORIZ_CLEARANCE = 36;
 
   function carFitsAt(map, x, y) {
     for (let py = Math.floor(y - SPAWN_HH); py <= Math.ceil(y + SPAWN_HH); py++) {
@@ -139,6 +141,18 @@ export async function buildLevel2Data(imagePath) {
     while (left > 0 && carFitsAt(map, left - 1, y)) left--;
     while (right < width - 1 && carFitsAt(map, right + 1, y)) right++;
     return right - left + 1;
+  }
+
+  function verticalClearance(map, x, y) {
+    let top = y;
+    let bottom = y;
+    while (top > 0 && carFitsAt(map, x, top - 1)) top--;
+    while (bottom < height - 1 && carFitsAt(map, x, bottom + 1)) bottom++;
+    return bottom - top + 1;
+  }
+
+  function spawnScore(x, y, vClear, hClear) {
+    return Math.abs(x - midX) * 0.35 + Math.abs(y - targetY) * 0.25 - vClear * 0.55 - hClear * 0.08;
   }
 
   const anchorCone =
@@ -161,8 +175,10 @@ export async function buildLevel2Data(imagePath) {
           const tryY = anchorCone.y - dy;
           if (tryY < bottomHalfY || tryY > anchorCone.y - 24) continue;
           if (!carFitsAt(eroded, tryX, tryY)) continue;
-          const clearance = horizontalClearance(eroded, tryX, tryY);
-          const score = dy * 2 + Math.abs(sx) + Math.abs(tryX - midX) * 0.1 - clearance * 0.35;
+          const vClear = verticalClearance(eroded, tryX, tryY);
+          const hClear = horizontalClearance(eroded, tryX, tryY);
+          if (vClear < MIN_VERT_CLEARANCE || hClear < MIN_HORIZ_CLEARANCE) continue;
+          const score = spawnScore(tryX, tryY, vClear, hClear) + dy * 0.5 + Math.abs(sx) * 0.25;
           if (!best || score < best.score) best = { x: tryX, y: tryY, score };
         }
       }
@@ -174,10 +190,13 @@ export async function buildLevel2Data(imagePath) {
   }
 
   if (!spawn) {
-    for (let y = Math.floor(height * 0.55); y < height - SPAWN_HH - 4; y += 2) {
-      for (let x = midX - 160; x < midX + 160; x += 2) {
+    for (let y = Math.floor(height * 0.45); y < height - SPAWN_HH - 4; y += 2) {
+      for (let x = midX - 220; x < midX + 220; x += 2) {
         if (!carFitsAt(eroded, x, y)) continue;
-        const score = Math.hypot(x - midX, y - targetY);
+        const vClear = verticalClearance(eroded, x, y);
+        const hClear = horizontalClearance(eroded, x, y);
+        if (vClear < MIN_VERT_CLEARANCE || hClear < MIN_HORIZ_CLEARANCE) continue;
+        const score = spawnScore(x, y, vClear, hClear);
         if (!spawn || score < spawn.score) spawn = { x, y, score };
       }
     }
