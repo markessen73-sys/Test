@@ -239,6 +239,7 @@ async function build() {
     if (!level2ArenaJson.startsWith('{"width":0')) {
       const level2Arena = JSON.parse(level2ArenaJson);
       level2Arena.busPixels = await buildBusPixels(BUS_OUT);
+      level2Arena.busDataUrl = level2BusDataUrl;
       level2ArenaJson = JSON.stringify(level2Arena);
       console.log(
         `Routemaster bus pixels: ${level2Arena.busPixels.full.length} full, ${level2Arena.busPixels.move.length} move`,
@@ -420,7 +421,7 @@ async function build() {
       )
       .replace(
         'const LEVEL2_BACKGROUND_URL = "assets/level2-background.png";',
-        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png?v=zr";`,
+        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png?v=zs";`,
       )
       .replace(
         'const LEVEL2_BUS_URL = "assets/routemaster-bus.png";',

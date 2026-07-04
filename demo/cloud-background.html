@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zr</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zs</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1682,6 +1682,22 @@
         return true;
       }
 
+      function defaultLevel2BusMovePixels() {
+        const hw = Math.floor(LEVEL2_CAR_HW - 3);
+        const hh = Math.floor(LEVEL2_CAR_HH - 2);
+        const pixels = [];
+        for (let y = -hh; y <= hh; y++) {
+          for (let x = -hw; x <= hw; x++) pixels.push([x, y]);
+        }
+        return pixels;
+      }
+
+      function ensureLevel2BusPixels() {
+        if (applyBakedLevel2BusPixels()) return;
+        level2BusMovePixels = defaultLevel2BusMovePixels();
+        level2BusPixels = level2BusMovePixels.slice();
+      }
+
       function decodeSolidRle(b64, length) {
         const bin = atob(b64);
         const solid = new Uint8Array(length);
@@ -2056,6 +2072,12 @@
       }
 
       function extractCarPixels(surface) {
+        if (surface instanceof HTMLImageElement) {
+          const src = surface.currentSrc || surface.src || "";
+          if (!src.startsWith("data:")) {
+            return [];
+          }
+        }
         let canvas = surface;
         if (surface instanceof HTMLImageElement || surface instanceof ImageBitmap) {
           const tmp = document.createElement("canvas");
@@ -4563,21 +4585,18 @@
           loadImage(INTRO_CAPRI_URL),
         ]);
 
+        const busSrc = LEVEL2_ARENA?.busDataUrl || LEVEL2_BUS_URL;
         const [backdropResult, backgroundResult, level2BackgroundResult, level2BusResult] = await Promise.all([
           loadImage(backdropSrc).catch(() => null),
           loadImage(bgSrc),
           loadImage(resolveAssetUrl(LEVEL2_BACKGROUND_URL)).catch(() => null),
-          loadImage(resolveAssetUrl(LEVEL2_BUS_URL)).catch(() => null),
+          loadImage(busSrc.startsWith("data:") ? busSrc : resolveAssetUrl(busSrc)).catch(() => null),
         ]);
         backdrop = backdropResult;
         background = backgroundResult;
         level2Background = level2BackgroundResult;
+        ensureLevel2BusPixels();
         level2BusSprite = level2BusResult;
-        if (level2BusSprite && !applyBakedLevel2BusPixels()) {
-          level2BusPixels = extractCarPixels(level2BusSprite);
-          level2BusMovePixels = shrinkCarPixels(level2BusPixels, 3, 4);
-          if (!level2BusMovePixels.length) level2BusMovePixels = level2BusPixels.slice();
-        }
         level2Solid = await loadLevel2SolidMask();
         if (!background) throw new Error("Background image missing");
 
