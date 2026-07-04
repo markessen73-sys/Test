@@ -111,7 +111,7 @@ export async function buildLevel2Data(imagePath) {
           queue.push([nx, ny]);
         }
       }
-      if (n > 20) cones.push({ x: Math.round(sx / n), y: Math.round(sy / n) });
+      if (n > 200) cones.push({ x: Math.round(sx / n), y: Math.round(sy / n) });
     }
   }
 
