@@ -335,7 +335,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04c</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04d</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -880,7 +880,7 @@
       const INTRO_SMOKE_URL = "assets/intro-smoke.png";
       const INTRO_CAPRI_URL = "assets/intro-capri.png";
       const INTRO_SERVER_SEC = 3;
-      const INTRO_FLASH_SEC = 0.45;
+      const INTRO_FLASH_SEC = 1.45;
       const CLOUD_HOLD_FULL_SEC = 3;
       const CLOUD_HALF_FADE_SEC = 2;
       const CLOUD_HOLD_SEMI_SEC = 2;
@@ -2493,9 +2493,10 @@
       function introScreenFlashAlpha(t) {
         const local = t - introSmokeStartSec();
         if (local < 0 || local >= INTRO_FLASH_SEC) return 0;
-        const peak = 0.12;
-        if (local < peak) return local / peak;
-        return 1 - (local - peak) / (INTRO_FLASH_SEC - peak);
+        const rise = 0.1;
+        if (local < rise) return local / rise;
+        const fade = (local - rise) / (INTRO_FLASH_SEC - rise);
+        return Math.max(0, 1 - fade);
       }
 
       function drawTransitionFlash(t, w, h) {
