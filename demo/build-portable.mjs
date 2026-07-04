@@ -232,8 +232,17 @@ async function build() {
   await writeFile(`${ASSETS}/arena-backdrop.jpg`, backdropJpegFull);
   await writeFile(join(DEMO_ASSETS, "arena-backdrop.jpg"), backdropJpegFull);
 
-  const bgDataUrl = "assets/arena-foreground.png";
-  const backdropDataUrl = "assets/arena-backdrop.jpg";
+  const portableAssetBase = `https://raw.githubusercontent.com/markessen73-sys/Test/${getBranchName()}/docs/assets/`;
+
+  function toPortableUrl(ref) {
+    if (!ref) return "";
+    if (ref.startsWith("http")) return ref;
+    if (ref.startsWith("assets/")) return portableAssetBase + ref.slice("assets/".length);
+    return ref;
+  }
+
+  const bgDataUrl = toPortableUrl("assets/arena-foreground.png");
+  const backdropDataUrl = toPortableUrl("assets/arena-backdrop.jpg");
 
   let pewDataUrl = "";
   const pewPath = findNamedAudio("pew");
@@ -289,19 +298,30 @@ async function build() {
   }
 
   let html = readFileSync(join(DEMO, "cloud-background.html"), "utf8");
-  const portableAssetBase = `https://raw.githubusercontent.com/markessen73-sys/Test/${getBranchName()}/docs/assets/`;
 
   function embedPortable(source) {
     return source
       .replace("__SOLID_SEGMENTS__", JSON.stringify(segments))
       .replace("__BG_DATA_URL__", bgDataUrl)
       .replace("__BACKDROP_DATA_URL__", backdropDataUrl)
-      .replace("__PEW_DATA_URL__", pewDataUrl)
-      .replace("__BEEP_DATA_URL__", beepDataUrl)
-      .replace("__VEGAS_MUSIC_DATA_URL__", vegasMusicDataUrl)
-      .replace("__HYPNOTIZED_MUSIC_DATA_URL__", hypnotizedMusicDataUrl)
-      .replace("__CAR_CRASH_DATA_URL__", carCrashDataUrl)
+      .replace("__PEW_DATA_URL__", toPortableUrl(pewDataUrl))
+      .replace("__BEEP_DATA_URL__", toPortableUrl(beepDataUrl))
+      .replace("__VEGAS_MUSIC_DATA_URL__", toPortableUrl(vegasMusicDataUrl))
+      .replace("__HYPNOTIZED_MUSIC_DATA_URL__", toPortableUrl(hypnotizedMusicDataUrl))
+      .replace("__CAR_CRASH_DATA_URL__", toPortableUrl(carCrashDataUrl))
       .replace("__PORTABLE_ASSET_BASE__", portableAssetBase)
+      .replace(
+        'const INTRO_SERVER_URL = "assets/intro-server.png";',
+        `const INTRO_SERVER_URL = "${portableAssetBase}intro-server.png";`,
+      )
+      .replace(
+        'const INTRO_SMOKE_URL = "assets/intro-smoke.png";',
+        `const INTRO_SMOKE_URL = "${portableAssetBase}intro-smoke.png";`,
+      )
+      .replace(
+        'const INTRO_CAPRI_URL = "assets/intro-capri.png";',
+        `const INTRO_CAPRI_URL = "${portableAssetBase}intro-capri.png";`,
+      )
       .replace("__BAKED_MODE__", "drop")
       .replace("__TITLE_TEXT__", "Adventures Of Crappy Capri")
       .replace(

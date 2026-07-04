@@ -391,7 +391,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04p</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04q</p>
     <div id="play-column">
       <div id="wrap">
         <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
@@ -489,8 +489,12 @@
           try {
             q = decodeURIComponent(q);
           } catch (_) {}
-          const rawBase = githubRawBaseFromUrl(q);
+          const rawBase = githubRawBaseFromUrl(q) || githubRawBaseFromUrl(window.location.href);
           if (rawBase) return `${rawBase}${src}`;
+        }
+
+        if (host.endsWith(".github.io") && host !== "htmlpreview.github.io") {
+          return new URL(src, window.location.href).href;
         }
 
         return new URL(src, window.location.href).href;
@@ -3365,13 +3369,14 @@
         void sfx.preloadTitleMusic();
         void sfx.preloadVegasMusic();
 
-        const assetBase = new URL("./assets/", window.location.href);
         const bgSrc =
-          BG_DATA_URL && !BG_DATA_URL.startsWith("__") ? BG_DATA_URL : new URL("arena-foreground.png", assetBase).href;
+          BG_DATA_URL && !BG_DATA_URL.startsWith("__")
+            ? resolveAssetUrl(BG_DATA_URL)
+            : resolveAssetUrl("assets/arena-foreground.png");
         const backdropSrc =
           BACKDROP_DATA_URL && !BACKDROP_DATA_URL.startsWith("__")
-            ? BACKDROP_DATA_URL
-            : new URL("arena-backdrop.jpg", assetBase).href;
+            ? resolveAssetUrl(BACKDROP_DATA_URL)
+            : resolveAssetUrl("assets/arena-backdrop.jpg");
 
         statusEl.textContent = "Loading…";
         [introServerImg, introSmokeImg, introCapriImg] = await Promise.all([
