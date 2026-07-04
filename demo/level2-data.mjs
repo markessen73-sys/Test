@@ -46,16 +46,18 @@ export async function buildLevel2Data(imagePath) {
     }
   }
 
-  // Nudge wall edges outward by one pixel so the car cannot clip brick corners.
+  // Thicken wall edges so the larger car cannot clip through brick corners.
   const dilated = solid.slice();
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
+  for (let y = 2; y < height - 2; y++) {
+    for (let x = 2; x < width - 2; x++) {
       const pi = y * width + x;
       if (!solid[pi]) continue;
-      dilated[(y - 1) * width + x] = 1;
-      dilated[(y + 1) * width + x] = 1;
-      dilated[y * width + (x - 1)] = 1;
-      dilated[y * width + (x + 1)] = 1;
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          if (dx * dx + dy * dy > 6) continue;
+          dilated[(y + dy) * width + (x + dx)] = 1;
+        }
+      }
     }
   }
 

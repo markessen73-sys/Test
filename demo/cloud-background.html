@@ -235,6 +235,16 @@
         border-color: #fd8;
         background: radial-gradient(circle at 35% 30%, #ffc870, #6a4010);
       }
+      .thumbstick.up .thumbstick-knob {
+        transform: translateY(-38%);
+        border-color: #fd8;
+        background: radial-gradient(circle at 35% 30%, #ffc870, #6a4010);
+      }
+      .thumbstick.down .thumbstick-knob {
+        transform: translateY(38%);
+        border-color: #fd8;
+        background: radial-gradient(circle at 35% 30%, #ffc870, #6a4010);
+      }
       .control-btn:disabled {
         opacity: 0.35;
         cursor: default;
@@ -393,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04u</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04v</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1044,13 +1054,24 @@
       const STICK_DRIFT_GAIN = 1.9;
       const STICK_TAP_MULT = 2;
       let stickDir = 0;
+      let stickDirY = 0;
       let stickPointerId = null;
       const STICK_DEAD = 0.22;
 
+      function usingLevel2Stick() {
+        return currentLevel === 2 && gamePhase === "playing";
+      }
+
       function paintThumbstick() {
-        thumbstickEl.classList.toggle("left", stickDir < 0);
-        thumbstickEl.classList.toggle("right", stickDir > 0);
-        thumbstickEl.setAttribute("aria-valuenow", String(stickDir));
+        thumbstickEl.classList.toggle("left", stickDir < 0 && !stickDirY);
+        thumbstickEl.classList.toggle("right", stickDir > 0 && !stickDirY);
+        thumbstickEl.classList.toggle("up", stickDirY < 0);
+        thumbstickEl.classList.toggle("down", stickDirY > 0);
+        thumbstickEl.setAttribute(
+          "aria-label",
+          usingLevel2Stick() ? "Hold for up, down, left, or right" : "Hold left or right",
+        );
+        thumbstickEl.setAttribute("aria-valuenow", String(stickDir || stickDirY));
       }
 
       function stickFromClientX(clientX) {
@@ -1061,17 +1082,43 @@
         return 0;
       }
 
-      function bindThumbstick() {
-        function setStick(next) {
+      function stickFromPointer(clientX, clientY) {
+        const rect = thumbstickEl.getBoundingClientRect();
+        const nx = (clientX - rect.left) / rect.width - 0.5;
+        const ny = (clientY - rect.top) / rect.height - 0.5;
+        const ax = Math.abs(nx);
+        const ay = Math.abs(ny);
+        if (ax < STICK_DEAD * 0.45 && ay < STICK_DEAD * 0.45) return { x: 0, y: 0 };
+        if (ax >= ay) return { x: nx < 0 ? -1 : 1, y: 0 };
+        return { x: 0, y: ny < 0 ? -1 : 1 };
+      }
+
+      function updateStickFromPointer(clientX, clientY) {
+        if (usingLevel2Stick()) {
+          const next = stickFromPointer(clientX, clientY);
+          if (stickDir === next.x && stickDirY === next.y) return;
+          stickDir = next.x;
+          stickDirY = next.y;
+        } else {
+          const next = stickFromClientX(clientX);
           if (stickDir === next) return;
           stickDir = next;
-          paintThumbstick();
+          stickDirY = 0;
         }
+        paintThumbstick();
+      }
 
+      function resetStick() {
+        stickDir = 0;
+        stickDirY = 0;
+        paintThumbstick();
+      }
+
+      function bindThumbstick() {
         function endStick(pointerId) {
           if (stickPointerId !== pointerId) return;
           stickPointerId = null;
-          setStick(0);
+          resetStick();
           window.removeEventListener("pointermove", onStickMove);
           window.removeEventListener("pointerup", onStickEnd);
           window.removeEventListener("pointercancel", onStickEnd);
@@ -1079,7 +1126,7 @@
 
         function onStickMove(e) {
           if (e.pointerId !== stickPointerId) return;
-          setStick(stickFromClientX(e.clientX));
+          updateStickFromPointer(e.clientX, e.clientY);
         }
 
         function onStickEnd(e) {
@@ -1090,7 +1137,7 @@
           if (thumbstickEl.classList.contains("is-disabled")) return;
           if (stickPointerId !== null) return;
           stickPointerId = e.pointerId;
-          setStick(stickFromClientX(e.clientX));
+          updateStickFromPointer(e.clientX, e.clientY);
           window.addEventListener("pointermove", onStickMove);
           window.addEventListener("pointerup", onStickEnd);
           window.addEventListener("pointercancel", onStickEnd);
@@ -1341,8 +1388,8 @@
       let ready = false;
       let fallElapsed = 0;
 
-      const LEVEL2_CAR_W = 30;
-      const LEVEL2_CAR_H = 48;
+      const LEVEL2_CAR_W = 40;
+      const LEVEL2_CAR_H = 62;
       const LEVEL2_CAR_HW = LEVEL2_CAR_W / 2;
       const LEVEL2_CAR_HH = LEVEL2_CAR_H / 2;
       const LEVEL2_CRUISE_SPEED = 220;
@@ -2055,26 +2102,25 @@
       }
 
       function buildLevel2Capri() {
-        const front = document.createElement("canvas");
-        front.width = LEVEL2_CAR_W;
-        front.height = LEVEL2_CAR_H;
-        drawCapriFront(front.getContext("2d"), LEVEL2_CAR_W, LEVEL2_CAR_H);
-        level2CarFront = front;
-        level2PixelsFront = extractCarPixels(front);
+        const baseW = 30;
+        const baseH = 48;
 
-        const rear = document.createElement("canvas");
-        rear.width = LEVEL2_CAR_W;
-        rear.height = LEVEL2_CAR_H;
-        drawCapriRear(rear.getContext("2d"), LEVEL2_CAR_W, LEVEL2_CAR_H);
-        level2CarRear = rear;
-        level2PixelsRear = extractCarPixels(rear);
+        function makeSprite(drawFn) {
+          const canvas = document.createElement("canvas");
+          canvas.width = LEVEL2_CAR_W;
+          canvas.height = LEVEL2_CAR_H;
+          const cctx = canvas.getContext("2d");
+          cctx.scale(LEVEL2_CAR_W / baseW, LEVEL2_CAR_H / baseH);
+          drawFn(cctx, baseW, baseH);
+          return canvas;
+        }
 
-        const side = document.createElement("canvas");
-        side.width = LEVEL2_CAR_W;
-        side.height = LEVEL2_CAR_H;
-        drawCapriSideTop(side.getContext("2d"), LEVEL2_CAR_W, LEVEL2_CAR_H);
-        level2CarSide = side;
-        level2PixelsSide = extractCarPixels(side);
+        level2CarFront = makeSprite(drawCapriFront);
+        level2PixelsFront = extractCarPixels(level2CarFront);
+        level2CarRear = makeSprite(drawCapriRear);
+        level2PixelsRear = extractCarPixels(level2CarRear);
+        level2CarSide = makeSprite(drawCapriSideTop);
+        level2PixelsSide = extractCarPixels(level2CarSide);
       }
 
       function saveLevelOneArena() {
@@ -2133,28 +2179,36 @@
         return { sprite: level2CarFront, pixels: level2PixelsFront, w: LEVEL2_CAR_W, h: LEVEL2_CAR_H };
       }
 
-      function level2ProbeAhead(dx, dy) {
-        const { pixels } = level2CarBundle();
-        const probeX = ball.x + dx;
-        const probeY = ball.y + dy;
-        return !vehicleOverlapsSolidAt(probeX, probeY, pixels, solidAt);
-      }
-
       function level2DesiredMotion() {
         const speed = LEVEL2_CRUISE_SPEED;
-        if (stickDir < 0) {
-          if (level2ProbeAhead(0, -8)) return { vx: 0, vy: -speed, facing: "rear" };
-          if (level2ProbeAhead(-8, 0)) return { vx: -speed, vy: 0, facing: "side" };
-        } else if (stickDir > 0) {
-          if (level2ProbeAhead(0, 8)) return { vx: 0, vy: speed, facing: "front" };
-          if (level2ProbeAhead(8, 0)) return { vx: speed, vy: 0, facing: "side" };
-        }
+        if (stickDirY < 0) return { vx: 0, vy: -speed, facing: "rear" };
+        if (stickDirY > 0) return { vx: 0, vy: speed, facing: "front" };
+        if (stickDir < 0) return { vx: -speed, vy: 0, facing: "side" };
+        if (stickDir > 0) return { vx: speed, vy: 0, facing: "side" };
         return { vx: 0, vy: 0, facing: ball.level2Facing || "front" };
       }
 
       function moveLevel2Car(dx, dy) {
-        const bundle = level2CarBundle();
-        moveEntityPixels(ball, bundle.pixels, dx, dy, solidAt);
+        const { pixels } = level2CarBundle();
+        const overlaps = (cx, cy) => vehicleOverlapsSolidAt(cx, cy, pixels, solidAt);
+
+        const moveAxis = (axis, delta) => {
+          if (delta === 0) return;
+          const steps = Math.max(1, Math.ceil(Math.abs(delta)));
+          const step = delta / steps;
+          for (let i = 0; i < steps; i++) {
+            if (axis === "x") ball.x += step;
+            else ball.y += step;
+            if (overlaps(ball.x, ball.y)) {
+              if (axis === "x") ball.x -= step;
+              else ball.y -= step;
+              return;
+            }
+          }
+        };
+
+        moveAxis("x", dx);
+        moveAxis("y", dy);
       }
 
       function collectLevel2Cones() {
@@ -2168,7 +2222,6 @@
             const cdy = py - cone.y;
             if (cdx * cdx + cdy * cdy <= LEVEL2_CONE_RADIUS * LEVEL2_CONE_RADIUS) {
               cone.collected = true;
-              sfx.playKerching();
               break;
             }
           }
@@ -2585,7 +2638,13 @@
       }
 
       function solidAt(px, py) {
-        if (py < 0 || py >= H) return currentLevel === 2;
+        if (currentLevel === 2) {
+          const x = Math.floor(px);
+          const y = Math.floor(py);
+          if (x < 0 || x >= W || y < 0 || y >= H) return true;
+          return solid[y * W + x] === 1;
+        }
+        if (py < 0 || py >= H) return false;
         return solid[py * W + wrapPixelX(px)] === 1;
       }
 
@@ -3254,6 +3313,14 @@
 
       function drawCarAt(cx, cy) {
         const { sprite, w, h } = activeCarBundle();
+        if (currentLevel === 2 && ball.level2Facing === "side" && ball.vx <= 0 && stickDir <= 0) {
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.scale(-1, 1);
+          ctx.drawImage(sprite, -w / 2, -h / 2, w, h);
+          ctx.restore();
+          return;
+        }
         drawVehicle(sprite, cx, cy, w, h);
       }
 
@@ -3810,8 +3877,7 @@
         canvas.height = introServerImg.naturalHeight;
         setHudForPhase();
         applyModeCopy();
-        stickDir = 0;
-        paintThumbstick();
+        resetStick();
         ready = true;
         statusEl.style.display = "none";
         lastFrame = 0;
@@ -3885,7 +3951,7 @@
       function applyModeCopy() {
         descEl.textContent =
           currentLevel === 2
-            ? "Drive anywhere that is not a red brick wall. Stick left moves up, right moves down. Tap fire for a boost. Cones vanish when touched."
+            ? "Four-way stick: up, down, left, right. Drive anywhere except red brick walls. Tap fire for a boost. Cones vanish when touched."
             : "Hold ← or → on the stick to steer while falling, then tap fire to boost up and sideways. Three Zoox robotaxis patrol the decks. You have three lives.";
 
         const controlsDisabled = gamePhase === "intro";
@@ -3893,8 +3959,7 @@
         leftLiftBtn.disabled = controlsDisabled;
         thumbstickEl.classList.toggle("is-disabled", controlsDisabled);
         if (controlsDisabled) {
-          stickDir = 0;
-          paintThumbstick();
+          resetStick();
         }
         paintLives();
       }
@@ -3909,9 +3974,13 @@
         sfx.resume();
         if (currentLevel === 2) {
           const boost = LEVEL2_BOOST;
-          if (ball.level2Facing === "front") ball.vy = Math.min(ball.vy + boost, LEVEL2_CRUISE_SPEED * 1.6);
+          if (stickDirY < 0) ball.vy = Math.max(ball.vy - boost, -LEVEL2_CRUISE_SPEED * 1.6);
+          else if (stickDirY > 0) ball.vy = Math.min(ball.vy + boost, LEVEL2_CRUISE_SPEED * 1.6);
+          else if (stickDir < 0) ball.vx = Math.max(ball.vx - boost, -LEVEL2_CRUISE_SPEED * 1.6);
+          else if (stickDir > 0) ball.vx = Math.min(ball.vx + boost, LEVEL2_CRUISE_SPEED * 1.6);
+          else if (ball.level2Facing === "front") ball.vy = Math.min(ball.vy + boost, LEVEL2_CRUISE_SPEED * 1.6);
           else if (ball.level2Facing === "rear") ball.vy = Math.max(ball.vy - boost, -LEVEL2_CRUISE_SPEED * 1.6);
-          else ball.vx += Math.sign(ball.vx || stickDir || 1) * boost;
+          else ball.vx += Math.sign(ball.vx || 1) * boost;
           flashButton(btn);
           return;
         }
