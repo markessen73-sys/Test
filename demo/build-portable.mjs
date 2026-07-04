@@ -183,10 +183,14 @@ async function build() {
   }
 
   const LEVEL2_BG = join(DEMO_ASSETS, "level2-background.png");
-  const LEVEL2_BG_ROOT = join(ROOT, "file_000000007298724693505eed12bd3d5c.png");
+  const LEVEL2_BG_ROOT = join(ROOT, "1783194226859.png");
+  const LEVEL2_BG_ALT = join(ROOT, "file_00000000e6d87243afed1bd0535c6ce4.png");
   let level2ArenaJson = '{"width":0,"height":0,"spawn":{"x":0,"y":0},"cones":[]}';
   if (!existsSync(LEVEL2_BG) && existsSync(LEVEL2_BG_ROOT)) {
     copyFileSync(LEVEL2_BG_ROOT, LEVEL2_BG);
+  }
+  if (!existsSync(LEVEL2_BG) && existsSync(LEVEL2_BG_ALT)) {
+    copyFileSync(LEVEL2_BG_ALT, LEVEL2_BG);
   }
   if (existsSync(LEVEL2_BG)) {
     copyFileSync(LEVEL2_BG, `${ASSETS}/level2-background.png`);

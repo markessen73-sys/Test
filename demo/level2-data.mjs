@@ -3,12 +3,13 @@ import { writeFile } from "node:fs/promises";
 
 export const LEVEL2_WALKABLE_MAX = 24;
 
-export function isWalkablePixel(r, g, b) {
+export function isWalkablePixel(r, g, b, a = 255) {
+  if (a <= 24) return true;
   return r <= LEVEL2_WALKABLE_MAX && g <= LEVEL2_WALKABLE_MAX && b <= LEVEL2_WALKABLE_MAX;
 }
 
-export function isSolidPixel(r, g, b) {
-  return !isWalkablePixel(r, g, b);
+export function isSolidPixel(r, g, b, a = 255) {
+  return !isWalkablePixel(r, g, b, a);
 }
 
 export async function buildLevel2Data(imagePath) {
@@ -22,7 +23,8 @@ export async function buildLevel2Data(imagePath) {
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
-      if (isSolidPixel(r, g, b)) solid[y * width + x] = 1;
+      const a = channels > 3 ? data[i + 3] : 255;
+      if (isSolidPixel(r, g, b, a)) solid[y * width + x] = 1;
     }
   }
 
