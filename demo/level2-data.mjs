@@ -6,23 +6,11 @@ function isConePixel(r, g, b) {
 }
 
 function isBrickWallPixel(r, g, b) {
-  return r > 110 && r > g * 1.25 && b < 90 && g < 110;
-}
-
-function isMortarPixel(r, g, b) {
-  return (
-    r >= 75 &&
-    r <= 125 &&
-    g >= 68 &&
-    g <= 118 &&
-    b >= 68 &&
-    b <= 118 &&
-    Math.max(r, g, b) - Math.min(r, g, b) < 32
-  );
+  return r > 130 && r > g * 1.35 && b < 80 && g < 100;
 }
 
 function isWallPixel(r, g, b) {
-  return isBrickWallPixel(r, g, b) || isMortarPixel(r, g, b);
+  return isBrickWallPixel(r, g, b);
 }
 
 export async function buildLevel2Data(imagePath) {
@@ -43,19 +31,6 @@ export async function buildLevel2Data(imagePath) {
       } else if (isWallPixel(r, g, b)) {
         solid[pi] = 1;
       }
-    }
-  }
-
-  // Nudge wall edges outward slightly so the car cannot clip brick corners.
-  const dilated = solid.slice();
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      const pi = y * width + x;
-      if (!solid[pi]) continue;
-      dilated[(y - 1) * width + x] = 1;
-      dilated[(y + 1) * width + x] = 1;
-      dilated[y * width + (x - 1)] = 1;
-      dilated[y * width + (x + 1)] = 1;
     }
   }
 
@@ -99,8 +74,8 @@ export async function buildLevel2Data(imagePath) {
   const midX = Math.floor(width / 2);
   const bottomHalfY = height * 0.5;
   const targetY = height * 0.82;
-  const SPAWN_HW = 24;
-  const SPAWN_HH = 14;
+  const SPAWN_HW = 18;
+  const SPAWN_HH = 35;
 
   function carFitsAt(map, x, y) {
     for (let py = Math.floor(y - SPAWN_HH); py <= Math.ceil(y + SPAWN_HH); py++) {
@@ -110,6 +85,14 @@ export async function buildLevel2Data(imagePath) {
       }
     }
     return true;
+  }
+
+  function horizontalClearance(map, x, y) {
+    let left = x;
+    let right = x;
+    while (left > 0 && carFitsAt(map, left - 1, y)) left--;
+    while (right < width - 1 && carFitsAt(map, right + 1, y)) right++;
+    return right - left + 1;
   }
 
   const anchorCone =
@@ -123,34 +106,31 @@ export async function buildLevel2Data(imagePath) {
 
   if (anchorCone) {
     spawnCone = { x: anchorCone.x, y: anchorCone.y };
-    if (carFitsAt(dilated, anchorCone.x, anchorCone.y)) {
-      spawn = { x: anchorCone.x, y: anchorCone.y };
-    } else {
-      for (let dy = 0; dy <= 96; dy++) {
-        const tryY = anchorCone.y - dy;
-        if (tryY < bottomHalfY) break;
-        if (carFitsAt(dilated, anchorCone.x, tryY)) {
-          spawn = { x: anchorCone.x, y: tryY };
-          break;
+    let best = null;
+    for (let dy = 0; dy <= 120; dy++) {
+      for (let dx = 0; dx <= 96; dx++) {
+        const xs = dx === 0 ? [0] : [-dx, dx];
+        for (const sx of xs) {
+          const tryX = anchorCone.x + sx;
+          const tryY = anchorCone.y - dy;
+          if (tryY < bottomHalfY) continue;
+          if (!carFitsAt(solid, tryX, tryY)) continue;
+          const clearance = horizontalClearance(solid, tryX, tryY);
+          const score = dy * 2 + Math.abs(sx) + Math.abs(tryX - midX) * 0.1 - clearance * 0.35;
+          if (!best || score < best.score) best = { x: tryX, y: tryY, score };
         }
       }
-      if (!spawn) {
-        for (let dy = 1; dy <= 48; dy++) {
-          const tryY = anchorCone.y + dy;
-          if (tryY >= height - SPAWN_HH - 2) break;
-          if (carFitsAt(dilated, anchorCone.x, tryY)) {
-            spawn = { x: anchorCone.x, y: tryY };
-            break;
-          }
-        }
-      }
+      if (best && best.score <= dy * 2) break;
+    }
+    if (best) {
+      spawn = { x: best.x, y: best.y };
     }
   }
 
   if (!spawn) {
     for (let y = Math.floor(height * 0.55); y < height - SPAWN_HH - 4; y += 2) {
-      for (let x = midX - 120; x < midX + 120; x += 2) {
-        if (!carFitsAt(dilated, x, y)) continue;
+      for (let x = midX - 160; x < midX + 160; x += 2) {
+        if (!carFitsAt(solid, x, y)) continue;
         const score = Math.hypot(x - midX, y - targetY);
         if (!spawn || score < spawn.score) spawn = { x, y, score };
       }
@@ -158,17 +138,17 @@ export async function buildLevel2Data(imagePath) {
     if (spawn) delete spawn.score;
   }
 
-  if (!spawn) spawn = { x: midX, y: Math.floor(height * 0.72) };
+  if (!spawn) spawn = { x: midX, y: Math.floor(height * 0.76) };
 
   return {
     width,
     height,
-    solid: dilated,
+    solid,
     cones,
     spawn,
     spawnCone,
     coneCount: cones.length,
-    solidPct: ((dilated.reduce((a, b) => a + b, 0) / (width * height)) * 100).toFixed(1),
+    solidPct: ((solid.reduce((a, b) => a + b, 0) / (width * height)) * 100).toFixed(1),
   };
 }
 
