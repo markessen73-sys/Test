@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zm</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04zn</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1059,6 +1059,7 @@
       let stickNormY = 0;
       let stickPointerId = null;
       const STICK_DEAD = 0.22;
+      const LEVEL2_STICK_DEAD = 0.12;
       const thumbstickKnobEl = thumbstickEl.querySelector(".thumbstick-knob");
 
       function usingLevel2Stick() {
@@ -1101,7 +1102,7 @@
         const nx = ((clientX - rect.left) / rect.width - 0.5) * 2;
         const ny = ((clientY - rect.top) / rect.height - 0.5) * 2;
         const mag = Math.hypot(nx, ny);
-        if (mag < STICK_DEAD) return { x: 0, y: 0 };
+        if (mag < LEVEL2_STICK_DEAD) return { x: 0, y: 0 };
         const scale = Math.min(mag, 1) / mag;
         return { x: nx * scale, y: ny * scale };
       }
@@ -1458,6 +1459,7 @@
       let level2WallPixelsFront = [];
       let level2WallPixelsRear = [];
       let level2WallPixelsSide = [];
+      let level2MovePixels = [];
       let zooxSpriteLeft = null;
       let zooxSpriteRight = null;
       let zooxPixelsLeft = [];
@@ -2195,6 +2197,8 @@
         level2CarSide = makeSprite(drawCapriSideTop);
         level2PixelsSide = extractCarPixels(level2CarSide);
         level2WallPixelsSide = shrinkCarPixels(level2PixelsSide, 5, 2);
+        level2MovePixels = shrinkCarPixels(level2PixelsFront, 3, 4);
+        if (!level2MovePixels.length) level2MovePixels = level2PixelsFront.slice();
       }
 
       function level2CarBundle() {
@@ -2238,7 +2242,7 @@
       }
 
       function level2CollisionPixels() {
-        return level2CarBundle().pixels;
+        return level2MovePixels.length ? level2MovePixels : level2PixelsFront;
       }
 
       function enterLevelTwoArena() {
@@ -2352,14 +2356,16 @@
       function level2DesiredMotion() {
         const speed = LEVEL2_CRUISE_SPEED;
         const mag = Math.hypot(stickNormX, stickNormY);
-        if (mag < 0.05) return { vx: 0, vy: 0, facing: ball.level2Facing || "front" };
-        const vx = stickNormX * speed;
-        const vy = stickNormY * speed;
+        if (mag < LEVEL2_STICK_DEAD) {
+          return { vx: 0, vy: 0, facing: ball.level2Facing || "front" };
+        }
+        const ux = stickNormX / mag;
+        const uy = stickNormY / mag;
         let facing = ball.level2Facing || "front";
-        if (Math.abs(stickNormX) > Math.abs(stickNormY) * 0.55) facing = "side";
-        else if (stickNormY < 0) facing = "rear";
+        if (Math.abs(ux) > Math.abs(uy)) facing = "side";
+        else if (uy < 0) facing = "rear";
         else facing = "front";
-        return { vx, vy, facing };
+        return { vx: ux * speed, vy: uy * speed, facing };
       }
 
       function resolveLevel2Overlap() {
@@ -2435,50 +2441,27 @@
       }
 
       function moveLevel2Car(dx, dy) {
+        if (!dx && !dy) return;
         const pixels = level2CollisionPixels();
         const overlaps = (cx, cy) => vehicleOverlapsSolidAt(cx, cy, pixels, solidAt);
+        const dist = Math.hypot(dx, dy);
+        const steps = Math.max(1, Math.ceil(dist));
+        const stepX = dx / steps;
+        const stepY = dy / steps;
 
-        const trySlidePast = (axis, step) => {
-          const slideAxis = axis === "x" ? "y" : "x";
-          for (const nudge of [1, -1, 2, -2, 3, -3, 4, -4, 6, -6, 8, -8, 10, -10]) {
-            const savedX = ball.x;
-            const savedY = ball.y;
-            if (slideAxis === "y") ball.y += nudge;
-            else ball.x += nudge;
-            if (overlaps(ball.x, ball.y)) {
-              ball.x = savedX;
-              ball.y = savedY;
-              continue;
-            }
-            if (axis === "x") ball.x += step;
-            else ball.y += step;
-            if (!overlaps(ball.x, ball.y)) return true;
-            ball.x = savedX;
-            ball.y = savedY;
+        for (let i = 0; i < steps; i++) {
+          const nx = ball.x + stepX;
+          const ny = ball.y + stepY;
+          if (!overlaps(nx, ny)) {
+            ball.x = nx;
+            ball.y = ny;
+            continue;
           }
-          return false;
-        };
+          if (!overlaps(nx, ball.y)) ball.x = nx;
+          else if (!overlaps(ball.x, ny)) ball.y = ny;
+        }
 
-        const moveAxis = (axis, delta) => {
-          if (delta === 0) return;
-          const steps = Math.max(1, Math.ceil(Math.abs(delta)));
-          const step = delta / steps;
-          for (let i = 0; i < steps; i++) {
-            if (axis === "x") ball.x += step;
-            else ball.y += step;
-            if (overlaps(ball.x, ball.y)) {
-              if (axis === "x") ball.x -= step;
-              else ball.y -= step;
-              if (trySlidePast(axis, step)) continue;
-              return;
-            }
-          }
-        };
-
-        moveAxis("x", dx);
-        moveAxis("y", dy);
-        if (dx !== 0 && Math.abs(dx) > Math.abs(dy) * 1.4) centerLevel2InLane("x");
-        resolveLevel2Overlap();
+        if (overlaps(ball.x, ball.y)) resolveLevel2Overlap();
       }
 
       function collectLevel2Cones() {
@@ -2535,11 +2518,10 @@
       function stepLevel2(dt) {
         if (!ball?.alive) return;
         const motion = level2DesiredMotion();
-        ball.level2Facing = motion.facing;
+        if (motion.vx !== 0 || motion.vy !== 0) ball.level2Facing = motion.facing;
         ball.vx = motion.vx;
         ball.vy = motion.vy;
         moveLevel2Car(ball.vx * dt, ball.vy * dt);
-        fitLevel2FacingToLane();
         collectLevel2Cones();
       }
 
