@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04x</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04y</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -2148,7 +2148,7 @@
           collected: false,
         }));
         dropX = LEVEL2_ARENA.spawn.x;
-        dropY = LEVEL2_ARENA.spawn.y;
+        dropY = LEVEL2_ARENA.spawn.y - LEVEL2_CAR_H;
       }
 
       function restoreLevelOneArena() {
@@ -2169,24 +2169,56 @@
       }
 
       function ensureLevel2SpawnFit() {
-        if (!ball || currentLevel !== 2) return;
+        if (!ball || currentLevel !== 2 || !level2PixelsSide.length) return;
         ball.level2Facing = "side";
-        const pixels = level2CarBundle().pixels;
-        if (!vehicleOverlapsSolidAt(ball.x, ball.y, pixels, solidAt)) return;
+        const pixels = level2PixelsSide;
+
+        function clearAt(x, y) {
+          return !vehicleOverlapsSolidAt(x, y, pixels, solidAt);
+        }
+
+        if (clearAt(ball.x, ball.y)) return;
+
         const originX = ball.x;
         const originY = ball.y;
+        let best = null;
+
+        for (let dy = 0; dy <= 96; dy++) {
+          for (let dx = 0; dx <= 48; dx++) {
+            const xs = dx === 0 ? [0] : [-dx, dx];
+            for (const sx of xs) {
+              const x = originX + sx;
+              const y = originY - dy;
+              if (!clearAt(x, y)) continue;
+              const score = dy * 2 + Math.abs(sx);
+              if (!best || score < best.score) best = { x, y, score };
+            }
+          }
+          if (best && best.score <= dy * 2) break;
+        }
+
+        if (best) {
+          ball.x = best.x;
+          ball.y = best.y;
+          return;
+        }
+
         for (let dist = 1; dist <= 64; dist++) {
           for (const [dx, dy] of [
-            [0, -1],
             [0, 1],
             [-1, 0],
             [1, 0],
           ]) {
-            ball.x = originX + dx * dist;
-            ball.y = originY + dy * dist;
-            if (!vehicleOverlapsSolidAt(ball.x, ball.y, pixels, solidAt)) return;
+            const x = originX + dx * dist;
+            const y = originY + dy * dist;
+            if (clearAt(x, y)) {
+              ball.x = x;
+              ball.y = y;
+              return;
+            }
           }
         }
+
         ball.x = originX;
         ball.y = originY;
       }
