@@ -335,7 +335,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04a</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04b</p>
     <div id="mode-bar">
       <button type="button" id="btn-drop" class="__BTN_DROP_CLASS__">↓ Drop</button>
       <button type="button" id="btn-wrap-right" class="__BTN_WRAP_RIGHT_CLASS__">→ Wrap right</button>
@@ -891,11 +891,11 @@
         CLOUD_HALF_FADE_SEC +
         CLOUD_HOLD_SEMI_SEC +
         CLOUD_FADE_OUT_SEC;
-      const INTRO_HEADLIGHT_FLASH_SEC = 2.5;
+      const INTRO_HEADLIGHT_FLICKER_SEC = 1.6;
 
       const INTRO_HEADLIGHTS = [
-        { x: 0.415, y: 0.438, r: 0.099 },
-        { x: 0.467, y: 0.445, r: 0.099 },
+        { x: 0.415, y: 0.428, r: 0.099 },
+        { x: 0.467, y: 0.435, r: 0.099 },
       ];
 
       let gamePhase = "loading";
@@ -2528,12 +2528,20 @@
         return localT >= CLOUD_FADE_IN_SEC + CLOUD_HOLD_FULL_SEC;
       }
 
-      function drawHeadlightFlashes(age, w, h) {
-        if (age < 0 || age > INTRO_HEADLIGHT_FLASH_SEC) return;
-        const period = 0.26;
-        if (Math.floor(age / period) % 2 === 1) return;
+      function headlightIntensity(age) {
+        if (age < 0) return 0;
+        if (age < INTRO_HEADLIGHT_FLICKER_SEC) {
+          const period = 0.2;
+          if (Math.floor(age / period) % 2 === 1) return 0;
+          return 0.5 + 0.5 * (0.5 + 0.5 * Math.sin(age * 38));
+        }
+        return 0.94 + 0.06 * Math.sin(age * 5);
+      }
 
-        const pulse = 0.78 + 0.22 * Math.sin(age * 28);
+      function drawHeadlightFlashes(age, w, h) {
+        const pulse = headlightIntensity(age);
+        if (pulse <= 0) return;
+
         const unit = Math.min(w, h);
 
         for (const lamp of INTRO_HEADLIGHTS) {
@@ -2663,7 +2671,7 @@
         }
         ctx.restore();
 
-        const tagSize = Math.round(size * 0.4);
+        const tagSize = Math.round(size * 0.55);
         const tagY = baseY + size * 2.5 + yDrop * 0.15;
         const tagStamp = Math.min(Math.max((age - 0.12) / 0.55, 0), 1);
         const tagScale = 1.8 - tagStamp * 0.8;
