@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { readFileSync, copyFileSync, existsSync, readdirSync, statSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { spawnSync, execSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -26,6 +26,14 @@ const ENGINE_REV_MIME = {
 };
 const OUT = join(ROOT, "docs");
 const ASSETS = `${OUT}/assets`;
+
+function getBranchName() {
+  try {
+    return execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf8" }).trim();
+  } catch {
+    return "cursor/lunar-muskman-2ae2";
+  }
+}
 
 function findNamedAudio(stem) {
   const target = `${stem.toLowerCase()}.`;
@@ -281,6 +289,7 @@ async function build() {
   }
 
   let html = readFileSync(join(DEMO, "cloud-background.html"), "utf8");
+  const portableAssetBase = `https://raw.githubusercontent.com/markessen73-sys/Test/${getBranchName()}/docs/assets/`;
 
   function embedPortable(source) {
     return source
@@ -292,6 +301,7 @@ async function build() {
       .replace("__VEGAS_MUSIC_DATA_URL__", vegasMusicDataUrl)
       .replace("__HYPNOTIZED_MUSIC_DATA_URL__", hypnotizedMusicDataUrl)
       .replace("__CAR_CRASH_DATA_URL__", carCrashDataUrl)
+      .replace("__PORTABLE_ASSET_BASE__", portableAssetBase)
       .replace("__BAKED_MODE__", "drop")
       .replace("__TITLE_TEXT__", "Adventures Of Crappy Capri")
       .replace(

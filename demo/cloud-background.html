@@ -391,7 +391,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04o</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-04p</p>
     <div id="play-column">
       <div id="wrap">
         <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
@@ -431,6 +431,7 @@
       const VEGAS_MUSIC_DATA_URL = "__VEGAS_MUSIC_DATA_URL__";
       const HYPNOTIZED_MUSIC_DATA_URL = "__HYPNOTIZED_MUSIC_DATA_URL__";
       const CAR_CRASH_DATA_URL = "__CAR_CRASH_DATA_URL__";
+      const PORTABLE_ASSET_BASE = "__PORTABLE_ASSET_BASE__";
       const canvas = document.getElementById("view");
       const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("status");
@@ -446,29 +447,52 @@
       const chromeHintEl = document.getElementById("chrome-hint");
       const audioStartOverlay = document.getElementById("audio-start-overlay");
 
+      function githubRawBaseFromUrl(url) {
+        if (!url) return null;
+        let decoded = url;
+        try {
+          decoded = decodeURIComponent(url);
+        } catch (_) {}
+        const blob = decoded.match(/github\.com\/([^/]+\/[^/]+)\/blob\/([^/]+)\/(.+?)(?:\?|#|$)/);
+        if (blob) {
+          const [, repo, branch, filePath] = blob;
+          return `https://raw.githubusercontent.com/${repo}/${branch}/${filePath.replace(/[^/]+$/, "")}`;
+        }
+        const raw = decoded.match(/raw\.githubusercontent\.com\/([^/]+\/[^/]+)\/([^/]+)\/(.+?)(?:\?|#|$)/);
+        if (raw) {
+          const [, repo, branch, filePath] = raw;
+          return `https://raw.githubusercontent.com/${repo}/${branch}/${filePath.replace(/[^/]+$/, "")}`;
+        }
+        const ghRaw = decoded.match(/github\.com\/([^/]+\/[^/]+)\/raw\/([^/]+)\/(.+?)(?:\?|#|$)/);
+        if (ghRaw) {
+          const [, repo, branch, filePath] = ghRaw;
+          return `https://raw.githubusercontent.com/${repo}/${branch}/${filePath.replace(/[^/]+$/, "")}`;
+        }
+        return null;
+      }
+
       function resolveAssetUrl(src) {
         if (!src || src.startsWith("data:") || src.startsWith("http")) return src;
-        if (window.location.hostname === "htmlpreview.github.io") {
-          const q = window.location.search.slice(1);
-          const blob = q.match(/github\.com\/([^/]+\/[^/]+)\/blob\/([^/]+)\/(.+?)(?:\?|#|$)/);
-          if (blob) {
-            const [, repo, branch, filePath] = blob;
-            const base = filePath.replace(/[^/]+$/, "");
-            return `https://raw.githubusercontent.com/${repo}/${branch}/${base}${src}`;
-          }
-          const raw = q.match(/raw\.githubusercontent\.com\/([^/]+\/[^/]+)\/([^/]+)\/(.+?)(?:\?|#|$)/);
-          if (raw) {
-            const [, repo, branch, filePath] = raw;
-            const base = filePath.replace(/[^/]+$/, "");
-            return `https://raw.githubusercontent.com/${repo}/${branch}/${base}${src}`;
-          }
-          const ghRaw = q.match(/github\.com\/([^/]+\/[^/]+)\/raw\/([^/]+)\/(.+?)(?:\?|#|$)/);
-          if (ghRaw) {
-            const [, repo, branch, filePath] = ghRaw;
-            const base = filePath.replace(/[^/]+$/, "");
-            return `https://raw.githubusercontent.com/${repo}/${branch}/${base}${src}`;
-          }
+
+        if (PORTABLE_ASSET_BASE && !PORTABLE_ASSET_BASE.startsWith("__")) {
+          if (src.startsWith("assets/")) return PORTABLE_ASSET_BASE + src.slice("assets/".length);
         }
+
+        const host = window.location.hostname;
+        if (host === "raw.githubusercontent.com") {
+          const base = window.location.pathname.replace(/[^/]+$/, "");
+          return `https://raw.githubusercontent.com${base}${src}`;
+        }
+
+        if (host === "htmlpreview.github.io") {
+          let q = window.location.search.slice(1);
+          try {
+            q = decodeURIComponent(q);
+          } catch (_) {}
+          const rawBase = githubRawBaseFromUrl(q);
+          if (rawBase) return `${rawBase}${src}`;
+        }
+
         return new URL(src, window.location.href).href;
       }
 
