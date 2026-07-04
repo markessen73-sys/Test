@@ -257,7 +257,8 @@ async function build() {
   }
 
   let hypnotizedMusicDataUrl = "";
-  const hypnotizedMusicPath = findAudioByNamePart("hypnotized");
+  const hypnotizedMusicPath =
+    findAudioByNamePart("hypnotized") ?? findAudioByNamePart("hypnotised");
   if (hypnotizedMusicPath) {
     const hypnotized = prepareMusicAsset(hypnotizedMusicPath, "hypnotized-music.mp3");
     hypnotizedMusicDataUrl = hypnotized.ref;
