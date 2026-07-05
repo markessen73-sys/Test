@@ -1,15 +1,22 @@
 """Image transformation using Replicate AI models."""
 
+import asyncio
 import base64
 import io
 import os
+import re
 from typing import Any
 
 import httpx
 import replicate
 from PIL import Image
+from replicate.exceptions import ReplicateError
 
 from styles import CaricatureStyle
+
+KONTEXT_MODEL = "flux-kontext-apps/face-to-many-kontext"
+FACE_TO_MANY_MODEL = "fofr/face-to-many"
+CARTOONIFY_MODEL = "flux-kontext-apps/cartoonify"
 
 
 class TransformError(Exception):
@@ -23,16 +30,6 @@ def _get_replicate_token() -> str | None:
 def _image_to_data_uri(image_bytes: bytes, mime_type: str = "image/jpeg") -> str:
     encoded = base64.b64encode(image_bytes).decode("utf-8")
     return f"data:{mime_type};base64,{encoded}"
-
-
-def _detect_mime(image_bytes: bytes) -> str:
-    if image_bytes[:8] == b"\x89PNG\r\n\x1a\n":
-        return "image/png"
-    if image_bytes[:3] == b"GIF":
-        return "image/gif"
-    if image_bytes[:4] == b"RIFF":
-        return "image/webp"
-    return "image/jpeg"
 
 
 def _prepare_image(image_bytes: bytes, max_size: int = 1024) -> tuple[bytes, str]:
@@ -59,15 +56,64 @@ async def _download_result(url: str) -> bytes:
         return response.content
 
 
-async def transform_with_kontext(
-    image_bytes: bytes, style: CaricatureStyle
-) -> bytes:
-    """Transform using flux-kontext face-to-many model."""
+def _parse_retry_seconds(error: ReplicateError) -> float:
+    """Extract suggested wait time from a Replicate 429 error."""
+    detail = str(error)
+    match = re.search(r"resets in ~(\d+)s", detail)
+    if match:
+        return float(match.group(1)) + 2
+    return 15.0
+
+
+def _friendly_error(error: Exception) -> str:
+    message = str(error)
+    if "429" in message or "throttled" in message.lower():
+        wait = 15
+        match = re.search(r"resets in ~(\d+)s", message)
+        if match:
+            wait = int(match.group(1))
+        return (
+            f"Rate limit reached. Please wait {wait} seconds and try again. "
+            "Free Replicate accounts are limited to 6 requests per minute."
+        )
+    if "402" in message or "insufficient credit" in message.lower():
+        return (
+            "Insufficient Replicate credit. Add billing at "
+            "https://replicate.com/account/billing and try again."
+        )
+    if "404" in message:
+        return "The AI model could not be found. Please try again in a moment."
+    return message
+
+
+async def _run_with_retry(model: str, input_params: dict[str, Any], retries: int = 2):
+    """Run a Replicate model with automatic retry on rate limits."""
+    last_error: Exception | None = None
+
+    for attempt in range(retries + 1):
+        try:
+            return await replicate.async_run(model, input=input_params)
+        except ReplicateError as error:
+            last_error = error
+            if "429" in str(error) and attempt < retries:
+                wait = _parse_retry_seconds(error)
+                await asyncio.sleep(wait)
+                continue
+            raise TransformError(_friendly_error(error)) from error
+        except Exception as error:
+            raise TransformError(_friendly_error(error)) from error
+
+    raise TransformError(_friendly_error(last_error or Exception("Unknown error")))
+
+
+async def transform_with_kontext(image_bytes: bytes, style: CaricatureStyle) -> bytes:
+    """Transform using flux-kontext face-to-many (best style support)."""
     prepared, mime = _prepare_image(image_bytes)
     data_uri = _image_to_data_uri(prepared, mime)
 
     input_params: dict[str, Any] = {
         "input_image": data_uri,
+        "style": style.kontext_style,
         "num_images": 1,
         "preserve_background": False,
         "preserve_outfit": True,
@@ -76,15 +122,7 @@ async def transform_with_kontext(
         "safety_tolerance": 2,
     }
 
-    if style.kontext_style:
-        input_params["style"] = style.kontext_style
-    else:
-        input_params["style"] = "Random"
-
-    output = await replicate.async_run(
-        "flux-kontext-apps/face-to-many-kontext",
-        input=input_params,
-    )
+    output = await _run_with_retry(KONTEXT_MODEL, input_params)
 
     if not output:
         raise TransformError("Model returned no output")
@@ -93,27 +131,21 @@ async def transform_with_kontext(
     return await _download_result(result_url)
 
 
-async def transform_with_face_to_many(
-    image_bytes: bytes, style: CaricatureStyle
-) -> bytes:
-    """Transform using fofr/face-to-many model with custom prompts."""
+async def transform_with_face_to_many(image_bytes: bytes, style: CaricatureStyle) -> bytes:
+    """Fallback using fofr/face-to-many with valid style enum + custom prompt."""
     prepared, mime = _prepare_image(image_bytes)
     data_uri = _image_to_data_uri(prepared, mime)
 
     input_params: dict[str, Any] = {
         "image": data_uri,
+        "style": style.face_to_many_style or "3D",
         "prompt": style.prompt,
         "negative_prompt": style.negative_prompt,
         "instant_id_strength": 0.85,
-        "ip_adapter_strength": 0.65,
         "control_depth_strength": 0.7,
-        "num_outputs": 1,
     }
 
-    if style.face_to_many_style:
-        input_params["style"] = style.face_to_many_style
-
-    output = await replicate.async_run("fofr/face-to-many", input=input_params)
+    output = await _run_with_retry(FACE_TO_MANY_MODEL, input_params)
 
     if not output:
         raise TransformError("Model returned no output")
@@ -122,22 +154,30 @@ async def transform_with_face_to_many(
     return await _download_result(result_url)
 
 
-async def transform_with_prompt(
-    image_bytes: bytes, style: CaricatureStyle
-) -> bytes:
-    """Fallback: use flux-kontext cartoonify with style-aware prompting."""
+async def transform_with_cartoonify(image_bytes: bytes) -> bytes:
+    """Last-resort fallback: generic cartoonify."""
     prepared, mime = _prepare_image(image_bytes)
     data_uri = _image_to_data_uri(prepared, mime)
 
-    # Try face-to-many first (better style control), then kontext
-    try:
-        return await transform_with_face_to_many(image_bytes, style)
-    except Exception:
-        return await transform_with_kontext(image_bytes, style)
+    output = await _run_with_retry(
+        CARTOONIFY_MODEL,
+        {
+            "input_image": data_uri,
+            "aspect_ratio": "match_input_image",
+            "output_format": "png",
+            "safety_tolerance": 2,
+        },
+    )
+
+    if not output:
+        raise TransformError("Model returned no output")
+
+    result_url = output if isinstance(output, str) else str(output)
+    return await _download_result(result_url)
 
 
 async def transform_image(image_bytes: bytes, style: CaricatureStyle) -> bytes:
-    """Main entry point for image transformation."""
+    """Main entry point — tries one model at a time to avoid rate-limit bursts."""
     token = _get_replicate_token()
     if not token:
         raise TransformError(
@@ -147,13 +187,20 @@ async def transform_image(image_bytes: bytes, style: CaricatureStyle) -> bytes:
 
     os.environ["REPLICATE_API_TOKEN"] = token
 
+    # Primary: kontext model (supports Simpsons, South Park, Anime, etc.)
     try:
-        return await transform_with_face_to_many(image_bytes, style)
-    except Exception as first_error:
-        try:
-            return await transform_with_kontext(image_bytes, style)
-        except Exception as second_error:
-            raise TransformError(
-                f"Transformation failed. Primary: {first_error}. "
-                f"Fallback: {second_error}"
-            ) from second_error
+        return await transform_with_kontext(image_bytes, style)
+    except TransformError as kontext_error:
+        # Only try fallback if it's not a billing/rate-limit issue
+        msg = str(kontext_error).lower()
+        if "rate limit" in msg or "insufficient" in msg or "credit" in msg:
+            raise
+
+        # Fallback: face-to-many (only if we have a valid style mapping)
+        if style.face_to_many_style:
+            try:
+                return await transform_with_face_to_many(image_bytes, style)
+            except TransformError:
+                pass
+
+        raise kontext_error from kontext_error

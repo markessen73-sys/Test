@@ -2,6 +2,17 @@
 
 from dataclasses import dataclass
 
+# Valid values from Replicate model schemas
+KONTEXT_STYLES = frozenset({
+    "Anime", "Cartoon", "Clay", "Gothic", "Graphic Novel", "Lego", "Memoji",
+    "Minecraft", "Minimalist", "Pixel Art", "Random", "Simpsons", "Sketch",
+    "South Park", "Toy", "Watercolor",
+})
+
+FACE_TO_MANY_STYLES = frozenset({
+    "3D", "Emoji", "Video game", "Pixels", "Clay", "Toy",
+})
+
 
 @dataclass(frozen=True)
 class CaricatureStyle:
@@ -10,10 +21,8 @@ class CaricatureStyle:
     description: str
     prompt: str
     negative_prompt: str
-    # face-to-many style preset (None = use custom prompt only)
+    kontext_style: str
     face_to_many_style: str | None = None
-    # flux-kontext style preset
-    kontext_style: str | None = None
     preview_color: str = "#6366f1"
 
 
@@ -28,7 +37,6 @@ STYLES: dict[str, CaricatureStyle] = {
             "Matt Groening animation style"
         ),
         negative_prompt="realistic, photograph, 3d render, blurry, ugly",
-        face_to_many_style="Simpsons",
         kontext_style="Simpsons",
         preview_color="#FFD90F",
     ),
@@ -55,8 +63,7 @@ STYLES: dict[str, CaricatureStyle] = {
             "street artist caricature style"
         ),
         negative_prompt="realistic, photograph, subtle, normal proportions",
-        face_to_many_style="Caricature",
-        kontext_style="Caricature",
+        kontext_style="Cartoon",
         preview_color="#EF4444",
     ),
     "south_park": CaricatureStyle(
@@ -69,7 +76,7 @@ STYLES: dict[str, CaricatureStyle] = {
             "Trey Parker Matt Stone style"
         ),
         negative_prompt="realistic, photograph, detailed, 3d",
-        kontext_style="Cartoon",
+        kontext_style="South Park",
         preview_color="#8B4513",
     ),
     "anime": CaricatureStyle(
@@ -81,7 +88,6 @@ STYLES: dict[str, CaricatureStyle] = {
             "vibrant colors, Japanese animation style, cel shading"
         ),
         negative_prompt="realistic, photograph, western cartoon, blurry",
-        face_to_many_style="Anime",
         kontext_style="Anime",
         preview_color="#EC4899",
     ),
@@ -95,8 +101,8 @@ STYLES: dict[str, CaricatureStyle] = {
             "high quality 3D animation"
         ),
         negative_prompt="realistic, photograph, 2d, flat, blurry",
+        kontext_style="Toy",
         face_to_many_style="3D",
-        kontext_style="3D",
         preview_color="#06B6D4",
     ),
     "disney": CaricatureStyle(
@@ -121,7 +127,7 @@ STYLES: dict[str, CaricatureStyle] = {
             "dynamic shading, Marvel DC comic art style, pop art colors"
         ),
         negative_prompt="realistic, photograph, blurry, soft",
-        kontext_style="Comic",
+        kontext_style="Graphic Novel",
         preview_color="#F97316",
     ),
     "clay": CaricatureStyle(
@@ -133,8 +139,8 @@ STYLES: dict[str, CaricatureStyle] = {
             "clay texture, Wallace and Gromit style, handmade look"
         ),
         negative_prompt="realistic, photograph, 2d, flat",
-        face_to_many_style="Clay",
         kontext_style="Clay",
+        face_to_many_style="Clay",
         preview_color="#84CC16",
     ),
     "retro": CaricatureStyle(
@@ -146,7 +152,7 @@ STYLES: dict[str, CaricatureStyle] = {
             "pie eyes, black and white or muted colors, Fleischer studios style"
         ),
         negative_prompt="realistic, photograph, modern, 3d",
-        kontext_style="Vintage",
+        kontext_style="Sketch",
         preview_color="#78716C",
     ),
 }

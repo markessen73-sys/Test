@@ -142,6 +142,12 @@ function App() {
             </div>
           )}
 
+          {apiReady && !error && !loading && (
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
+              Free accounts: ~6 requests/min. Wait a few seconds between tries.
+            </p>
+          )}
+
           <button
             className="btn btn-primary"
             onClick={handleTransform}
