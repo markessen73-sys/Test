@@ -1149,6 +1149,7 @@ html, body, #root, .app {
   height: 100%;
   pointer-events: none;
   z-index: 2;
+  filter: drop-shadow(0 0 18px rgba(100, 190, 255, 0.25));
 }
 
 .play-gloves-layer {

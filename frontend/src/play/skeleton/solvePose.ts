@@ -1,8 +1,8 @@
 import type { ArmChain, BoxerSkeletonPose, GloveTarget, GloveTransform, LegChain, Vec2 } from './types';
 import { BODY_SCALE, GUARD_LEFT, GUARD_RIGHT } from './types';
 
-export const UPPER_ARM_LEN = 0.13;
-export const FOREARM_LEN = 0.12;
+export const UPPER_ARM_LEN = 0.135;
+export const FOREARM_LEN = 0.125;
 export const MAX_ARM_REACH = UPPER_ARM_LEN + FOREARM_LEN - 0.006;
 export const MIN_ARM_REACH = Math.abs(UPPER_ARM_LEN - FOREARM_LEN) + 0.012;
 
@@ -24,8 +24,8 @@ function normalizeAngle(a: number) {
 function constrainHandFromTorso(hand: Vec2, chest: Vec2): Vec2 {
   const cx = chest.x;
   const cy = chest.y + 0.03;
-  const rx = 0.14;
-  const ry = 0.16;
+  const rx = 0.15;
+  const ry = 0.17;
   const dx = hand.x - cx;
   const dy = hand.y - cy;
   const norm = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
@@ -106,9 +106,9 @@ export function solveBoxerPose(
   const extDiff = rightExt - leftExt;
   const punchDrive = clamp(Math.max(leftExt, rightExt), 0, 1);
 
-  const spineTwist = clamp(extDiff * 0.28, -0.12, 0.12);
-  const hipRotation = clamp(extDiff * 0.14 + punchDrive * 0.04, -0.06, 0.06);
-  const chestRotation = clamp(extDiff * 0.18 + punchDrive * 0.03, -0.08, 0.08);
+  const spineTwist = clamp(extDiff * 0.32, -0.14, 0.14);
+  const hipRotation = clamp(extDiff * 0.18 + punchDrive * 0.05, -0.08, 0.08);
+  const chestRotation = clamp(extDiff * 0.22 + punchDrive * 0.04, -0.1, 0.1);
 
   const pelvis: Vec2 = {
     x: 0.5 + sway + hipRotation * 0.5,
@@ -117,7 +117,7 @@ export function solveBoxerPose(
 
   const chest: Vec2 = {
     x: pelvis.x + hipRotation * 0.75 + spineTwist * 0.3,
-    y: BODY_SCALE.chestY + breath,
+    y: BODY_SCALE.chestY + breath + punchDrive * 0.012,
   };
 
   const neck: Vec2 = {
@@ -126,7 +126,7 @@ export function solveBoxerPose(
   };
 
   const head: Vec2 = {
-    x: neck.x + spineTwist * 0.1,
+    x: neck.x + spineTwist * 0.14 + chestRotation * 0.06,
     y: BODY_SCALE.headTop + 0.04 + breath * 1.3,
   };
 
@@ -146,16 +146,16 @@ export function solveBoxerPose(
     y: BODY_SCALE.shoulderY - rightExt * 0.05 - punchDrive * 0.01,
   };
 
-  const leftClavicle = clamp(leftExt * 0.14, -0.05, 0.05);
-  const rightClavicle = clamp(rightExt * 0.14, -0.05, 0.05);
+  const leftClavicle = clamp(leftExt * 0.18, -0.06, 0.06);
+  const rightClavicle = clamp(rightExt * 0.18, -0.06, 0.06);
 
   const leftShoulder: Vec2 = {
     x: leftShoulderBase.x + leftClavicle,
-    y: leftShoulderBase.y - Math.abs(leftClavicle) * 0.6,
+    y: leftShoulderBase.y - Math.abs(leftClavicle) * 0.85 - leftExt * 0.02,
   };
   const rightShoulder: Vec2 = {
     x: rightShoulderBase.x + rightClavicle,
-    y: rightShoulderBase.y - Math.abs(rightClavicle) * 0.6,
+    y: rightShoulderBase.y - Math.abs(rightClavicle) * 0.85 - rightExt * 0.02,
   };
 
   const leftArm = solveArmIK(

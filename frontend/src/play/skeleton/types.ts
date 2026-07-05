@@ -51,21 +51,21 @@ export interface GloveTarget {
   y: number;
 }
 
-/** High guard — wide stance, shoulders span ~64% of screen */
-export const GUARD_LEFT: GloveTarget = { x: 0.22, y: 0.38 };
-export const GUARD_RIGHT: GloveTarget = { x: 0.78, y: 0.38 };
+/** High guard — wide heavyweight stance */
+export const GUARD_LEFT: GloveTarget = { x: 0.2, y: 0.36 };
+export const GUARD_RIGHT: GloveTarget = { x: 0.8, y: 0.36 };
 
-/** Body occupies bottom ~60% of screen (y 0.36 → 1.0) */
+/** Shoulders ≈ 2.5 head-widths across (head width ~0.11) */
 export const BODY_SCALE = {
-  headTop: 0.36,
-  shoulderY: 0.46,
-  chestY: 0.56,
-  waistY: 0.7,
-  pelvisY: 0.78,
-  shortsY: 0.86,
+  headTop: 0.34,
+  shoulderY: 0.44,
+  chestY: 0.54,
+  waistY: 0.68,
+  pelvisY: 0.76,
+  shortsY: 0.84,
   footY: 0.995,
-  shoulderHalfWidth: 0.34,
-  stanceHalfWidth: 0.11,
+  shoulderHalfWidth: 0.138,
+  stanceHalfWidth: 0.1,
 } as const;
 
 export interface AnatomicalGhostMesh {

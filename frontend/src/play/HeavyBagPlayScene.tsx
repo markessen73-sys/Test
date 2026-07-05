@@ -1,7 +1,6 @@
-import { useRef, useEffect, useCallback, useMemo } from 'react';
-import { Canvas, useThree, useFrame } from '@react-three/fiber';
+import { useRef, useEffect } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { GhostBoxer } from './GhostBoxer';
 import type { GlovePosition } from '../types/game';
 
 const BAG_Z = -3.8;
@@ -70,36 +69,11 @@ function PlayEnvironment() {
   );
 }
 
-function PlayScene({
-  leftPos,
-  rightPos,
-  punchImpulse,
-}: {
-  leftPos: GlovePosition;
-  rightPos: GlovePosition;
-  punchImpulse: number;
-}) {
-  const { camera } = useThree();
-  const plane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 0, 1), -0.6), []);
-  const raycaster = useMemo(() => new THREE.Raycaster(), []);
-  const target = useMemo(() => new THREE.Vector3(), []);
-  const ndc = useMemo(() => new THREE.Vector2(), []);
-
-  const screenToWorld = useCallback(
-    (pos: GlovePosition) => {
-      ndc.set(pos.x * 2 - 1, -(pos.y * 2 - 1));
-      raycaster.setFromCamera(ndc, camera);
-      raycaster.ray.intersectPlane(plane, target);
-      return target.clone();
-    },
-    [camera, ndc, plane, raycaster, target]
-  );
-
+function PlayScene({ punchImpulse }: { punchImpulse: number }) {
   return (
     <>
       <PlayEnvironment />
       <PlayHeavyBag punchImpulse={punchImpulse} />
-      <GhostBoxer leftPos={leftPos} rightPos={rightPos} screenToWorld={screenToWorld} />
     </>
   );
 }
@@ -110,7 +84,7 @@ interface HeavyBagPlaySceneProps {
   punchImpulse: number;
 }
 
-export function HeavyBagPlayScene({ leftPos, rightPos, punchImpulse }: HeavyBagPlaySceneProps) {
+export function HeavyBagPlayScene({ punchImpulse }: HeavyBagPlaySceneProps) {
   return (
     <Canvas
       shadows
@@ -122,7 +96,7 @@ export function HeavyBagPlayScene({ leftPos, rightPos, punchImpulse }: HeavyBagP
       gl={{ antialias: true, alpha: false }}
     >
       <color attach="background" args={['#1a1208']} />
-      <PlayScene leftPos={leftPos} rightPos={rightPos} punchImpulse={punchImpulse} />
+      <PlayScene punchImpulse={punchImpulse} />
     </Canvas>
   );
 }
