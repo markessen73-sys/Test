@@ -5,57 +5,47 @@ import { BoxingRing } from './BoxingRing';
 import { CameraRig } from './CameraRig';
 import { CartoonGym } from './CartoonGym';
 import { BoboDoll, HeavyBag, Speedball } from './Equipment';
-import type { GymStation, StationInfo } from '../types/game';
-import { getStation } from '../types/game';
+import type { GymStation, StationInfo, ViewMode } from '../types/game';
+import { getCameraShot, getStation } from '../types/game';
 
 interface BoxingGymSceneProps {
   stationId: GymStation;
-  onHit: () => void;
+  viewMode: ViewMode;
 }
 
-function GymWorld({ station, onHit }: { station: StationInfo; onHit: () => void }) {
-  const isActive = (id: GymStation) => station.id === id;
+function GymWorld({ station, viewMode }: { station: StationInfo; viewMode: ViewMode }) {
+  const shot = getCameraShot(station, viewMode);
+  const isHighlighted = (id: GymStation) => station.id === id;
 
   return (
     <>
       <CartoonGym />
-      <CameraRig station={station} />
+      <CameraRig shot={shot} />
 
-      <BoxingRing onHit={onHit} active={isActive('ring')} />
-
-      <Speedball
-        onHit={onHit}
-        active={isActive('speedball')}
-        position={getStation('speedball').equipmentPos}
-      />
-      <HeavyBag
-        onHit={onHit}
-        active={isActive('heavy-bag')}
-        position={getStation('heavy-bag').equipmentPos}
-      />
-      <BoboDoll
-        onHit={onHit}
-        active={isActive('bobo-doll')}
-        position={getStation('bobo-doll').equipmentPos}
-      />
+      <BoxingRing highlighted={isHighlighted('ring')} />
+      <Speedball highlighted={isHighlighted('speedball')} position={getStation('speedball').equipmentPos} />
+      <HeavyBag highlighted={isHighlighted('heavy-bag')} position={getStation('heavy-bag').equipmentPos} />
+      <BoboDoll highlighted={isHighlighted('bobo-doll')} position={getStation('bobo-doll').equipmentPos} />
 
       <ContactShadows position={[0, 0.02, 0]} opacity={0.5} scale={20} blur={2.5} />
     </>
   );
 }
 
-export function BoxingGymScene({ stationId, onHit }: BoxingGymSceneProps) {
+export function BoxingGymScene({ stationId, viewMode }: BoxingGymSceneProps) {
   const station = getStation(stationId);
+  const shot = getCameraShot(station, viewMode);
 
   return (
     <Canvas
       shadows
-      camera={{ position: station.cameraPos, fov: 46, near: 0.1, far: 50 }}
-      style={{ width: '100%', height: '100%', background: '#1a1208' }}
+      camera={{ position: shot.position, fov: shot.fov, near: 0.1, far: 50 }}
+      style={{ width: '100%', height: '100%', touchAction: 'none' }}
       gl={{ antialias: true }}
     >
       <Suspense fallback={null}>
-        <GymWorld station={station} onHit={onHit} />
+        <color attach="background" args={['#1a1208']} />
+        <GymWorld station={station} viewMode={viewMode} />
       </Suspense>
     </Canvas>
   );
