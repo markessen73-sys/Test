@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">Adventures Of Crappy Capri</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05zy</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05zz</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1482,6 +1482,7 @@
       let level2CarFront = null;
       let level2CarRear = null;
       let level2CarSide = null;
+      let level2CarSideRight = null;
       let level2PixelsFront = [];
       let level2PixelsRear = [];
       let level2PixelsSide = [];
@@ -2280,6 +2281,15 @@
           LEVEL2_WALL_CLEARANCE,
           LEVEL2_WALL_CLEARANCE,
         );
+
+        const sideRightCanvas = document.createElement("canvas");
+        sideRightCanvas.width = LEVEL2_CAR_SIDE_W;
+        sideRightCanvas.height = LEVEL2_CAR_SIDE_H;
+        const sideRightCtx = sideRightCanvas.getContext("2d");
+        sideRightCtx.translate(LEVEL2_CAR_SIDE_W, 0);
+        sideRightCtx.scale(-1, 1);
+        sideRightCtx.drawImage(level2CarSide, 0, 0);
+        level2CarSideRight = sideRightCanvas;
         level2MovePixels = shrinkCarPixels(level2PixelsFront, LEVEL2_WALL_CLEARANCE, LEVEL2_WALL_CLEARANCE);
         if (!level2MovePixels.length) level2MovePixels = level2PixelsFront.slice();
       }
@@ -2296,8 +2306,10 @@
           };
         }
         if (facing === "side") {
+          const movingLeft =
+            Math.abs(ball?.vx ?? 0) >= 1e-3 ? ball.vx < 0 : stickNormX < 0;
           return {
-            sprite: level2CarSide,
+            sprite: movingLeft ? level2CarSide : level2CarSideRight,
             pixels: level2PixelsSide,
             wallPixels: level2WallPixelsSide,
             w: LEVEL2_CAR_SIDE_W,
@@ -3924,17 +3936,6 @@
 
       function drawCarAt(cx, cy) {
         const { sprite, w, h } = activeCarBundle();
-        if (currentLevel === 2 && ball.level2Facing === "side") {
-          const facingLeft = ball.vx < 0 || (Math.abs(ball.vx) < 1e-3 && stickNormX < 0);
-          if (facingLeft) {
-            ctx.save();
-            ctx.translate(cx, cy);
-            ctx.scale(-1, 1);
-            ctx.drawImage(sprite, -w / 2, -h / 2, w, h);
-            ctx.restore();
-            return;
-          }
-        }
         drawVehicle(sprite, cx, cy, w, h);
       }
 
@@ -3978,8 +3979,10 @@
         const { w: carW } = activeCarBundle();
         const carHw = carW / 2;
         const drawXs = [ball.x];
-        if (ball.x - carHw < 0) drawXs.push(ball.x + W);
-        if (ball.x + carHw > W) drawXs.push(ball.x - W);
+        if (currentLevel !== 2) {
+          if (ball.x - carHw < 0) drawXs.push(ball.x + W);
+          if (ball.x + carHw > W) drawXs.push(ball.x - W);
+        }
         for (const x of drawXs) drawCarAt(x, ball.y);
       }
 
