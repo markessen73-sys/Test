@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05aaf</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05aag</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -3738,6 +3738,7 @@
         sfx.stopGameMusic();
         setHudForPhase();
         paintLives();
+        applyModeCopy();
       }
 
       function beginLevelOneVictory() {
@@ -3748,6 +3749,7 @@
         void sfx.preloadLevelTwoMusic();
         setHudForPhase();
         paintLives();
+        applyModeCopy();
       }
 
       function beginLevelTwoTest() {
@@ -3786,9 +3788,12 @@
         initLevel2JerryCans();
         fallElapsed = 0;
         syncTickClock();
+        thumbstickEl.classList.remove("is-disabled");
+        ready = true;
         paintLives();
         applyModeCopy();
         drawFrame();
+        requestAnimationFrame(tick);
       }
 
       function zooxReversePath(unit) {
@@ -3819,6 +3824,7 @@
         levelBannerT0 = 0;
         sfx.stopGameMusic();
         setHudForPhase();
+        applyModeCopy();
       }
 
       function returnToAttractFromLevelTwoVictory(btn) {
@@ -4515,8 +4521,8 @@
         ctx.lineJoin = "round";
 
         const tagLines = [
-          { text: "PART ONE", fill: "#00e5ff", stroke: "#003344", font: `900 ${tagSize}px Impact, "Arial Black", sans-serif` },
-          { text: "Electric Takedown", fill: "#ff3b30", stroke: "#4a0000", font: `900 ${Math.round(tagSize * 0.92)}px Impact, "Arial Black", sans-serif` },
+          { text: "TWO LEVELS", fill: "#00e5ff", stroke: "#003344", font: `900 ${tagSize}px Impact, "Arial Black", sans-serif` },
+          { text: "Zoox · Routemaster", fill: "#ff3b30", stroke: "#4a0000", font: `900 ${Math.round(tagSize * 0.92)}px Impact, "Arial Black", sans-serif` },
         ];
 
         for (let i = 0; i < tagLines.length; i++) {
@@ -4631,7 +4637,7 @@
         ctx.restore();
         ctx.restore();
 
-        drawPressFire(performance.now(), "PRESS FIRE", false);
+        drawPressFire(performance.now(), "PRESS FIRE · LEVEL TWO", false);
       }
 
       function drawLevelTwoBeatBanner(age) {
@@ -4870,11 +4876,27 @@
         requestAnimationFrame(tick);
       }
 
+      function modeDescription() {
+        if (gamePhase === "level1beat") {
+          return "Level one clear! Press Fire to head into London for level two — your lives carry over.";
+        }
+        if (gamePhase === "level2beat") {
+          return "Campaign complete! Press Fire to return to the title screen.";
+        }
+        if (gamePhase === "gameover" && currentLevel === 2) {
+          return "Game over on level two. Press Fire to return to the title screen.";
+        }
+        if (gamePhase === "attract" || gamePhase === "intro") {
+          return "Two-level campaign: beat the Zoox taxis, then destroy the Routemasters and collect every petrol jerry can. Three lives across both levels.";
+        }
+        if (currentLevel === 2) {
+          return "Level 2 of 2 — omnidirectional stick to drive. Fire shoots in your movement direction. Destroy all four Routemasters and collect every petrol jerry can to win — bus contact costs a life.";
+        }
+        return "Level 1 of 2 — hold ← or → on the stick to steer while falling, then tap fire to boost up and sideways. Clear all three Zoox robotaxis to unlock level two.";
+      }
+
       function applyModeCopy() {
-        descEl.textContent =
-          currentLevel === 2
-            ? "Omnidirectional stick to drive. Fire shoots in your movement direction. Destroy all four Routemasters and collect every petrol jerry can to win — bus contact costs a life."
-            : "Hold ← or → on the stick to steer while falling, then tap fire to boost up and sideways. Three Zoox robotaxis patrol the decks. You have three lives.";
+        descEl.textContent = modeDescription();
 
         const controlsDisabled = gamePhase === "intro";
         liftBtn.disabled = controlsDisabled;

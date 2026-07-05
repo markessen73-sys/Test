@@ -452,7 +452,7 @@ async function build() {
       .replace("__TITLE_TEXT__", "Adventures Of Crappy Capri")
       .replace(
         "__DESC_TEXT__",
-        "Hold ← or → on the stick to steer while falling, then tap fire to boost up and sideways. Three Zoox robotaxis patrol the decks. You have three lives.",
+        "Two-level campaign: beat the Zoox taxis, then destroy the Routemasters and collect every petrol jerry can. Three lives across both levels.",
       )
       .replace("__BADGE_TEXT__", "");
   }
