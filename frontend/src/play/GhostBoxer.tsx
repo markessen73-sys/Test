@@ -26,19 +26,19 @@ function Glove({ position }: { position: THREE.Vector3 }) {
   return (
     <group position={position}>
       <mesh castShadow>
-        <sphereGeometry args={[0.13, 16, 16]} />
-        <meshStandardMaterial color="#8B0000" roughness={0.45} metalness={0.1} />
+        <sphereGeometry args={[0.16, 16, 16]} />
+        <meshStandardMaterial color="#B80000" roughness={0.35} metalness={0.15} emissive="#440000" emissiveIntensity={0.15} />
       </mesh>
-      <mesh position={[0, -0.08, 0]}>
-        <cylinderGeometry args={[0.09, 0.11, 0.14, 12]} />
-        <meshStandardMaterial color="#6B0000" roughness={0.5} />
+      <mesh position={[0, -0.1, 0]}>
+        <cylinderGeometry args={[0.11, 0.13, 0.16, 12]} />
+        <meshStandardMaterial color="#8B0000" roughness={0.45} />
       </mesh>
     </group>
   );
 }
 
 export function GhostBoxer({ leftPos, rightPos, screenToWorld }: GhostBoxerProps) {
-  const bodyOpacity = 0.18;
+  const bodyOpacity = 0.32;
   const leftWorld = useMemo(() => screenToWorld(leftPos), [leftPos, screenToWorld]);
   const rightWorld = useMemo(() => screenToWorld(rightPos), [rightPos, screenToWorld]);
 
@@ -47,16 +47,20 @@ export function GhostBoxer({ leftPos, rightPos, screenToWorld }: GhostBoxerProps
 
   return (
     <group>
-      {/* Torso — see-through */}
+      {/* Torso — see-through silhouette */}
       <mesh position={[0, 0.75, 0.15]} castShadow>
         <boxGeometry args={[0.75, 1.0, 0.4]} />
         <meshStandardMaterial
-          color="#C49A6C"
+          color="#E8C49A"
           transparent
           opacity={bodyOpacity}
           depthWrite={false}
           side={THREE.DoubleSide}
         />
+      </mesh>
+      <mesh position={[0, 0.75, 0.15]}>
+        <boxGeometry args={[0.77, 1.02, 0.42]} />
+        <meshBasicMaterial color="#F5D5A8" wireframe transparent opacity={0.35} />
       </mesh>
       {/* Head hint */}
       <mesh position={[0, 1.45, 0.1]}>

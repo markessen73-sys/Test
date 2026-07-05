@@ -8,6 +8,38 @@ interface HeavyBagPlayViewProps {
   onBack: () => void;
 }
 
+function ScreenGlove({
+  side,
+  position,
+  grabbed,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+}: {
+  side: GloveId;
+  position: { x: number; y: number };
+  grabbed: boolean;
+  onPointerDown: (e: React.PointerEvent) => void;
+  onPointerMove: (e: React.PointerEvent) => void;
+  onPointerUp: (e: React.PointerEvent) => void;
+}) {
+  return (
+    <div
+      className={`screen-glove screen-glove-${side} ${grabbed ? 'grabbed' : ''}`}
+      style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      role="button"
+      aria-label={`${side} glove`}
+    >
+      <div className="screen-glove-palm" />
+      <div className="screen-glove-cuff" />
+    </div>
+  );
+}
+
 export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
   const [punchCount, setPunchCount] = useState(0);
   const [punchImpulse, setPunchImpulse] = useState(0);
@@ -20,11 +52,10 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
     setTimeout(() => setFlash(null), 300);
   }, []);
 
-  const { left, right, handlePointerDown, handlePointerMove, handlePointerUp } =
-    useGloveControl(onPunch);
+  const { left, right, rootRef, onGloveDown, onGloveMove, onGloveUp } = useGloveControl(onPunch);
 
   return (
-    <div className="play-fullscreen">
+    <div className="play-fullscreen" ref={rootRef}>
       <div className="play-canvas">
         <HeavyBagPlayScene
           leftPos={left.position}
@@ -35,23 +66,23 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
 
       <SlugTrailCanvas left={left} right={right} />
 
-      {/* Touch layer — drag gloves */}
-      <div
-        className="play-touch-layer"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-      />
-
-      {/* Glove grab hints (visible when not grabbed) */}
-      <div className="play-glove-hints" aria-hidden>
-        {!left.pointerId && (
-          <div className="glove-hint glove-hint-left" style={{ left: `${left.position.x * 100}%`, top: `${left.position.y * 100}%` }} />
-        )}
-        {!right.pointerId && (
-          <div className="glove-hint glove-hint-right" style={{ left: `${right.position.x * 100}%`, top: `${right.position.y * 100}%` }} />
-        )}
+      <div className="play-gloves-layer">
+        <ScreenGlove
+          side="left"
+          position={left.position}
+          grabbed={left.pointerId !== null}
+          onPointerDown={onGloveDown('left')}
+          onPointerMove={onGloveMove}
+          onPointerUp={onGloveUp}
+        />
+        <ScreenGlove
+          side="right"
+          position={right.position}
+          grabbed={right.pointerId !== null}
+          onPointerDown={onGloveDown('right')}
+          onPointerMove={onGloveMove}
+          onPointerUp={onGloveUp}
+        />
       </div>
 
       <div className="play-ui">
@@ -67,7 +98,8 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
 
         <footer className="play-bottom">
           <p className="play-hint">
-            Touch the <strong>gloves</strong> and drag — slow moves reposition, <strong>quick flicks</strong> punch
+            Put fingers on the <strong>gloves</strong> — slow drags reposition, <strong>quick flicks</strong>{' '}
+            punch
           </p>
         </footer>
       </div>

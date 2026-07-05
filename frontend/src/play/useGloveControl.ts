@@ -1,41 +1,58 @@
 import { useCallback, useRef, useState } from 'react';
 import type { GloveId, GlovePosition, GloveState } from '../types/game';
 
-const PUNCH_SPEED = 1.8; // px/ms — quick flick registers as punch
-const TRAIL_SPEED = 0.55; // px/ms — slug shadow only on faster moves
-const GRAB_RADIUS = 0.14; // normalized screen distance to grab a glove
+const PUNCH_SPEED = 1.4; // px/ms — quick flick registers as punch
+const TRAIL_SPEED = 0.45; // px/ms — slug shadow on faster moves
 const PUNCH_COOLDOWN_MS = 220;
 const TRAIL_MAX = 40;
 const TRAIL_FADE_MS = 600;
 
-const GUARD_LEFT: GlovePosition = { x: 0.38, y: 0.58 };
-const GUARD_RIGHT: GlovePosition = { x: 0.62, y: 0.58 };
-
-function dist(a: GlovePosition, b: GlovePosition) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
+const GUARD_LEFT: GlovePosition = { x: 0.34, y: 0.62 };
+const GUARD_RIGHT: GlovePosition = { x: 0.66, y: 0.62 };
 
 function makeGlove(pos: GlovePosition): GloveState {
   return { position: { ...pos }, trail: [], pointerId: null };
 }
 
+function normFromEventOnRoot(e: React.PointerEvent, root: HTMLElement): GlovePosition {
+  const rect = root.getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left) / rect.width,
+    y: (e.clientY - rect.top) / rect.height,
+  };
+}
+
 export function useGloveControl(onPunch: (glove: GloveId) => void) {
   const [left, setLeft] = useState<GloveState>(() => makeGlove(GUARD_LEFT));
   const [right, setRight] = useState<GloveState>(() => makeGlove(GUARD_RIGHT));
-  const historyRef = useRef<Map<number, { x: number; y: number; t: number }[]>>(new Map());
+  const rootRef = useRef<HTMLDivElement>(null);
+  const historyRef = useRef<Map<number, { x: number; y: number; t: number; px: number; py: number }[]>>(
+    new Map()
+  );
   const lastPunchRef = useRef<Map<GloveId, number>>(new Map());
+  const activeGloveRef = useRef<Map<number, GloveId>>(new Map());
 
   const updateGlove = useCallback(
-    (glove: GloveId, x: number, y: number, pointerId: number, isMove: boolean) => {
+    (
+      glove: GloveId,
+      pos: GlovePosition,
+      pointerId: number,
+      isMove: boolean,
+      root: HTMLElement
+    ) => {
       const setter = glove === 'left' ? setLeft : setRight;
       const now = performance.now();
+      const rect = root.getBoundingClientRect();
+      const px = pos.x * rect.width;
+      const py = pos.y * rect.height;
 
       let isPunch = false;
       let speed = 0;
+
       if (isMove) {
         const hist = historyRef.current.get(pointerId) ?? [];
-        hist.push({ x, y, t: now });
-        const cutoff = now - 80;
+        hist.push({ x: pos.x, y: pos.y, t: now, px, py });
+        const cutoff = now - 90;
         const recent = hist.filter((h) => h.t > cutoff);
         historyRef.current.set(pointerId, recent);
 
@@ -43,7 +60,7 @@ export function useGloveControl(onPunch: (glove: GloveId) => void) {
           const first = recent[0];
           const last = recent[recent.length - 1];
           const dt = last.t - first.t;
-          const d = Math.hypot(last.x - first.x, last.y - first.y);
+          const d = Math.hypot(last.px - first.px, last.py - first.py);
           speed = dt > 0 ? d / dt : 0;
 
           const lastPunch = lastPunchRef.current.get(glove) ?? 0;
@@ -59,63 +76,60 @@ export function useGloveControl(onPunch: (glove: GloveId) => void) {
       setter((prev) => {
         const addTrail = isMove && (isPunch || speed > TRAIL_SPEED);
         const trail = addTrail
-          ? [...prev.trail, { x, y, t: now, isPunch }]
+          ? [...prev.trail, { x: pos.x, y: pos.y, t: now, isPunch }]
               .filter((p) => now - p.t < TRAIL_FADE_MS)
               .slice(-TRAIL_MAX)
           : prev.trail.filter((p) => now - p.t < TRAIL_FADE_MS);
-        return { ...prev, position: { x, y }, trail, pointerId };
+        return { ...prev, position: pos, trail, pointerId };
       });
     },
     [onPunch]
   );
 
-  const handlePointerDown = useCallback(
+  const onGloveDown = useCallback(
+    (glove: GloveId) => (e: React.PointerEvent) => {
+      e.stopPropagation();
+      const root = rootRef.current;
+      if (!root) return;
+
+      const pos = normFromEventOnRoot(e, root);
+      activeGloveRef.current.set(e.pointerId, glove);
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      updateGlove(glove, pos, e.pointerId, false, root);
+    },
+    [updateGlove]
+  );
+
+  const onGloveMove = useCallback(
     (e: React.PointerEvent) => {
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width;
-      const y = (e.clientY - rect.top) / rect.height;
+      const root = rootRef.current;
+      if (!root) return;
 
-      const dLeft = dist({ x, y }, left.position);
-      const dRight = dist({ x, y }, right.position);
-
-      let glove: GloveId | null = null;
-      if (left.pointerId === null && dLeft < GRAB_RADIUS) glove = 'left';
-      else if (right.pointerId === null && dRight < GRAB_RADIUS) glove = 'right';
-      else if (left.pointerId === null && right.pointerId !== null && dLeft < GRAB_RADIUS * 1.5)
-        glove = 'left';
-      else if (right.pointerId === null && left.pointerId !== null && dRight < GRAB_RADIUS * 1.5)
-        glove = 'right';
-
+      const glove = activeGloveRef.current.get(e.pointerId);
       if (!glove) return;
 
-      e.currentTarget.setPointerCapture(e.pointerId);
-      updateGlove(glove, x, y, e.pointerId, false);
+      const pos = normFromEventOnRoot(e, root);
+      updateGlove(glove, pos, e.pointerId, true, root);
     },
-    [left, right, updateGlove]
+    [updateGlove]
   );
 
-  const handlePointerMove = useCallback(
-    (e: React.PointerEvent) => {
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width;
-      const y = (e.clientY - rect.top) / rect.height;
+  const onGloveUp = useCallback((e: React.PointerEvent) => {
+    const glove = activeGloveRef.current.get(e.pointerId);
+    if (!glove) return;
 
-      if (left.pointerId === e.pointerId) updateGlove('left', x, y, e.pointerId, true);
-      else if (right.pointerId === e.pointerId) updateGlove('right', x, y, e.pointerId, true);
-    },
-    [left.pointerId, right.pointerId, updateGlove]
-  );
+    const setter = glove === 'left' ? setLeft : setRight;
+    setter((prev) => ({ ...prev, pointerId: null }));
+    activeGloveRef.current.delete(e.pointerId);
+    historyRef.current.delete(e.pointerId);
+  }, []);
 
-  const handlePointerUp = useCallback((e: React.PointerEvent) => {
-    const release = (glove: GloveId) => {
-      const setter = glove === 'left' ? setLeft : setRight;
-      setter((prev) => ({ ...prev, pointerId: null }));
-      historyRef.current.delete(e.pointerId);
-    };
-
-    if (left.pointerId === e.pointerId) release('left');
-    if (right.pointerId === e.pointerId) release('right');
-  }, [left.pointerId, right.pointerId]);
-
-  return { left, right, handlePointerDown, handlePointerMove, handlePointerUp };
+  return {
+    left,
+    right,
+    rootRef,
+    onGloveDown,
+    onGloveMove,
+    onGloveUp,
+  };
 }
