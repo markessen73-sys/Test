@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05zx</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05zy</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1423,10 +1423,16 @@
       let ready = false;
       let fallElapsed = 0;
 
-      const LEVEL2_CAR_W = 76;
-      const LEVEL2_CAR_H = 116;
+      const LEVEL2_CAR_W = 51;
+      const LEVEL2_CAR_H = 77;
+      const LEVEL2_CAR_SIDE_W = 75;
+      const LEVEL2_CAR_SIDE_H = 37;
       const LEVEL2_CAR_HW = LEVEL2_CAR_W / 2;
       const LEVEL2_CAR_HH = LEVEL2_CAR_H / 2;
+      const LEVEL2_CAR_SIDE_HW = LEVEL2_CAR_SIDE_W / 2;
+      const LEVEL2_CAR_SIDE_HH = LEVEL2_CAR_SIDE_H / 2;
+      const LEVEL2_MAX_HW = Math.max(LEVEL2_CAR_HW, LEVEL2_CAR_SIDE_HW);
+      const LEVEL2_MAX_HH = Math.max(LEVEL2_CAR_HH, LEVEL2_CAR_SIDE_HH);
       const LEVEL2_CRUISE_SPEED = 220;
       const LEVEL2_BOOST = 180;
       const LEVEL2_CONE_RADIUS = 26;
@@ -2262,9 +2268,18 @@
         level2CarRear = makeSprite(drawCapriRear);
         level2PixelsRear = extractCarPixels(level2CarRear);
         level2WallPixelsRear = shrinkCarPixels(level2PixelsRear, 1, 3);
-        level2CarSide = makeSprite(drawCapriSideTop);
+
+        const sideCanvas = document.createElement("canvas");
+        sideCanvas.width = LEVEL2_CAR_SIDE_W;
+        sideCanvas.height = LEVEL2_CAR_SIDE_H;
+        drawCapriLeft(sideCanvas.getContext("2d"), LEVEL2_CAR_SIDE_W, LEVEL2_CAR_SIDE_H);
+        level2CarSide = sideCanvas;
         level2PixelsSide = extractCarPixels(level2CarSide);
-        level2WallPixelsSide = shrinkCarPixels(level2PixelsSide, 5, 2);
+        level2WallPixelsSide = shrinkCarPixels(
+          level2PixelsSide,
+          LEVEL2_WALL_CLEARANCE,
+          LEVEL2_WALL_CLEARANCE,
+        );
         level2MovePixels = shrinkCarPixels(level2PixelsFront, LEVEL2_WALL_CLEARANCE, LEVEL2_WALL_CLEARANCE);
         if (!level2MovePixels.length) level2MovePixels = level2PixelsFront.slice();
       }
@@ -2285,8 +2300,8 @@
             sprite: level2CarSide,
             pixels: level2PixelsSide,
             wallPixels: level2WallPixelsSide,
-            w: LEVEL2_CAR_W,
-            h: LEVEL2_CAR_H,
+            w: LEVEL2_CAR_SIDE_W,
+            h: LEVEL2_CAR_SIDE_H,
           };
         }
         return {
@@ -2460,7 +2475,7 @@
           [1, 1],
         ];
 
-        for (let dist = 1; dist <= LEVEL2_CAR_HW + 8; dist++) {
+        for (let dist = 1; dist <= LEVEL2_MAX_HW + 8; dist++) {
           for (const [dx, dy] of dirs) {
             ball.x = originX + dx * dist;
             ball.y = originY + dy * dist;
@@ -2506,8 +2521,8 @@
 
       function clampLevel2CarPosition() {
         if (!ball) return;
-        ball.x = Math.max(LEVEL2_CAR_HW, Math.min(W - LEVEL2_CAR_HW, ball.x));
-        ball.y = Math.max(LEVEL2_CAR_HH, Math.min(H - LEVEL2_CAR_HH, ball.y));
+        ball.x = Math.max(LEVEL2_MAX_HW, Math.min(W - LEVEL2_MAX_HW, ball.x));
+        ball.y = Math.max(LEVEL2_MAX_HH, Math.min(H - LEVEL2_MAX_HH, ball.y));
       }
 
       function moveLevel2Entity(entity, dx, dy, pixels) {
@@ -2548,7 +2563,7 @@
           for (let a = 0; a < Math.PI * 2; a += Math.PI / 10) {
             const x = tx + Math.cos(a) * ring;
             const y = ty + Math.sin(a) * ring;
-            if (x < LEVEL2_CAR_HW || y < LEVEL2_CAR_HH || x > W - LEVEL2_CAR_HW || y > H - LEVEL2_CAR_HH) {
+            if (x < LEVEL2_MAX_HW || y < LEVEL2_MAX_HH || x > W - LEVEL2_MAX_HW || y > H - LEVEL2_MAX_HH) {
               continue;
             }
             if (!vehicleOverlapsSolidAt(x, y, probe, solidAt)) return { x, y };
@@ -2615,7 +2630,14 @@
         const dir = level2FireDirection();
         const axis = dir.x !== 0 ? "x" : "y";
         const sign = dir.x !== 0 ? dir.x : dir.y;
-        const spawnDist = (axis === "x" ? LEVEL2_CAR_HW : LEVEL2_CAR_HH) + 6;
+        const spawnDist =
+          (axis === "x"
+            ? ball.level2Facing === "side"
+              ? LEVEL2_CAR_SIDE_HW
+              : LEVEL2_CAR_HW
+            : ball.level2Facing === "side"
+              ? LEVEL2_CAR_SIDE_HH
+              : LEVEL2_CAR_HH) + 6;
         level2Fireballs.push({
           x: ball.x + dir.x * spawnDist,
           y: ball.y + dir.y * spawnDist,
@@ -3902,13 +3924,16 @@
 
       function drawCarAt(cx, cy) {
         const { sprite, w, h } = activeCarBundle();
-        if (currentLevel === 2 && ball.level2Facing === "side" && ball.vx <= 0 && stickNormX <= 0) {
-          ctx.save();
-          ctx.translate(cx, cy);
-          ctx.scale(-1, 1);
-          ctx.drawImage(sprite, -w / 2, -h / 2, w, h);
-          ctx.restore();
-          return;
+        if (currentLevel === 2 && ball.level2Facing === "side") {
+          const facingLeft = ball.vx < 0 || (Math.abs(ball.vx) < 1e-3 && stickNormX < 0);
+          if (facingLeft) {
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.scale(-1, 1);
+            ctx.drawImage(sprite, -w / 2, -h / 2, w, h);
+            ctx.restore();
+            return;
+          }
         }
         drawVehicle(sprite, cx, cy, w, h);
       }

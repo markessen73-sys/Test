@@ -223,18 +223,18 @@ async function build() {
       if (r > 235 && g > 235 && b > 235) data[o + 3] = 0;
     }
     await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
-      .resize(76, 116, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .resize(51, 77, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .png()
       .toFile(BUS_OUT);
     console.log(`Routemaster bus: ${BUS_SRC} -> routemaster-bus.png (${readFileSync(BUS_OUT).length} bytes)`);
   } else if (existsSync(BUS_OUT)) {
     const meta = await sharp(BUS_OUT).metadata();
-    if (meta.width !== 76 || meta.height !== 116) {
+    if (meta.width !== 51 || meta.height !== 77) {
       await sharp(BUS_OUT)
-        .resize(76, 116, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .resize(51, 77, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
         .toFile(BUS_OUT);
-      console.log("Routemaster bus: resized routemaster-bus.png to 76x116");
+      console.log("Routemaster bus: resized routemaster-bus.png to 51x77");
     } else {
       console.log(`Routemaster bus: routemaster-bus.png (${readFileSync(BUS_OUT).length} bytes)`);
     }
@@ -433,7 +433,7 @@ async function build() {
       )
       .replace(
         'const LEVEL2_BACKGROUND_URL = "assets/level2-background.png";',
-        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png?v=zx";`,
+        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png?v=zy";`,
       )
       .replace(
         'const LEVEL2_BUS_URL = "assets/routemaster-bus.png";',
