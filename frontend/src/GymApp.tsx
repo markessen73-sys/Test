@@ -1,55 +1,27 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { BoxingGymScene } from '../gym/BoxingGymScene';
-import { GYM_STATIONS, type PunchType } from '../types/game';
+import { BoxingGymScene } from './gym/BoxingGymScene';
+import { GYM_STATIONS } from './types/game';
 
-const PUNCH_LABELS: Record<PunchType, string> = {
-  jab: 'JAB!',
-  cross: 'CROSS!',
-  hook: 'HOOK!',
-  uppercut: 'UPPERCUT!',
-  body: 'BODY SHOT!',
-};
-
-interface GymStepProps {
-  caricatureUrl: string;
-  styleName: string;
-  onBack: () => void;
-  onRestart: () => void;
-}
-
-export function GymStep({ caricatureUrl, styleName, onBack, onRestart }: GymStepProps) {
+export function GymApp() {
   const [stationIndex, setStationIndex] = useState(0);
-  const [lastPunch, setLastPunch] = useState<PunchType | null>(null);
-  const [combo, setCombo] = useState(0);
   const [hitCount, setHitCount] = useState(0);
-  const [flash, setFlash] = useState<string | null>(null);
-  const comboTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [lastHit, setLastHit] = useState<string | null>(null);
 
   const station = GYM_STATIONS[stationIndex];
 
   const goNext = useCallback(() => {
     setStationIndex((i) => (i + 1) % GYM_STATIONS.length);
-    setLastPunch(null);
   }, []);
 
   const goPrev = useCallback(() => {
     setStationIndex((i) => (i - 1 + GYM_STATIONS.length) % GYM_STATIONS.length);
-    setLastPunch(null);
   }, []);
 
-  const handlePunch = useCallback((type: PunchType) => {
-    setLastPunch(type);
+  const handleHit = useCallback(() => {
     setHitCount((c) => c + 1);
-    setCombo((c) => c + 1);
-    setFlash(PUNCH_LABELS[type]);
-
-    clearTimeout(comboTimer.current);
-    comboTimer.current = setTimeout(() => {
-      setCombo(0);
-      setLastPunch(null);
-    }, 1200);
-    setTimeout(() => setFlash(null), 600);
+    setLastHit('POW!');
+    setTimeout(() => setLastHit(null), 400);
   }, []);
 
   useEffect(() => {
@@ -61,30 +33,20 @@ export function GymStep({ caricatureUrl, styleName, onBack, onRestart }: GymStep
     return () => window.removeEventListener('keydown', onKey);
   }, [goNext, goPrev]);
 
-  useEffect(() => () => clearTimeout(comboTimer.current), []);
-
   return (
     <div className="gym-container">
       <div className="gym-hud">
         <div className="gym-hud-left">
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onBack}>
-            ← New fighter
-          </button>
-          <img src={caricatureUrl} alt="" className="gym-hud-thumb" />
-          <span className="gym-fighter-name">{styleName}</span>
+          <span className="gym-brand">🥊 Mickey's Gym</span>
         </div>
         <div className="gym-hud-center">
           <span className="gym-station-label">
             {station.emoji} {station.name}
           </span>
-          {flash && <div className="punch-flash">{flash}</div>}
-          {combo > 1 && <div className="combo-counter">{combo}x COMBO!</div>}
+          {lastHit && <div className="punch-flash">{lastHit}</div>}
         </div>
         <div className="gym-hud-right">
           <span className="hit-counter">{hitCount} hits</span>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onRestart}>
-            Exit
-          </button>
         </div>
       </div>
 
@@ -98,13 +60,7 @@ export function GymStep({ caricatureUrl, styleName, onBack, onRestart }: GymStep
           <ChevronLeft size={36} />
         </button>
 
-        <BoxingGymScene
-          stationId={station.id}
-          caricatureUrl={caricatureUrl}
-          onPunch={handlePunch}
-          lastPunch={lastPunch}
-          combo={combo}
-        />
+        <BoxingGymScene stationId={station.id} onHit={handleHit} />
 
         <button
           type="button"
@@ -130,7 +86,9 @@ export function GymStep({ caricatureUrl, styleName, onBack, onRestart }: GymStep
             </button>
           ))}
         </div>
-        <p className="gym-hint">{station.description} — <strong>click to punch!</strong></p>
+        <p className="gym-hint">
+          {station.description} — use <strong>◀ ▶</strong> to move around the gym
+        </p>
       </div>
     </div>
   );

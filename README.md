@@ -1,52 +1,56 @@
-# Mickey's Caricature Boxing Gym
+# Mickey's Boxing Gym
 
-Upload a photo → AI caricature → fight your face on equipment in a cartoon Rocky-style gym.
+A cartoon 3D boxing gym inspired by Mickey Goldmill's gym from Rocky. One room, all equipment, arrow navigation.
 
 ## The gym
 
-One unified **3D cartoon gym** inspired by Mickey Goldmill's gym from Rocky — exposed brick, wooden floors, warm lights, "MICKEY'S GYM" sign.
+Open the app and you're inside **Mickey's Gym** — brick walls, wooden floors, warm bulb lighting, faded **MICKEY'S GYM** sign.
 
-All four stations live in the same room. Use **◀ ▶ arrows** (or keyboard arrows / bottom dots) to rotate between them:
+All four stations are in the same room:
 
-| Station | What you do |
+| Station | Description |
 |---------|-------------|
-| **Mickey's Ring** | Sparring — punch your caricature opponent in the ring |
-| **Speedball** | Fast hands — face spins on jabs |
-| **Heavy Bag** | Power shots — face squashes on hooks |
-| **Bobo Doll** | Wobble shots — dizzy stars on uppercuts |
+| 🥊 **Mickey's Ring** | Main boxing ring with sparring partner |
+| 🏐 **Speedball** | Wall-mounted speedball platform |
+| 🎯 **Heavy Bag** | Hanging heavy bag with chains |
+| 🤡 **Bobo Doll** | Weighted bobo doll in the corner |
 
-Click the active station to punch. Face reactions change by hit type (jab, cross, hook, uppercut, body).
+## Navigation
 
-## Flow
+- **◀ ▶ arrows** on the sides of the screen
+- **Keyboard** ← → keys
+- **Emoji dots** at the bottom
 
-```
-1. CREATE    Upload photo → AI caricature (Simpsons, Family Guy, etc.)
-2. GYM       Enter Mickey's Gym → arrow through stations → fight!
-```
+The camera smoothly pans to each station. Click the active equipment to hit it.
 
-## Monetization
-
-Users buy credits via Stripe → 1 credit per AI caricature → you hold API keys.
-
-## Quick start
+## Run it
 
 ```bash
-cp .env.example .env
-cd backend && pip install -r requirements.txt && uvicorn main:app --reload --port 8000
 cd frontend && npm install && npm run dev
 ```
 
+Open http://localhost:5173 — you land straight in the gym.
+
+For production build served by backend:
+
+```bash
+cd frontend && npm run build
+cd ../backend && uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+Open http://localhost:8000
+
 ## Tech
 
-React Three Fiber · Cartoon procedural gym · Live face texture reactions · FastAPI + Stripe credits
+React Three Fiber · Procedural cartoon gym · Camera rig station rotation
 
 ## Roadmap
 
-- GLTF equipment models with better cartoon shading
-- Punch sound effects and comic impact SFX
-- Physics-based bag swing (Cannon.js)
-- Record & share fight clips
-- Multiplayer — fight a friend's caricature
+- [ ] Punch physics (Cannon.js bag swing)
+- [ ] Sound effects
+- [ ] Photo caricature faces on equipment (later)
+- [ ] GLTF cartoon models
+- [ ] Monetization layer (credits for custom faces)
 
 ## License
 

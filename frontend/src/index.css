@@ -951,10 +951,10 @@ body {
   border: 2px solid #E8C840;
 }
 
-.gym-fighter-name {
-  font-size: 0.8125rem;
+.gym-brand {
+  font-size: 1rem;
+  font-weight: 700;
   color: #E8C840;
-  font-weight: 600;
 }
 
 .gym-hud-center {
