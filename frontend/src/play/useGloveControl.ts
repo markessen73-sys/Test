@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import type { GloveId, GlovePosition, GloveState } from '../types/game';
 
-import { GHOST_GUARD_LEFT, GHOST_GUARD_RIGHT } from './GhostBodyOverlay';
+import { GHOST_GUARD_LEFT, GHOST_GUARD_RIGHT, constrainGloveTarget } from './bodyPose';
 
 const PUNCH_SPEED = 0.85; // px/ms — quick flick registers as punch
 const TRAIL_SPEED = 0.35; // px/ms — slug shadow on faster moves
@@ -42,6 +42,10 @@ export function useGloveControl(onPunch: (glove: GloveId) => void) {
   const historyRef = useRef<Map<number, HistPoint[]>>(new Map());
   const lastPunchRef = useRef<Map<GloveId, number>>(new Map());
   const activeGloveRef = useRef<Map<number, GloveId>>(new Map());
+  const leftRef = useRef(left);
+  const rightRef = useRef(right);
+  leftRef.current = left;
+  rightRef.current = right;
 
   const tryPunch = useCallback(
     (glove: GloveId, pointerId: number, speed: number, now: number) => {
@@ -63,15 +67,19 @@ export function useGloveControl(onPunch: (glove: GloveId) => void) {
       const setter = glove === 'left' ? setLeft : setRight;
       const now = performance.now();
       const rect = root.getBoundingClientRect();
-      const px = pos.x * rect.width;
-      const py = pos.y * rect.height;
+
+      const otherPos =
+        glove === 'left' ? rightRef.current.position : leftRef.current.position;
+      const constrained = constrainGloveTarget(glove, pos, otherPos);
+      const px = constrained.x * rect.width;
+      const py = constrained.y * rect.height;
 
       let isPunch = false;
       let speed = 0;
 
       if (isMove) {
         const hist = historyRef.current.get(pointerId) ?? [];
-        hist.push({ x: pos.x, y: pos.y, t: now, px, py });
+        hist.push({ x: constrained.x, y: constrained.y, t: now, px, py });
         const cutoff = now - 100;
         const recent = hist.filter((h) => h.t > cutoff);
         historyRef.current.set(pointerId, recent);
@@ -82,11 +90,11 @@ export function useGloveControl(onPunch: (glove: GloveId) => void) {
       setter((prev) => {
         const addTrail = isMove && (isPunch || speed > TRAIL_SPEED);
         const trail = addTrail
-          ? [...prev.trail, { x: pos.x, y: pos.y, t: now, isPunch }]
+          ? [...prev.trail, { x: constrained.x, y: constrained.y, t: now, isPunch }]
               .filter((p) => now - p.t < TRAIL_FADE_MS)
               .slice(-TRAIL_MAX)
           : prev.trail.filter((p) => now - p.t < TRAIL_FADE_MS);
-        return { ...prev, position: pos, trail, pointerId };
+        return { ...prev, position: constrained, trail, pointerId };
       });
     },
     [tryPunch]

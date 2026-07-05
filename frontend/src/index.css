@@ -1177,12 +1177,22 @@ html, body, #root, .app {
   pointer-events: none;
 }
 
-.screen-glove-left .screen-glove-img {
-  transform: rotate(-8deg);
+.screen-glove-left .screen-glove-img,
+.screen-glove-right .screen-glove-img {
+  transform-origin: 50% 65%;
 }
 
-.screen-glove-right .screen-glove-img {
-  transform: scaleX(-1) rotate(-8deg);
+.screen-glove.max-reach .screen-glove-img {
+  filter: brightness(1.08) saturate(1.1);
+}
+
+.screen-glove.max-reach::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 200, 100, 0.35);
+  pointer-events: none;
 }
 
 .screen-glove.grabbed {
