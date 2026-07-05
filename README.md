@@ -1,38 +1,50 @@
-# Caricature Studio
+# Caricature Boxing Gym
 
-Monetization-ready SaaS for AI portrait caricatures. Users upload a photo, pick a style, and pay credits for each AI transformation. **You** hold the API keys and earn the margin.
+A monetizable 3D boxing gym where users upload a photo, get an AI caricature, mount it on boxing equipment, and fight it — with comedic face reactions that change based on punch style.
+
+## The experience
+
+```
+1. CREATE     Upload photo → AI caricature (Simpsons, Family Guy, etc.)
+2. GYM        Pick equipment: Speedball, Heavy Bag, or Bobo Doll
+3. FIGHT      Click to punch — face squashes, spins, gets stars, black eyes...
+```
+
+## Punch reactions
+
+| Punch | How to trigger | Face reaction |
+|-------|----------------|---------------|
+| Jab | Click left side | Sideways squash, cross-eyed spiral |
+| Cross | Click right | Black eye, red cheeks |
+| Hook | Click sides hard | Stars, heavy squash, rotation |
+| Uppercut | Click top | Face stretches up, dizzy stars, tongue out |
+| Body shot | Click low | Red cheeks, tongue out |
+
+Equipment animates differently:
+- **Speedball** — ricochets fast on hit
+- **Heavy Bag** — big swing on hooks
+- **Bobo Doll** — wobbles back on impact
 
 ## Business model
 
-```
-User pays you (Stripe)  →  User gets credits  →  Credit spent per caricature
-                                ↓
-                    Your server calls Replicate/OpenAI
-                    (~$0.01 cost) for ~$0.50–$1.40 revenue per credit
-```
+Users buy credits via Stripe → 1 credit per AI caricature → you hold API keys and keep margin.
 
-| Pack | Credits | Price | Your margin (approx.) |
-|------|---------|-------|------------------------|
-| Starter | 5 | $2.99 | ~$2.94 after API costs |
-| Popular | 15 | $6.99 | ~$6.84 |
-| Pro | 50 | $19.99 | ~$19.49 |
+See monetization setup in `.env.example`.
 
-Adjust packs in `backend/billing.py`. API cost per transform is ~$0.01 on Replicate.
+## Tech stack
 
-## Architecture
-
-- **Server-side API keys** — `REPLICATE_API_TOKEN` never exposed to users
-- **Credit system** — SQLite tracks balances, purchases, and usage
-- **Stripe Checkout** — users buy credit packs; webhook adds credits
-- **Free trial** — `FREE_TRIAL_CREDITS=1` gives new users one free try
-- **Usage logging** — every transform logged for analytics
+| Layer | Tech |
+|-------|------|
+| Frontend | React, Three.js (R3F), Vite |
+| 3D Gym | @react-three/fiber, @react-three/drei |
+| Backend | FastAPI, SQLite credits, Stripe |
+| AI | Replicate face-to-many-kontext |
 
 ## Quick start
 
 ```bash
 cp .env.example .env
-# Add your REPLICATE_API_TOKEN (server-side)
-# Add STRIPE_SECRET_KEY for payments
+# Add REPLICATE_API_TOKEN (server-side)
 
 cd backend && pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
@@ -42,47 +54,28 @@ cd frontend && npm install && npm run dev
 
 Open http://localhost:5173
 
-## Environment
+## Project structure
 
-| Variable | Purpose |
-|----------|---------|
-| `REPLICATE_API_TOKEN` | Your Replicate key (server only) |
-| `STRIPE_SECRET_KEY` | Stripe secret key for payments |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
-| `APP_URL` | Public URL for Stripe redirects |
-| `MONETIZATION_MODE` | `true` = credits required (production) |
-| `CREDITS_PER_TRANSFORM` | Credits charged per caricature (default: 1) |
-| `FREE_TRIAL_CREDITS` | Free credits for new users (default: 1) |
+```
+frontend/src/
+  steps/          CreateStep, GymStep, FightStep
+  gym/            3D scene, equipment, face reactions
+  components/     Photo upload, style picker, credits
+backend/
+  main.py         API + billing
+  transformer.py  AI caricature generation
+  billing.py      Stripe credit packs
+  database.py     SQLite credits/usage
+```
 
-## Stripe setup
+## Roadmap
 
-1. Create account at [stripe.com](https://stripe.com)
-2. Copy **Secret key** → `STRIPE_SECRET_KEY`
-3. Add webhook endpoint: `https://yourdomain.com/api/billing/webhook`
-4. Event: `checkout.session.completed`
-5. Copy **Signing secret** → `STRIPE_WEBHOOK_SECRET`
-
-For local testing: `stripe listen --forward-to localhost:8000/api/billing/webhook`
-
-## API
-
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/account` | Customer credits (auto-creates account) |
-| `GET /api/pricing` | Credit packs and pricing |
-| `POST /api/billing/checkout` | Start Stripe checkout |
-| `POST /api/billing/webhook` | Stripe payment webhook |
-| `POST /api/transform` | Create caricature (deducts credits) |
-
-Customers identified by `X-Customer-Id` header (stored in browser localStorage).
-
-## Styles
-
-Simpsons, Family Guy, Exaggerated, South Park, Anime, Pixar 3D, Disney, Comic Book, Claymation, Retro Cartoon
-
-## Dev mode
-
-Set `MONETIZATION_MODE=false` to disable credit gating and enable local fallback for development without API costs.
+- [ ] VR / hand-tracking punches
+- [ ] Multiplayer — fight a friend's caricature
+- [ ] More equipment (double-end bag, maize ball)
+- [ ] Record and share fight clips
+- [ ] Custom gym environments
+- [ ] Sound effects and impact haptics
 
 ## License
 
