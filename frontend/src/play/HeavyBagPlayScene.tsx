@@ -88,9 +88,9 @@ export function HeavyBagPlayScene({ punchImpulse }: HeavyBagPlaySceneProps) {
   return (
     <Canvas
       shadows
-      camera={{ position: [0, 1.45, 0.2], fov: 55, near: 0.1, far: 30 }}
+      camera={{ position: [0, 1.38, 0.45], fov: 52, near: 0.1, far: 30 }}
       onCreated={({ camera }) => {
-        camera.lookAt(0, 1.35, BAG_Z);
+        camera.lookAt(0, 1.3, BAG_Z);
       }}
       style={{ width: '100%', height: '100%', touchAction: 'none' }}
       gl={{ antialias: true, alpha: false }}

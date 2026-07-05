@@ -14,8 +14,10 @@ const TRAIL_SPEED = 0.35;
 const PUNCH_COOLDOWN_MS = 180;
 const TRAIL_MAX = 40;
 const TRAIL_FADE_MS = 650;
-const SMOOTH_RATE = 14; // higher = snappier IK follow
-const RETRACT_RATE = 10;
+const DRAG_RATE = 9;
+const RETRACT_RATE = 11;
+const PUNCH_SNAP_RATE = 22;
+const PUNCH_BOOST_MS = 140;
 
 type HistPoint = { x: number; y: number; t: number; px: number; py: number };
 
@@ -54,6 +56,7 @@ export function useBoxerAnimation(onPunch: (glove: GloveId) => void) {
   const grabbingRef = useRef({ left: false, right: false });
   const historyRef = useRef<Map<number, HistPoint[]>>(new Map());
   const lastPunchRef = useRef<Map<GloveId, number>>(new Map());
+  const punchBoostRef = useRef<{ glove: GloveId; until: number; dir: GloveTarget } | null>(null);
   const activeGloveRef = useRef<Map<number, GloveId>>(new Map());
   const leftRef = useRef(left);
   const rightRef = useRef(right);
@@ -61,10 +64,19 @@ export function useBoxerAnimation(onPunch: (glove: GloveId) => void) {
   rightRef.current = right;
 
   const tryPunch = useCallback(
-    (glove: GloveId, pointerId: number, speed: number, now: number) => {
+    (glove: GloveId, pointerId: number, speed: number, now: number, pos: GloveTarget) => {
       const last = lastPunchRef.current.get(glove) ?? 0;
       if (speed > PUNCH_SPEED && now - last > PUNCH_COOLDOWN_MS) {
         lastPunchRef.current.set(glove, now);
+        const guard = glove === 'left' ? GUARD_LEFT : GUARD_RIGHT;
+        const dx = pos.x - guard.x;
+        const dy = pos.y - guard.y;
+        const len = Math.hypot(dx, dy) || 1;
+        punchBoostRef.current = {
+          glove,
+          until: now + PUNCH_BOOST_MS,
+          dir: { x: (dx / len) * 0.04, y: (dy / len) * 0.04 },
+        };
         onPunch(glove);
         const hist = historyRef.current.get(pointerId);
         if (hist?.length) historyRef.current.set(pointerId, [hist[hist.length - 1]]);
@@ -85,17 +97,32 @@ export function useBoxerAnimation(onPunch: (glove: GloveId) => void) {
       lastT = now;
 
       const idle = computeIdleGloveOffset(now);
-      const rate = grabbingRef.current.left || grabbingRef.current.right ? SMOOTH_RATE : RETRACT_RATE;
+      const grabbing = grabbingRef.current.left || grabbingRef.current.right;
+      const boost = punchBoostRef.current;
+      if (boost && now > boost.until) punchBoostRef.current = null;
 
-      const targetLeft: GloveTarget = grabbingRef.current.left
-        ? targetsRef.current.left
-        : idle.left;
-      const targetRight: GloveTarget = grabbingRef.current.right
-        ? targetsRef.current.right
-        : idle.right;
+      let targetLeft: GloveTarget = grabbingRef.current.left ? targetsRef.current.left : idle.left;
+      let targetRight: GloveTarget = grabbingRef.current.right ? targetsRef.current.right : idle.right;
 
-      displayRef.current.left = expSmooth(displayRef.current.left, targetLeft, dt, rate);
-      displayRef.current.right = expSmooth(displayRef.current.right, targetRight, dt, rate);
+      if (boost && !grabbing) {
+        const guard = boost.glove === 'left' ? GUARD_LEFT : GUARD_RIGHT;
+        const t = 1 - (boost.until - now) / PUNCH_BOOST_MS;
+        const boostAmt = Math.sin(t * Math.PI) * 0.5;
+        const boosted = {
+          x: guard.x + boost.dir.x * boostAmt,
+          y: guard.y + boost.dir.y * boostAmt,
+        };
+        if (boost.glove === 'left') targetLeft = boosted;
+        else targetRight = boosted;
+      }
+
+      const leftSpeed = grabbingRef.current.left ? PUNCH_SNAP_RATE : RETRACT_RATE;
+      const rightSpeed = grabbingRef.current.right ? PUNCH_SNAP_RATE : RETRACT_RATE;
+      const leftRate = grabbingRef.current.left ? DRAG_RATE : leftSpeed;
+      const rightRate = grabbingRef.current.right ? DRAG_RATE : rightSpeed;
+
+      displayRef.current.left = expSmooth(displayRef.current.left, targetLeft, dt, leftRate);
+      displayRef.current.right = expSmooth(displayRef.current.right, targetRight, dt, rightRate);
 
       const pose = solveBoxerPose(displayRef.current.left, displayRef.current.right, now);
       setSkeletonPose(pose);
@@ -140,7 +167,7 @@ export function useBoxerAnimation(onPunch: (glove: GloveId) => void) {
         const recent = hist.filter((h) => h.t > now - 100);
         historyRef.current.set(pointerId, recent);
         speed = speedFromHistory(recent);
-        isPunch = tryPunch(glove, pointerId, speed, now);
+        isPunch = tryPunch(glove, pointerId, speed, now, constrained);
 
         const setter = glove === 'left' ? setLeft : setRight;
         const addTrail = isPunch || speed > TRAIL_SPEED;
@@ -190,10 +217,10 @@ export function useBoxerAnimation(onPunch: (glove: GloveId) => void) {
       const now = performance.now();
       const hist = historyRef.current.get(e.pointerId) ?? [];
       const speed = speedFromHistory(hist);
-      const isPunch = tryPunch(glove, e.pointerId, speed, now);
+      const pos = normFromEvent(e, root);
+      const isPunch = tryPunch(glove, e.pointerId, speed, now, pos);
 
       if (isPunch) {
-        const pos = normFromEvent(e, root);
         const setter = glove === 'left' ? setLeft : setRight;
         setter((prev) => ({
           ...prev,

@@ -51,28 +51,31 @@ export interface GloveTarget {
   y: number;
 }
 
-/** High guard — wide heavyweight stance */
-export const GUARD_LEFT: GloveTarget = { x: 0.2, y: 0.36 };
-export const GUARD_RIGHT: GloveTarget = { x: 0.8, y: 0.36 };
-
-/** Shoulders ≈ 2.5 head-widths across (head width ~0.11) */
+/** Viewport: boxer occupies bottom ~60% (y 0.40–1.0), scaled ~30% larger */
 export const BODY_SCALE = {
-  headTop: 0.34,
-  shoulderY: 0.44,
-  chestY: 0.54,
-  waistY: 0.68,
-  pelvisY: 0.76,
-  shortsY: 0.84,
+  viewTop: 0.4,
+  headTop: 0.4,
+  shoulderY: 0.5,
+  chestY: 0.6,
+  waistY: 0.74,
+  pelvisY: 0.82,
+  shortsY: 0.88,
   footY: 0.995,
-  shoulderHalfWidth: 0.138,
-  stanceHalfWidth: 0.1,
+  /** Shoulders ≈ 2.5 head-widths across */
+  shoulderHalfWidth: 0.179,
+  stanceHalfWidth: 0.13,
+  muscleScale: 1.3,
+  forwardLean: 0.016,
 } as const;
 
+export const HEAD_WIDTH = 0.11 * BODY_SCALE.muscleScale;
+
+/** Classic high guard — elbows tucked, gloves protecting head */
+export const GUARD_LEFT: GloveTarget = { x: 0.24, y: 0.42 };
+export const GUARD_RIGHT: GloveTarget = { x: 0.76, y: 0.42 };
+
 export interface AnatomicalGhostMesh {
-  /** Single unified outer silhouette — entire body */
   silhouette: string;
-  /** Interior muscle definition strokes */
   muscleDetail: string;
-  /** Soft wispy overlay paths */
   wisps: string;
 }

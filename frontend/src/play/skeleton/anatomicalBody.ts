@@ -1,7 +1,7 @@
 import type { ArmChain, BoxerSkeletonPose, LegChain, Vec2 } from './types';
-import { BODY_SCALE } from './types';
+import { BODY_SCALE, HEAD_WIDTH } from './types';
 
-export const HEAD_WIDTH = 0.11;
+const M = BODY_SCALE.muscleScale;
 
 function lerp(a: Vec2, b: Vec2, t: number): Vec2 {
   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
@@ -121,6 +121,22 @@ function drawArm(ctx: CanvasRenderingContext2D, arm: ArmChain, side: 'left' | 'r
   const out = side === 'left' ? -1 : 1;
   const { shoulder: s, elbow: e, wrist: wr, hand: hd } = arm;
 
+  // Bicep peek on inner upper arm (visible bulk from behind at guard)
+  const biMid = lerp(s, e, 0.38);
+  const bm = px(biMid, w, h);
+  const biAngle = Math.atan2(e.y - s.y, e.x - s.x);
+  ctx.beginPath();
+  ctx.ellipse(
+    bm.x - out * w * 0.014,
+    bm.y + h * 0.003,
+    w * 0.028 * M,
+    h * 0.02 * M,
+    biAngle,
+    0,
+    Math.PI * 2
+  );
+  fillVolume(ctx, 0.3, 0.4, w);
+
   // Deltoid — rounded cap
   const delt = px(s, w, h);
   ctx.beginPath();
@@ -235,9 +251,9 @@ export function drawAnatomicalGhost(
   drawLeg(ctx, rightLeg, 'right', w, h);
 
   // ── Glutes ──
-  const gluteL = px({ x: pelvis.x - 0.1, y: pelvis.y + 0.012 }, w, h);
-  const gluteR = px({ x: pelvis.x + 0.1, y: pelvis.y + 0.012 }, w, h);
-  const gluteC = px({ x: pelvis.x, y: pelvis.y + 0.058 }, w, h);
+  const gluteL = px({ x: pelvis.x - 0.1 * M, y: pelvis.y + 0.012 }, w, h);
+  const gluteR = px({ x: pelvis.x + 0.1 * M, y: pelvis.y + 0.012 }, w, h);
+  const gluteC = px({ x: pelvis.x, y: pelvis.y + 0.058 * M }, w, h);
   const pelTop = px({ x: pelvis.x, y: pelvis.y - 0.006 }, w, h);
 
   ctx.beginPath();
@@ -252,8 +268,8 @@ export function drawAnatomicalGhost(
   for (const side of ['left', 'right'] as const) {
     const sign = side === 'left' ? -1 : 1;
     const sh = side === 'left' ? leftArm.shoulder : rightArm.shoulder;
-    const latOuter = { x: cx + sign * 0.26 + spineTwist * sign * 0.08, y: chest.y + 0.035 };
-    const waist = { x: pelvis.x + sign * 0.08, y: BODY_SCALE.waistY };
+    const latOuter = { x: cx + sign * 0.26 * M + spineTwist * sign * 0.08, y: chest.y + 0.035 };
+    const waist = { x: pelvis.x + sign * 0.08 * M, y: BODY_SCALE.waistY };
     const pSh = px(sh, w, h);
     const pLat = px(latOuter, w, h);
     const pWaist = px(waist, w, h);
@@ -361,6 +377,18 @@ export function drawAnatomicalGhost(
 
   drawSmokeWisps(ctx, chest, time, w, h);
 
+  // ── Unified outer silhouette (readable human form) ──
+  ctx.beginPath();
+  ctx.moveTo(shL.x, shL.y);
+  ctx.lineTo(px(leftLeg.foot, w, h).x - w * 0.04 * M, px(leftLeg.foot, w, h).y);
+  ctx.lineTo(px(rightLeg.foot, w, h).x + w * 0.04 * M, px(rightLeg.foot, w, h).y);
+  ctx.lineTo(shR.x, shR.y);
+  ctx.quadraticCurveTo(px(head, w, h).x + w * 0.06 * M, px(head, w, h).y, px(head, w, h).x - w * 0.06 * M, px(head, w, h).y);
+  ctx.closePath();
+  ctx.strokeStyle = 'rgba(190, 230, 255, 0.12)';
+  ctx.lineWidth = Math.max(1.5, w * 0.003);
+  ctx.stroke();
+
   // ── Full-figure halo ──
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
@@ -369,6 +397,6 @@ export function drawAnatomicalGhost(
   glow.addColorStop(0.55, 'rgba(130, 210, 255, 0.05)');
   glow.addColorStop(1, 'rgba(90, 170, 230, 0)');
   ctx.fillStyle = glow;
-  ctx.fillRect(0, h * 0.26, w, h * 0.74);
+  ctx.fillRect(0, h * BODY_SCALE.viewTop, w, h * (1 - BODY_SCALE.viewTop));
   ctx.restore();
 }

@@ -27,8 +27,9 @@ function ScreenGlove({
     `skewX(${transform.skewX}deg)`,
   ].join(' ');
 
-  // Anchor the glove cuff (transform-origin 68%) to the IK wrist, not the div center.
-  const gloveH = 168;
+  // Anchor cuff (transform-origin 68%) to IK wrist — 30% larger gloves
+  const gloveW = 182;
+  const gloveH = 218;
   const cuffAnchorY = gloveH * 0.68;
 
   return (
@@ -37,7 +38,7 @@ function ScreenGlove({
       style={{
         left: `${position.x * 100}%`,
         top: `${position.y * 100}%`,
-        margin: `${-cuffAnchorY}px 0 0 -70px`,
+        margin: `${-cuffAnchorY}px 0 0 ${-gloveW / 2}px`,
       }}
       onPointerDown={onPointerDown}
       role="button"

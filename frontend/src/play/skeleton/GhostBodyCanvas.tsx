@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { BoxerSkeletonPose } from './types';
+import { BODY_SCALE } from './types';
 import { drawAnatomicalGhost } from './anatomicalBody';
 
 interface GhostBodyCanvasProps {
@@ -35,12 +36,12 @@ export function GhostBodyCanvas({ pose }: GhostBodyCanvasProps) {
       ctx.clearRect(0, 0, width, height);
 
       // Smoky blue backdrop behind the figure
-      const smoke = ctx.createLinearGradient(0, height * 0.28, 0, height);
+      const smoke = ctx.createLinearGradient(0, height * BODY_SCALE.viewTop, 0, height);
       smoke.addColorStop(0, 'rgba(100, 180, 240, 0.04)');
       smoke.addColorStop(0.5, 'rgba(80, 160, 230, 0.07)');
       smoke.addColorStop(1, 'rgba(60, 140, 210, 0.1)');
       ctx.fillStyle = smoke;
-      ctx.fillRect(0, height * 0.28, width, height * 0.72);
+      ctx.fillRect(0, height * BODY_SCALE.viewTop, width, height * (1 - BODY_SCALE.viewTop));
 
       drawAnatomicalGhost(ctx, p, width, height);
 
