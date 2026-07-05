@@ -13,24 +13,17 @@ function ScreenGlove({
   position,
   grabbed,
   onPointerDown,
-  onPointerMove,
-  onPointerUp,
 }: {
   side: GloveId;
   position: { x: number; y: number };
   grabbed: boolean;
   onPointerDown: (e: React.PointerEvent) => void;
-  onPointerMove: (e: React.PointerEvent) => void;
-  onPointerUp: (e: React.PointerEvent) => void;
 }) {
   return (
     <div
       className={`screen-glove screen-glove-${side} ${grabbed ? 'grabbed' : ''}`}
       style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
       onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
       role="button"
       aria-label={`${side} glove`}
     >
@@ -52,10 +45,16 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
     setTimeout(() => setFlash(null), 300);
   }, []);
 
-  const { left, right, rootRef, onGloveDown, onGloveMove, onGloveUp } = useGloveControl(onPunch);
+  const { left, right, rootRef, onGloveDown, onRootMove, onRootUp } = useGloveControl(onPunch);
 
   return (
-    <div className="play-fullscreen" ref={rootRef}>
+    <div
+      className="play-fullscreen"
+      ref={rootRef}
+      onPointerMove={onRootMove}
+      onPointerUp={onRootUp}
+      onPointerCancel={onRootUp}
+    >
       <div className="play-canvas">
         <HeavyBagPlayScene
           leftPos={left.position}
@@ -72,16 +71,12 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           position={left.position}
           grabbed={left.pointerId !== null}
           onPointerDown={onGloveDown('left')}
-          onPointerMove={onGloveMove}
-          onPointerUp={onGloveUp}
         />
         <ScreenGlove
           side="right"
           position={right.position}
           grabbed={right.pointerId !== null}
           onPointerDown={onGloveDown('right')}
-          onPointerMove={onGloveMove}
-          onPointerUp={onGloveUp}
         />
       </div>
 

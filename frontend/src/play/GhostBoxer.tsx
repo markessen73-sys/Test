@@ -38,7 +38,7 @@ function Glove({ position }: { position: THREE.Vector3 }) {
 }
 
 export function GhostBoxer({ leftPos, rightPos, screenToWorld }: GhostBoxerProps) {
-  const bodyOpacity = 0.32;
+  const bodyOpacity = 0.42;
   const leftWorld = useMemo(() => screenToWorld(leftPos), [leftPos, screenToWorld]);
   const rightWorld = useMemo(() => screenToWorld(rightPos), [rightPos, screenToWorld]);
 
@@ -46,7 +46,7 @@ export function GhostBoxer({ leftPos, rightPos, screenToWorld }: GhostBoxerProps
   const rightShoulder = useMemo(() => new THREE.Vector3(0.35, 1.15, -0.1), []);
 
   return (
-    <group>
+    <group position={[0, -0.15, 0.35]}>
       {/* Torso — see-through silhouette */}
       <mesh position={[0, 0.75, 0.15]} castShadow>
         <boxGeometry args={[0.75, 1.0, 0.4]} />
@@ -60,12 +60,16 @@ export function GhostBoxer({ leftPos, rightPos, screenToWorld }: GhostBoxerProps
       </mesh>
       <mesh position={[0, 0.75, 0.15]}>
         <boxGeometry args={[0.77, 1.02, 0.42]} />
-        <meshBasicMaterial color="#F5D5A8" wireframe transparent opacity={0.35} />
+        <meshBasicMaterial color="#FFD9A0" wireframe transparent opacity={0.55} />
       </mesh>
-      {/* Head hint */}
+      {/* Head */}
       <mesh position={[0, 1.45, 0.1]}>
-        <sphereGeometry args={[0.2, 16, 16]} />
-        <meshStandardMaterial color="#C49A6C" transparent opacity={bodyOpacity * 0.8} depthWrite={false} />
+        <sphereGeometry args={[0.22, 16, 16]} />
+        <meshStandardMaterial color="#E8C49A" transparent opacity={bodyOpacity} depthWrite={false} />
+      </mesh>
+      <mesh position={[0, 1.45, 0.1]}>
+        <sphereGeometry args={[0.23, 12, 12]} />
+        <meshBasicMaterial color="#FFE4B8" wireframe transparent opacity={0.5} />
       </mesh>
       {/* Abdomen */}
       <mesh position={[0, 0.35, 0.12]}>
@@ -76,7 +80,7 @@ export function GhostBoxer({ leftPos, rightPos, screenToWorld }: GhostBoxerProps
       <Arm from={leftShoulder} to={leftWorld} opacity={bodyOpacity + 0.05} />
       <Arm from={rightShoulder} to={rightWorld} opacity={bodyOpacity + 0.05} />
 
-      {/* Solid gloves — NOT transparent */}
+      {/* Solid 3D gloves — hidden behind screen gloves but visible at bag depth */}
       <Glove position={leftWorld} />
       <Glove position={rightWorld} />
     </group>
