@@ -1,8 +1,9 @@
-# Boxer reference art (from-behind view)
+# Boxer shape reference (not used in-game)
 
-| File | Pose |
-|------|------|
-| `boxer-behind-guard.png` | High guard — default play stance |
-| `boxer-behind-relaxed.png` | Arms down — blended in when hands drop |
+These images are **design references only** for the muscular from-behind body shape.
+The play view renders a **see-through SVG ghost** programmatically — it does not display these photos.
 
-These images drive the see-through ghost body in heavy bag play mode. Dynamic smoke arms and interactive gloves are drawn on top and follow IK arm limits.
+| File | Reference pose |
+|------|----------------|
+| `boxer-behind-guard.png` | High guard, wide back |
+| `boxer-behind-relaxed.png` | Arms down |

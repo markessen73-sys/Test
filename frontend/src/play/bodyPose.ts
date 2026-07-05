@@ -1,4 +1,5 @@
 import type { GloveId, GlovePosition } from '../types/game';
+import { getBackShoulderAnchors } from './ghostBodyShape';
 
 export interface Vec2 {
   x: number;
@@ -26,16 +27,9 @@ export interface GloveTransform {
   originY: string;
 }
 
-/** High guard — matches reference boxer-behind-guard.png */
+/** High guard — from-behind boxing stance */
 export const GHOST_GUARD_LEFT: GlovePosition = { x: 0.31, y: 0.44 };
 export const GHOST_GUARD_RIGHT: GlovePosition = { x: 0.69, y: 0.44 };
-
-/** Shoulder anchors aligned to reference back-view artwork */
-const BASE = {
-  neck: { x: 0.5, y: 0.5 },
-  leftShoulder: { x: 0.385, y: 0.52 },
-  rightShoulder: { x: 0.615, y: 0.52 },
-} as const;
 
 const UPPER_ARM = 0.11;
 const FOREARM = 0.105;
@@ -100,13 +94,13 @@ export function solveArmIK(
   return { shoulder, elbow, hand, atMaxReach };
 }
 
-function dynamicShoulders(leftTarget: Vec2, rightTarget: Vec2): {
+function dynamicShoulders(leftTarget: Vec2, rightTarget: Vec2, torsoLean: number): {
   leftShoulder: Vec2;
   rightShoulder: Vec2;
-  torsoLean: number;
 } {
-  const ls0 = BASE.leftShoulder;
-  const rs0 = BASE.rightShoulder;
+  const anchors = getBackShoulderAnchors(torsoLean);
+  const ls0 = anchors.left;
+  const rs0 = anchors.right;
   const lg0 = GHOST_GUARD_LEFT;
   const rg0 = GHOST_GUARD_RIGHT;
 
@@ -129,13 +123,17 @@ function dynamicShoulders(leftTarget: Vec2, rightTarget: Vec2): {
     y: rs0.y + (rightDir.y / rn) * rightShift - rightShift * 0.2,
   };
 
-  const torsoLean = clamp((rightReach - leftReach) * 0.1, -0.025, 0.025);
-
-  return { leftShoulder, rightShoulder, torsoLean };
+  return { leftShoulder, rightShoulder };
 }
 
 export function computeBodyPose(leftHand: GlovePosition, rightHand: GlovePosition): BodyPose {
-  const { leftShoulder, rightShoulder, torsoLean } = dynamicShoulders(leftHand, rightHand);
+  const lg0 = GHOST_GUARD_LEFT;
+  const rg0 = GHOST_GUARD_RIGHT;
+  const leftReach = dist(lg0, leftHand);
+  const rightReach = dist(rg0, rightHand);
+  const torsoLean = clamp((rightReach - leftReach) * 0.1, -0.025, 0.025);
+
+  const { leftShoulder, rightShoulder } = dynamicShoulders(leftHand, rightHand, torsoLean);
 
   const left = solveArmIK(leftShoulder, leftHand, UPPER_ARM, FOREARM, -1);
   const right = solveArmIK(rightShoulder, rightHand, UPPER_ARM, FOREARM, 1);
@@ -181,16 +179,6 @@ export function getGloveTransform(arm: ArmPose, side: GloveId): GloveTransform {
     skewX: bendSkew * (side === 'left' ? 1 : -1),
     originY: '68%',
   };
-}
-
-/** How far hands are from relaxed vs guard — picks reference artwork blend. */
-export function getBodyStanceBlend(left: GlovePosition, right: GlovePosition): number {
-  const relaxed = { x: 0.5, y: 0.72 };
-  const avgY = (left.y + right.y) / 2;
-  const avgXSpread = Math.abs(left.x - right.x);
-  const heightBlend = clamp((avgY - GHOST_GUARD_LEFT.y) / (relaxed.y - GHOST_GUARD_LEFT.y), 0, 1);
-  const spreadBlend = clamp((avgXSpread - 0.38) / 0.22, 0, 1);
-  return clamp(heightBlend * 0.65 + spreadBlend * 0.35, 0, 1);
 }
 
 function armSegmentPath(from: Vec2, to: Vec2, widthStart: number, widthEnd: number, bulge: Vec2 | null): string {

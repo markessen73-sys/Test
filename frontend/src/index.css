@@ -1143,42 +1143,10 @@ html, body, #root, .app {
 .ghost-body-overlay {
   position: absolute;
   inset: 0;
-  pointer-events: none;
-  z-index: 2;
-  overflow: hidden;
-}
-
-.ghost-body-art {
-  position: absolute;
-  bottom: -2%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(96vw, 560px);
-  height: auto;
-  max-height: 92vh;
-  object-fit: contain;
-  object-position: bottom center;
-  pointer-events: none;
-  user-select: none;
-  -webkit-user-drag: none;
-  filter: brightness(1.1) contrast(1.08) saturate(1.05);
-  mix-blend-mode: screen;
-}
-
-.ghost-body-art-guard {
-  opacity: 0.72;
-}
-
-.ghost-body-art-relaxed {
-  opacity: 0;
-}
-
-.ghost-body-arms {
-  position: absolute;
-  inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
+  z-index: 2;
 }
 
 .play-gloves-layer {
