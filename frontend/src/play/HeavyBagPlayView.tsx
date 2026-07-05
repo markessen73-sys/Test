@@ -1,10 +1,9 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { HeavyBagPlayScene } from './HeavyBagPlayScene';
 import { SlugTrailCanvas } from './SlugTrailCanvas';
-import { GhostBodyOverlay } from './GhostBodyOverlay';
+import { BoxerGhost } from './skeleton/BoxerGhost';
 import { ScreenGlove } from './ScreenGlove';
-import { useGloveControl } from './useGloveControl';
-import { computeBodyPose, getGloveTransform } from './bodyPose';
+import { useBoxerAnimation } from './useBoxerAnimation';
 import type { GloveId } from '../types/game';
 
 interface HeavyBagPlayViewProps {
@@ -23,11 +22,17 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
     setTimeout(() => setFlash(null), 300);
   }, []);
 
-  const { left, right, rootRef, onGloveDown, onRootMove, onRootUp } = useGloveControl(onPunch);
-
-  const pose = useMemo(() => computeBodyPose(left.position, right.position), [left.position, right.position]);
-  const leftTransform = useMemo(() => getGloveTransform(pose.left, 'left'), [pose.left]);
-  const rightTransform = useMemo(() => getGloveTransform(pose.right, 'right'), [pose.right]);
+  const {
+    skeletonPose,
+    left,
+    right,
+    leftTransform,
+    rightTransform,
+    rootRef,
+    onGloveDown,
+    onRootMove,
+    onRootUp,
+  } = useBoxerAnimation(onPunch);
 
   return (
     <div
@@ -45,7 +50,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
         />
       </div>
 
-      <GhostBodyOverlay leftGlove={left.position} rightGlove={right.position} />
+      <BoxerGhost pose={skeletonPose} />
 
       <SlugTrailCanvas left={left} right={right} />
 
@@ -54,7 +59,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           side="left"
           position={left.position}
           grabbed={left.pointerId !== null}
-          atMaxReach={pose.left.atMaxReach}
+          atMaxReach={skeletonPose.leftArm.atMaxReach}
           transform={leftTransform}
           onPointerDown={onGloveDown('left')}
         />
@@ -62,7 +67,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           side="right"
           position={right.position}
           grabbed={right.pointerId !== null}
-          atMaxReach={pose.right.atMaxReach}
+          atMaxReach={skeletonPose.rightArm.atMaxReach}
           transform={rightTransform}
           onPointerDown={onGloveDown('right')}
         />

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { GloveId } from '../types/game';
-import type { GloveTransform } from './bodyPose';
+import type { GloveTransform } from './skeleton/types';
 import { gloveImageCandidates } from './gloveAssets';
 
 function ScreenGlove({
