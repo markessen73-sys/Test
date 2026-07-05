@@ -5,13 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, writeFile } from "node:fs/promises";
 import { buildSolidMask, buildDebugCompositeRgba, solidToSegments } from "./solid-mask.mjs";
-import {
-  buildLevel2Data,
-  writeLevel2Assets,
-  writeProcessedLevel2Background,
-  encodeSolidRle,
-  buildBusPixels,
-} from "./level2-data.mjs";
+import { buildLevel2Data, writeLevel2Assets, encodeSolidRle, buildBusPixels } from "./level2-data.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DEMO = join(ROOT, "demo");
@@ -199,14 +193,9 @@ async function build() {
     copyFileSync(LEVEL2_BG_ALT, LEVEL2_BG);
   }
   if (existsSync(LEVEL2_BG)) {
-    const level2Source =
-      existsSync(LEVEL2_BG_ROOT) ? LEVEL2_BG_ROOT : existsSync(LEVEL2_BG_ALT) ? LEVEL2_BG_ALT : LEVEL2_BG;
-    const level2 = await buildLevel2Data(level2Source);
-    await writeProcessedLevel2Background(LEVEL2_BG, level2);
     copyFileSync(LEVEL2_BG, `${ASSETS}/level2-background.png`);
-    console.log(
-      `Level two background: level2-background.png (${readFileSync(LEVEL2_BG).length} bytes, ${level2.framesRemoved} frame bricks removed)`,
-    );
+    console.log(`Level two background: level2-background.png (${readFileSync(LEVEL2_BG).length} bytes)`);
+    const level2 = await buildLevel2Data(LEVEL2_BG);
     const level2Arena = await writeLevel2Assets(level2, ASSETS);
     level2Arena.solidLen = level2.solid.length;
     level2Arena.solidRle = encodeSolidRle(level2.solid);
@@ -231,21 +220,12 @@ async function build() {
       if (r > 235 && g > 235 && b > 235) data[o + 3] = 0;
     }
     await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
-      .resize(76, 116, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .resize(38, 58, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .png()
       .toFile(BUS_OUT);
     console.log(`Routemaster bus: ${BUS_SRC} -> routemaster-bus.png (${readFileSync(BUS_OUT).length} bytes)`);
   } else if (existsSync(BUS_OUT)) {
-    const meta = await sharp(BUS_OUT).metadata();
-    if (meta.width !== 76 || meta.height !== 116) {
-      await sharp(BUS_OUT)
-        .resize(76, 116, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-        .png()
-        .toFile(BUS_OUT);
-      console.log(`Routemaster bus: resized routemaster-bus.png to 76x116`);
-    } else {
-      console.log(`Routemaster bus: routemaster-bus.png (${readFileSync(BUS_OUT).length} bytes)`);
-    }
+    console.log(`Routemaster bus: routemaster-bus.png (${readFileSync(BUS_OUT).length} bytes)`);
   } else {
     console.log(`Routemaster bus: none found (expected ${BUS_SRC})`);
   }

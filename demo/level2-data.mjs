@@ -3,86 +3,14 @@ import { writeFile } from "node:fs/promises";
 
 export const LEVEL2_WALL_CLEARANCE = 2;
 export const LEVEL2_WALKABLE_MAX = 24;
-export const LEVEL2_FRAME_COMPONENT_MAX = 5000;
 
 export function isWalkablePixel(r, g, b, a = 255) {
   if (a <= 24) return true;
   return r <= LEVEL2_WALKABLE_MAX && g <= LEVEL2_WALKABLE_MAX && b <= LEVEL2_WALKABLE_MAX;
 }
 
-export function isBrickPixel(r, g, b, a = 255) {
-  if (isWalkablePixel(r, g, b, a)) return false;
-  return r > 80 && r > g * 1.3 && r > b * 1.3 && g < 120 && b < 120;
-}
-
 export function isSolidPixel(r, g, b, a = 255) {
   return !isWalkablePixel(r, g, b, a);
-}
-
-export function removeLandmarkFrameBricks(data, width, height, channels, frameMax = LEVEL2_FRAME_COMPONENT_MAX) {
-  const brick = new Uint8Array(width * height);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const i = (y * width + x) * channels;
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      const a = channels > 3 ? data[i + 3] : 255;
-      if (isBrickPixel(r, g, b, a)) brick[y * width + x] = 1;
-    }
-  }
-
-  const comp = new Int32Array(width * height).fill(-1);
-  const sizes = new Map();
-  let compId = 0;
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      if (!brick[idx] || comp[idx] >= 0) continue;
-      let size = 0;
-      const q = [[x, y]];
-      comp[idx] = compId;
-      while (q.length) {
-        const [cx, cy] = q.pop();
-        size++;
-        for (const [dx, dy] of [
-          [1, 0],
-          [-1, 0],
-          [0, 1],
-          [0, -1],
-        ]) {
-          const nx = cx + dx;
-          const ny = cy + dy;
-          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-          const ni = ny * width + nx;
-          if (brick[ni] && comp[ni] < 0) {
-            comp[ni] = compId;
-            q.push([nx, ny]);
-          }
-        }
-      }
-      sizes.set(compId, size);
-      compId++;
-    }
-  }
-
-  const out = Buffer.from(data);
-  let removed = 0;
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      if (!brick[idx]) continue;
-      if (sizes.get(comp[idx]) >= frameMax) continue;
-      const o = idx * channels;
-      out[o] = 0;
-      out[o + 1] = 0;
-      out[o + 2] = 0;
-      if (channels > 3) out[o + 3] = 255;
-      removed++;
-    }
-  }
-
-  return { data: out, removed, frameComponents: [...sizes.values()].filter((s) => s < frameMax).length };
 }
 
 export function erodeSolid(solid, width, height, passes = 1) {
@@ -116,9 +44,8 @@ export function erodeSolid(solid, width, height, passes = 1) {
 }
 
 export async function buildLevel2Data(imagePath) {
-  const { data: rawData, info } = await sharp(imagePath).raw().toBuffer({ resolveWithObject: true });
+  const { data, info } = await sharp(imagePath).raw().toBuffer({ resolveWithObject: true });
   const { width, height, channels } = info;
-  const { data, removed: framesRemoved } = removeLandmarkFrameBricks(rawData, width, height, channels);
   const solid = new Uint8Array(width * height);
 
   for (let y = 0; y < height; y++) {
@@ -136,10 +63,10 @@ export async function buildLevel2Data(imagePath) {
   let spawn = null;
   const midX = Math.floor(width / 2);
   const targetY = height * 0.82;
-  const SPAWN_HW = 20;
-  const SPAWN_HH = 58;
+  const SPAWN_HW = 10;
+  const SPAWN_HH = 29;
   const MIN_VERT_CLEARANCE = 100;
-  const MIN_HORIZ_CLEARANCE = 72;
+  const MIN_HORIZ_CLEARANCE = 36;
 
   function carFitsAt(map, x, y) {
     for (let py = Math.floor(y - SPAWN_HH); py <= Math.ceil(y + SPAWN_HH); py++) {
@@ -188,9 +115,6 @@ export async function buildLevel2Data(imagePath) {
   return {
     width,
     height,
-    channels,
-    imageData: data,
-    framesRemoved,
     solid,
     cones,
     spawn,
@@ -198,12 +122,6 @@ export async function buildLevel2Data(imagePath) {
     coneCount: cones.length,
     solidPct: ((solid.reduce((a, b) => a + b, 0) / (width * height)) * 100).toFixed(1),
   };
-}
-
-export async function writeProcessedLevel2Background(imagePath, data) {
-  await sharp(data.imageData, { raw: { width: data.width, height: data.height, channels: data.channels } })
-    .png()
-    .toFile(imagePath);
 }
 
 export function encodeSolidRle(solid) {
