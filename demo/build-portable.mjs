@@ -183,7 +183,7 @@ async function build() {
   }
 
   const LEVEL2_BG = join(DEMO_ASSETS, "level2-background.png");
-  const LEVEL2_BG_SRC = join(ROOT, "1783238519822.png");
+  const LEVEL2_BG_SRC = join(ROOT, "1783248823964.png");
   const LEVEL2_BG_ROOT = join(ROOT, "1783194226859.png");
   const LEVEL2_BG_ALT = join(ROOT, "file_00000000e6d87243afed1bd0535c6ce4.png");
   let level2ArenaJson = '{"width":0,"height":0,"spawn":{"x":0,"y":0},"cones":[]}';
@@ -433,7 +433,7 @@ async function build() {
       )
       .replace(
         'const LEVEL2_BACKGROUND_URL = "assets/level2-background.png";',
-        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png?v=zy";`,
+        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png?v=aaa";`,
       )
       .replace(
         'const LEVEL2_BUS_URL = "assets/routemaster-bus.png";',

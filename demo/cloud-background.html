@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05zz</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05aaa</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1441,6 +1441,7 @@
       const LEVEL2_BUS_STEER_MIN = 1.4;
       const LEVEL2_BUS_STEER_MAX = 3.8;
       const LEVEL2_BUS_COUNT = 4;
+      const LEVEL2_BUS_VOLLEY_INTERVAL = 3;
       const LEVEL2_FIREBALL_SPEED = 420;
       const LEVEL2_FIREBALL_R = 8;
       const LEVEL2_FIRE_COOLDOWN = 0.32;
@@ -1496,6 +1497,7 @@
       let level2Buses = [];
       let level2Fireballs = [];
       let level2FireCooldown = 0;
+      let level2BusVolleyTimer = LEVEL2_BUS_VOLLEY_INTERVAL;
       let zooxSpriteLeft = null;
       let zooxSpriteRight = null;
       let zooxPixelsLeft = [];
@@ -2588,6 +2590,7 @@
         level2Buses = [];
         level2Fireballs = [];
         level2FireCooldown = 0;
+        level2BusVolleyTimer = LEVEL2_BUS_VOLLEY_INTERVAL;
         if (!level2BusCollisionPixels().length) return;
 
         const margin = 92;
@@ -2660,6 +2663,63 @@
         level2FireCooldown = LEVEL2_FIRE_COOLDOWN;
       }
 
+      function busFireDirection(bus) {
+        return snapCardinalDirection(bus.dirX, bus.dirY);
+      }
+
+      function fireLevel2BusVolley() {
+        for (const bus of level2Buses) {
+          if (!bus.alive) continue;
+          const dir = busFireDirection(bus);
+          const axis = dir.x !== 0 ? "x" : "y";
+          const sign = dir.x !== 0 ? dir.x : dir.y;
+          const spawnDist = (axis === "x" ? LEVEL2_CAR_HW : LEVEL2_CAR_HH) + 6;
+          level2Fireballs.push({
+            x: bus.x + dir.x * spawnDist,
+            y: bus.y + dir.y * spawnDist,
+            axis,
+            sign,
+            alive: true,
+            fromBus: true,
+            owner: bus,
+          });
+        }
+      }
+
+      function stepLevel2BusVolley(dt) {
+        level2BusVolleyTimer -= dt;
+        if (level2BusVolleyTimer > 0) return;
+        fireLevel2BusVolley();
+        level2BusVolleyTimer = LEVEL2_BUS_VOLLEY_INTERVAL;
+      }
+
+      function fireballHitsCapri(fb) {
+        if (!ball?.alive) return false;
+        const pixels = level2CollisionPixels();
+        const r2 = LEVEL2_FIREBALL_R * LEVEL2_FIREBALL_R;
+        for (const [dx, dy] of pixels) {
+          const px = ball.x + dx;
+          const py = ball.y + dy;
+          const ddx = fb.x - px;
+          const ddy = fb.y - py;
+          if (ddx * ddx + ddy * ddy <= r2) return true;
+        }
+        return false;
+      }
+
+      function triggerLevel2BusFireballHit() {
+        if (gamePhase !== "playing" || !ball?.alive || ball.hitCooldown > 0) return;
+        lives = Math.max(0, lives - 1);
+        paintLives();
+        ball.hitCooldown = VEHICLE_HIT_COOLDOWN;
+        sfx.playCrash();
+        if (lives > 0) {
+          regenerateLevel2Capri();
+          return;
+        }
+        beginGameOver();
+      }
+
       function fireballHitsBus(fb, bus) {
         const pixels = level2BusCollisionPixels();
         const r2 = LEVEL2_FIREBALL_R * LEVEL2_FIREBALL_R;
@@ -2688,6 +2748,22 @@
             if (solidAt(Math.floor(fb.x), Math.floor(fb.y))) {
               alive = false;
               break;
+            }
+            if (fb.fromBus) {
+              if (fireballHitsCapri(fb)) {
+                triggerLevel2BusFireballHit();
+                alive = false;
+                break;
+              }
+              for (const bus of level2Buses) {
+                if (!bus.alive || bus === fb.owner) continue;
+                if (fireballHitsBus(fb, bus)) {
+                  alive = false;
+                  break;
+                }
+              }
+              if (!alive) break;
+              continue;
             }
             for (const bus of level2Buses) {
               if (!bus.alive) continue;
@@ -2786,13 +2862,23 @@
           const rx = horiz ? LEVEL2_FIREBALL_R * 1.55 : LEVEL2_FIREBALL_R * 0.8;
           const ry = horiz ? LEVEL2_FIREBALL_R * 0.8 : LEVEL2_FIREBALL_R * 1.55;
           ctx.save();
-          ctx.shadowColor = "rgba(255,120,20,0.85)";
-          ctx.shadowBlur = 14;
-          const grad = ctx.createRadialGradient(fb.x, fb.y, 0, fb.x, fb.y, Math.max(rx, ry));
-          grad.addColorStop(0, "#fff6a0");
-          grad.addColorStop(0.45, "#ff6a10");
-          grad.addColorStop(1, "rgba(180,20,0,0)");
-          ctx.fillStyle = grad;
+          if (fb.fromBus) {
+            ctx.shadowColor = "rgba(255,30,20,0.9)";
+            ctx.shadowBlur = 14;
+            const grad = ctx.createRadialGradient(fb.x, fb.y, 0, fb.x, fb.y, Math.max(rx, ry));
+            grad.addColorStop(0, "#ffc0b8");
+            grad.addColorStop(0.4, "#ff2818");
+            grad.addColorStop(1, "rgba(120,0,0,0)");
+            ctx.fillStyle = grad;
+          } else {
+            ctx.shadowColor = "rgba(255,120,20,0.85)";
+            ctx.shadowBlur = 14;
+            const grad = ctx.createRadialGradient(fb.x, fb.y, 0, fb.x, fb.y, Math.max(rx, ry));
+            grad.addColorStop(0, "#fff6a0");
+            grad.addColorStop(0.45, "#ff6a10");
+            grad.addColorStop(1, "rgba(180,20,0,0)");
+            ctx.fillStyle = grad;
+          }
           ctx.beginPath();
           ctx.ellipse(fb.x, fb.y, rx, ry, 0, 0, Math.PI * 2);
           ctx.fill();
@@ -2860,6 +2946,7 @@
         ball.vy = motion.vy;
         moveLevel2Car(ball.vx * dt, ball.vy * dt);
         stepLevel2Buses(dt);
+        stepLevel2BusVolley(dt);
         stepLevel2Fireballs(dt);
         resolveLevel2BusCapriCollisions();
         if (ball.hitCooldown > 0) ball.hitCooldown -= dt;
