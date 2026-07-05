@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05aad</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05aae</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -2544,7 +2544,7 @@
 
       function clampLevel2CarPosition() {
         if (!ball) return;
-        ball.x = Math.max(LEVEL2_MAX_HW, Math.min(W - LEVEL2_MAX_HW, ball.x));
+        wrapLevel2EntityX(ball, LEVEL2_MAX_HW);
         ball.y = Math.max(LEVEL2_MAX_HH, Math.min(H - LEVEL2_MAX_HH, ball.y));
       }
 
@@ -2574,6 +2574,8 @@
         if (vehicleOverlapsSolidAt(ball.x, ball.y, level2CollisionPixels(), solidAt)) {
           resolveLevel2Overlap();
         }
+        wrapLevel2EntityX(ball, LEVEL2_MAX_HW);
+        clampLevel2CarPosition();
       }
 
       function level2BusCollisionPixels() {
@@ -2586,9 +2588,7 @@
           for (let a = 0; a < Math.PI * 2; a += Math.PI / 10) {
             const x = tx + Math.cos(a) * ring;
             const y = ty + Math.sin(a) * ring;
-            if (x < LEVEL2_MAX_HW || y < LEVEL2_MAX_HH || x > W - LEVEL2_MAX_HW || y > H - LEVEL2_MAX_HH) {
-              continue;
-            }
+            if (y < LEVEL2_MAX_HH || y > H - LEVEL2_MAX_HH) continue;
             if (!vehicleOverlapsSolidAt(x, y, probe, solidAt)) return { x, y };
           }
         }
@@ -2713,7 +2713,7 @@
         for (const [dx, dy] of pixels) {
           const px = ball.x + dx;
           const py = ball.y + dy;
-          const ddx = fb.x - px;
+          const ddx = level2WrappedDelta(fb.x, px);
           const ddy = fb.y - py;
           if (ddx * ddx + ddy * ddy <= r2) return true;
         }
@@ -2739,7 +2739,7 @@
         for (const [dx, dy] of pixels) {
           const px = bus.x + dx;
           const py = bus.y + dy;
-          const ddx = fb.x - px;
+          const ddx = level2WrappedDelta(fb.x, px);
           const ddy = fb.y - py;
           if (ddx * ddx + ddy * ddy <= r2) return true;
         }
@@ -2756,8 +2756,10 @@
           const delta = (travel / steps) * fb.sign;
 
           for (let i = 0; i < steps && alive; i++) {
-            if (fb.axis === "x") fb.x += delta;
-            else fb.y += delta;
+            if (fb.axis === "x") {
+              fb.x += delta;
+              wrapLevel2FireballX(fb);
+            } else fb.y += delta;
             if (solidAt(Math.floor(fb.x), Math.floor(fb.y))) {
               alive = false;
               break;
@@ -2814,6 +2816,7 @@
           bus.vx = bus.dirX * LEVEL2_BUS_SPEED;
           bus.vy = bus.dirY * LEVEL2_BUS_SPEED;
           moveLevel2Entity(bus, bus.vx * dt, bus.vy * dt, pixels);
+          wrapLevel2EntityX(bus, LEVEL2_CAR_HW);
         }
       }
 
@@ -2858,12 +2861,12 @@
         }
       }
 
-      function drawLevel2Bus(bus) {
+      function drawLevel2Bus(bus, drawX = bus.x) {
         if (!bus.alive || !level2BusSprite) return;
         const w = LEVEL2_CAR_W;
         const h = LEVEL2_CAR_H;
         ctx.save();
-        ctx.translate(bus.x, bus.y);
+        ctx.translate(drawX, bus.y);
         if (bus.vx >= 0) ctx.scale(-1, 1);
         ctx.drawImage(level2BusSprite, -w / 2, -h / 2, w, h);
         ctx.restore();
@@ -2874,28 +2877,31 @@
           const horiz = fb.axis === "x";
           const rx = horiz ? LEVEL2_FIREBALL_R * 1.55 : LEVEL2_FIREBALL_R * 0.8;
           const ry = horiz ? LEVEL2_FIREBALL_R * 0.8 : LEVEL2_FIREBALL_R * 1.55;
-          ctx.save();
-          if (fb.fromBus) {
-            ctx.shadowColor = "rgba(255,30,20,0.9)";
-            ctx.shadowBlur = 14;
-            const grad = ctx.createRadialGradient(fb.x, fb.y, 0, fb.x, fb.y, Math.max(rx, ry));
-            grad.addColorStop(0, "#ffc0b8");
-            grad.addColorStop(0.4, "#ff2818");
-            grad.addColorStop(1, "rgba(120,0,0,0)");
-            ctx.fillStyle = grad;
-          } else {
-            ctx.shadowColor = "rgba(255,120,20,0.85)";
-            ctx.shadowBlur = 14;
-            const grad = ctx.createRadialGradient(fb.x, fb.y, 0, fb.x, fb.y, Math.max(rx, ry));
-            grad.addColorStop(0, "#fff6a0");
-            grad.addColorStop(0.45, "#ff6a10");
-            grad.addColorStop(1, "rgba(180,20,0,0)");
-            ctx.fillStyle = grad;
+          const drawXs = horiz ? level2WrappedXs(fb.x, rx) : [fb.x];
+          for (const drawX of drawXs) {
+            ctx.save();
+            if (fb.fromBus) {
+              ctx.shadowColor = "rgba(255,30,20,0.9)";
+              ctx.shadowBlur = 14;
+              const grad = ctx.createRadialGradient(drawX, fb.y, 0, drawX, fb.y, Math.max(rx, ry));
+              grad.addColorStop(0, "#ffc0b8");
+              grad.addColorStop(0.4, "#ff2818");
+              grad.addColorStop(1, "rgba(120,0,0,0)");
+              ctx.fillStyle = grad;
+            } else {
+              ctx.shadowColor = "rgba(255,120,20,0.85)";
+              ctx.shadowBlur = 14;
+              const grad = ctx.createRadialGradient(drawX, fb.y, 0, drawX, fb.y, Math.max(rx, ry));
+              grad.addColorStop(0, "#fff6a0");
+              grad.addColorStop(0.45, "#ff6a10");
+              grad.addColorStop(1, "rgba(180,20,0,0)");
+              ctx.fillStyle = grad;
+            }
+            ctx.beginPath();
+            ctx.ellipse(drawX, fb.y, rx, ry, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
           }
-          ctx.beginPath();
-          ctx.ellipse(fb.x, fb.y, rx, ry, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
         }
       }
 
@@ -3355,11 +3361,38 @@
         return x;
       }
 
+      function level2WrappedXs(x, halfW) {
+        const xs = [x];
+        if (x - halfW < 0) xs.push(x + W);
+        if (x + halfW > W) xs.push(x - W);
+        return xs;
+      }
+
+      function wrapLevel2EntityX(entity, halfW) {
+        if (currentLevel !== 2) return;
+        const hw = halfW ?? LEVEL2_MAX_HW;
+        while (entity.x - hw > W) entity.x -= W;
+        while (entity.x + hw < 0) entity.x += W;
+      }
+
+      function wrapLevel2FireballX(fb) {
+        if (fb.axis !== "x") return;
+        if (fb.x < 0) fb.x += W;
+        else if (fb.x >= W) fb.x -= W;
+      }
+
+      function level2WrappedDelta(ax, bx) {
+        let dx = ax - bx;
+        if (dx > W * 0.5) dx -= W;
+        else if (dx < -W * 0.5) dx += W;
+        return dx;
+      }
+
       function solidAt(px, py) {
         if (currentLevel === 2) {
-          const x = Math.floor(px);
+          const x = wrapPixelX(Math.floor(px));
           const y = Math.floor(py);
-          if (x < 0 || x >= W || y < 0 || y >= H) return true;
+          if (y < 0 || y >= H) return true;
           return solid[y * W + x] === 1;
         }
         if (py < 0 || py >= H) return false;
@@ -4053,7 +4086,9 @@
         } else if (currentLevel === 2 && level2Background) {
           ctx.drawImage(level2Background, 0, 0, W, H);
           drawLevel2CollectedPatches();
-          for (const bus of level2Buses) drawLevel2Bus(bus);
+          for (const bus of level2Buses) {
+            for (const x of level2WrappedXs(bus.x, LEVEL2_CAR_HW)) drawLevel2Bus(bus, x);
+          }
           drawLevel2Fireballs();
         }
 
@@ -4078,7 +4113,8 @@
 
         const { w: carW } = activeCarBundle();
         const carHw = carW / 2;
-        const drawXs = [ball.x];
+        const drawXs =
+          currentLevel === 2 ? level2WrappedXs(ball.x, carHw) : [ball.x];
         if (currentLevel !== 2) {
           if (ball.x - carHw < 0) drawXs.push(ball.x + W);
           if (ball.x + carHw > W) drawXs.push(ball.x - W);
