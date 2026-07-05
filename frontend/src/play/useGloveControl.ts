@@ -1,14 +1,16 @@
 import { useCallback, useRef, useState } from 'react';
 import type { GloveId, GlovePosition, GloveState } from '../types/game';
 
+import { GHOST_GUARD_LEFT, GHOST_GUARD_RIGHT } from './GhostBodyOverlay';
+
 const PUNCH_SPEED = 0.85; // px/ms — quick flick registers as punch
 const TRAIL_SPEED = 0.35; // px/ms — slug shadow on faster moves
 const PUNCH_COOLDOWN_MS = 180;
 const TRAIL_MAX = 40;
 const TRAIL_FADE_MS = 650;
 
-const GUARD_LEFT: GlovePosition = { x: 0.34, y: 0.62 };
-const GUARD_RIGHT: GlovePosition = { x: 0.66, y: 0.62 };
+const GUARD_LEFT = GHOST_GUARD_LEFT;
+const GUARD_RIGHT = GHOST_GUARD_RIGHT;
 
 type HistPoint = { x: number; y: number; t: number; px: number; py: number };
 

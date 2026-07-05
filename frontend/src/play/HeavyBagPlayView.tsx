@@ -1,36 +1,13 @@
 import { useCallback, useState } from 'react';
 import { HeavyBagPlayScene } from './HeavyBagPlayScene';
 import { SlugTrailCanvas } from './SlugTrailCanvas';
+import { GhostBodyOverlay } from './GhostBodyOverlay';
+import { ScreenGlove } from './ScreenGlove';
 import { useGloveControl } from './useGloveControl';
 import type { GloveId } from '../types/game';
 
 interface HeavyBagPlayViewProps {
   onBack: () => void;
-}
-
-function ScreenGlove({
-  side,
-  position,
-  grabbed,
-  onPointerDown,
-}: {
-  side: GloveId;
-  position: { x: number; y: number };
-  grabbed: boolean;
-  onPointerDown: (e: React.PointerEvent) => void;
-}) {
-  return (
-    <div
-      className={`screen-glove screen-glove-${side} ${grabbed ? 'grabbed' : ''}`}
-      style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
-      onPointerDown={onPointerDown}
-      role="button"
-      aria-label={`${side} glove`}
-    >
-      <div className="screen-glove-palm" />
-      <div className="screen-glove-cuff" />
-    </div>
-  );
 }
 
 export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
@@ -62,6 +39,8 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           punchImpulse={punchImpulse}
         />
       </div>
+
+      <GhostBodyOverlay leftGlove={left.position} rightGlove={right.position} />
 
       <SlugTrailCanvas left={left} right={right} />
 
