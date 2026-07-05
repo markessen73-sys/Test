@@ -1,28 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, Wand2 } from 'lucide-react';
+import { AlertCircle, Coins, Wand2 } from 'lucide-react';
 import {
+  createCheckout,
+  fetchAccount,
   fetchHealth,
+  fetchPricing,
   fetchStyles,
   transformPhoto,
+  type Account,
   type CaricatureStyle,
+  type CreditPack,
   type HealthStatus,
-  type Provider,
 } from './api';
+import { CreditsPanel } from './components/CreditsPanel';
 import { PhotoUpload } from './components/PhotoUpload';
 import { ResultPanel } from './components/ResultPanel';
 import { StylePicker } from './components/StylePicker';
 
-const PROVIDER_LABELS: Record<string, string> = {
-  replicate: 'Replicate AI',
-  openai: 'OpenAI',
-  local: 'Free local',
-  auto: 'Auto',
-};
-
 function App() {
   const [styles, setStyles] = useState<CaricatureStyle[]>([]);
   const [health, setHealth] = useState<HealthStatus | null>(null);
-  const [provider, setProvider] = useState<Provider>('auto');
+  const [account, setAccount] = useState<Account | null>(null);
+  const [packs, setPacks] = useState<CreditPack[]>([]);
+  const [showCredits, setShowCredits] = useState(false);
+  const [purchasing, setPurchasing] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
@@ -32,17 +33,32 @@ function App() {
   const [loadingMessage, setLoadingMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  const refreshAccount = useCallback(async () => {
+    try {
+      const acct = await fetchAccount();
+      setAccount(acct);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
-    Promise.all([fetchStyles(), fetchHealth()])
-      .then(([styleList, healthData]) => {
+    Promise.all([fetchStyles(), fetchHealth(), fetchPricing(), fetchAccount()])
+      .then(([styleList, healthData, pricing, acct]) => {
         setStyles(styleList);
         setHealth(healthData);
-        if (styleList.length > 0) {
-          setSelectedStyle(styleList[0].id);
-        }
+        setPacks(pricing.packs);
+        setAccount(acct);
+        if (styleList.length > 0) setSelectedStyle(styleList[0].id);
       })
       .catch(() => setError('Could not connect to the API. Is the backend running?'));
-  }, []);
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('purchase') === 'success') {
+      window.history.replaceState({}, '', window.location.pathname);
+      setTimeout(refreshAccount, 1500);
+    }
+  }, [refreshAccount]);
 
   const handleFileSelect = useCallback((file: File) => {
     setPhoto(file);
@@ -71,21 +87,35 @@ function App() {
     setProviderUsed(null);
 
     try {
-      const { blob, providerUsed: used } = await transformPhoto(
+      const { blob, providerUsed: used, creditsRemaining } = await transformPhoto(
         photo,
         selectedStyle,
-        provider,
         setLoadingMessage
       );
       setResultUrl(URL.createObjectURL(blob));
       setProviderUsed(used);
+      setAccount((prev) => (prev ? { ...prev, credits: creditsRemaining } : prev));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      const msg = err instanceof Error ? err.message : 'Something went wrong';
+      setError(msg);
+      if (msg.toLowerCase().includes('credit')) setShowCredits(true);
     } finally {
       setLoading(false);
       setLoadingMessage('');
     }
-  }, [photo, selectedStyle, provider, resultUrl]);
+  }, [photo, selectedStyle, resultUrl]);
+
+  const handlePurchase = useCallback(async (packId: string) => {
+    setPurchasing(true);
+    try {
+      const url = await createCheckout(packId);
+      window.location.href = url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Checkout failed');
+    } finally {
+      setPurchasing(false);
+    }
+  }, []);
 
   const handleDownload = useCallback(() => {
     if (!resultUrl || !selectedStyle) return;
@@ -96,13 +126,13 @@ function App() {
   }, [resultUrl, selectedStyle]);
 
   const selectedStyleName = styles.find((s) => s.id === selectedStyle)?.name ?? null;
-  const canTransform = !!photo && !!selectedStyle && !loading;
+  const canTransform = !!photo && !!selectedStyle && !loading && (account?.can_transform ?? false);
+  const credits = account?.credits ?? 0;
+  const creditsPerTransform = account?.credits_per_transform ?? 1;
 
   const step1Done = !!photo;
   const step2Done = !!selectedStyle;
   const step3Done = !!resultUrl;
-
-  const hasPaidProvider = health?.replicate_configured || health?.openai_configured;
 
   return (
     <div className="app">
@@ -111,12 +141,18 @@ function App() {
           <div className="logo-icon">🎨</div>
           <div>
             <h1>Caricature Studio</h1>
-            <p>Photo → Animated caricature</p>
+            <p>AI portrait caricatures</p>
           </div>
         </div>
-        <div className="status-badge">
-          <span className={`status-dot ${health ? 'ready' : ''}`} />
-          {health ? 'Ready' : 'Connecting...'}
+        <div className="header-actions">
+          <button type="button" className="credits-chip" onClick={() => setShowCredits(true)}>
+            <Coins size={16} />
+            <span>{credits} credit{credits !== 1 ? 's' : ''}</span>
+          </button>
+          <div className="status-badge">
+            <span className={`status-dot ${health?.ai_available ? 'ready' : ''}`} />
+            {health?.ai_available ? 'AI Ready' : 'AI offline'}
+          </div>
         </div>
       </header>
 
@@ -144,34 +180,6 @@ function App() {
             disabled={loading}
           />
 
-          <h2 className="panel-title">Engine</h2>
-          <div className="provider-picker">
-            {(['auto', 'local', 'replicate', 'openai'] as Provider[]).map((p) => {
-              const disabled =
-                loading ||
-                (p === 'replicate' && !health?.replicate_configured) ||
-                (p === 'openai' && !health?.openai_configured);
-              return (
-                <button
-                  key={p}
-                  type="button"
-                  className={`provider-btn ${provider === p ? 'selected' : ''}`}
-                  onClick={() => !disabled && setProvider(p)}
-                  disabled={disabled}
-                  title={
-                    p === 'auto'
-                      ? 'Try AI first, fall back to free local'
-                      : p === 'local'
-                        ? 'Free cartoon filter — always works'
-                        : undefined
-                  }
-                >
-                  {PROVIDER_LABELS[p]}
-                </button>
-              );
-            })}
-          </div>
-
           {error && (
             <div className="error-banner">
               <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
@@ -179,30 +187,27 @@ function App() {
             </div>
           )}
 
-          {!hasPaidProvider && health && !error && (
+          {account && credits < creditsPerTransform && health?.monetization_mode && (
             <div className="info-banner">
               <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
               <span>
-                Replicate needs billing credit for AI models (~$0.01/image).{' '}
-                <strong>Free local mode</strong> works now — select &quot;Free local&quot; or use Auto.
-                Add credit at{' '}
-                <a href="https://replicate.com/account/billing" target="_blank" rel="noreferrer">
-                  replicate.com/billing
-                </a>
+                You need {creditsPerTransform} credit{creditsPerTransform !== 1 ? 's' : ''} per
+                caricature.{' '}
+                <button type="button" className="link-btn" onClick={() => setShowCredits(true)}>
+                  Buy credits
+                </button>{' '}
+                to continue.
               </span>
             </div>
           )}
 
-          <button
-            className="btn btn-primary"
-            onClick={handleTransform}
-            disabled={!canTransform}
-          >
+          <button className="btn btn-primary" onClick={handleTransform} disabled={!canTransform}>
             {loading ? (
               <>Generating...</>
             ) : (
               <>
-                <Wand2 size={18} /> Create Caricature
+                <Wand2 size={18} /> Create Caricature ({creditsPerTransform} credit
+                {creditsPerTransform !== 1 ? 's' : ''})
               </>
             )}
           </button>
@@ -215,20 +220,30 @@ function App() {
             loading={loading}
             loadingMessage={loadingMessage}
             styleName={selectedStyleName}
-            providerUsed={providerUsed ? PROVIDER_LABELS[providerUsed] || providerUsed : null}
+            providerUsed={providerUsed}
             onDownload={handleDownload}
             onRetry={handleTransform}
-            canRetry={canTransform}
+            canRetry={!!photo && !!selectedStyle && !loading}
           />
         </section>
       </main>
 
       <footer className="footer">
-        Free local mode always available · AI via Replicate or OpenAI ·{' '}
-        <a href="https://replicate.com/account/billing" target="_blank" rel="noreferrer">
-          Add Replicate credit
-        </a>
+        {creditsPerTransform} credit per AI caricature · You hold the API keys · Users buy credits
+        via Stripe
       </footer>
+
+      {showCredits && (
+        <CreditsPanel
+          credits={credits}
+          creditsPerTransform={creditsPerTransform}
+          packs={packs}
+          stripeEnabled={health?.stripe_enabled ?? false}
+          onPurchase={handlePurchase}
+          onClose={() => setShowCredits(false)}
+          purchasing={purchasing}
+        />
+      )}
     </div>
   );
 }
