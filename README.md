@@ -1,81 +1,52 @@
-# Caricature Boxing Gym
+# Mickey's Caricature Boxing Gym
 
-A monetizable 3D boxing gym where users upload a photo, get an AI caricature, mount it on boxing equipment, and fight it — with comedic face reactions that change based on punch style.
+Upload a photo → AI caricature → fight your face on equipment in a cartoon Rocky-style gym.
 
-## The experience
+## The gym
+
+One unified **3D cartoon gym** inspired by Mickey Goldmill's gym from Rocky — exposed brick, wooden floors, warm lights, "MICKEY'S GYM" sign.
+
+All four stations live in the same room. Use **◀ ▶ arrows** (or keyboard arrows / bottom dots) to rotate between them:
+
+| Station | What you do |
+|---------|-------------|
+| **Mickey's Ring** | Sparring — punch your caricature opponent in the ring |
+| **Speedball** | Fast hands — face spins on jabs |
+| **Heavy Bag** | Power shots — face squashes on hooks |
+| **Bobo Doll** | Wobble shots — dizzy stars on uppercuts |
+
+Click the active station to punch. Face reactions change by hit type (jab, cross, hook, uppercut, body).
+
+## Flow
 
 ```
-1. CREATE     Upload photo → AI caricature (Simpsons, Family Guy, etc.)
-2. GYM        Pick equipment: Speedball, Heavy Bag, or Bobo Doll
-3. FIGHT      Click to punch — face squashes, spins, gets stars, black eyes...
+1. CREATE    Upload photo → AI caricature (Simpsons, Family Guy, etc.)
+2. GYM       Enter Mickey's Gym → arrow through stations → fight!
 ```
 
-## Punch reactions
+## Monetization
 
-| Punch | How to trigger | Face reaction |
-|-------|----------------|---------------|
-| Jab | Click left side | Sideways squash, cross-eyed spiral |
-| Cross | Click right | Black eye, red cheeks |
-| Hook | Click sides hard | Stars, heavy squash, rotation |
-| Uppercut | Click top | Face stretches up, dizzy stars, tongue out |
-| Body shot | Click low | Red cheeks, tongue out |
-
-Equipment animates differently:
-- **Speedball** — ricochets fast on hit
-- **Heavy Bag** — big swing on hooks
-- **Bobo Doll** — wobbles back on impact
-
-## Business model
-
-Users buy credits via Stripe → 1 credit per AI caricature → you hold API keys and keep margin.
-
-See monetization setup in `.env.example`.
-
-## Tech stack
-
-| Layer | Tech |
-|-------|------|
-| Frontend | React, Three.js (R3F), Vite |
-| 3D Gym | @react-three/fiber, @react-three/drei |
-| Backend | FastAPI, SQLite credits, Stripe |
-| AI | Replicate face-to-many-kontext |
+Users buy credits via Stripe → 1 credit per AI caricature → you hold API keys.
 
 ## Quick start
 
 ```bash
 cp .env.example .env
-# Add REPLICATE_API_TOKEN (server-side)
-
-cd backend && pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-
+cd backend && pip install -r requirements.txt && uvicorn main:app --reload --port 8000
 cd frontend && npm install && npm run dev
 ```
 
-Open http://localhost:5173
+## Tech
 
-## Project structure
-
-```
-frontend/src/
-  steps/          CreateStep, GymStep, FightStep
-  gym/            3D scene, equipment, face reactions
-  components/     Photo upload, style picker, credits
-backend/
-  main.py         API + billing
-  transformer.py  AI caricature generation
-  billing.py      Stripe credit packs
-  database.py     SQLite credits/usage
-```
+React Three Fiber · Cartoon procedural gym · Live face texture reactions · FastAPI + Stripe credits
 
 ## Roadmap
 
-- [ ] VR / hand-tracking punches
-- [ ] Multiplayer — fight a friend's caricature
-- [ ] More equipment (double-end bag, maize ball)
-- [ ] Record and share fight clips
-- [ ] Custom gym environments
-- [ ] Sound effects and impact haptics
+- GLTF equipment models with better cartoon shading
+- Punch sound effects and comic impact SFX
+- Physics-based bag swing (Cannon.js)
+- Record & share fight clips
+- Multiplayer — fight a friend's caricature
 
 ## License
 

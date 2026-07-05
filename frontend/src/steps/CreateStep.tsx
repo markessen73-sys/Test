@@ -76,9 +76,9 @@ export function CreateStep({ onComplete }: CreateStepProps) {
   return (
     <>
       <div className="step-header">
-        <span className="step-label">Step 1 of 3</span>
+        <span className="step-label">Step 1 of 2</span>
         <h2>Create your fighter</h2>
-        <p>Upload a photo and turn it into a caricature for the gym</p>
+        <p>Upload a photo — you'll take it into Mickey's Gym</p>
       </div>
 
       <div className="create-grid">
