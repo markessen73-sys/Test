@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05aae</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05aaf</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1196,6 +1196,10 @@
             beginLevelTwo();
             return;
           }
+          if (gamePhase === "level2beat") {
+            returnToAttractFromLevelTwoVictory(btn);
+            return;
+          }
           if (gamePhase !== "playing") return;
           tapLift(btn);
         });
@@ -1395,6 +1399,7 @@
       let lives = MAX_LIVES;
       let gameOverT0 = 0;
       let level1BeatT0 = 0;
+      let level2BeatT0 = 0;
       let currentLevel = 1;
       const ZOOX_LOCK_RESPAWN_SEC = 0.65;
       let zooxPairLocks = new Map();
@@ -1423,7 +1428,7 @@
       let background = null;
       let level2Background = null;
       let level2Solid = null;
-      let level2Cones = [];
+      let level2JerryCans = [];
       let level1Arena = null;
       let backdrop = null;
       let solid = null;
@@ -1444,7 +1449,8 @@
       const LEVEL2_MAX_HH = Math.max(LEVEL2_CAR_HH, LEVEL2_CAR_SIDE_HH);
       const LEVEL2_CRUISE_SPEED = 220;
       const LEVEL2_BOOST = 180;
-      const LEVEL2_CONE_RADIUS = 26;
+      const LEVEL2_BUS_CORNER_MARGIN = 92;
+      const LEVEL2_JERRY_CAN_RADIUS = 20;
       const LEVEL2_BANNER_HOLD_SEC = 1.5;
       const LEVEL2_BUS_SPEED = 200;
       const LEVEL2_BUS_STEER_MIN = 1.4;
@@ -2361,12 +2367,9 @@
         solid = level2Solid;
         canvas.width = W;
         canvas.height = H;
-        level2Cones = (LEVEL2_ARENA?.cones ?? []).map((cone, id) => ({
-          x: cone.x,
-          y: cone.y,
-          id,
-          collected: false,
-        }));
+        level2JerryCans = [];
+        level2Buses = [];
+        level2Fireballs = [];
         dropX = LEVEL2_ARENA?.spawn?.x ?? W / 2;
         dropY = LEVEL2_ARENA?.spawn?.y ?? H / 2;
       }
@@ -2381,7 +2384,7 @@
         dropY = level1Arena.dropY;
         canvas.width = W;
         canvas.height = H;
-        level2Cones = [];
+        level2JerryCans = [];
         level2Buses = [];
         level2Fireballs = [];
       }
@@ -2595,6 +2598,50 @@
         return { x: tx, y: ty };
       }
 
+      function level2BusCorners() {
+        const margin = LEVEL2_BUS_CORNER_MARGIN;
+        return [
+          { x: margin, y: margin },
+          { x: W - margin, y: margin },
+          { x: margin, y: H - margin },
+          { x: W - margin, y: H - margin },
+        ];
+      }
+
+      function level2JerryCanCornerSpot(corner) {
+        const cx = W * 0.5;
+        const cy = H * 0.5;
+        const dx = cx - corner.x;
+        const dy = cy - corner.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const inset = 28;
+        return {
+          x: corner.x + (dx / len) * inset,
+          y: corner.y + (dy / len) * inset,
+        };
+      }
+
+      function findLevel2JerryCanSpot(tx, ty) {
+        for (let ring = 0; ring < 120; ring += 6) {
+          for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) {
+            const x = tx + Math.cos(a) * ring;
+            const y = ty + Math.sin(a) * ring;
+            if (y < LEVEL2_MAX_HH || y > H - LEVEL2_MAX_HH) continue;
+            if (solidAt(x, y)) continue;
+            return { x, y };
+          }
+        }
+        return { x: tx, y: ty };
+      }
+
+      function initLevel2JerryCans() {
+        level2JerryCans = level2BusCorners().map((corner, id) => {
+          const target = level2JerryCanCornerSpot(corner);
+          const spot = findLevel2JerryCanSpot(target.x, target.y);
+          return { x: spot.x, y: spot.y, id, collected: false };
+        });
+      }
+
       function initLevel2Buses() {
         level2Buses = [];
         level2Fireballs = [];
@@ -2602,13 +2649,7 @@
         level2BusVolleyTimer = LEVEL2_BUS_VOLLEY_INTERVAL;
         if (!level2BusCollisionPixels().length) return;
 
-        const margin = 92;
-        const corners = [
-          { x: margin, y: margin },
-          { x: W - margin, y: margin },
-          { x: margin, y: H - margin },
-          { x: W - margin, y: H - margin },
-        ];
+        const corners = level2BusCorners();
         const probe = level2BusCollisionPixels();
 
         for (let i = 0; i < LEVEL2_BUS_COUNT; i++) {
@@ -2786,6 +2827,7 @@
                 bus.alive = false;
                 alive = false;
                 sfx.playBusBell();
+                checkLevel2Complete();
                 break;
               }
             }
@@ -2905,40 +2947,79 @@
         }
       }
 
-      function collectLevel2Cones() {
+      function level2WrappedDistanceSq(ax, ay, bx, by) {
+        const dx = level2WrappedDelta(ax, bx);
+        const dy = ay - by;
+        return dx * dx + dy * dy;
+      }
+
+      function collectLevel2JerryCans() {
         const { pixels } = level2CarBundle();
-        const pickupRadius = LEVEL2_CONE_RADIUS;
+        const pickupRadius = LEVEL2_JERRY_CAN_RADIUS;
+        const pickupR2 = pickupRadius * pickupRadius;
+        let collectedAny = false;
 
-        for (const cone of level2Cones) {
-          if (cone.collected) continue;
+        for (const can of level2JerryCans) {
+          if (can.collected) continue;
 
-          const centerDx = ball.x - cone.x;
-          const centerDy = ball.y - cone.y;
-          if (centerDx * centerDx + centerDy * centerDy <= pickupRadius * pickupRadius) {
-            cone.collected = true;
+          if (level2WrappedDistanceSq(ball.x, ball.y, can.x, can.y) <= pickupR2) {
+            can.collected = true;
+            collectedAny = true;
             continue;
           }
 
           for (const [dx, dy] of pixels) {
-            const px = Math.floor(ball.x + dx);
-            const py = Math.floor(ball.y + dy);
-            const cdx = px - cone.x;
-            const cdy = py - cone.y;
-            if (cdx * cdx + cdy * cdy <= pickupRadius * pickupRadius) {
-              cone.collected = true;
+            const px = ball.x + dx;
+            const py = ball.y + dy;
+            if (level2WrappedDistanceSq(px, py, can.x, can.y) <= pickupR2) {
+              can.collected = true;
+              collectedAny = true;
               break;
             }
           }
         }
+
+        if (collectedAny) {
+          sfx.playKerching();
+          checkLevel2Complete();
+        }
       }
 
-      function drawLevel2CollectedPatches() {
-        for (const cone of level2Cones) {
-          if (!cone.collected) continue;
-          ctx.fillStyle = "#000";
-          ctx.beginPath();
-          ctx.ellipse(cone.x, cone.y, 15, 13, 0, 0, Math.PI * 2);
-          ctx.fill();
+      function drawLevel2JerryCan(can, drawX = can.x) {
+        if (can.collected) return;
+        ctx.save();
+        ctx.translate(drawX, can.y);
+
+        ctx.fillStyle = "#8a1010";
+        ctx.fillRect(-8, -7, 16, 18);
+        ctx.fillStyle = "#d02020";
+        ctx.fillRect(-7, -6, 14, 16);
+
+        ctx.fillStyle = "#f0c020";
+        ctx.fillRect(-7, 0, 14, 5);
+        ctx.fillStyle = "#1a1a1a";
+        ctx.font = "bold 7px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("PET", 0, 2);
+
+        ctx.strokeStyle = "#666";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, -9, 5, Math.PI, 0);
+        ctx.stroke();
+
+        ctx.fillStyle = "#333";
+        ctx.fillRect(7, -9, 4, 3);
+
+        ctx.restore();
+      }
+
+      function drawLevel2JerryCans() {
+        for (const can of level2JerryCans) {
+          for (const x of level2WrappedXs(can.x, LEVEL2_JERRY_CAN_RADIUS)) {
+            drawLevel2JerryCan(can, x);
+          }
         }
       }
 
@@ -2969,7 +3050,7 @@
         stepLevel2Fireballs(dt);
         resolveLevel2BusCapriCollisions();
         if (ball.hitCooldown > 0) ball.hitCooldown -= dt;
-        collectLevel2Cones();
+        collectLevel2JerryCans();
       }
 
       function buildLightning() {
@@ -3637,6 +3718,28 @@
         if (allZooxCleared()) beginLevelOneVictory();
       }
 
+      function allLevel2BusesDestroyed() {
+        return level2Buses.length > 0 && level2Buses.every((bus) => !bus.alive);
+      }
+
+      function allLevel2JerryCansCollected() {
+        return level2JerryCans.length > 0 && level2JerryCans.every((can) => can.collected);
+      }
+
+      function checkLevel2Complete() {
+        if (gamePhase !== "playing" || currentLevel !== 2) return;
+        if (allLevel2BusesDestroyed() && allLevel2JerryCansCollected()) beginLevelTwoVictory();
+      }
+
+      function beginLevelTwoVictory() {
+        gamePhase = "level2beat";
+        level2BeatT0 = performance.now();
+        levelBannerT0 = 0;
+        sfx.stopGameMusic();
+        setHudForPhase();
+        paintLives();
+      }
+
       function beginLevelOneVictory() {
         gamePhase = "level1beat";
         level1BeatT0 = performance.now();
@@ -3680,6 +3783,7 @@
         ball.spawnX = ball.x;
         ball.spawnY = ball.y;
         initLevel2Buses();
+        initLevel2JerryCans();
         fallElapsed = 0;
         syncTickClock();
         paintLives();
@@ -3717,6 +3821,11 @@
         setHudForPhase();
       }
 
+      function returnToAttractFromLevelTwoVictory(btn) {
+        level2BeatT0 = 0;
+        returnToAttractFromGameOver(btn);
+      }
+
       function returnToAttractFromGameOver(btn) {
         flashButton(btn);
         restoreLevelOneArena();
@@ -3727,6 +3836,7 @@
         gamePhase = "attract";
         gameOverT0 = 0;
         level1BeatT0 = 0;
+        level2BeatT0 = 0;
         currentLevel = 1;
         lives = MAX_LIVES;
         zooxPairLocks.clear();
@@ -4085,7 +4195,7 @@
           if (background) ctx.drawImage(background, 0, 0, W, H);
         } else if (currentLevel === 2 && level2Background) {
           ctx.drawImage(level2Background, 0, 0, W, H);
-          drawLevel2CollectedPatches();
+          drawLevel2JerryCans();
           for (const bus of level2Buses) {
             for (const x of level2WrappedXs(bus.x, LEVEL2_CAR_HW)) drawLevel2Bus(bus, x);
           }
@@ -4524,6 +4634,56 @@
         drawPressFire(performance.now(), "PRESS FIRE", false);
       }
 
+      function drawLevelTwoBeatBanner(age) {
+        const w = canvas.width;
+        const h = canvas.height;
+        const stampDur = 0.85;
+        const stamp = 1 - (1 - Math.min(age / stampDur, 1)) ** 3;
+        const alpha = Math.min(age / 0.35, 1);
+        const scale = 3.4 - stamp * 2.4;
+        const yDrop = (1 - stamp) * h * 0.18;
+        const shake = Math.sin(age * 24) * (1 - stamp) * 8;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        const size = Math.round(h * 0.085);
+        const lines = ["YOU BEAT", "LEVEL TWO"];
+        const baseY = h * 0.38 + yDrop + shake;
+        const cx = w / 2;
+
+        ctx.save();
+        ctx.translate(cx, baseY + size * 0.45);
+        ctx.scale(scale, scale);
+        ctx.translate(-cx, -(baseY + size * 0.45));
+
+        for (let i = 0; i < lines.length; i++) {
+          const y = baseY + i * size * 1.08;
+          const depth = Math.max(5, Math.round(size * 0.1));
+          ctx.save();
+          ctx.translate(cx, y);
+          ctx.transform(1.05, 0, -0.18, 0.9, 0, 0);
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.font = `900 ${size}px Impact, "Arial Black", Haettenschweiler, sans-serif`;
+          ctx.lineJoin = "round";
+          for (let d = depth; d > 0; d--) {
+            const t = d / depth;
+            ctx.fillStyle = `rgb(${Math.round(55 * t)},${Math.round(90 * t)},${Math.round(20 * t)})`;
+            ctx.fillText(lines[i], d * 0.55, d * 0.7);
+          }
+          ctx.lineWidth = Math.max(4, Math.round(size * 0.11));
+          ctx.strokeStyle = "#1a2a00";
+          ctx.fillStyle = "#9dff4a";
+          ctx.strokeText(lines[i], 0, 0);
+          ctx.fillText(lines[i], 0, 0);
+          ctx.restore();
+        }
+        ctx.restore();
+        ctx.restore();
+
+        drawPressFire(performance.now(), "PRESS FIRE", false);
+      }
+
       function drawPressFire(now, text = "PRESS FIRE TO PLAY", blink = true) {
         if (blink && Math.floor(now / 480) % 2 === 1) return;
         const w = canvas.width;
@@ -4695,6 +4855,13 @@
           return;
         }
 
+        if (gamePhase === "level2beat") {
+          drawFrame();
+          drawLevelTwoBeatBanner((now - level2BeatT0) / 1000);
+          requestAnimationFrame(tick);
+          return;
+        }
+
         frameCarPixels = activeCarBundle().pixels;
         step(dt);
         drawFrame();
@@ -4706,7 +4873,7 @@
       function applyModeCopy() {
         descEl.textContent =
           currentLevel === 2
-            ? "Omnidirectional stick to drive. Fire shoots in your movement direction. Destroy the four Routemasters — they cost a life on contact."
+            ? "Omnidirectional stick to drive. Fire shoots in your movement direction. Destroy all four Routemasters and collect every petrol jerry can to win — bus contact costs a life."
             : "Hold ← or → on the stick to steer while falling, then tap fire to boost up and sideways. Three Zoox robotaxis patrol the decks. You have three lives.";
 
         const controlsDisabled = gamePhase === "intro";
