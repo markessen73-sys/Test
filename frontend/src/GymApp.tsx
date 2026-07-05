@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { HeavyBagPlayView } from './play/HeavyBagPlayView';
 import { BoxingGymScene } from './gym/BoxingGymScene';
 import { GYM_STATIONS, type ViewMode } from './types/game';
 
@@ -10,18 +11,22 @@ export function GymApp() {
   const station = GYM_STATIONS[stationIndex];
 
   const goNext = useCallback(() => {
-    if (viewMode === 'focus') return;
+    if (viewMode !== 'browse') return;
     setStationIndex((i) => (i + 1) % GYM_STATIONS.length);
   }, [viewMode]);
 
   const goPrev = useCallback(() => {
-    if (viewMode === 'focus') return;
+    if (viewMode !== 'browse') return;
     setStationIndex((i) => (i - 1 + GYM_STATIONS.length) % GYM_STATIONS.length);
   }, [viewMode]);
 
   const selectStation = useCallback(() => {
-    setViewMode('focus');
-  }, []);
+    if (station.id === 'heavy-bag') {
+      setViewMode('play');
+    } else {
+      setViewMode('focus');
+    }
+  }, [station.id]);
 
   const backToBrowse = useCallback(() => {
     setViewMode('browse');
@@ -34,20 +39,23 @@ export function GymApp() {
         if (e.key === 'ArrowLeft') goPrev();
         if (e.key === 'Enter') selectStation();
       }
-      if (viewMode === 'focus' && e.key === 'Escape') backToBrowse();
+      if ((viewMode === 'focus' || viewMode === 'play') && e.key === 'Escape') backToBrowse();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [viewMode, goNext, goPrev, selectStation, backToBrowse]);
 
+  // Heavy bag play view — full glove control mode
+  if (viewMode === 'play') {
+    return <HeavyBagPlayView onBack={backToBrowse} />;
+  }
+
   return (
     <div className="gym-fullscreen">
-      {/* 3D canvas — full bleed */}
       <div className="gym-canvas">
         <BoxingGymScene stationId={station.id} viewMode={viewMode} />
       </div>
 
-      {/* UI overlays */}
       <div className="gym-ui">
         <header className="gym-top">
           {viewMode === 'focus' ? (
@@ -66,20 +74,10 @@ export function GymApp() {
 
         {viewMode === 'browse' && (
           <>
-            <button
-              type="button"
-              className="gym-arrow gym-arrow-left"
-              onClick={goPrev}
-              aria-label="Previous boxing type"
-            >
+            <button type="button" className="gym-arrow gym-arrow-left" onClick={goPrev} aria-label="Previous">
               <ChevronLeft size={32} />
             </button>
-            <button
-              type="button"
-              className="gym-arrow gym-arrow-right"
-              onClick={goNext}
-              aria-label="Next boxing type"
-            >
+            <button type="button" className="gym-arrow gym-arrow-right" onClick={goNext} aria-label="Next">
               <ChevronRight size={32} />
             </button>
           </>
@@ -103,11 +101,11 @@ export function GymApp() {
               </div>
               <p className="gym-hint">{station.description}</p>
               <button type="button" className="gym-select-btn" onClick={selectStation}>
-                Select {station.name}
+                {station.id === 'heavy-bag' ? 'Play Heavy Bag' : `Select ${station.name}`}
               </button>
             </>
           ) : (
-            <p className="gym-hint focus-hint">Ready — fighting comes next</p>
+            <p className="gym-hint focus-hint">Play mode coming soon for this station</p>
           )}
         </footer>
       </div>

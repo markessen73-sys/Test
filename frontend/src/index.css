@@ -1119,3 +1119,137 @@ html, body, #root, .app {
   }
 }
 
+/* ── Heavy bag play view ── */
+.play-fullscreen {
+  position: fixed;
+  inset: 0;
+  background: #1a1208;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.play-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.slug-trail-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.play-touch-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  touch-action: none;
+  cursor: grab;
+}
+
+.play-touch-layer:active {
+  cursor: grabbing;
+}
+
+.play-glove-hints {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.glove-hint {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 220, 120, 0.45);
+  animation: glove-pulse 1.6s ease-in-out infinite;
+}
+
+.glove-hint-left {
+  border-color: rgba(255, 180, 120, 0.5);
+}
+
+.glove-hint-right {
+  border-color: rgba(120, 180, 255, 0.5);
+}
+
+@keyframes glove-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+.play-ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.play-ui > * {
+  pointer-events: auto;
+}
+
+.play-top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: max(0.75rem, env(safe-area-inset-top)) 1rem 0.5rem;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent);
+}
+
+.play-title {
+  flex: 1;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #f5e6c8;
+}
+
+.play-punch-count {
+  font-size: 0.85rem;
+  color: #c9b07a;
+  font-variant-numeric: tabular-nums;
+}
+
+.play-bottom {
+  padding: 0.5rem 1rem max(1rem, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
+  text-align: center;
+}
+
+.play-hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(245, 230, 200, 0.85);
+  line-height: 1.4;
+}
+
+.play-hint strong {
+  color: #e8c840;
+}
+
+.play-flash {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: #ffe566;
+  text-shadow: 0 0 20px rgba(255, 200, 0, 0.8);
+  animation: punch-pop 0.3s ease-out;
+  pointer-events: none;
+}
+
+@keyframes punch-pop {
+  0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+  40% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
