@@ -1,4 +1,4 @@
-"""Image transformation using Replicate AI models."""
+"""Image transformation — multi-provider with free local fallback."""
 
 import asyncio
 import base64
@@ -12,15 +12,27 @@ import replicate
 from PIL import Image
 from replicate.exceptions import ReplicateError
 
+from local_processor import transform_local
+from openai_provider import OpenAIError, transform_openai
 from styles import CaricatureStyle
 
 KONTEXT_MODEL = "flux-kontext-apps/face-to-many-kontext"
 FACE_TO_MANY_MODEL = "fofr/face-to-many"
-CARTOONIFY_MODEL = "flux-kontext-apps/cartoonify"
 
 
 class TransformError(Exception):
     pass
+
+
+def get_available_providers() -> list[str]:
+    """Return list of configured providers in priority order."""
+    providers = []
+    if os.environ.get("REPLICATE_API_TOKEN"):
+        providers.append("replicate")
+    if os.environ.get("OPENAI_API_KEY"):
+        providers.append("openai")
+    providers.append("local")
+    return providers
 
 
 def _get_replicate_token() -> str | None:
@@ -33,7 +45,6 @@ def _image_to_data_uri(image_bytes: bytes, mime_type: str = "image/jpeg") -> str
 
 
 def _prepare_image(image_bytes: bytes, max_size: int = 1024) -> tuple[bytes, str]:
-    """Resize and normalize uploaded image for model input."""
     img = Image.open(io.BytesIO(image_bytes))
     if img.mode in ("RGBA", "P"):
         img = img.convert("RGB")
@@ -56,8 +67,16 @@ async def _download_result(url: str) -> bytes:
         return response.content
 
 
+def _is_billing_error(error: Exception) -> bool:
+    msg = str(error).lower()
+    return any(k in msg for k in ("402", "insufficient credit", "billing", "payment"))
+
+
+def _is_rate_limit(error: Exception) -> bool:
+    return "429" in str(error) or "throttled" in str(error).lower()
+
+
 def _parse_retry_seconds(error: ReplicateError) -> float:
-    """Extract suggested wait time from a Replicate 429 error."""
     detail = str(error)
     match = re.search(r"resets in ~(\d+)s", detail)
     if match:
@@ -67,7 +86,7 @@ def _parse_retry_seconds(error: ReplicateError) -> float:
 
 def _friendly_error(error: Exception) -> str:
     message = str(error)
-    if "429" in message or "throttled" in message.lower():
+    if _is_rate_limit(error):
         wait = 15
         match = re.search(r"resets in ~(\d+)s", message)
         if match:
@@ -76,93 +95,46 @@ def _friendly_error(error: Exception) -> str:
             f"Rate limit reached. Please wait {wait} seconds and try again. "
             "Free Replicate accounts are limited to 6 requests per minute."
         )
-    if "402" in message or "insufficient credit" in message.lower():
+    if _is_billing_error(error):
         return (
-            "Insufficient Replicate credit. Add billing at "
-            "https://replicate.com/account/billing and try again."
+            "Replicate account has no credit. Add billing at "
+            "https://replicate.com/account/billing — or use free local mode below."
         )
-    if "404" in message:
-        return "The AI model could not be found. Please try again in a moment."
     return message
 
 
-async def _run_with_retry(model: str, input_params: dict[str, Any], retries: int = 2):
-    """Run a Replicate model with automatic retry on rate limits."""
+async def _run_replicate(model: str, input_params: dict[str, Any], retries: int = 1):
     last_error: Exception | None = None
-
     for attempt in range(retries + 1):
         try:
             return await replicate.async_run(model, input=input_params)
         except ReplicateError as error:
             last_error = error
-            if "429" in str(error) and attempt < retries:
-                wait = _parse_retry_seconds(error)
-                await asyncio.sleep(wait)
+            if _is_rate_limit(error) and attempt < retries:
+                await asyncio.sleep(_parse_retry_seconds(error))
                 continue
-            raise TransformError(_friendly_error(error)) from error
-        except Exception as error:
-            raise TransformError(_friendly_error(error)) from error
-
-    raise TransformError(_friendly_error(last_error or Exception("Unknown error")))
+            raise
+    raise last_error or Exception("Unknown Replicate error")
 
 
-async def transform_with_kontext(image_bytes: bytes, style: CaricatureStyle) -> bytes:
-    """Transform using flux-kontext face-to-many (best style support)."""
+async def transform_with_replicate(image_bytes: bytes, style: CaricatureStyle) -> bytes:
+    """Transform using Replicate kontext model."""
+    token = _get_replicate_token()
+    if not token:
+        raise TransformError("REPLICATE_API_TOKEN is not set")
+    os.environ["REPLICATE_API_TOKEN"] = token
+
     prepared, mime = _prepare_image(image_bytes)
     data_uri = _image_to_data_uri(prepared, mime)
 
-    input_params: dict[str, Any] = {
-        "input_image": data_uri,
-        "style": style.kontext_style,
-        "num_images": 1,
-        "preserve_background": False,
-        "preserve_outfit": True,
-        "aspect_ratio": "match_input_image",
-        "output_format": "png",
-        "safety_tolerance": 2,
-    }
-
-    output = await _run_with_retry(KONTEXT_MODEL, input_params)
-
-    if not output:
-        raise TransformError("Model returned no output")
-
-    result_url = output[0] if isinstance(output, list) else str(output)
-    return await _download_result(result_url)
-
-
-async def transform_with_face_to_many(image_bytes: bytes, style: CaricatureStyle) -> bytes:
-    """Fallback using fofr/face-to-many with valid style enum + custom prompt."""
-    prepared, mime = _prepare_image(image_bytes)
-    data_uri = _image_to_data_uri(prepared, mime)
-
-    input_params: dict[str, Any] = {
-        "image": data_uri,
-        "style": style.face_to_many_style or "3D",
-        "prompt": style.prompt,
-        "negative_prompt": style.negative_prompt,
-        "instant_id_strength": 0.85,
-        "control_depth_strength": 0.7,
-    }
-
-    output = await _run_with_retry(FACE_TO_MANY_MODEL, input_params)
-
-    if not output:
-        raise TransformError("Model returned no output")
-
-    result_url = output[0] if isinstance(output, list) else str(output)
-    return await _download_result(result_url)
-
-
-async def transform_with_cartoonify(image_bytes: bytes) -> bytes:
-    """Last-resort fallback: generic cartoonify."""
-    prepared, mime = _prepare_image(image_bytes)
-    data_uri = _image_to_data_uri(prepared, mime)
-
-    output = await _run_with_retry(
-        CARTOONIFY_MODEL,
+    output = await _run_replicate(
+        KONTEXT_MODEL,
         {
             "input_image": data_uri,
+            "style": style.kontext_style,
+            "num_images": 1,
+            "preserve_background": False,
+            "preserve_outfit": True,
             "aspect_ratio": "match_input_image",
             "output_format": "png",
             "safety_tolerance": 2,
@@ -172,35 +144,51 @@ async def transform_with_cartoonify(image_bytes: bytes) -> bytes:
     if not output:
         raise TransformError("Model returned no output")
 
-    result_url = output if isinstance(output, str) else str(output)
+    result_url = output[0] if isinstance(output, list) else str(output)
     return await _download_result(result_url)
 
 
-async def transform_image(image_bytes: bytes, style: CaricatureStyle) -> bytes:
-    """Main entry point — tries one model at a time to avoid rate-limit bursts."""
-    token = _get_replicate_token()
-    if not token:
-        raise TransformError(
-            "REPLICATE_API_TOKEN is not set. "
-            "Get a free API token at https://replicate.com/account/api-tokens"
-        )
+async def transform_image(
+    image_bytes: bytes, style: CaricatureStyle, provider: str | None = None
+) -> tuple[bytes, str]:
+    """
+    Transform image using the requested provider or auto-select.
+    Returns (image_bytes, provider_used).
+    """
+    available = get_available_providers()
+    if not available:
+        raise TransformError("No providers available")
 
-    os.environ["REPLICATE_API_TOKEN"] = token
+    if provider and provider != "auto":
+        if provider not in available:
+            raise TransformError(f"Provider '{provider}' is not available")
+        order = [provider]
+    else:
+        order = available
 
-    # Primary: kontext model (supports Simpsons, South Park, Anime, etc.)
-    try:
-        return await transform_with_kontext(image_bytes, style)
-    except TransformError as kontext_error:
-        # Only try fallback if it's not a billing/rate-limit issue
-        msg = str(kontext_error).lower()
-        if "rate limit" in msg or "insufficient" in msg or "credit" in msg:
-            raise
+    errors: list[str] = []
 
-        # Fallback: face-to-many (only if we have a valid style mapping)
-        if style.face_to_many_style:
-            try:
-                return await transform_with_face_to_many(image_bytes, style)
-            except TransformError:
-                pass
+    for prov in order:
+        try:
+            if prov == "replicate":
+                result = await transform_with_replicate(image_bytes, style)
+                return result, "replicate"
+            if prov == "openai":
+                result = await asyncio.to_thread(transform_openai, image_bytes, style)
+                return result, "openai"
+            if prov == "local":
+                result = await asyncio.to_thread(transform_local, image_bytes, style)
+                return result, "local"
+        except Exception as error:
+            if prov == "local":
+                raise TransformError(_friendly_error(error)) from error
+            if _is_billing_error(error) or _is_rate_limit(error):
+                errors.append(f"{prov}: {_friendly_error(error)}")
+                continue
+            errors.append(f"{prov}: {error}")
+            continue
 
-        raise kontext_error from kontext_error
+    raise TransformError(
+        "All providers failed. " + " | ".join(errors) if errors
+        else "Transformation failed"
+    )

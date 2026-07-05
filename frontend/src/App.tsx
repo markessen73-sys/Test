@@ -5,27 +5,38 @@ import {
   fetchStyles,
   transformPhoto,
   type CaricatureStyle,
+  type HealthStatus,
+  type Provider,
 } from './api';
 import { PhotoUpload } from './components/PhotoUpload';
 import { ResultPanel } from './components/ResultPanel';
 import { StylePicker } from './components/StylePicker';
 
+const PROVIDER_LABELS: Record<string, string> = {
+  replicate: 'Replicate AI',
+  openai: 'OpenAI',
+  local: 'Free local',
+  auto: 'Auto',
+};
+
 function App() {
   const [styles, setStyles] = useState<CaricatureStyle[]>([]);
-  const [apiReady, setApiReady] = useState(false);
+  const [health, setHealth] = useState<HealthStatus | null>(null);
+  const [provider, setProvider] = useState<Provider>('auto');
   const [photo, setPhoto] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [providerUsed, setProviderUsed] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([fetchStyles(), fetchHealth()])
-      .then(([styleList, health]) => {
+      .then(([styleList, healthData]) => {
         setStyles(styleList);
-        setApiReady(health.replicate_configured);
+        setHealth(healthData);
         if (styleList.length > 0) {
           setSelectedStyle(styleList[0].id);
         }
@@ -37,6 +48,7 @@ function App() {
     setPhoto(file);
     setPreviewUrl(URL.createObjectURL(file));
     setResultUrl(null);
+    setProviderUsed(null);
     setError(null);
   }, []);
 
@@ -45,6 +57,7 @@ function App() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
     setResultUrl(null);
+    setProviderUsed(null);
     setError(null);
   }, [previewUrl]);
 
@@ -55,17 +68,24 @@ function App() {
     setError(null);
     if (resultUrl) URL.revokeObjectURL(resultUrl);
     setResultUrl(null);
+    setProviderUsed(null);
 
     try {
-      const blob = await transformPhoto(photo, selectedStyle, setLoadingMessage);
+      const { blob, providerUsed: used } = await transformPhoto(
+        photo,
+        selectedStyle,
+        provider,
+        setLoadingMessage
+      );
       setResultUrl(URL.createObjectURL(blob));
+      setProviderUsed(used);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setLoading(false);
       setLoadingMessage('');
     }
-  }, [photo, selectedStyle, resultUrl]);
+  }, [photo, selectedStyle, provider, resultUrl]);
 
   const handleDownload = useCallback(() => {
     if (!resultUrl || !selectedStyle) return;
@@ -82,6 +102,8 @@ function App() {
   const step2Done = !!selectedStyle;
   const step3Done = !!resultUrl;
 
+  const hasPaidProvider = health?.replicate_configured || health?.openai_configured;
+
   return (
     <div className="app">
       <header className="header">
@@ -93,8 +115,8 @@ function App() {
           </div>
         </div>
         <div className="status-badge">
-          <span className={`status-dot ${apiReady ? 'ready' : ''}`} />
-          {apiReady ? 'AI Ready' : 'API key needed'}
+          <span className={`status-dot ${health ? 'ready' : ''}`} />
+          {health ? 'Ready' : 'Connecting...'}
         </div>
       </header>
 
@@ -122,6 +144,34 @@ function App() {
             disabled={loading}
           />
 
+          <h2 className="panel-title">Engine</h2>
+          <div className="provider-picker">
+            {(['auto', 'local', 'replicate', 'openai'] as Provider[]).map((p) => {
+              const disabled =
+                loading ||
+                (p === 'replicate' && !health?.replicate_configured) ||
+                (p === 'openai' && !health?.openai_configured);
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  className={`provider-btn ${provider === p ? 'selected' : ''}`}
+                  onClick={() => !disabled && setProvider(p)}
+                  disabled={disabled}
+                  title={
+                    p === 'auto'
+                      ? 'Try AI first, fall back to free local'
+                      : p === 'local'
+                        ? 'Free cartoon filter — always works'
+                        : undefined
+                  }
+                >
+                  {PROVIDER_LABELS[p]}
+                </button>
+              );
+            })}
+          </div>
+
           {error && (
             <div className="error-banner">
               <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
@@ -129,29 +179,24 @@ function App() {
             </div>
           )}
 
-          {!apiReady && !error && (
-            <div className="error-banner" style={{ borderColor: 'rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.1)', color: '#c4b5fd' }}>
+          {!hasPaidProvider && health && !error && (
+            <div className="info-banner">
               <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
               <span>
-                Set <code>REPLICATE_API_TOKEN</code> in your environment to enable AI transformation.
-                Get a free token at{' '}
-                <a href="https://replicate.com/account/api-tokens" target="_blank" rel="noreferrer" style={{ color: '#a78bfa' }}>
-                  replicate.com
+                Replicate needs billing credit for AI models (~$0.01/image).{' '}
+                <strong>Free local mode</strong> works now — select &quot;Free local&quot; or use Auto.
+                Add credit at{' '}
+                <a href="https://replicate.com/account/billing" target="_blank" rel="noreferrer">
+                  replicate.com/billing
                 </a>
               </span>
             </div>
           )}
 
-          {apiReady && !error && !loading && (
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-              Free accounts: ~6 requests/min. Wait a few seconds between tries.
-            </p>
-          )}
-
           <button
             className="btn btn-primary"
             onClick={handleTransform}
-            disabled={!canTransform || !apiReady}
+            disabled={!canTransform}
           >
             {loading ? (
               <>Generating...</>
@@ -170,16 +215,19 @@ function App() {
             loading={loading}
             loadingMessage={loadingMessage}
             styleName={selectedStyleName}
+            providerUsed={providerUsed ? PROVIDER_LABELS[providerUsed] || providerUsed : null}
             onDownload={handleDownload}
             onRetry={handleTransform}
-            canRetry={canTransform && !!apiReady}
+            canRetry={canTransform}
           />
         </section>
       </main>
 
       <footer className="footer">
-        Powered by AI · Upload a portrait, pick a style, get your caricature ·{' '}
-        <a href="https://replicate.com" target="_blank" rel="noreferrer">Replicate</a>
+        Free local mode always available · AI via Replicate or OpenAI ·{' '}
+        <a href="https://replicate.com/account/billing" target="_blank" rel="noreferrer">
+          Add Replicate credit
+        </a>
       </footer>
     </div>
   );

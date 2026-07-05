@@ -5,6 +5,7 @@ interface ResultPanelProps {
   loading: boolean;
   loadingMessage: string;
   styleName: string | null;
+  providerUsed: string | null;
   onDownload: () => void;
   onRetry: () => void;
   canRetry: boolean;
@@ -15,6 +16,7 @@ export function ResultPanel({
   loading,
   loadingMessage,
   styleName,
+  providerUsed,
   onDownload,
   onRetry,
   canRetry,
@@ -36,6 +38,11 @@ export function ResultPanel({
             <ImageIcon size={48} />
             <p>Your caricature will appear here</p>
             {styleName && <p style={{ marginTop: '0.5rem', fontSize: '0.8125rem' }}>Style: {styleName}</p>}
+            {providerUsed && (
+              <p style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: 'var(--accent)' }}>
+                via {providerUsed}
+              </p>
+            )}
           </div>
         ) : null}
       </div>

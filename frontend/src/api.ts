@@ -5,9 +5,15 @@ export interface CaricatureStyle {
   preview_color: string;
 }
 
+export type Provider = 'auto' | 'replicate' | 'openai' | 'local';
+
 export interface HealthStatus {
   status: string;
+  providers: string[];
   replicate_configured: boolean;
+  openai_configured: boolean;
+  local_available: boolean;
+  default_provider: string;
 }
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -28,15 +34,21 @@ export async function fetchHealth(): Promise<HealthStatus> {
 export async function transformPhoto(
   file: File,
   styleId: string,
+  provider: Provider = 'auto',
   onProgress?: (message: string) => void
-): Promise<Blob> {
+): Promise<{ blob: Blob; providerUsed: string }> {
   onProgress?.('Uploading photo...');
 
   const formData = new FormData();
   formData.append('photo', file);
   formData.append('style_id', styleId);
+  formData.append('provider', provider);
 
-  onProgress?.('Generating caricature... This may take 10–30 seconds.');
+  onProgress?.(
+    provider === 'local'
+      ? 'Applying cartoon style...'
+      : 'Generating caricature... This may take 10–30 seconds.'
+  );
 
   const res = await fetch(`${API_BASE}/api/transform`, {
     method: 'POST',
@@ -49,5 +61,7 @@ export async function transformPhoto(
   }
 
   onProgress?.('Done!');
-  return res.blob();
+  const providerUsed = res.headers.get('X-Provider') || provider;
+  const blob = await res.blob();
+  return { blob, providerUsed };
 }

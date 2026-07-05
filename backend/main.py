@@ -10,8 +10,9 @@ from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
 from styles import get_style, list_styles
-from transformer import TransformError, transform_image
+from transformer import TransformError, get_available_providers, transform_image
 
+load_dotenv(Path(__file__).parent.parent / ".env")
 load_dotenv()
 
 app = FastAPI(
@@ -34,10 +35,14 @@ ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 @app.get("/api/health")
 async def health():
-    has_token = bool(os.environ.get("REPLICATE_API_TOKEN"))
+    providers = get_available_providers()
     return {
         "status": "ok",
-        "replicate_configured": has_token,
+        "providers": providers,
+        "replicate_configured": bool(os.environ.get("REPLICATE_API_TOKEN")),
+        "openai_configured": bool(os.environ.get("OPENAI_API_KEY")),
+        "local_available": True,
+        "default_provider": providers[0] if providers else "local",
     }
 
 
@@ -50,6 +55,7 @@ async def styles():
 async def transform(
     photo: UploadFile = File(..., description="Portrait photo to caricaturize"),
     style_id: str = Form(..., description="Caricature style ID"),
+    provider: str = Form("auto", description="Provider: auto, replicate, openai, local"),
 ):
     if style_id not in {s["id"] for s in list_styles()}:
         raise HTTPException(status_code=400, detail=f"Unknown style: {style_id}")
@@ -69,7 +75,9 @@ async def transform(
     style = get_style(style_id)
 
     try:
-        result_bytes = await transform_image(image_bytes, style)
+        result_bytes, provider_used = await transform_image(
+            image_bytes, style, provider=provider
+        )
     except TransformError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
     except Exception as e:
@@ -84,6 +92,7 @@ async def transform(
         headers={
             "Content-Disposition": f'inline; filename="caricature-{style_id}.png"',
             "X-Style-Name": style.name,
+            "X-Provider": provider_used,
         },
     )
 
