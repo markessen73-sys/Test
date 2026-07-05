@@ -323,12 +323,21 @@ async function build() {
   const backdropDataUrl = toPortableUrl("assets/arena-backdrop.jpg");
 
   let pewDataUrl = "";
-  const pewPath = findNamedAudio("pew");
-  if (pewPath) {
+  const pewPath =
+    findAudioByNamePart("pew-pew-two") ??
+    join(ROOT, "freesound_community-pew-pew-two-102442.mp3");
+  if (existsSync(pewPath)) {
     pewDataUrl = copyAudioAsset(pewPath, "pew.mp3");
-    console.log(`Zoox zap SFX: ${pewDataUrl} (${readFileSync(pewPath).length} bytes)`);
+    copyFileSync(pewPath, join(DEMO_ASSETS, "pew.mp3"));
+    console.log(`Fireball pew SFX: ${pewDataUrl} (${readFileSync(pewPath).length} bytes)`);
   } else {
-    console.log("Zoox zap SFX: none found (procedural fallback)");
+    const pewFallback = findNamedAudio("pew");
+    if (pewFallback) {
+      pewDataUrl = copyAudioAsset(pewFallback, "pew.mp3");
+      console.log(`Fireball pew SFX: ${pewDataUrl} (${readFileSync(pewFallback).length} bytes)`);
+    } else {
+      console.log("Fireball pew SFX: none found (procedural fallback)");
+    }
   }
 
   let beepDataUrl = "";

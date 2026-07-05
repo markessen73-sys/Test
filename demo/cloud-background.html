@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05aaa</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05aab</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -1030,6 +1030,17 @@
           playKerchingSynth(ac, now);
         }
 
+        function playFireball() {
+          const ac = resume();
+          if (!ac) return;
+          const now = ac.currentTime;
+          if (pew.enabled) {
+            pew.play(ac, now, 0.9, false);
+            return;
+          }
+          playZapSynth(ac, now);
+        }
+
         return {
           resume,
           preloadSfx,
@@ -1050,6 +1061,7 @@
           playKerching,
           playCrash,
           playBusBell,
+          playFireball,
         };
       }
 
@@ -2661,6 +2673,7 @@
           alive: true,
         });
         level2FireCooldown = LEVEL2_FIRE_COOLDOWN;
+        sfx.playFireball();
       }
 
       function busFireDirection(bus) {
@@ -2668,6 +2681,7 @@
       }
 
       function fireLevel2BusVolley() {
+        let fired = false;
         for (const bus of level2Buses) {
           if (!bus.alive) continue;
           const dir = busFireDirection(bus);
@@ -2683,7 +2697,9 @@
             fromBus: true,
             owner: bus,
           });
+          fired = true;
         }
+        if (fired) sfx.playFireball();
       }
 
       function stepLevel2BusVolley(dt) {
