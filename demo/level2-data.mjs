@@ -63,10 +63,10 @@ export async function buildLevel2Data(imagePath) {
   let spawn = null;
   const midX = Math.floor(width / 2);
   const targetY = height * 0.82;
-  const SPAWN_HW = 10;
-  const SPAWN_HH = 29;
+  const SPAWN_HW = 20;
+  const SPAWN_HH = 58;
   const MIN_VERT_CLEARANCE = 100;
-  const MIN_HORIZ_CLEARANCE = 36;
+  const MIN_HORIZ_CLEARANCE = 72;
 
   function carFitsAt(map, x, y) {
     for (let py = Math.floor(y - SPAWN_HH); py <= Math.ceil(y + SPAWN_HH); py++) {

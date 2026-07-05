@@ -183,10 +183,13 @@ async function build() {
   }
 
   const LEVEL2_BG = join(DEMO_ASSETS, "level2-background.png");
+  const LEVEL2_BG_SRC = join(ROOT, "1783238519822.png");
   const LEVEL2_BG_ROOT = join(ROOT, "1783194226859.png");
   const LEVEL2_BG_ALT = join(ROOT, "file_00000000e6d87243afed1bd0535c6ce4.png");
   let level2ArenaJson = '{"width":0,"height":0,"spawn":{"x":0,"y":0},"cones":[]}';
-  if (!existsSync(LEVEL2_BG) && existsSync(LEVEL2_BG_ROOT)) {
+  if (existsSync(LEVEL2_BG_SRC)) {
+    copyFileSync(LEVEL2_BG_SRC, LEVEL2_BG);
+  } else if (!existsSync(LEVEL2_BG) && existsSync(LEVEL2_BG_ROOT)) {
     copyFileSync(LEVEL2_BG_ROOT, LEVEL2_BG);
   }
   if (!existsSync(LEVEL2_BG) && existsSync(LEVEL2_BG_ALT)) {
@@ -220,12 +223,21 @@ async function build() {
       if (r > 235 && g > 235 && b > 235) data[o + 3] = 0;
     }
     await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
-      .resize(38, 58, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .resize(76, 116, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .png()
       .toFile(BUS_OUT);
     console.log(`Routemaster bus: ${BUS_SRC} -> routemaster-bus.png (${readFileSync(BUS_OUT).length} bytes)`);
   } else if (existsSync(BUS_OUT)) {
-    console.log(`Routemaster bus: routemaster-bus.png (${readFileSync(BUS_OUT).length} bytes)`);
+    const meta = await sharp(BUS_OUT).metadata();
+    if (meta.width !== 76 || meta.height !== 116) {
+      await sharp(BUS_OUT)
+        .resize(76, 116, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png()
+        .toFile(BUS_OUT);
+      console.log("Routemaster bus: resized routemaster-bus.png to 76x116");
+    } else {
+      console.log(`Routemaster bus: routemaster-bus.png (${readFileSync(BUS_OUT).length} bytes)`);
+    }
   } else {
     console.log(`Routemaster bus: none found (expected ${BUS_SRC})`);
   }
@@ -421,7 +433,7 @@ async function build() {
       )
       .replace(
         'const LEVEL2_BACKGROUND_URL = "assets/level2-background.png";',
-        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png?v=zv";`,
+        `const LEVEL2_BACKGROUND_URL = "${portableAssetBase}level2-background.png?v=zx";`,
       )
       .replace(
         'const LEVEL2_BUS_URL = "assets/routemaster-bus.png";',
