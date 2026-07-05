@@ -1,86 +1,92 @@
 import { useMemo } from 'react';
 import type { BoxerSkeletonPose } from './types';
-import { buildGhostMesh } from './ghostMesh';
+import { buildAnatomicalGhostMesh } from './ghostMesh';
 
 interface BoxerGhostProps {
   pose: BoxerSkeletonPose;
 }
 
 export function BoxerGhost({ pose }: BoxerGhostProps) {
-  const mesh = useMemo(() => buildGhostMesh(pose), [pose]);
+  const mesh = useMemo(() => buildAnatomicalGhostMesh(pose), [pose]);
   const reachGlow = pose.leftArm.atMaxReach || pose.rightArm.atMaxReach;
-  const edgeAlpha = reachGlow ? 0.72 : 0.52;
+  const punchGlow = pose.punchDrive > 0.15;
+  const rimAlpha = reachGlow || punchGlow ? 0.78 : 0.58;
 
   return (
-    <svg className="boxer-ghost" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden>
+    <svg className="boxer-ghost" viewBox="0 0 1 1" preserveAspectRatio="xMidYMax meet" aria-hidden>
       <defs>
-        <linearGradient id="ghost-smoke" x1="0.5" y1="0" x2="0.5" y2="1">
-          <stop offset="0%" stopColor="rgba(220, 245, 255, 0.15)" />
-          <stop offset="50%" stopColor="rgba(180, 220, 250, 0.09)" />
-          <stop offset="100%" stopColor="rgba(140, 190, 230, 0.04)" />
+        <radialGradient id="spirit-core" cx="50%" cy="40%" r="65%">
+          <stop offset="0%" stopColor="rgba(230, 250, 255, 0.2)" />
+          <stop offset="45%" stopColor="rgba(190, 230, 255, 0.1)" />
+          <stop offset="100%" stopColor="rgba(140, 200, 240, 0.02)" />
+        </radialGradient>
+        <linearGradient id="spirit-edge" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="rgba(240, 252, 255, 0.35)" />
+          <stop offset="100%" stopColor="rgba(160, 210, 250, 0.12)" />
         </linearGradient>
-        <linearGradient id="ghost-limb" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(200, 235, 255, 0.16)" />
-          <stop offset="100%" stopColor="rgba(150, 200, 240, 0.07)" />
-        </linearGradient>
-        <filter id="ghost-blur" x="-8%" y="-8%" width="116%" height="116%">
-          <feGaussianBlur stdDeviation="0.007" result="b" />
+        <filter id="spirit-outer-glow" x="-25%" y="-25%" width="150%" height="150%">
+          <feGaussianBlur stdDeviation="0.018" result="blur" />
+          <feColorMatrix
+            in="blur"
+            type="matrix"
+            values="0 0 0 0 0.75  0 0 0 0 0.9  0 0 0 0 1  0 0 0 0.45 0"
+            result="glow"
+          />
           <feMerge>
-            <feMergeNode in="b" />
+            <feMergeNode in="glow" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        <filter id="ghost-glow">
-          <feGaussianBlur stdDeviation="0.004" result="g" />
-          <feMerge>
-            <feMergeNode in="g" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
+        <filter id="spirit-wisp" x="-10%" y="-10%" width="120%" height="120%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" seed="8" result="noise" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="0.012" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+        <filter id="spirit-soft-blur" x="-8%" y="-8%" width="116%" height="116%">
+          <feGaussianBlur stdDeviation="0.006" />
         </filter>
       </defs>
 
-      <g filter="url(#ghost-blur)">
-        {/* Legs */}
-        <path d={mesh.leftThigh} fill="url(#ghost-limb)" />
-        <path d={mesh.rightThigh} fill="url(#ghost-limb)" />
-        <path d={mesh.leftCalf} fill="url(#ghost-limb)" />
-        <path d={mesh.rightCalf} fill="url(#ghost-limb)" />
-        {/* Torso */}
-        <path d={mesh.torso} fill="url(#ghost-smoke)" />
-        <path d={mesh.shorts} fill="url(#ghost-smoke)" opacity="0.9" />
-        <path d={mesh.head} fill="url(#ghost-smoke)" />
-        {/* Arms — behind gloves, attached at shoulders */}
-        <path d={mesh.leftUpperArm} fill="url(#ghost-limb)" />
-        <path d={mesh.leftForearm} fill="url(#ghost-limb)" />
-        <path d={mesh.rightUpperArm} fill="url(#ghost-limb)" />
-        <path d={mesh.rightForearm} fill="url(#ghost-limb)" />
+      {/* Outer halo glow */}
+      <path
+        d={mesh.silhouette}
+        fill="rgba(180, 220, 255, 0.06)"
+        filter="url(#spirit-outer-glow)"
+        stroke="none"
+      />
+
+      {/* Main unified ghost body mesh */}
+      <g filter="url(#spirit-soft-blur)">
+        <path d={mesh.silhouette} fill="url(#spirit-core)" stroke="none" />
+        <path d={mesh.silhouette} fill="url(#spirit-edge)" stroke="none" opacity="0.55" />
       </g>
 
-      <g filter="url(#ghost-glow)">
-        {[mesh.torso, mesh.head, mesh.shorts, mesh.leftThigh, mesh.rightThigh, mesh.leftCalf, mesh.rightCalf,
-          mesh.leftUpperArm, mesh.leftForearm, mesh.rightUpperArm, mesh.rightForearm].map((d, i) => (
-          <path
-            key={i}
-            d={d}
-            fill="none"
-            stroke={`rgba(210, 245, 255, ${edgeAlpha})`}
-            strokeWidth={i < 3 ? 1.5 : 1.1}
-            strokeLinejoin="round"
-            vectorEffect="non-scaling-stroke"
-          />
-        ))}
-        <path
-          d={mesh.muscleLines}
-          fill="none"
-          stroke="rgba(190, 230, 255, 0.2)"
-          strokeWidth="0.8"
-          strokeLinecap="round"
-          vectorEffect="non-scaling-stroke"
-        />
+      {/* Wispy smoke displacement layer */}
+      <g filter="url(#spirit-wisp)" opacity="0.35">
+        <path d={mesh.silhouette} fill="rgba(200, 235, 255, 0.08)" stroke="none" />
+        <path d={mesh.wisps} fill="none" stroke="rgba(220, 245, 255, 0.15)" strokeWidth="0.8" vectorEffect="non-scaling-stroke" />
       </g>
 
-      <circle cx={pose.leftArm.elbow.x} cy={pose.leftArm.elbow.y} r="0.006" fill="rgba(220, 245, 255, 0.3)" />
-      <circle cx={pose.rightArm.elbow.x} cy={pose.rightArm.elbow.y} r="0.006" fill="rgba(220, 245, 255, 0.3)" />
+      {/* Bright rim silhouette */}
+      <path
+        d={mesh.silhouette}
+        fill="none"
+        stroke={`rgba(220, 248, 255, ${rimAlpha})`}
+        strokeWidth="2"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+
+      {/* Interior muscle definition */}
+      <path
+        d={mesh.muscleDetail}
+        fill="none"
+        stroke="rgba(200, 235, 255, 0.22)"
+        strokeWidth="0.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
     </svg>
   );
 }

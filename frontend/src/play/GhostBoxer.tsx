@@ -9,20 +9,19 @@ interface GhostBoxerProps {
   screenToWorld: (pos: GlovePosition) => THREE.Vector3;
 }
 
-/** Subtle 3D arm depth following skeletal IK. */
 export function GhostBoxer({ leftPos, rightPos, screenToWorld }: GhostBoxerProps) {
   const pose = useMemo(() => solveBoxerPose(leftPos, rightPos, performance.now()), [leftPos, rightPos]);
 
   const segments = useMemo(() => {
     const arms = [pose.leftArm, pose.rightArm];
     return arms.flatMap((arm) => [
-      { from: screenToWorld(arm.shoulder), to: screenToWorld(arm.elbow), w: 0.05 },
-      { from: screenToWorld(arm.elbow), to: screenToWorld(arm.hand), w: 0.04 },
+      { from: screenToWorld(arm.shoulder), to: screenToWorld(arm.elbow), w: 0.055 },
+      { from: screenToWorld(arm.elbow), to: screenToWorld(arm.wrist), w: 0.045 },
     ]);
   }, [pose, screenToWorld]);
 
   return (
-    <group position={[0, -0.1, 0.1]}>
+    <group position={[0, -0.15, 0.1]}>
       {segments.map((seg, i) => (
         <ArmSegment key={i} from={seg.from} to={seg.to} width={seg.w} />
       ))}
@@ -40,7 +39,7 @@ function ArmSegment({ from, to, width }: { from: THREE.Vector3; to: THREE.Vector
   return (
     <mesh position={mid} quaternion={quat}>
       <cylinderGeometry args={[width * 0.85, width, len, 8]} />
-      <meshBasicMaterial color="#C8E8FF" transparent opacity={0.08} depthWrite={false} />
+      <meshBasicMaterial color="#C8E8FF" transparent opacity={0.06} depthWrite={false} />
     </mesh>
   );
 }
