@@ -4,7 +4,7 @@ import { SlugTrailCanvas } from './SlugTrailCanvas';
 import { GhostBodyOverlay } from './GhostBodyOverlay';
 import { ScreenGlove } from './ScreenGlove';
 import { useGloveControl } from './useGloveControl';
-import { computeBodyPose } from './bodyPose';
+import { computeBodyPose, getGloveTransform } from './bodyPose';
 import type { GloveId } from '../types/game';
 
 interface HeavyBagPlayViewProps {
@@ -26,14 +26,8 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
   const { left, right, rootRef, onGloveDown, onRootMove, onRootUp } = useGloveControl(onPunch);
 
   const pose = useMemo(() => computeBodyPose(left.position, right.position), [left.position, right.position]);
-  const leftAngle = useMemo(() => {
-    const a = pose.left;
-    return (Math.atan2(a.hand.y - a.elbow.y, a.hand.x - a.elbow.x) * 180) / Math.PI - 90;
-  }, [pose.left]);
-  const rightAngle = useMemo(() => {
-    const a = pose.right;
-    return (Math.atan2(a.hand.y - a.elbow.y, a.hand.x - a.elbow.x) * 180) / Math.PI - 90;
-  }, [pose.right]);
+  const leftTransform = useMemo(() => getGloveTransform(pose.left, 'left'), [pose.left]);
+  const rightTransform = useMemo(() => getGloveTransform(pose.right, 'right'), [pose.right]);
 
   return (
     <div
@@ -61,7 +55,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           position={left.position}
           grabbed={left.pointerId !== null}
           atMaxReach={pose.left.atMaxReach}
-          angle={leftAngle}
+          transform={leftTransform}
           onPointerDown={onGloveDown('left')}
         />
         <ScreenGlove
@@ -69,7 +63,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           position={right.position}
           grabbed={right.pointerId !== null}
           atMaxReach={pose.right.atMaxReach}
-          angle={rightAngle}
+          transform={rightTransform}
           onPointerDown={onGloveDown('right')}
         />
       </div>

@@ -1143,10 +1143,42 @@ html, body, #root, .app {
 .ghost-body-overlay {
   position: absolute;
   inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.ghost-body-art {
+  position: absolute;
+  bottom: -2%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(96vw, 560px);
+  height: auto;
+  max-height: 92vh;
+  object-fit: contain;
+  object-position: bottom center;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: brightness(1.1) contrast(1.08) saturate(1.05);
+  mix-blend-mode: screen;
+}
+
+.ghost-body-art-guard {
+  opacity: 0.72;
+}
+
+.ghost-body-art-relaxed {
+  opacity: 0;
+}
+
+.ghost-body-arms {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 2;
 }
 
 .play-gloves-layer {
@@ -1158,14 +1190,14 @@ html, body, #root, .app {
 
 .screen-glove {
   position: absolute;
-  width: 110px;
-  height: 132px;
-  margin: -66px 0 0 -55px;
+  width: 118px;
+  height: 142px;
+  margin: -71px 0 0 -59px;
   pointer-events: auto;
   touch-action: none;
   cursor: grab;
-  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.55));
-  transition: transform 0.05s linear;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6));
+  transition: filter 0.08s linear;
 }
 
 .screen-glove-img {
@@ -1175,11 +1207,7 @@ html, body, #root, .app {
   user-select: none;
   -webkit-user-drag: none;
   pointer-events: none;
-}
-
-.screen-glove-left .screen-glove-img,
-.screen-glove-right .screen-glove-img {
-  transform-origin: 50% 65%;
+  transition: transform 0.04s linear;
 }
 
 .screen-glove.max-reach .screen-glove-img {

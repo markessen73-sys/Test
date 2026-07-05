@@ -18,21 +18,27 @@ export interface BodyPose {
   right: ArmPose;
 }
 
-/** Resting guard — hands constrained to this reach envelope. */
-export const GHOST_GUARD_LEFT: GlovePosition = { x: 0.34, y: 0.62 };
-export const GHOST_GUARD_RIGHT: GlovePosition = { x: 0.66, y: 0.62 };
+export interface GloveTransform {
+  rotate: number;
+  scale: number;
+  scaleX: number;
+  skewX: number;
+  originY: string;
+}
 
+/** High guard — matches reference boxer-behind-guard.png */
+export const GHOST_GUARD_LEFT: GlovePosition = { x: 0.31, y: 0.44 };
+export const GHOST_GUARD_RIGHT: GlovePosition = { x: 0.69, y: 0.44 };
+
+/** Shoulder anchors aligned to reference back-view artwork */
 const BASE = {
-  neck: { x: 0.5, y: 0.54 },
-  chest: { x: 0.5, y: 0.64 },
-  navel: { x: 0.5, y: 0.76 },
-  waist: { x: 0.5, y: 0.86 },
-  leftShoulder: { x: 0.355, y: 0.58 },
-  rightShoulder: { x: 0.645, y: 0.58 },
+  neck: { x: 0.5, y: 0.5 },
+  leftShoulder: { x: 0.385, y: 0.52 },
+  rightShoulder: { x: 0.615, y: 0.52 },
 } as const;
 
-const UPPER_ARM = 0.105;
-const FOREARM = 0.1;
+const UPPER_ARM = 0.11;
+const FOREARM = 0.105;
 const MAX_REACH = UPPER_ARM + FOREARM - 0.004;
 const MIN_REACH = Math.abs(UPPER_ARM - FOREARM) + 0.008;
 
@@ -48,7 +54,13 @@ function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
 }
 
-/** Two-bone IK in screen space; bendSign picks elbow-out for natural boxing pose. */
+function normalizeAngle(a: number) {
+  let v = a;
+  while (v > Math.PI) v -= Math.PI * 2;
+  while (v < -Math.PI) v += Math.PI * 2;
+  return v;
+}
+
 export function solveArmIK(
   shoulder: Vec2,
   target: Vec2,
@@ -88,7 +100,6 @@ export function solveArmIK(
   return { shoulder, elbow, hand, atMaxReach };
 }
 
-/** Shoulder shifts forward/up slightly when reaching; torso leans toward active extension. */
 function dynamicShoulders(leftTarget: Vec2, rightTarget: Vec2): {
   leftShoulder: Vec2;
   rightShoulder: Vec2;
@@ -101,8 +112,8 @@ function dynamicShoulders(leftTarget: Vec2, rightTarget: Vec2): {
 
   const leftReach = dist(lg0, leftTarget);
   const rightReach = dist(rg0, rightTarget);
-  const leftShift = clamp(leftReach / MAX_REACH, 0, 1) * 0.028;
-  const rightShift = clamp(rightReach / MAX_REACH, 0, 1) * 0.028;
+  const leftShift = clamp(leftReach / MAX_REACH, 0, 1) * 0.022;
+  const rightShift = clamp(rightReach / MAX_REACH, 0, 1) * 0.022;
 
   const leftDir = { x: leftTarget.x - ls0.x, y: leftTarget.y - ls0.y };
   const rightDir = { x: rightTarget.x - rs0.x, y: rightTarget.y - rs0.y };
@@ -110,15 +121,15 @@ function dynamicShoulders(leftTarget: Vec2, rightTarget: Vec2): {
   const rn = Math.hypot(rightDir.x, rightDir.y) || 1;
 
   const leftShoulder = {
-    x: ls0.x + (leftDir.x / ln) * leftShift * 0.35,
-    y: ls0.y + (leftDir.y / ln) * leftShift - leftShift * 0.25,
+    x: ls0.x + (leftDir.x / ln) * leftShift * 0.3,
+    y: ls0.y + (leftDir.y / ln) * leftShift - leftShift * 0.2,
   };
   const rightShoulder = {
-    x: rs0.x + (rightDir.x / rn) * rightShift * 0.35,
-    y: rs0.y + (rightDir.y / rn) * rightShift - rightShift * 0.25,
+    x: rs0.x + (rightDir.x / rn) * rightShift * 0.3,
+    y: rs0.y + (rightDir.y / rn) * rightShift - rightShift * 0.2,
   };
 
-  const torsoLean = clamp((rightReach - leftReach) * 0.12, -0.035, 0.035);
+  const torsoLean = clamp((rightReach - leftReach) * 0.1, -0.025, 0.025);
 
   return { leftShoulder, rightShoulder, torsoLean };
 }
@@ -132,8 +143,11 @@ export function computeBodyPose(leftHand: GlovePosition, rightHand: GlovePositio
   return { torsoLean, left, right };
 }
 
-/** Clamp a dragged glove target to arm reach from current pose. */
-export function constrainGloveTarget(side: GloveId, target: GlovePosition, otherHand: GlovePosition): GlovePosition {
+export function constrainGloveTarget(
+  side: GloveId,
+  target: GlovePosition,
+  otherHand: GlovePosition
+): GlovePosition {
   const leftTarget = side === 'left' ? target : otherHand;
   const rightTarget = side === 'right' ? target : otherHand;
   const pose = computeBodyPose(leftTarget, rightTarget);
@@ -141,110 +155,83 @@ export function constrainGloveTarget(side: GloveId, target: GlovePosition, other
   return { x: arm.hand.x, y: arm.hand.y };
 }
 
-export function getDefaultGuard(): { left: GlovePosition; right: GlovePosition } {
-  return { left: { ...GHOST_GUARD_LEFT }, right: { ...GHOST_GUARD_RIGHT } };
-}
+/** Glove rotation/scale from forearm + elbow bend — back-view boxing pose. */
+export function getGloveTransform(arm: ArmPose, side: GloveId): GloveTransform {
+  const fx = arm.hand.x - arm.elbow.x;
+  const fy = arm.hand.y - arm.elbow.y;
+  const ux = arm.elbow.x - arm.shoulder.x;
+  const uy = arm.elbow.y - arm.shoulder.y;
 
-/** Muscular male torso outline paths (normalized coords). */
-export function buildMuscularTorsoPaths(lean: number): { fill: string; outline: string; detail: string } {
-  const c = BASE.chest;
-  const w = BASE.waist;
-  const n = BASE.neck;
-  const ls = { x: BASE.leftShoulder.x + lean, y: BASE.leftShoulder.y };
-  const rs = { x: BASE.rightShoulder.x + lean, y: BASE.rightShoulder.y };
+  const forearmAngle = Math.atan2(fy, fx);
+  const upperAngle = Math.atan2(uy, ux);
+  const bend = normalizeAngle(forearmAngle - upperAngle);
 
-  const fill = [
-    `M ${ls.x} ${ls.y}`,
-    `C ${ls.x - 0.02} ${c.y - 0.04}, ${c.x - 0.16} ${c.y - 0.06}, ${c.x - 0.13} ${c.y}`,
-    `C ${c.x - 0.15} ${c.y + 0.05}, ${c.x - 0.12} ${w.y - 0.04}, ${c.x - 0.09} ${w.y}`,
-    `Q ${c.x} ${w.y + 0.03} ${c.x + 0.09} ${w.y}`,
-    `C ${c.x + 0.12} ${w.y - 0.04}, ${c.x + 0.15} ${c.y + 0.05}, ${c.x + 0.13} ${c.y}`,
-    `C ${c.x + 0.16} ${c.y - 0.06}, ${rs.x + 0.02} ${c.y - 0.04}, ${rs.x} ${rs.y}`,
-    `Q ${c.x} ${c.y - 0.1} ${ls.x} ${ls.y}`,
-    'Z',
-  ].join(' ');
+  // Sprite default: cuff down, knuckles toward screen-top (bag direction)
+  const baseRotate = (forearmAngle * 180) / Math.PI + 90;
+  const guardBias = side === 'left' ? -6 : 6;
+  const bendSkew = clamp(bend * 28, -22, 22);
 
-  const outline = fill;
+  const reachT = clamp((arm.shoulder.y - arm.hand.y) / MAX_REACH, -0.2, 1);
+  const scale = 1 + reachT * 0.1;
 
-  const detail = [
-    // Pecs
-    `M ${c.x - 0.11} ${c.y - 0.02} Q ${c.x - 0.05} ${c.y + 0.04} ${c.x - 0.01} ${c.y + 0.01}`,
-    `M ${c.x + 0.11} ${c.y - 0.02} Q ${c.x + 0.05} ${c.y + 0.04} ${c.x + 0.01} ${c.y + 0.01}`,
-    // Abs
-    `M ${c.x - 0.04} ${c.y + 0.08} L ${c.x - 0.03} ${w.y - 0.02}`,
-    `M ${c.x + 0.04} ${c.y + 0.08} L ${c.x + 0.03} ${w.y - 0.02}`,
-    `M ${c.x} ${c.y + 0.07} L ${c.x} ${w.y - 0.01}`,
-    // Obliques
-    `M ${c.x - 0.1} ${c.y + 0.06} Q ${c.x - 0.07} ${w.y - 0.05} ${c.x - 0.05} ${w.y}`,
-    `M ${c.x + 0.1} ${c.y + 0.06} Q ${c.x + 0.07} ${w.y - 0.05} ${c.x + 0.05} ${w.y}`,
-    // Traps / neck
-    `M ${n.x - 0.05} ${n.y} L ${ls.x + 0.02} ${ls.y - 0.01}`,
-    `M ${n.x + 0.05} ${n.y} L ${rs.x - 0.02} ${rs.y - 0.01}`,
-  ].join(' ');
-
-  return { fill, outline, detail };
-}
-
-/** Tapered arm shape through shoulder → elbow → hand for muscular look. */
-export function buildArmPath(arm: ArmPose, side: GloveId): string {
-  const { shoulder: s, elbow: e, hand: h } = arm;
-  const out = side === 'left' ? -1 : 1;
-
-  const upperMid = lerp(s, e, 0.45);
-  const bicepBulge = {
-    x: upperMid.x + out * 0.018,
-    y: upperMid.y - 0.008,
+  return {
+    rotate: baseRotate + guardBias,
+    scale,
+    scaleX: side === 'right' ? -1 : 1,
+    skewX: bendSkew * (side === 'left' ? 1 : -1),
+    originY: '68%',
   };
+}
 
-  const shoulderW = 0.028;
-  const elbowW = 0.022;
-  const wristW = 0.018;
+/** How far hands are from relaxed vs guard — picks reference artwork blend. */
+export function getBodyStanceBlend(left: GlovePosition, right: GlovePosition): number {
+  const relaxed = { x: 0.5, y: 0.72 };
+  const avgY = (left.y + right.y) / 2;
+  const avgXSpread = Math.abs(left.x - right.x);
+  const heightBlend = clamp((avgY - GHOST_GUARD_LEFT.y) / (relaxed.y - GHOST_GUARD_LEFT.y), 0, 1);
+  const spreadBlend = clamp((avgXSpread - 0.38) / 0.22, 0, 1);
+  return clamp(heightBlend * 0.65 + spreadBlend * 0.35, 0, 1);
+}
 
-  const uDir = Math.atan2(e.y - s.y, e.x - s.x);
-  const uPerp = uDir + Math.PI / 2;
-  const fDir = Math.atan2(h.y - e.y, h.x - e.x);
-  const fPerp = fDir + Math.PI / 2;
-
-  const pt = (p: Vec2, w: number, perp: number, sign: number) => ({
+function armSegmentPath(from: Vec2, to: Vec2, widthStart: number, widthEnd: number, bulge: Vec2 | null): string {
+  const dir = Math.atan2(to.y - from.y, to.x - from.x);
+  const perp = dir + Math.PI / 2;
+  const pt = (p: Vec2, w: number, sign: number) => ({
     x: p.x + Math.cos(perp) * w * sign,
     y: p.y + Math.sin(perp) * w * sign,
   });
 
-  const s1 = pt(s, shoulderW, uPerp, 1);
-  const s2 = pt(s, shoulderW, uPerp, -1);
-  const b1 = pt(bicepBulge, shoulderW * 1.15, uPerp, out);
-  const e1 = pt(e, elbowW, fPerp, 1);
-  const e2 = pt(e, elbowW, fPerp, -1);
-  const h1 = pt(h, wristW, fPerp, 1);
-  const h2 = pt(h, wristW, fPerp, -1);
+  const a1 = pt(from, widthStart, 1);
+  const a2 = pt(from, widthStart, -1);
+  const b1 = pt(to, widthEnd, 1);
+  const b2 = pt(to, widthEnd, -1);
 
-  return [
-    `M ${s1.x} ${s1.y}`,
-    `Q ${b1.x} ${b1.y} ${e1.x} ${e1.y}`,
-    `L ${h1.x} ${h1.y}`,
-    `L ${h2.x} ${h2.y}`,
-    `Q ${e2.x} ${e2.y} ${s2.x} ${s2.y}`,
-    'Z',
-  ].join(' ');
+  if (bulge) {
+    const m1 = pt(lerp(from, bulge, 0.5), widthStart * 1.1, 1);
+    const m2 = pt(lerp(from, bulge, 0.5), widthStart * 1.1, -1);
+    return [
+      `M ${a1.x} ${a1.y}`,
+      `Q ${m1.x} ${m1.y} ${b1.x} ${b1.y}`,
+      `L ${b2.x} ${b2.y}`,
+      `Q ${m2.x} ${m2.y} ${a2.x} ${a2.y}`,
+      'Z',
+    ].join(' ');
+  }
+
+  return [`M ${a1.x} ${a1.y}`, `L ${b1.x} ${b1.y}`, `L ${b2.x} ${b2.y}`, `L ${a2.x} ${a2.y}`, 'Z'].join(' ');
 }
 
-export function buildHeadPath(lean: number): string {
-  const h = { x: BASE.neck.x + lean, y: 0.46 };
-  return [
-    `M ${h.x - 0.055} ${h.y + 0.02}`,
-    `Q ${h.x - 0.07} ${h.y - 0.04} ${h.x} ${h.y - 0.055}`,
-    `Q ${h.x + 0.07} ${h.y - 0.04} ${h.x + 0.055} ${h.y + 0.02}`,
-    `Q ${h.x} ${h.y + 0.06} ${h.x - 0.055} ${h.y + 0.02}`,
-    'Z',
-  ].join(' ');
+export function buildUpperArmPath(arm: ArmPose, side: GloveId): string {
+  const out = side === 'left' ? -1 : 1;
+  const mid = lerp(arm.shoulder, arm.elbow, 0.45);
+  const bulge = { x: mid.x + out * 0.014, y: mid.y - 0.006 };
+  return armSegmentPath(arm.shoulder, arm.elbow, 0.032, 0.026, bulge);
 }
 
-export function buildNeckPath(lean: number): string {
-  const n = { x: BASE.neck.x + lean, y: BASE.neck.y };
-  return `M ${n.x - 0.028} ${n.y} L ${n.x + 0.028} ${n.y} L ${n.x + 0.022} ${n.y + 0.035} L ${n.x - 0.022} ${n.y + 0.035} Z`;
+export function buildForearmPath(arm: ArmPose): string {
+  return armSegmentPath(arm.elbow, arm.hand, 0.024, 0.018, null);
 }
 
-/** Max reach from guard — useful for debug/UI */
 export function getArmReach(): number {
   return MAX_REACH;
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { GloveId } from '../types/game';
+import type { GloveTransform } from './bodyPose';
 import { gloveImageCandidates } from './gloveAssets';
 
 function ScreenGlove({
@@ -7,21 +8,24 @@ function ScreenGlove({
   position,
   grabbed,
   atMaxReach,
-  angle,
+  transform,
   onPointerDown,
 }: {
   side: GloveId;
   position: { x: number; y: number };
   grabbed: boolean;
   atMaxReach?: boolean;
-  angle?: number;
+  transform: GloveTransform;
   onPointerDown: (e: React.PointerEvent) => void;
 }) {
   const candidates = gloveImageCandidates(side);
   const [srcIndex, setSrcIndex] = useState(0);
 
-  const flip = side === 'right' ? -1 : 1;
-  const rotate = angle ?? (side === 'left' ? -8 : -8);
+  const imgTransform = [
+    `scale(${transform.scaleX * transform.scale}, ${transform.scale})`,
+    `rotate(${transform.rotate}deg)`,
+    `skewX(${transform.skewX}deg)`,
+  ].join(' ');
 
   return (
     <div
@@ -36,7 +40,10 @@ function ScreenGlove({
         src={candidates[srcIndex]}
         alt=""
         draggable={false}
-        style={{ transform: `scaleX(${flip}) rotate(${rotate}deg)` }}
+        style={{
+          transform: imgTransform,
+          transformOrigin: `50% ${transform.originY}`,
+        }}
         onError={() => {
           if (srcIndex < candidates.length - 1) setSrcIndex((i) => i + 1);
         }}
