@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { mkdir, writeFile } from "node:fs/promises";
 import { buildSolidMask, buildDebugCompositeRgba, solidToSegments } from "./solid-mask.mjs";
 import { buildLevel2Data, writeLevel2Assets, encodeSolidRle, buildBusPixels } from "./level2-data.mjs";
+import { buildLevel3Data, writeLevel3Assets } from "./level3-data.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DEMO = join(ROOT, "demo");
@@ -209,6 +210,28 @@ async function build() {
     );
   } else {
     console.log("Level two background: none found");
+  }
+
+  const LEVEL3_BG = join(DEMO_ASSETS, "level3-background.png");
+  const LEVEL3_BG_SRC = join(ROOT, "file_000000007298724693505eed12bd3d5c.png");
+  let level3ArenaJson = '{"width":0,"height":0,"spawn":{"x":0,"y":0},"cones":[]}';
+  if (existsSync(LEVEL3_BG_SRC)) {
+    copyFileSync(LEVEL3_BG_SRC, LEVEL3_BG);
+  }
+  if (existsSync(LEVEL3_BG)) {
+    copyFileSync(LEVEL3_BG, `${ASSETS}/level3-background.png`);
+    console.log(`Level three background: level3-background.png (${readFileSync(LEVEL3_BG).length} bytes)`);
+    const level3 = await buildLevel3Data(LEVEL3_BG);
+    const level3Arena = await writeLevel3Assets(level3, ASSETS);
+    level3Arena.solidLen = level3.solid.length;
+    level3Arena.solidRle = encodeSolidRle(level3.solid);
+    copyFileSync(`${ASSETS}/level3-solid.bin`, join(DEMO_ASSETS, "level3-solid.bin"));
+    level3ArenaJson = JSON.stringify(level3Arena);
+    console.log(
+      `Level three arena: ${level3Arena.width}x${level3Arena.height}, ${level3Arena.cones.length} cones, ${level3.solidPct}% solid`,
+    );
+  } else {
+    console.log("Level three background: none found");
   }
 
   const BUS_SRC = join(ROOT, "cHJpdmF0ZS9sci9pbWFnZXMvd2Vic2l0ZS8yMDIyLTA4L2pvYjk1My0yMjctcC5wbmc.jpeg");
@@ -418,6 +441,7 @@ async function build() {
     return source
       .replace("__SOLID_SEGMENTS__", JSON.stringify(segments))
       .replace("__LEVEL2_ARENA__", level2ArenaJson)
+      .replace("__LEVEL3_ARENA__", level3ArenaJson)
       .replace("__BG_DATA_URL__", bgDataUrl)
       .replace("__BACKDROP_DATA_URL__", backdropDataUrl)
       .replace("__PEW_DATA_URL__", toPortableUrl(pewDataUrl))
@@ -448,11 +472,15 @@ async function build() {
         'const LEVEL2_BUS_URL = "assets/routemaster-bus.png";',
         `const LEVEL2_BUS_URL = ${JSON.stringify(level2BusDataUrl || `${portableAssetBase}routemaster-bus.png`)};`,
       )
+      .replace(
+        'const LEVEL3_BACKGROUND_URL = "assets/level3-background.png";',
+        `const LEVEL3_BACKGROUND_URL = "${portableAssetBase}level3-background.png?v=aaa";`,
+      )
       .replace("__BAKED_MODE__", "drop")
       .replace("__TITLE_TEXT__", "Adventures Of Crappy Capri")
       .replace(
         "__DESC_TEXT__",
-        "Two-level campaign: beat the Zoox taxis, then destroy the Routemasters and collect every petrol jerry can. Three lives across both levels.",
+        "Three-level campaign: beat the Zoox taxis, clear London's Routemasters, then collect every traffic cone in Tesla Time. Three lives across all levels.",
       )
       .replace("__BADGE_TEXT__", "");
   }

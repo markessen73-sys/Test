@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">__TITLE_TEXT__</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05aag</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05aah</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -437,6 +437,7 @@
       const DEBUG_GREEN_BG = false;
       const SOLID_SEGMENTS = __SOLID_SEGMENTS__;
       const LEVEL2_ARENA = __LEVEL2_ARENA__;
+      const LEVEL3_ARENA = __LEVEL3_ARENA__;
       const BG_DATA_URL = "__BG_DATA_URL__";
       const BACKDROP_DATA_URL = "__BACKDROP_DATA_URL__";
       const PEW_DATA_URL = "__PEW_DATA_URL__";
@@ -791,7 +792,7 @@
         }
 
         function resumeGameMusic() {
-          if (currentLevel === 2) {
+          if (isArcadeLevel()) {
             if (!levelTwoTrack.isStarted()) return startLevelTwoMusic();
             return levelTwoTrack.tryResume();
           }
@@ -1076,8 +1077,12 @@
       const LEVEL2_STICK_DEAD = 0.12;
       const thumbstickKnobEl = thumbstickEl.querySelector(".thumbstick-knob");
 
+      function isArcadeLevel(level = currentLevel) {
+        return level === 2 || level === 3;
+      }
+
       function usingLevel2Stick() {
-        return currentLevel === 2 && gamePhase === "playing";
+        return isArcadeLevel() && gamePhase === "playing";
       }
 
       function paintThumbstick() {
@@ -1197,7 +1202,12 @@
             return;
           }
           if (gamePhase === "level2beat") {
-            returnToAttractFromLevelTwoVictory(btn);
+            flashButton(btn);
+            beginLevelThree();
+            return;
+          }
+          if (gamePhase === "level3beat") {
+            returnToAttractFromLevelThreeVictory(btn);
             return;
           }
           if (gamePhase !== "playing") return;
@@ -1293,18 +1303,29 @@
         audioStartOverlay?.classList.add("is-hidden");
       }
 
-      function wantsLevelTwoTest() {
+      function requestedTestLevel() {
         const q = new URLSearchParams(location.search);
-        if (q.get("level") === "2" || q.get("test") === "level2") return true;
+        if (q.get("level") === "3" || q.get("test") === "level3") return 3;
+        if (q.get("level") === "2" || q.get("test") === "level2") return 2;
         const hash = location.hash.replace(/^#/, "");
-        if (!hash) return false;
-        if (hash === "level2" || hash === "level=2") return true;
+        if (hash === "level3" || hash === "level=3") return 3;
+        if (hash === "level2" || hash === "level=2") return 2;
         const hq = new URLSearchParams(hash);
-        return hq.get("level") === "2" || hq.get("test") === "level2";
+        if (hq.get("level") === "3" || hq.get("test") === "level3") return 3;
+        if (hq.get("level") === "2" || hq.get("test") === "level2") return 2;
+        return 0;
+      }
+
+      function wantsArcadeTest() {
+        return requestedTestLevel() > 0;
       }
 
       function tryStartAfterAudioGate() {
         if (!assetsReady || !audioGatePassed || gamePhase !== "loading") return;
+        if (startMode === "level3") {
+          beginLevelThreeTest();
+          return;
+        }
         if (startMode === "level2") {
           beginLevelTwoTest();
           return;
@@ -1373,6 +1394,7 @@
 
       const INTRO_SERVER_URL = "assets/intro-server.png";
       const LEVEL2_BACKGROUND_URL = "assets/level2-background.png";
+      const LEVEL3_BACKGROUND_URL = "assets/level3-background.png";
       const LEVEL2_BUS_URL = "assets/routemaster-bus.png";
       const INTRO_SMOKE_URL = "assets/intro-smoke.png";
       const INTRO_CAPRI_URL = "assets/intro-capri.png";
@@ -1400,6 +1422,7 @@
       let gameOverT0 = 0;
       let level1BeatT0 = 0;
       let level2BeatT0 = 0;
+      let level3BeatT0 = 0;
       let currentLevel = 1;
       const ZOOX_LOCK_RESPAWN_SEC = 0.65;
       let zooxPairLocks = new Map();
@@ -1427,8 +1450,11 @@
       let accelX = 512;
       let background = null;
       let level2Background = null;
+      let level3Background = null;
       let level2Solid = null;
+      let level3Solid = null;
       let level2JerryCans = [];
+      let level3Cones = [];
       let level1Arena = null;
       let backdrop = null;
       let solid = null;
@@ -1451,7 +1477,8 @@
       const LEVEL2_BOOST = 180;
       const LEVEL2_BUS_CORNER_MARGIN = 92;
       const LEVEL2_JERRY_CAN_RADIUS = 20;
-      const LEVEL2_BANNER_HOLD_SEC = 1.5;
+      const LEVEL3_BANNER_HOLD_SEC = 1.5;
+      const LEVEL3_CONE_RADIUS = 16;
       const LEVEL2_BUS_SPEED = 200;
       const LEVEL2_BUS_STEER_MIN = 1.4;
       const LEVEL2_BUS_STEER_MAX = 3.8;
@@ -1743,6 +1770,21 @@
         if (LEVEL2_ARENA?.width) {
           try {
             const solidBuf = await fetch(resolveAssetUrl("assets/level2-solid.bin")).then((res) =>
+              res.ok ? res.arrayBuffer() : null,
+            );
+            if (solidBuf) return new Uint8Array(solidBuf);
+          } catch (_) {}
+        }
+        return null;
+      }
+
+      async function loadLevel3SolidMask() {
+        if (LEVEL3_ARENA?.solidRle && LEVEL3_ARENA?.solidLen) {
+          return decodeSolidRle(LEVEL3_ARENA.solidRle, LEVEL3_ARENA.solidLen);
+        }
+        if (LEVEL3_ARENA?.width) {
+          try {
+            const solidBuf = await fetch(resolveAssetUrl("assets/level3-solid.bin")).then((res) =>
               res.ok ? res.arrayBuffer() : null,
             );
             if (solidBuf) return new Uint8Array(solidBuf);
@@ -2374,6 +2416,22 @@
         dropY = LEVEL2_ARENA?.spawn?.y ?? H / 2;
       }
 
+      function enterLevelThreeArena() {
+        if (!level3Solid) return;
+        const arenaW = level3Background?.naturalWidth || LEVEL3_ARENA?.width;
+        const arenaH = level3Background?.naturalHeight || LEVEL3_ARENA?.height;
+        if (!arenaW || !arenaH) return;
+        W = arenaW;
+        H = arenaH;
+        solid = level3Solid;
+        canvas.width = W;
+        canvas.height = H;
+        level3Cones = [];
+        level2Fireballs = [];
+        dropX = LEVEL3_ARENA?.spawn?.x ?? W / 2;
+        dropY = LEVEL3_ARENA?.spawn?.y ?? H / 2;
+      }
+
       function restoreLevelOneArena() {
         if (!level1Arena) return;
         W = level1Arena.W;
@@ -2387,6 +2445,16 @@
         level2JerryCans = [];
         level2Buses = [];
         level2Fireballs = [];
+        level3Cones = [];
+      }
+
+      function initLevel3Cones() {
+        level3Cones = (LEVEL3_ARENA?.cones ?? []).map((cone, id) => ({
+          x: cone.x,
+          y: cone.y,
+          id: cone.id ?? id,
+          collected: false,
+        }));
       }
 
       function syncTickClock() {
@@ -2394,7 +2462,7 @@
       }
 
       function ensureLevel2SpawnFit() {
-        if (!ball || currentLevel !== 2) return;
+        if (!ball || !isArcadeLevel()) return;
         const candidates = [
           { facing: "side", pixels: level2PixelsSide },
           { facing: "front", pixels: level2PixelsFront },
@@ -2480,7 +2548,7 @@
       }
 
       function resolveLevel2Overlap() {
-        if (!ball || currentLevel !== 2) return;
+        if (!ball || !isArcadeLevel()) return;
         const pixels = level2CollisionPixels();
         if (!vehicleOverlapsSolidAt(ball.x, ball.y, pixels, solidAt)) return;
 
@@ -2516,7 +2584,7 @@
       }
 
       function centerLevel2InLane(axis) {
-        if (!ball || currentLevel !== 2) return;
+        if (!ball || !isArcadeLevel()) return;
         const pixels = level2CollisionPixels();
         const overlaps = (cx, cy) => vehicleOverlapsSolidAt(cx, cy, pixels, solidAt);
         if (overlaps(ball.x, ball.y)) return;
@@ -3023,6 +3091,81 @@
         }
       }
 
+      function collectLevel3Cones() {
+        const { pixels } = level2CarBundle();
+        const pickupRadius = LEVEL3_CONE_RADIUS;
+        const pickupR2 = pickupRadius * pickupRadius;
+        let collectedAny = false;
+
+        for (const cone of level3Cones) {
+          if (cone.collected) continue;
+
+          if (level2WrappedDistanceSq(ball.x, ball.y, cone.x, cone.y) <= pickupR2) {
+            cone.collected = true;
+            collectedAny = true;
+            continue;
+          }
+
+          for (const [dx, dy] of pixels) {
+            const px = ball.x + dx;
+            const py = ball.y + dy;
+            if (level2WrappedDistanceSq(px, py, cone.x, cone.y) <= pickupR2) {
+              cone.collected = true;
+              collectedAny = true;
+              break;
+            }
+          }
+        }
+
+        if (collectedAny) {
+          sfx.playKerching();
+          checkLevel3Complete();
+        }
+      }
+
+      function drawLevel3Cone(cone, drawX = cone.x) {
+        if (cone.collected) return;
+        ctx.save();
+        ctx.translate(drawX, cone.y);
+
+        ctx.fillStyle = "#e85a10";
+        ctx.beginPath();
+        ctx.moveTo(0, 8);
+        ctx.lineTo(-7, -6);
+        ctx.lineTo(7, -6);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(-7, -2, 14, 3);
+
+        ctx.fillStyle = "#333333";
+        ctx.fillRect(-4, 8, 8, 2);
+
+        ctx.restore();
+      }
+
+      function drawLevel3Cones() {
+        for (const cone of level3Cones) {
+          for (const x of level2WrappedXs(cone.x, LEVEL3_CONE_RADIUS)) {
+            drawLevel3Cone(cone, x);
+          }
+        }
+      }
+
+      function stepLevel3(dt) {
+        if (!ball?.alive) return;
+        if (level2FireCooldown > 0) level2FireCooldown -= dt;
+        const motion = level2DesiredMotion();
+        if (motion.vx !== 0 || motion.vy !== 0) ball.level2Facing = motion.facing;
+        ball.vx = motion.vx;
+        ball.vy = motion.vy;
+        moveLevel2Car(ball.vx * dt, ball.vy * dt);
+        stepLevel2Fireballs(dt);
+        if (ball.hitCooldown > 0) ball.hitCooldown -= dt;
+        collectLevel3Cones();
+      }
+
       function fitLevel2FacingToLane() {
         if (!ball || ball.vx !== 0 || ball.vy !== 0) return;
         if (ball.level2Facing !== "side") return;
@@ -3141,7 +3284,7 @@
       }
 
       function activeCarBundle() {
-        if (currentLevel === 2) return level2CarBundle();
+        if (isArcadeLevel()) return level2CarBundle();
         if (ball.vx < 0) {
           return { sprite: carSpriteRight, pixels: carPixelsRight, w: CAR_W, h: CAR_H };
         }
@@ -3450,7 +3593,7 @@
       }
 
       function wrapLevel2EntityX(entity, halfW) {
-        if (currentLevel !== 2) return;
+        if (!isArcadeLevel()) return;
         const hw = halfW ?? LEVEL2_MAX_HW;
         while (entity.x - hw > W) entity.x -= W;
         while (entity.x + hw < 0) entity.x += W;
@@ -3470,7 +3613,7 @@
       }
 
       function solidAt(px, py) {
-        if (currentLevel === 2) {
+        if (isArcadeLevel()) {
           const x = wrapPixelX(Math.floor(px));
           const y = Math.floor(py);
           if (y < 0 || y >= H) return true;
@@ -3726,6 +3869,25 @@
         return level2JerryCans.length > 0 && level2JerryCans.every((can) => can.collected);
       }
 
+      function allLevel3ConesCollected() {
+        return level3Cones.length > 0 && level3Cones.every((cone) => cone.collected);
+      }
+
+      function checkLevel3Complete() {
+        if (gamePhase !== "playing" || currentLevel !== 3) return;
+        if (allLevel3ConesCollected()) beginLevelThreeVictory();
+      }
+
+      function beginLevelThreeVictory() {
+        gamePhase = "level3beat";
+        level3BeatT0 = performance.now();
+        levelBannerT0 = 0;
+        sfx.stopGameMusic();
+        setHudForPhase();
+        paintLives();
+        applyModeCopy();
+      }
+
       function checkLevel2Complete() {
         if (gamePhase !== "playing" || currentLevel !== 2) return;
         if (allLevel2BusesDestroyed() && allLevel2JerryCansCollected()) beginLevelTwoVictory();
@@ -3766,6 +3928,50 @@
         hideMobileBrowserChrome();
         void sfx.startLevelTwoMusic();
         beginLevelTwo();
+        requestAnimationFrame(tick);
+      }
+
+      function beginLevelThreeTest() {
+        lives = MAX_LIVES;
+        gamePhase = "playing";
+        setHudForPhase();
+        applyModeCopy();
+        thumbstickEl.classList.remove("is-disabled");
+        ready = true;
+        statusEl.style.display = "none";
+        syncViewportHeight();
+        layoutControls();
+        updateChromeHint();
+        hideMobileBrowserChrome();
+        void sfx.startLevelTwoMusic();
+        beginLevelThree();
+        requestAnimationFrame(tick);
+      }
+
+      function beginLevelThree() {
+        gamePhase = "playing";
+        level2BeatT0 = 0;
+        currentLevel = 3;
+        enterLevelThreeArena();
+        if (!level2CarFront) buildLevel2Capri();
+        sfx.stopGameMusic();
+        void sfx.startLevelTwoMusic();
+        showLevelBanner();
+        ball = createBall();
+        resetBall();
+        ball.level2Facing = "side";
+        ensureLevel2SpawnFit();
+        ball.spawnX = ball.x;
+        ball.spawnY = ball.y;
+        initLevel3Cones();
+        level2FireCooldown = 0;
+        fallElapsed = 0;
+        syncTickClock();
+        thumbstickEl.classList.remove("is-disabled");
+        ready = true;
+        paintLives();
+        applyModeCopy();
+        drawFrame();
         requestAnimationFrame(tick);
       }
 
@@ -3827,6 +4033,11 @@
         applyModeCopy();
       }
 
+      function returnToAttractFromLevelThreeVictory(btn) {
+        level3BeatT0 = 0;
+        returnToAttractFromGameOver(btn);
+      }
+
       function returnToAttractFromLevelTwoVictory(btn) {
         level2BeatT0 = 0;
         returnToAttractFromGameOver(btn);
@@ -3843,6 +4054,7 @@
         gameOverT0 = 0;
         level1BeatT0 = 0;
         level2BeatT0 = 0;
+        level3BeatT0 = 0;
         currentLevel = 1;
         lives = MAX_LIVES;
         zooxPairLocks.clear();
@@ -4159,8 +4371,9 @@
           return;
         }
 
-        if (currentLevel === 2) {
-          stepLevel2(dt);
+        if (isArcadeLevel()) {
+          if (currentLevel === 3) stepLevel3(dt);
+          else stepLevel2(dt);
           return;
         }
 
@@ -4206,9 +4419,13 @@
             for (const x of level2WrappedXs(bus.x, LEVEL2_CAR_HW)) drawLevel2Bus(bus, x);
           }
           drawLevel2Fireballs();
+        } else if (currentLevel === 3 && level3Background) {
+          ctx.drawImage(level3Background, 0, 0, W, H);
+          drawLevel3Cones();
+          drawLevel2Fireballs();
         }
 
-        if (!isWrap() && currentLevel !== 2) {
+        if (!isWrap() && !isArcadeLevel()) {
           for (const unit of zooxUnits) {
             if (unit.state === "active") {
               const zooxXs = [unit.x];
@@ -4230,8 +4447,8 @@
         const { w: carW } = activeCarBundle();
         const carHw = carW / 2;
         const drawXs =
-          currentLevel === 2 ? level2WrappedXs(ball.x, carHw) : [ball.x];
-        if (currentLevel !== 2) {
+          isArcadeLevel() ? level2WrappedXs(ball.x, carHw) : [ball.x];
+        if (!isArcadeLevel()) {
           if (ball.x - carHw < 0) drawXs.push(ball.x + W);
           if (ball.x + carHw > W) drawXs.push(ball.x - W);
         }
@@ -4260,6 +4477,7 @@
       let levelBannerT0 = 0;
 
       function levelBannerLines() {
+        if (currentLevel === 3) return ["LEVEL THREE", "TESLA TIME!"];
         if (currentLevel === 2) return ["LEVEL TWO", "ELECTRIC ROUTEMASTER"];
         return ["LEVEL ONE", "ZOOX TAXIS"];
       }
@@ -4270,7 +4488,12 @@
 
       function drawLevelBanner(now) {
         if (!levelBannerT0) return;
-        const holdSec = currentLevel === 2 ? LEVEL2_BANNER_HOLD_SEC : LEVEL_BANNER_HOLD_SEC;
+        const holdSec =
+          currentLevel === 3
+            ? LEVEL3_BANNER_HOLD_SEC
+            : currentLevel === 2
+              ? LEVEL2_BANNER_HOLD_SEC
+              : LEVEL_BANNER_HOLD_SEC;
         const bannerSec = holdSec + LEVEL_BANNER_FADE_SEC;
         const elapsed = (now - levelBannerT0) / 1000;
         if (elapsed >= bannerSec) {
@@ -4521,8 +4744,8 @@
         ctx.lineJoin = "round";
 
         const tagLines = [
-          { text: "TWO LEVELS", fill: "#00e5ff", stroke: "#003344", font: `900 ${tagSize}px Impact, "Arial Black", sans-serif` },
-          { text: "Zoox · Routemaster", fill: "#ff3b30", stroke: "#4a0000", font: `900 ${Math.round(tagSize * 0.92)}px Impact, "Arial Black", sans-serif` },
+          { text: "THREE LEVELS", fill: "#00e5ff", stroke: "#003344", font: `900 ${tagSize}px Impact, "Arial Black", sans-serif` },
+          { text: "Zoox · Routemaster · Tesla", fill: "#ff3b30", stroke: "#4a0000", font: `900 ${Math.round(tagSize * 0.92)}px Impact, "Arial Black", sans-serif` },
         ];
 
         for (let i = 0; i < tagLines.length; i++) {
@@ -4640,6 +4863,56 @@
         drawPressFire(performance.now(), "PRESS FIRE · LEVEL TWO", false);
       }
 
+      function drawLevelThreeBeatBanner(age) {
+        const w = canvas.width;
+        const h = canvas.height;
+        const stampDur = 0.85;
+        const stamp = 1 - (1 - Math.min(age / stampDur, 1)) ** 3;
+        const alpha = Math.min(age / 0.35, 1);
+        const scale = 3.4 - stamp * 2.4;
+        const yDrop = (1 - stamp) * h * 0.18;
+        const shake = Math.sin(age * 24) * (1 - stamp) * 8;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        const size = Math.round(h * 0.085);
+        const lines = ["YOU BEAT", "TESLA TIME!"];
+        const baseY = h * 0.38 + yDrop + shake;
+        const cx = w / 2;
+
+        ctx.save();
+        ctx.translate(cx, baseY + size * 0.45);
+        ctx.scale(scale, scale);
+        ctx.translate(-cx, -(baseY + size * 0.45));
+
+        for (let i = 0; i < lines.length; i++) {
+          const y = baseY + i * size * 1.08;
+          const depth = Math.max(5, Math.round(size * 0.1));
+          ctx.save();
+          ctx.translate(cx, y);
+          ctx.transform(1.05, 0, -0.18, 0.9, 0, 0);
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.font = `900 ${size}px Impact, "Arial Black", Haettenschweiler, sans-serif`;
+          ctx.lineJoin = "round";
+          for (let d = depth; d > 0; d--) {
+            const t = d / depth;
+            ctx.fillStyle = `rgb(${Math.round(55 * t)},${Math.round(90 * t)},${Math.round(20 * t)})`;
+            ctx.fillText(lines[i], d * 0.55, d * 0.7);
+          }
+          ctx.lineWidth = Math.max(4, Math.round(size * 0.11));
+          ctx.strokeStyle = "#1a2a00";
+          ctx.fillStyle = "#9dff4a";
+          ctx.strokeText(lines[i], 0, 0);
+          ctx.fillText(lines[i], 0, 0);
+          ctx.restore();
+        }
+        ctx.restore();
+        ctx.restore();
+
+        drawPressFire(performance.now(), "PRESS FIRE", false);
+      }
+
       function drawLevelTwoBeatBanner(age) {
         const w = canvas.width;
         const h = canvas.height;
@@ -4687,7 +4960,7 @@
         ctx.restore();
         ctx.restore();
 
-        drawPressFire(performance.now(), "PRESS FIRE", false);
+        drawPressFire(performance.now(), "PRESS FIRE · LEVEL THREE", false);
       }
 
       function drawPressFire(now, text = "PRESS FIRE TO PLAY", blink = true) {
@@ -4868,6 +5141,13 @@
           return;
         }
 
+        if (gamePhase === "level3beat") {
+          drawFrame();
+          drawLevelThreeBeatBanner((now - level3BeatT0) / 1000);
+          requestAnimationFrame(tick);
+          return;
+        }
+
         frameCarPixels = activeCarBundle().pixels;
         step(dt);
         drawFrame();
@@ -4881,18 +5161,27 @@
           return "Level one clear! Press Fire to head into London for level two — your lives carry over.";
         }
         if (gamePhase === "level2beat") {
+          return "Level two clear! Press Fire for Tesla Time — your lives carry over.";
+        }
+        if (gamePhase === "level3beat") {
           return "Campaign complete! Press Fire to return to the title screen.";
+        }
+        if (gamePhase === "gameover" && currentLevel === 3) {
+          return "Game over on level three. Press Fire to return to the title screen.";
         }
         if (gamePhase === "gameover" && currentLevel === 2) {
           return "Game over on level two. Press Fire to return to the title screen.";
         }
         if (gamePhase === "attract" || gamePhase === "intro") {
-          return "Two-level campaign: beat the Zoox taxis, then destroy the Routemasters and collect every petrol jerry can. Three lives across both levels.";
+          return "Three-level campaign: beat the Zoox taxis, clear London's Routemasters, then collect every traffic cone in Tesla Time. Three lives across all levels.";
+        }
+        if (currentLevel === 3) {
+          return "Level 3 of 3 — omnidirectional stick to drive. Fire shoots in your movement direction. Collect every traffic cone to win.";
         }
         if (currentLevel === 2) {
-          return "Level 2 of 2 — omnidirectional stick to drive. Fire shoots in your movement direction. Destroy all four Routemasters and collect every petrol jerry can to win — bus contact costs a life.";
+          return "Level 2 of 3 — omnidirectional stick to drive. Fire shoots in your movement direction. Destroy all four Routemasters and collect every petrol jerry can to unlock level three.";
         }
-        return "Level 1 of 2 — hold ← or → on the stick to steer while falling, then tap fire to boost up and sideways. Clear all three Zoox robotaxis to unlock level two.";
+        return "Level 1 of 3 — hold ← or → on the stick to steer while falling, then tap fire to boost up and sideways. Clear all three Zoox robotaxis to unlock level two.";
       }
 
       function applyModeCopy() {
@@ -4917,7 +5206,7 @@
       function tapLift(btn = liftBtn) {
         if (gamePhase !== "playing" || !ball?.alive) return;
         sfx.resume();
-        if (currentLevel === 2) {
+        if (isArcadeLevel()) {
           fireLevel2Fireball();
           flashButton(btn);
           return;
@@ -4954,18 +5243,22 @@
         ]);
 
         const busSrc = LEVEL2_ARENA?.busDataUrl || LEVEL2_BUS_URL;
-        const [backdropResult, backgroundResult, level2BackgroundResult, level2BusResult] = await Promise.all([
+        const [backdropResult, backgroundResult, level2BackgroundResult, level3BackgroundResult, level2BusResult] =
+          await Promise.all([
           loadImage(backdropSrc).catch(() => null),
           loadImage(bgSrc),
           loadImage(resolveAssetUrl(LEVEL2_BACKGROUND_URL)).catch(() => null),
+          loadImage(resolveAssetUrl(LEVEL3_BACKGROUND_URL)).catch(() => null),
           loadImage(busSrc.startsWith("data:") ? busSrc : resolveAssetUrl(busSrc)).catch(() => null),
         ]);
         backdrop = backdropResult;
         background = backgroundResult;
         level2Background = level2BackgroundResult;
+        level3Background = level3BackgroundResult;
         ensureLevel2BusPixels();
         level2BusSprite = level2BusResult;
         level2Solid = await loadLevel2SolidMask();
+        level3Solid = await loadLevel3SolidMask();
         if (!background) throw new Error("Background image missing");
 
         W = background.naturalWidth;
@@ -4990,9 +5283,12 @@
         void sfx.preloadLevelTwoMusic();
         assetsReady = true;
 
-        if (introServerImg && introSmokeImg && introCapriImg && !wantsLevelTwoTest()) {
+        const testLevel = requestedTestLevel();
+        if (introServerImg && introSmokeImg && introCapriImg && !testLevel) {
           startMode = "intro";
-        } else if (wantsLevelTwoTest()) {
+        } else if (testLevel === 3) {
+          startMode = "level3";
+        } else if (testLevel === 2) {
           startMode = "level2";
         } else {
           startMode = "playing";
@@ -5004,7 +5300,7 @@
             tryStartAfterAudioGate();
             return;
           }
-          if (startMode === "level2" || startMode === "playing") {
+          if (startMode === "level3" || startMode === "level2" || startMode === "playing") {
             return;
           }
           void sfx.beginTitleScreens().then((started) => {
