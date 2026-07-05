@@ -403,7 +403,7 @@
   <body>
     <div id="chrome-hint">Tap the game for fullscreen · Add to Home Screen to hide the URL bar</div>
     <h1 id="title">Adventures Of Crappy Capri</h1>
-    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05aab</p>
+    <p id="build-tag" style="font-size:0.7rem;color:#555;margin-top:-8px;">build 2026-07-05aac</p>
     <div id="play-column">
       <div id="lives-bar" class="is-hidden" aria-label="Lives"></div>
       <div id="wrap">
@@ -565,9 +565,9 @@
             return load;
           }
 
-          function play(ac, now, volume, fadeOut, onMiss) {
+          function play(ac, now, volume, fadeOut, onMiss, maxDuration) {
             const start = (buf) => {
-              const playDur = buf.duration;
+              const playDur = maxDuration ? Math.min(buf.duration, maxDuration) : buf.duration;
               const voice = ac.createBufferSource();
               voice.buffer = buf;
               const gain = ac.createGain();
@@ -1035,7 +1035,7 @@
           if (!ac) return;
           const now = ac.currentTime;
           if (pew.enabled) {
-            pew.play(ac, now, 0.9, false);
+            pew.play(ac, now, 0.9, false, undefined, 1);
             return;
           }
           playZapSynth(ac, now);
