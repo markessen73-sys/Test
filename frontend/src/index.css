@@ -1355,9 +1355,9 @@ html, body, #root, .app {
 
 .bag-impact-wave {
   position: absolute;
-  width: 56px;
-  height: 56px;
-  margin: -28px 0 0 -28px;
+  width: 72px;
+  height: 72px;
+  margin: -36px 0 0 -36px;
   pointer-events: none;
 }
 
@@ -1365,25 +1365,44 @@ html, body, #root, .app {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 2px solid rgba(255, 238, 200, 0.9);
-  box-shadow: 0 0 14px rgba(255, 220, 160, 0.45);
-  animation: bag-impact-wave 0.58s ease-out forwards;
+  border: 2px solid rgba(255, 238, 200, 0.92);
+  box-shadow:
+    0 0 10px rgba(255, 220, 160, 0.5),
+    inset 0 0 8px rgba(255, 245, 220, 0.15);
+  opacity: 0;
+  animation: bag-impact-wave 0.88s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
 }
 
-.bag-impact-wave-ring-inner {
-  animation-delay: 0.07s;
-  border-width: 1.5px;
-  opacity: 0.75;
-}
+.bag-impact-wave-ring-1 { border-width: 2.5px; }
+.bag-impact-wave-ring-2 { border-width: 2px; }
+.bag-impact-wave-ring-3 { border-width: 1.8px; }
+.bag-impact-wave-ring-4 { border-width: 1.5px; }
+.bag-impact-wave-ring-5 { border-width: 1.3px; }
+.bag-impact-wave-ring-6 { border-width: 1px; }
 
 @keyframes bag-impact-wave {
   0% {
-    transform: scale(0.3);
+    transform: scale(0.2);
+    opacity: 0;
+    filter: blur(0px);
+  }
+  12% {
     opacity: 0.95;
   }
+  35% {
+    transform: scale(0.95);
+    opacity: 0.82;
+    filter: blur(0.4px);
+  }
+  55% {
+    transform: scale(1.55);
+    opacity: 0.55;
+    filter: blur(0.8px);
+  }
   100% {
-    transform: scale(2.6);
+    transform: scale(3.4);
     opacity: 0;
+    filter: blur(1.6px);
   }
 }
 

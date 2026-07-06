@@ -18,6 +18,24 @@ const _ndc = new THREE.Vector2();
 const _ray = new THREE.Raycaster();
 const _hit = new THREE.Vector3();
 
+export const BAG_WORLD_Z = -3.8;
+export const BAG_WORLD_CENTER = new THREE.Vector3(0, 1.35, BAG_WORLD_Z);
+
+const _projected = new THREE.Vector3();
+
+/** Project a world point to normalized screen coords (0–1). */
+export function projectWorldToScreenNorm(point: THREE.Vector3, camera: THREE.Camera): GlovePosition {
+  _projected.copy(point).project(camera);
+  return {
+    x: (_projected.x + 1) * 0.5,
+    y: (-_projected.y + 1) * 0.5,
+  };
+}
+
+export function bagScreenCenter(camera: THREE.Camera): GlovePosition {
+  return projectWorldToScreenNorm(BAG_WORLD_CENTER, camera);
+}
+
 export function screenNormToNdc(pos: GlovePosition): THREE.Vector2 {
   _ndc.set(pos.x * 2 - 1, -(pos.y * 2 - 1));
   return _ndc;
