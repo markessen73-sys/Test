@@ -10,6 +10,7 @@ import {
 } from './elasticConfig';
 import {
   clampGlovePosition,
+  GRID_TOP_Y,
   LEFT_GLOVE_MAX_X,
   rightGloveZoneSrc,
   RIGHT_GLOVE_MIN_X,
@@ -172,6 +173,8 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
 
       rightBody.x = Math.max(RIGHT_GLOVE_MIN_X, rightBody.x);
       leftBody.x = Math.min(LEFT_GLOVE_MAX_X, leftBody.x);
+      rightBody.y = Math.max(GRID_TOP_Y, rightBody.y);
+      leftBody.y = Math.max(GRID_TOP_Y, leftBody.y);
 
       const leftPos = { x: leftBody.x, y: leftBody.y };
       const rightPos = { x: rightBody.x, y: rightBody.y };

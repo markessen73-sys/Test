@@ -1,11 +1,14 @@
 import type { GlovePosition } from '../types/game';
 import type { GloveId } from '../types/game';
 import type { GloveTransform } from './skeleton/types';
+import { defaultAnchorY } from './gloveZoneGrid';
 
-/** Anchor halfway down screen; L midway left↔centre, R midway right↔centre */
+const anchorY = defaultAnchorY();
+
+/** Anchor midway left↔centre and right↔centre, vertically centred in playable grid. */
 export const GLOVE_ANCHORS: Record<'left' | 'right', GlovePosition> = {
-  left: { x: 0.25, y: 0.5 },
-  right: { x: 0.75, y: 0.5 },
+  left: { x: 0.25, y: anchorY },
+  right: { x: 0.75, y: anchorY },
 };
 
 /**
