@@ -5,6 +5,7 @@ import {
   ELASTIC_TENSION,
   GLOVE_ANCHORS,
   GLOVE_MIN_SEPARATION,
+  GUARD_GLOVE_POSE,
   springFromTension,
 } from './elasticConfig';
 
@@ -76,18 +77,11 @@ function resolveOverlap(left: GloveBody, right: GloveBody, minDist: number) {
 }
 
 function gloveVisual(pos: GlovePosition, anchor: GlovePosition, side: GloveId): GloveTransform {
-  const dx = pos.x - anchor.x;
-  const dy = pos.y - anchor.y;
-  const stretch = Math.hypot(dx, dy);
-  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-  const guardBias = side === 'left' ? -72 : 72;
-
+  const stretch = Math.hypot(pos.x - anchor.x, pos.y - anchor.y);
+  const guard = GUARD_GLOVE_POSE[side];
   return {
-    rotate: angle + guardBias,
-    scale: 1 + stretch * 0.35,
-    scaleX: side === 'right' ? -1 : 1,
-    skewX: dx * 8,
-    originY: '68%',
+    ...guard,
+    scale: guard.scale + stretch * 0.12,
   };
 }
 

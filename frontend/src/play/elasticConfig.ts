@@ -1,9 +1,20 @@
 import type { GlovePosition } from '../types/game';
+import type { GloveId } from '../types/game';
+import type { GloveTransform } from './skeleton/types';
 
 /** Anchor halfway down screen; L midway left↔centre, R midway right↔centre */
 export const GLOVE_ANCHORS: Record<'left' | 'right', GlovePosition> = {
   left: { x: 0.25, y: 0.5 },
   right: { x: 0.75, y: 0.5 },
+};
+
+/**
+ * Fixed guard orientation — knuckles up, thumbs toward player, angled slightly inward.
+ * Rotation does not change with elastic stretch (no spinning).
+ */
+export const GUARD_GLOVE_POSE: Record<GloveId, GloveTransform> = {
+  left: { rotate: 20, scale: 1, scaleX: -1, skewX: 0, originY: '68%' },
+  right: { rotate: -20, scale: 1, scaleX: -1, skewX: 0, originY: '68%' },
 };
 
 /**
