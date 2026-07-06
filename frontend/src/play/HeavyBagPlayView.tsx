@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
 import { HeavyBagPlayScene } from './HeavyBagPlayScene';
-import { ImpactWaveOverlay } from './ImpactWaveOverlay';
 import { SlugTrailCanvas } from './SlugTrailCanvas';
 import { ScreenGlove } from './ScreenGlove';
 import { useElasticGloves } from './useElasticGloves';
@@ -12,18 +11,11 @@ interface HeavyBagPlayViewProps {
   onBack: () => void;
 }
 
-const DEFAULT_BAG_CENTER: GlovePosition = { x: 0.5, y: 0.42 };
-
 export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
   const buildSha = useBuildSha(__APP_GIT_SHA__);
   const [punchCount, setPunchCount] = useState(0);
   const [impacts, setImpacts] = useState<BagPunchImpact[]>([]);
-  const [bagScreenCenter, setBagScreenCenter] = useState<GlovePosition>(DEFAULT_BAG_CENTER);
   const impactIdRef = useRef(0);
-
-  const onBagScreenCenter = useCallback((pos: GlovePosition) => {
-    setBagScreenCenter(pos);
-  }, []);
 
   const onPunch = useCallback((glove: GloveId, knuckle: GlovePosition) => {
     setPunchCount((c) => c + 1);
@@ -57,12 +49,10 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
       onPointerCancel={onRootUp}
     >
       <div className="play-canvas">
-        <HeavyBagPlayScene impacts={impacts} onBagScreenCenter={onBagScreenCenter} />
+        <HeavyBagPlayScene impacts={impacts} />
       </div>
 
       <SlugTrailCanvas left={left} right={right} />
-
-      <ImpactWaveOverlay impacts={impacts} bagCenter={bagScreenCenter} />
 
       <div className="play-gloves-layer">
         <ScreenGlove

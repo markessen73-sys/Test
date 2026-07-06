@@ -4,14 +4,12 @@ import * as THREE from 'three';
 import { getNutBrownLeatherMaps } from './leatherTexture';
 import {
   applyBagDents,
-  bagScreenCenter,
-  BAG_WORLD_Z,
   raycastBagBodyHit,
   type BagDent,
   type BagPunchImpact,
 } from './bagImpact';
-import type { GlovePosition } from '../types/game';
 
+export const BAG_WORLD_Z = -3.8;
 const BAG_Z = BAG_WORLD_Z;
 const DENT_DECAY = 2.4;
 const DENT_ADD_DEPTH = 0.11;
@@ -194,38 +192,20 @@ function PlayEnvironment() {
   );
 }
 
-function BagScreenCenterTracker({ onUpdate }: { onUpdate?: (pos: GlovePosition) => void }) {
-  const { camera, size } = useThree();
-
-  useEffect(() => {
-    onUpdate?.(bagScreenCenter(camera));
-  }, [camera, size.width, size.height, onUpdate]);
-
-  return null;
-}
-
-function PlayScene({
-  impacts,
-  onBagScreenCenter,
-}: {
-  impacts: BagPunchImpact[];
-  onBagScreenCenter?: (pos: GlovePosition) => void;
-}) {
+function PlayScene({ impacts }: { impacts: BagPunchImpact[] }) {
   return (
     <>
       <PlayEnvironment />
       <PlayHeavyBag impacts={impacts} />
-      <BagScreenCenterTracker onUpdate={onBagScreenCenter} />
     </>
   );
 }
 
 interface HeavyBagPlaySceneProps {
   impacts: BagPunchImpact[];
-  onBagScreenCenter?: (pos: GlovePosition) => void;
 }
 
-export function HeavyBagPlayScene({ impacts, onBagScreenCenter }: HeavyBagPlaySceneProps) {
+export function HeavyBagPlayScene({ impacts }: HeavyBagPlaySceneProps) {
   return (
     <Canvas
       shadows
@@ -237,7 +217,7 @@ export function HeavyBagPlayScene({ impacts, onBagScreenCenter }: HeavyBagPlaySc
       gl={{ antialias: true, alpha: false }}
     >
       <color attach="background" args={['#1a1208']} />
-      <PlayScene impacts={impacts} onBagScreenCenter={onBagScreenCenter} />
+      <PlayScene impacts={impacts} />
     </Canvas>
   );
 }
