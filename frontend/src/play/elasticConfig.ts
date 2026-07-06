@@ -2,14 +2,21 @@ import type { GlovePosition } from '../types/game';
 import type { GloveId } from '../types/game';
 import type { GloveTransform } from './skeleton/types';
 import { defaultAnchorY } from './gloveZoneGrid';
+import { halfGloveWidthNorm, ZONE_GLOVE_W } from './gloveGeometry';
 
 const anchorY = defaultAnchorY();
 
-/** Anchor midway left↔centre and right↔centre, vertically centred in playable grid. */
+/** Reference width for anchor inset (half glove width in norm). */
+const REF_SCREEN_W = 1080;
+const halfGloveNorm = halfGloveWidthNorm(REF_SCREEN_W);
+
+/** Anchor at cuff; inset half a glove width outward from centre. */
 export const GLOVE_ANCHORS: Record<'left' | 'right', GlovePosition> = {
-  left: { x: 0.4, y: anchorY },
-  right: { x: 0.6, y: anchorY },
+  left: { x: 0.4 - halfGloveNorm, y: anchorY },
+  right: { x: 0.6 + halfGloveNorm, y: anchorY },
 };
+
+export { ZONE_GLOVE_W };
 
 /** Fixed inward tilt (degrees) — knuckles angle toward centre when idle. */
 export const INWARD_GLOVE_TILT = 14;

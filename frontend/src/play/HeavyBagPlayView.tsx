@@ -31,8 +31,6 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
     rightTransform,
     leftZoneSrc,
     rightZoneSrc,
-    leftKnuckle,
-    rightKnuckle,
     rootRef,
     onRootDown,
     onRootMove,
@@ -54,7 +52,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
 
       <SlugTrailCanvas left={left} right={right} />
 
-      <HitDebugOverlay leftKnuckle={leftKnuckle} rightKnuckle={rightKnuckle} />
+      <HitDebugOverlay />
 
       <div className="play-gloves-layer">
         <ScreenGlove
@@ -63,6 +61,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           grabbed={left.pointerId !== null}
           transform={leftTransform}
           zoneSrc={leftZoneSrc}
+          showImpactDot
         />
         <ScreenGlove
           side="right"
@@ -70,6 +69,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           grabbed={right.pointerId !== null}
           transform={rightTransform}
           zoneSrc={rightZoneSrc}
+          showImpactDot
         />
       </div>
 

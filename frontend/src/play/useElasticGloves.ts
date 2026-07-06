@@ -66,12 +66,14 @@ function appendTrail(
 function makeBottomTrailPoint(
   cuffPos: GlovePosition,
   aimDeg: number,
+  scale: number,
   screenW: number,
   screenH: number,
+  side: GloveId,
   now: number,
   isPunch: boolean
 ): TrailPoint {
-  const bottom = gloveBottomNorm(cuffPos, aimDeg, screenW, screenH);
+  const bottom = gloveBottomNorm(cuffPos, aimDeg, scale, screenW, screenH, side);
   return {
     x: bottom.x,
     y: bottom.y,
@@ -276,11 +278,14 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
       setLeft((prev) => {
         const trail = prev.trail.filter((p) => now - p.t < TRAIL_FADE_MS);
         if (grabbingRef.current.left && isMovingUpward(leftBody.vy)) {
+          const scale = gloveVisual(leftPos, GLOVE_ANCHORS.left, 'left', true, aimRef.current.left).scale;
           const pt = makeBottomTrailPoint(
             leftPos,
             aimRef.current.left,
+            scale,
             screenW,
             screenH,
+            'left',
             now,
             false
           );
@@ -291,11 +296,14 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
       setRight((prev) => {
         const trail = prev.trail.filter((p) => now - p.t < TRAIL_FADE_MS);
         if (grabbingRef.current.right && isMovingUpward(rightBody.vy)) {
+          const scale = gloveVisual(rightPos, GLOVE_ANCHORS.right, 'right', true, aimRef.current.right).scale;
           const pt = makeBottomTrailPoint(
             rightPos,
             aimRef.current.right,
+            scale,
             screenW,
             screenH,
+            'right',
             now,
             false
           );
@@ -383,8 +391,8 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
       const cuffPos = { x: body.x, y: body.y };
       const aim = aimRef.current[glove];
       const { width: screenW, height: screenH } = rootSizeRef.current;
-      const zoneSrc = glove === 'left' ? leftGloveZoneSrc(cuffPos) : rightGloveZoneSrc(cuffPos);
-      const knucklePos = gloveKnuckleNorm(cuffPos, aim, screenW, screenH, glove, zoneSrc);
+      const scale = gloveVisual(cuffPos, GLOVE_ANCHORS[glove], glove, true, aim).scale;
+      const knucklePos = gloveKnuckleNorm(cuffPos, aim, scale, screenW, screenH, glove);
       const releaseSpeed = Math.hypot(body.vx, body.vy);
 
       grabbingRef.current[glove] = false;
@@ -411,10 +419,6 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
   const leftTransform = gloveVisual(left.position, GLOVE_ANCHORS.left, 'left', true, leftAim);
   const rightTransform = gloveVisual(right.position, GLOVE_ANCHORS.right, 'right', true, rightAim);
 
-  const { width: screenW, height: screenH } = rootSizeRef.current;
-  const leftKnuckle = gloveKnuckleNorm(left.position, leftAim, screenW, screenH, 'left', leftZoneSrc);
-  const rightKnuckle = gloveKnuckleNorm(right.position, rightAim, screenW, screenH, 'right', rightZoneSrc);
-
   return {
     left,
     right,
@@ -422,8 +426,6 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
     rightTransform,
     leftZoneSrc,
     rightZoneSrc,
-    leftKnuckle,
-    rightKnuckle,
     rootRef,
     onRootDown,
     onRootMove,

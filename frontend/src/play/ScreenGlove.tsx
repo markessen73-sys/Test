@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { GloveId } from '../types/game';
 import type { GloveTransform } from './skeleton/types';
 import { gloveImageCandidates } from './gloveAssets';
+import { KNUCKLE_X_FRAC, KNUCKLE_Y_FRAC } from './gloveGeometry';
 
 function ScreenGlove({
   side,
@@ -9,6 +10,7 @@ function ScreenGlove({
   grabbed,
   transform,
   zoneSrc,
+  showImpactDot = false,
 }: {
   side: GloveId;
   position: { x: number; y: number };
@@ -16,6 +18,7 @@ function ScreenGlove({
   transform: GloveTransform;
   /** Per-zone sprite (right glove grid art) */
   zoneSrc?: string;
+  showImpactDot?: boolean;
 }) {
   const candidates = gloveImageCandidates(side);
   const [srcIndex, setSrcIndex] = useState(0);
@@ -50,19 +53,32 @@ function ScreenGlove({
       role="img"
       aria-label={`${side} glove`}
     >
-      <img
-        className="screen-glove-img"
-        src={imgSrc}
-        alt=""
-        draggable={false}
+      <div
+        className="screen-glove-art"
         style={{
           transform: imgTransform,
           transformOrigin: useZoneArt ? '50% 68%' : `50% ${transform.originY}`,
         }}
-        onError={() => {
-          if (!useZoneArt && srcIndex < candidates.length - 1) setSrcIndex((i) => i + 1);
-        }}
-      />
+      >
+        <img
+          className="screen-glove-img"
+          src={imgSrc}
+          alt=""
+          draggable={false}
+          onError={() => {
+            if (!useZoneArt && srcIndex < candidates.length - 1) setSrcIndex((i) => i + 1);
+          }}
+        />
+        {showImpactDot && useZoneArt && (
+          <span
+            className="glove-impact-dot"
+            style={{
+              left: `${KNUCKLE_X_FRAC * 100}%`,
+              top: `${KNUCKLE_Y_FRAC * 100}%`,
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

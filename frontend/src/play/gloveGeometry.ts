@@ -7,62 +7,52 @@ export const ZONE_GLOVE_H = 155;
 export const CUFF_ANCHOR_X_FRAC = 0.5;
 export const CUFF_ANCHOR_Y_FRAC = 0.68;
 
-const BOTTOM_DIST_PX = ZONE_GLOVE_H * (1 - CUFF_ANCHOR_Y_FRAC);
+/** Fixed pink-tip position on glove image (fraction of glove box). */
+export const KNUCKLE_X_FRAC = 0.515;
+export const KNUCKLE_Y_FRAC = 0.05;
+
+const BOTTOM_Y_FRAC = 1;
+const BOTTOM_DIST_PX = (BOTTOM_Y_FRAC - CUFF_ANCHOR_Y_FRAC) * ZONE_GLOVE_H;
+
+const KNUCKLE_LOCAL_DX = (KNUCKLE_X_FRAC - CUFF_ANCHOR_X_FRAC) * ZONE_GLOVE_W;
+const KNUCKLE_LOCAL_DY = (KNUCKLE_Y_FRAC - CUFF_ANCHOR_Y_FRAC) * ZONE_GLOVE_H;
 
 /**
- * Pink-tip contact point offset from cuff (display px), per zone sprite.
- * Calibrated from top red cluster on zone art + user pink markup on
- * 57a20c7f-157d-4457-bfdc-4ad5b25a8732.png.
+ * Apply the same transform stack as ScreenGlove zone art:
+ * rotate(deg) scale(s) [scaleX(-1) for left].
  */
-const KNUCKLE_OFFSET_PX: Record<string, { dx: number; dy: number }> = {
-  'zone-r0-c1': { dx: 2.1, dy: -98.2 },
-  'zone-r0-c2': { dx: 1.9, dy: -97.9 },
-  'zone-r0-c3': { dx: 22.2, dy: -96.1 },
-  'zone-r1-c1': { dx: 2.3, dy: -98.2 },
-  'zone-r1-c2': { dx: 21.5, dy: -96.8 },
-  'zone-r1-c3': { dx: 22.1, dy: -96.5 },
-  'zone-r2-c1': { dx: 10.6, dy: -93.1 },
-  'zone-r2-c2': { dx: 9.9, dy: -93.5 },
-  'zone-r2-c3': { dx: 22.2, dy: -96.4 },
-  'zone-r3-c1': { dx: 10.9, dy: -93.1 },
-  'zone-r3-c2': { dx: 9.5, dy: -94.6 },
-  'zone-r3-c3': { dx: 21.6, dy: -96.3 },
-};
-
-const DEFAULT_KNUCKLE_OFFSET = { dx: 10.0, dy: -96.0 };
-
-function zoneKeyFromSrc(zoneSrc?: string): string | null {
-  if (!zoneSrc) return null;
-  const name = zoneSrc.split('/').pop() ?? '';
-  return name.replace(/\.png$/, '');
-}
-
-function knuckleOffsetForZone(zoneSrc: string | undefined, side: GloveId): { dx: number; dy: number } {
-  const key = zoneKeyFromSrc(zoneSrc);
-  const base = (key && KNUCKLE_OFFSET_PX[key]) || DEFAULT_KNUCKLE_OFFSET;
-  if (side === 'left') return { dx: -base.dx, dy: base.dy };
-  return base;
-}
-
-function rotateLocalOffset(localDx: number, localDy: number, aimDeg: number) {
-  const rad = (aimDeg * Math.PI) / 180;
+export function applyGloveImageTransform(
+  localDx: number,
+  localDy: number,
+  rotateDeg: number,
+  scale: number,
+  mirror: boolean
+): { px: number; py: number } {
+  let x = localDx;
+  let y = localDy;
+  if (mirror) x = -x;
+  x *= scale;
+  y *= scale;
+  const rad = (rotateDeg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
   return {
-    px: localDx * Math.cos(rad) + localDy * Math.sin(rad),
-    py: -localDx * Math.sin(rad) + localDy * Math.cos(rad),
+    px: x * cos + y * sin,
+    py: -x * sin + y * cos,
   };
 }
 
-/** Pink knuckle tip in normalized screen coords. */
+/** Pink knuckle tip in normalized screen coords (fixed on glove art). */
 export function gloveKnuckleNorm(
   cuffPos: GlovePosition,
-  aimDeg: number,
+  rotateDeg: number,
+  scale: number,
   screenW: number,
   screenH: number,
-  side: GloveId,
-  zoneSrc?: string
+  side: GloveId
 ): GlovePosition {
-  const { dx, dy } = knuckleOffsetForZone(zoneSrc, side);
-  const { px, py } = rotateLocalOffset(dx, dy, aimDeg);
+  const mirror = side === 'left';
+  const { px, py } = applyGloveImageTransform(KNUCKLE_LOCAL_DX, KNUCKLE_LOCAL_DY, rotateDeg, scale, mirror);
   return {
     x: cuffPos.x + px / screenW,
     y: cuffPos.y + py / screenH,
@@ -72,13 +62,21 @@ export function gloveKnuckleNorm(
 /** Bottom of glove in normalized screen coords (vapour trail anchor). */
 export function gloveBottomNorm(
   cuffPos: GlovePosition,
-  aimDeg: number,
+  rotateDeg: number,
+  scale: number,
   screenW: number,
-  screenH: number
+  screenH: number,
+  side: GloveId
 ): GlovePosition {
-  const { px, py } = rotateLocalOffset(0, BOTTOM_DIST_PX, aimDeg);
+  const mirror = side === 'left';
+  const { px, py } = applyGloveImageTransform(0, BOTTOM_DIST_PX, rotateDeg, scale, mirror);
   return {
     x: cuffPos.x + px / screenW,
     y: cuffPos.y + py / screenH,
   };
+}
+
+/** Half glove width as normalized screen fraction. */
+export function halfGloveWidthNorm(screenW: number): number {
+  return ZONE_GLOVE_W / 2 / screenW;
 }
