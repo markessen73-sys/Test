@@ -3,6 +3,9 @@ import type { GlovePosition } from '../types/game';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { getNutBrownLeatherMaps } from './leatherTexture';
+import { CeilingChain } from './CeilingChain';
+import { PlayEnvironment } from './PlayEnvironment';
+import { HEAVY_BAG_PLAY_CAMERA } from './playCamera';
 import {
   applyBagDents,
   bagZoneScreenOffset,
@@ -151,11 +154,8 @@ function PlayHeavyBag({
         <boxGeometry args={[0.12, 0.08, 0.12]} />
         <meshStandardMaterial color="#333" metalness={0.4} />
       </mesh>
+      <CeilingChain topY={3.85} length={0.35} />
       <group ref={pivotRef} position={[0, BAG_PIVOT_Y, 0]}>
-        <mesh position={[0, 0.2, 0]}>
-          <cylinderGeometry args={[0.02, 0.02, 0.4, 6]} />
-          <meshStandardMaterial color="#444" metalness={0.5} />
-        </mesh>
         <group position={[0, BAG_HANG_OFFSET_Y, 0]}>
           <mesh ref={bodyRef} castShadow receiveShadow geometry={geometry}>
             <meshStandardMaterial
@@ -208,25 +208,6 @@ function PlayHeavyBag({
   );
 }
 
-function PlayEnvironment() {
-  return (
-    <>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -2]} receiveShadow>
-        <planeGeometry args={[12, 12]} />
-        <meshStandardMaterial color="#8B6914" roughness={0.9} />
-      </mesh>
-      <mesh position={[0, 3, -6]} receiveShadow>
-        <planeGeometry args={[12, 7]} />
-        <meshStandardMaterial color="#9B4E32" roughness={1} />
-      </mesh>
-      <ambientLight intensity={0.55} color="#FFE4B5" />
-      <directionalLight position={[2, 6, 2]} intensity={1.2} color="#FFD699" castShadow />
-      <pointLight position={[0, 4, 0]} intensity={10} color="#FFE4B5" distance={10} />
-      <fog attach="fog" args={['#1a1208', 5, 16]} />
-    </>
-  );
-}
-
 function PlayScene({
   impacts,
   bagZoneOffsetRef,
@@ -248,12 +229,13 @@ interface HeavyBagPlaySceneProps {
 }
 
 export function HeavyBagPlayScene({ impacts, bagZoneOffsetRef }: HeavyBagPlaySceneProps) {
+  const cam = HEAVY_BAG_PLAY_CAMERA;
   return (
     <Canvas
       shadows
-      camera={{ position: [0, 1.38, 0.45], fov: 52, near: 0.1, far: 30 }}
+      camera={{ position: cam.position, fov: cam.fov, near: 0.1, far: 30 }}
       onCreated={({ camera }) => {
-        camera.lookAt(0, 1.3, BAG_Z);
+        camera.lookAt(...cam.lookAt);
       }}
       style={{ width: '100%', height: '100%', touchAction: 'none' }}
       gl={{ antialias: true, alpha: false }}

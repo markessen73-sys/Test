@@ -14,7 +14,6 @@ import {
   gloveFromScreenX,
   GRID_TOP_Y,
   GLOVE_BAG_REACH_SEPARATION,
-  isGloveTopOnPunchBag,
   LEFT_GLOVE_MAX_X,
   leftGloveZoneSrc,
   rightGloveZoneSrc,
@@ -168,10 +167,17 @@ function gloveVisual(
   };
 }
 
-export function useElasticGloves(
-  onPunch: (glove: GloveId, knuckle: GlovePosition) => void,
-  bagZoneOffsetRef: RefObject<GlovePosition>
-) {
+export interface UseElasticGlovesOptions {
+  onPunch: (glove: GloveId, knuckle: GlovePosition) => void;
+  targetZoneOffsetRef: RefObject<GlovePosition>;
+  isKnuckleOnTarget: (knuckle: GlovePosition, zoneOffset: GlovePosition) => boolean;
+}
+
+export function useElasticGloves({
+  onPunch,
+  targetZoneOffsetRef,
+  isKnuckleOnTarget,
+}: UseElasticGlovesOptions) {
   const [left, setLeft] = useState<GloveState>(() => makeGlove(GLOVE_ANCHORS.left));
   const [right, setRight] = useState<GloveState>(() => makeGlove(GLOVE_ANCHORS.right));
   const [leftAim, setLeftAim] = useState(-INWARD_GLOVE_TILT);
@@ -206,7 +212,7 @@ export function useElasticGloves(
       const last = lastPunchRef.current.get(glove) ?? 0;
       if (
         releaseSpeed >= RELEASE_MIN_NORM_SPEED &&
-        isGloveTopOnPunchBag(knucklePos, bagZoneOffsetRef.current) &&
+        isKnuckleOnTarget(knucklePos, targetZoneOffsetRef.current) &&
         now - last > PUNCH_COOLDOWN_MS
       ) {
         lastPunchRef.current.set(glove, now);
@@ -215,7 +221,7 @@ export function useElasticGloves(
       }
       return false;
     },
-    [bagZoneOffsetRef, onPunch]
+    [isKnuckleOnTarget, onPunch, targetZoneOffsetRef]
   );
 
   useEffect(() => {

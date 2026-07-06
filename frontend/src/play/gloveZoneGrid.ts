@@ -1,5 +1,6 @@
 import type { GlovePosition } from '../types/game';
 import { halfGloveWidthNorm } from './gloveGeometry';
+import { hitZoneOutline, isKnuckleInHitZone, type HitZoneCorners } from './targetZone';
 
 /** Play area split 4×4 below the heavy bag top. */
 export const GRID_COLS = 4;
@@ -94,41 +95,22 @@ export function defaultAnchorY(): number {
  * (57a20c7f-157d-4457-bfdc-4ad5b25a8732.png — green outline).
  * Trapezoid corners: top-left → top-right → bottom-right → bottom-left.
  */
-export const BAG_HIT_CORNERS: readonly [GlovePosition, GlovePosition, GlovePosition, GlovePosition] = [
+export const BAG_HIT_CORNERS: HitZoneCorners = [
   { x: 0.305, y: 0.18 }, // top left
   { x: 0.685, y: 0.18 }, // top right
   { x: 0.695, y: 0.46 }, // bottom right
   { x: 0.295, y: 0.46 }, // bottom left
 ];
 
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
-}
-
-function shiftPoint(p: GlovePosition, offset: GlovePosition): GlovePosition {
-  return { x: p.x + offset.x, y: p.y + offset.y };
-}
-
 /** True when the pink knuckle tip lies inside the green bag outline. */
 export function isGloveTopOnPunchBag(
   knuckle: GlovePosition,
   zoneOffset: GlovePosition = { x: 0, y: 0 }
 ): boolean {
-  const [tl, tr, br, bl] = BAG_HIT_CORNERS.map((p) => shiftPoint(p, zoneOffset)) as [
-    GlovePosition,
-    GlovePosition,
-    GlovePosition,
-    GlovePosition,
-  ];
-  if (knuckle.y < tl.y || knuckle.y > bl.y) return false;
-
-  const t = (knuckle.y - tl.y) / (bl.y - tl.y);
-  const leftX = lerp(tl.x, bl.x, t);
-  const rightX = lerp(tr.x, br.x, t);
-  return knuckle.x >= leftX && knuckle.x <= rightX;
+  return isKnuckleInHitZone(knuckle, BAG_HIT_CORNERS, zoneOffset);
 }
 
 /** Normalized polygon tracing the bag hit outline (for debug overlay). */
 export function bagHitZoneOutline(zoneOffset: GlovePosition = { x: 0, y: 0 }): GlovePosition[] {
-  return BAG_HIT_CORNERS.map((p) => shiftPoint(p, zoneOffset));
+  return hitZoneOutline(BAG_HIT_CORNERS, zoneOffset);
 }

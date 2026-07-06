@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CartoonFace } from './CartoonFace';
+import { CeilingChain } from '../play/CeilingChain';
 
 interface EquipmentProps {
   highlighted: boolean;
@@ -79,10 +80,7 @@ export function HeavyBag({ highlighted, position = [0, 0, 0] }: EquipmentProps) 
         <boxGeometry args={[0.5, 0.1, 0.5]} />
         <meshStandardMaterial color="#333" />
       </mesh>
-      <mesh position={[0, 3.1, 0]}>
-        <cylinderGeometry args={[0.02, 0.02, 0.7, 6]} />
-        <meshStandardMaterial color="#555" metalness={0.5} />
-      </mesh>
+      <CeilingChain topY={3.45} length={0.55} linkCount={7} />
 
       <group ref={bagRef} position={[0, 1.3, 0]}>
         <mesh castShadow>

@@ -1,0 +1,103 @@
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import type { GlovePosition } from '../types/game';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import * as THREE from 'three';
+import { speedballZoneScreenOffset } from './speedballImpact';
+import { applySpeedballHitImpulse, createSpeedballSwingState, stepSpeedballSwing } from './speedballSwing';
+import { SPEEDBALL_PLAY_CAMERA } from './playCamera';
+import { PlayEnvironment } from './PlayEnvironment';
+import type { PunchImpact } from './punchImpact';
+
+function PlaySpeedball({
+  impacts,
+  speedballZoneOffsetRef,
+}: {
+  impacts: PunchImpact[];
+  speedballZoneOffsetRef: RefObject<GlovePosition>;
+}) {
+  const swingRef = useRef(createSpeedballSwingState());
+  const ballRef = useRef<THREE.Group>(null);
+  const [hitFlash, setHitFlash] = useState(0);
+  const lastImpactIdRef = useRef(0);
+  const { camera } = useThree();
+
+  useEffect(() => {
+    if (!impacts.length) return;
+    const latest = impacts[impacts.length - 1];
+    if (latest.id <= lastImpactIdRef.current) return;
+    lastImpactIdRef.current = latest.id;
+
+    applySpeedballHitImpulse(swingRef.current, latest.glove);
+    setHitFlash(performance.now());
+  }, [impacts]);
+
+  useFrame((_, delta) => {
+    stepSpeedballSwing(swingRef.current, delta);
+    const state = swingRef.current;
+    if (ballRef.current) {
+      ballRef.current.position.set(state.offsetX, 1.55, state.offsetZ);
+    }
+    const zoneOffset = speedballZoneScreenOffset(state, camera);
+    speedballZoneOffsetRef.current.x = zoneOffset.x;
+    speedballZoneOffsetRef.current.y = zoneOffset.y;
+  });
+
+  const flashAge = hitFlash > 0 ? (performance.now() - hitFlash) / 300 : 1;
+
+  return (
+    <group position={[0, 0, -3.8]}>
+      <mesh position={[0, 2.6, -0.35]}>
+        <boxGeometry args={[1.0, 0.14, 0.2]} />
+        <meshStandardMaterial color="#4A3728" />
+      </mesh>
+      <mesh position={[0, 2.15, -0.25]}>
+        <cylinderGeometry args={[0.03, 0.03, 0.8, 8]} />
+        <meshStandardMaterial color="#777" metalness={0.4} />
+      </mesh>
+      <mesh position={[0, 0.04, 0]}>
+        <boxGeometry args={[1.2, 0.08, 1.0]} />
+        <meshStandardMaterial color="#5C4033" />
+      </mesh>
+
+      <group ref={ballRef} position={[0, 1.55, 0]}>
+        <mesh castShadow>
+          <sphereGeometry args={[0.3, 24, 24]} />
+          <meshStandardMaterial
+            color={flashAge < 1 ? '#ff5555' : '#D42020'}
+            roughness={0.45}
+            emissive={flashAge < 1 ? '#ff2222' : '#000000'}
+            emissiveIntensity={flashAge < 1 ? 0.4 * (1 - flashAge) : 0}
+          />
+        </mesh>
+        <mesh rotation={[0, 0, Math.PI / 4]}>
+          <torusGeometry args={[0.3, 0.04, 8, 24]} />
+          <meshStandardMaterial color="#EEE" />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+interface SpeedballPlaySceneProps {
+  impacts: PunchImpact[];
+  speedballZoneOffsetRef: RefObject<GlovePosition>;
+}
+
+export function SpeedballPlayScene({ impacts, speedballZoneOffsetRef }: SpeedballPlaySceneProps) {
+  const cam = SPEEDBALL_PLAY_CAMERA;
+  return (
+    <Canvas
+      shadows
+      camera={{ position: cam.position, fov: cam.fov, near: 0.1, far: 30 }}
+      onCreated={({ camera }) => {
+        camera.lookAt(...cam.lookAt);
+      }}
+      style={{ width: '100%', height: '100%', touchAction: 'none' }}
+      gl={{ antialias: true, alpha: false }}
+    >
+      <color attach="background" args={['#1a1208']} />
+      <PlayEnvironment />
+      <PlaySpeedball impacts={impacts} speedballZoneOffsetRef={speedballZoneOffsetRef} />
+    </Canvas>
+  );
+}

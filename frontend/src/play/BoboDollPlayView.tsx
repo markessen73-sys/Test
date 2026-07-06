@@ -1,18 +1,18 @@
 import { useCallback, useRef, useState } from 'react';
-import { HeavyBagPlayScene } from './HeavyBagPlayScene';
+import { BoboDollPlayScene } from './BoboDollPlayScene';
 import { GlovesPlayShell } from './GlovesPlayShell';
 import { useElasticGloves } from './useElasticGloves';
-import { isGloveTopOnPunchBag } from './gloveZoneGrid';
-import type { BagPunchImpact } from './bagImpact';
+import { isKnuckleOnBoboDoll } from './boboZoneGrid';
+import type { PunchImpact } from './punchImpact';
 import type { GloveId, GlovePosition } from '../types/game';
 
-interface HeavyBagPlayViewProps {
+interface BoboDollPlayViewProps {
   onBack: () => void;
 }
 
-export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
+export function BoboDollPlayView({ onBack }: BoboDollPlayViewProps) {
   const [punchCount, setPunchCount] = useState(0);
-  const [impacts, setImpacts] = useState<BagPunchImpact[]>([]);
+  const [impacts, setImpacts] = useState<PunchImpact[]>([]);
   const impactIdRef = useRef(0);
   const targetZoneOffsetRef = useRef<GlovePosition>({ x: 0, y: 0 });
 
@@ -28,20 +28,20 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
   const gloves = useElasticGloves({
     onPunch,
     targetZoneOffsetRef,
-    isKnuckleOnTarget: isGloveTopOnPunchBag,
+    isKnuckleOnTarget: isKnuckleOnBoboDoll,
   });
 
   return (
     <GlovesPlayShell
       onBack={onBack}
-      title="🎯 Heavy Bag"
+      title="🤡 Bobo Doll"
       punchCount={punchCount}
       hint={
         <>
-          <strong>Upward</strong> drags leave a vapour trail while you hold; release on the bag while still moving to score.
+          <strong>Upward</strong> drags leave a vapour trail; release on the bobo while still moving to rock it.
         </>
       }
-      canvas={<HeavyBagPlayScene impacts={impacts} bagZoneOffsetRef={targetZoneOffsetRef} />}
+      canvas={<BoboDollPlayScene impacts={impacts} boboZoneOffsetRef={targetZoneOffsetRef} />}
       {...gloves}
     />
   );

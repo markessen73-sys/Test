@@ -1,13 +1,9 @@
 import * as THREE from 'three';
 import type { GlovePosition } from '../types/game';
 import { BAG_HANG_OFFSET_Y, BAG_PIVOT_Y } from './bagSwing';
+import { projectWorldToScreenNorm, targetZoneScreenOffset, type PunchImpact } from './punchImpact';
 
-export interface BagPunchImpact {
-  id: number;
-  glove: 'left' | 'right';
-  knuckle: GlovePosition;
-  time: number;
-}
+export type BagPunchImpact = PunchImpact;
 
 export interface BagDent {
   localPoint: THREE.Vector3;
@@ -21,16 +17,8 @@ const _hit = new THREE.Vector3();
 
 export const BAG_WORLD_Z = -3.8;
 
-const _projected = new THREE.Vector3();
-
-/** Project a world point to normalized screen coords (0–1). */
-export function projectWorldToScreenNorm(point: THREE.Vector3, camera: THREE.Camera): GlovePosition {
-  _projected.copy(point).project(camera);
-  return {
-    x: (_projected.x + 1) * 0.5,
-    y: (-_projected.y + 1) * 0.5,
-  };
-}
+const _restCenter = new THREE.Vector3();
+const _swungCenter = new THREE.Vector3();
 
 /** Bag body centre in world space for a pendulum swing angle (radians). */
 export function bagCenterAtSwing(angle: number): THREE.Vector3 {
@@ -43,10 +31,12 @@ export function bagCenterAtSwing(angle: number): THREE.Vector3 {
 
 /** Screen-space shift of the hit zone as the bag swings (rest → current). */
 export function bagZoneScreenOffset(angle: number, camera: THREE.Camera): GlovePosition {
-  const rest = projectWorldToScreenNorm(bagCenterAtSwing(0), camera);
-  const cur = projectWorldToScreenNorm(bagCenterAtSwing(angle), camera);
-  return { x: cur.x - rest.x, y: cur.y - rest.y };
+  _restCenter.copy(bagCenterAtSwing(0));
+  _swungCenter.copy(bagCenterAtSwing(angle));
+  return targetZoneScreenOffset(_restCenter, _swungCenter, camera);
 }
+
+export { projectWorldToScreenNorm };
 
 export function screenNormToNdc(pos: GlovePosition): THREE.Vector2 {
   _ndc.set(pos.x * 2 - 1, -(pos.y * 2 - 1));

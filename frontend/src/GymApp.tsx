@@ -1,20 +1,30 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { HeavyBagPlayView } from './play/HeavyBagPlayView';
+import { BoboDollPlayView } from './play/BoboDollPlayView';
+import { SpeedballPlayView } from './play/SpeedballPlayView';
+import { RingPlayView } from './play/RingPlayView';
 import { BoxingGymScene } from './gym/BoxingGymScene';
-import { GYM_STATIONS, type ViewMode } from './types/game';
+import { GYM_STATIONS, type GymStation, type ViewMode } from './types/game';
 
-const HEAVY_BAG_INDEX = GYM_STATIONS.findIndex((s) => s.id === 'heavy-bag');
+const STATION_INDEX: Record<GymStation, number> = {
+  ring: GYM_STATIONS.findIndex((s) => s.id === 'ring'),
+  speedball: GYM_STATIONS.findIndex((s) => s.id === 'speedball'),
+  'heavy-bag': GYM_STATIONS.findIndex((s) => s.id === 'heavy-bag'),
+  'bobo-doll': GYM_STATIONS.findIndex((s) => s.id === 'bobo-doll'),
+};
+
+const PLAY_STATIONS = new Set<GymStation>(['ring', 'speedball', 'heavy-bag', 'bobo-doll']);
 
 export function GymApp() {
   const [stationIndex, setStationIndex] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('browse');
 
-  // Direct link: ?play=heavy-bag jumps straight to ghost boxer test view
+  // Direct link: ?play=heavy-bag (or bobo-doll, speedball, ring)
   useEffect(() => {
-    const play = new URLSearchParams(window.location.search).get('play');
-    if (play === 'heavy-bag' && HEAVY_BAG_INDEX >= 0) {
-      setStationIndex(HEAVY_BAG_INDEX);
+    const play = new URLSearchParams(window.location.search).get('play') as GymStation | null;
+    if (play && PLAY_STATIONS.has(play) && STATION_INDEX[play] >= 0) {
+      setStationIndex(STATION_INDEX[play]);
       setViewMode('play');
     }
   }, []);
@@ -32,7 +42,7 @@ export function GymApp() {
   }, [viewMode]);
 
   const selectStation = useCallback(() => {
-    if (station.id === 'heavy-bag') {
+    if (PLAY_STATIONS.has(station.id)) {
       setViewMode('play');
     } else {
       setViewMode('focus');
@@ -56,9 +66,19 @@ export function GymApp() {
     return () => window.removeEventListener('keydown', onKey);
   }, [viewMode, goNext, goPrev, selectStation, backToBrowse]);
 
-  // Heavy bag play view — full glove control mode
   if (viewMode === 'play') {
-    return <HeavyBagPlayView onBack={backToBrowse} />;
+    switch (station.id) {
+      case 'heavy-bag':
+        return <HeavyBagPlayView onBack={backToBrowse} />;
+      case 'bobo-doll':
+        return <BoboDollPlayView onBack={backToBrowse} />;
+      case 'speedball':
+        return <SpeedballPlayView onBack={backToBrowse} />;
+      case 'ring':
+        return <RingPlayView onBack={backToBrowse} />;
+      default:
+        break;
+    }
   }
 
   return (
@@ -112,9 +132,11 @@ export function GymApp() {
               </div>
               <p className="gym-hint">{station.description}</p>
               <button type="button" className="gym-select-btn" onClick={selectStation}>
-                {station.id === 'heavy-bag' ? 'Play Heavy Bag' : `Select ${station.name}`}
+                {PLAY_STATIONS.has(station.id) ? `Play ${station.name}` : `Select ${station.name}`}
               </button>
             </>
+          ) : PLAY_STATIONS.has(station.id) ? (
+            <p className="gym-hint focus-hint">Tap Play above to glove up at this station.</p>
           ) : (
             <p className="gym-hint focus-hint">Play mode coming soon for this station</p>
           )}

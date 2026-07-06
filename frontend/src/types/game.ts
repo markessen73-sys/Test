@@ -1,3 +1,5 @@
+import { playCameraForTarget } from '../play/playCamera';
+
 export type GymStation = 'ring' | 'speedball' | 'heavy-bag' | 'bobo-doll';
 
 export type ViewMode = 'browse' | 'focus' | 'play';
@@ -18,6 +20,14 @@ export interface StationInfo {
   close: CameraShot;
 }
 
+/** Aim points for gym equipment when framing close-ups (matches play-mode distance). */
+const GYM_AIM: Record<GymStation, [number, number, number]> = {
+  ring: [0, 1.2, 0],
+  speedball: [-5.8, 1.65, 0.5],
+  'heavy-bag': [0.2, 1.3, -5.5],
+  'bobo-doll': [5.8, 1.4, 1.8],
+};
+
 export const GYM_STATIONS: StationInfo[] = [
   {
     id: 'ring',
@@ -26,7 +36,7 @@ export const GYM_STATIONS: StationInfo[] = [
     emoji: '🥊',
     equipmentPos: [0, 0, 0],
     overview: { position: [0, 4.5, 11], lookAt: [0, 1.0, 0], fov: 52 },
-    close: { position: [0, 2.1, 5.2], lookAt: [0, 1.35, 0], fov: 42 },
+    close: playCameraForTarget(GYM_AIM.ring),
   },
   {
     id: 'speedball',
@@ -35,7 +45,7 @@ export const GYM_STATIONS: StationInfo[] = [
     emoji: '🏐',
     equipmentPos: [-5.8, 0, 0.5],
     overview: { position: [-6.5, 3.5, 5], lookAt: [-5.8, 1.5, 0.5], fov: 50 },
-    close: { position: [-4.6, 1.9, 2.0], lookAt: [-5.8, 1.55, 0.5], fov: 40 },
+    close: playCameraForTarget(GYM_AIM.speedball),
   },
   {
     id: 'heavy-bag',
@@ -44,7 +54,7 @@ export const GYM_STATIONS: StationInfo[] = [
     emoji: '🎯',
     equipmentPos: [0.2, 0, -5.5],
     overview: { position: [0.5, 3.5, -9], lookAt: [0.2, 1.2, -5.5], fov: 50 },
-    close: { position: [0.9, 1.8, -3.6], lookAt: [0.2, 1.35, -5.5], fov: 40 },
+    close: playCameraForTarget(GYM_AIM['heavy-bag']),
   },
   {
     id: 'bobo-doll',
@@ -53,7 +63,7 @@ export const GYM_STATIONS: StationInfo[] = [
     emoji: '🤡',
     equipmentPos: [5.8, 0, 1.8],
     overview: { position: [8.5, 3.5, 5.5], lookAt: [5.8, 1.2, 1.8], fov: 50 },
-    close: { position: [6.4, 1.7, 3.2], lookAt: [5.8, 1.3, 1.8], fov: 40 },
+    close: playCameraForTarget(GYM_AIM['bobo-doll']),
   },
 ];
 
