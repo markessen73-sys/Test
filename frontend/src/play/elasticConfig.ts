@@ -18,7 +18,7 @@ export const INWARD_GLOVE_TILT = 14;
  * Fast-move threshold on a 0–100 scale (trail + bag impact).
  * 50 = moderate flick; raise for harder/faster required, lower for easier.
  */
-export const FAST_MOVE_SPEED_LEVEL = 25;
+export const FAST_MOVE_SPEED_LEVEL = 10;
 
 /** Pixel speed that maps to 100 on the fast-move scale. */
 export const MAX_SPEED_PX_S = 1200;
