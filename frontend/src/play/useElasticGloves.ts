@@ -13,6 +13,7 @@ import {
   clampGlovePosition,
   gloveFromScreenX,
   GRID_TOP_Y,
+  GLOVE_BAG_REACH_SEPARATION,
   isGloveTopOnPunchBag,
   LEFT_GLOVE_MAX_X,
   leftGloveZoneSrc,
@@ -137,6 +138,15 @@ function lerpAngle(current: number, target: number, t: number): number {
   let delta = ((target - current + 180) % 360) - 180;
   if (delta < -180) delta += 360;
   return current + delta * t;
+}
+
+function isDraggingTowardBag(glove: GloveId, pos: GlovePosition, other: GlovePosition): boolean {
+  if (glove === 'right') return pos.x < other.x + 0.02;
+  return pos.x > other.x - 0.02;
+}
+
+function minSeparationForDrag(glove: GloveId, pos: GlovePosition, other: GlovePosition): number {
+  return isDraggingTowardBag(glove, pos, other) ? GLOVE_BAG_REACH_SEPARATION : GLOVE_MIN_SEPARATION;
 }
 
 function gloveVisual(
@@ -327,10 +337,11 @@ export function useElasticGloves(onPunch: (glove: GloveId, knuckle: GlovePositio
     const dx = pos.x - other.x;
     const dy = pos.y - other.y;
     const dist = Math.hypot(dx, dy);
-    if (dist < GLOVE_MIN_SEPARATION && dist > 1e-8) {
+    const minDist = minSeparationForDrag(glove, pos, other);
+    if (dist < minDist && dist > 1e-8) {
       const nx = dx / dist;
       const ny = dy / dist;
-      pos = { x: other.x + nx * GLOVE_MIN_SEPARATION, y: other.y + ny * GLOVE_MIN_SEPARATION };
+      pos = { x: other.x + nx * minDist, y: other.y + ny * minDist };
     }
 
     grabTargetRef.current[glove] = pos;

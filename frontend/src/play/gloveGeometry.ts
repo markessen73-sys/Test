@@ -51,8 +51,11 @@ export function gloveKnuckleNorm(
   screenH: number,
   side: GloveId
 ): GlovePosition {
+  // Zone art is a right-hand photo. Left is mirrored in the view; right needs its
+  // knuckle offset flipped so both hands register contact on the inner edge toward the bag.
+  const localDx = side === 'right' ? -KNUCKLE_LOCAL_DX : KNUCKLE_LOCAL_DX;
   const mirror = side === 'left';
-  const { px, py } = applyGloveImageTransform(KNUCKLE_LOCAL_DX, KNUCKLE_LOCAL_DY, rotateDeg, scale, mirror);
+  const { px, py } = applyGloveImageTransform(localDx, KNUCKLE_LOCAL_DY, rotateDeg, scale, mirror);
   return {
     x: cuffPos.x + px / screenW,
     y: cuffPos.y + py / screenH,
