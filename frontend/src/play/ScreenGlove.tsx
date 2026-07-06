@@ -25,8 +25,8 @@ function ScreenGlove({
     `skewX(${transform.skewX}deg)`,
   ].join(' ');
 
-  const gloveW = 182;
-  const gloveH = 218;
+  const gloveW = 112;
+  const gloveH = 134;
   const cuffAnchorY = gloveH * 0.68;
 
   return (

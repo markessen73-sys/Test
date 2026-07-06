@@ -23,8 +23,8 @@ interface GloveBody {
   vy: number;
 }
 
-function makeGlove(): GloveState {
-  return { position: { x: 0, y: 0 }, trail: [], pointerId: null };
+function makeGlove(pos: GlovePosition): GloveState {
+  return { position: { ...pos }, trail: [], pointerId: null };
 }
 
 function normFromEvent(e: PointerEvent | React.PointerEvent, root: HTMLElement): GlovePosition {
@@ -84,16 +84,16 @@ function gloveVisual(pos: GlovePosition, anchor: GlovePosition, side: GloveId): 
 
   return {
     rotate: angle + guardBias,
-    scale: 1 + stretch * 1.8,
+    scale: 1 + stretch * 0.35,
     scaleX: side === 'right' ? -1 : 1,
-    skewX: dx * 18,
+    skewX: dx * 8,
     originY: '68%',
   };
 }
 
 export function useElasticGloves(onPunch: (glove: GloveId) => void) {
-  const [left, setLeft] = useState<GloveState>(() => makeGlove());
-  const [right, setRight] = useState<GloveState>(() => makeGlove());
+  const [left, setLeft] = useState<GloveState>(() => makeGlove(GLOVE_ANCHORS.left));
+  const [right, setRight] = useState<GloveState>(() => makeGlove(GLOVE_ANCHORS.right));
 
   const rootRef = useRef<HTMLDivElement>(null);
   const bodiesRef = useRef<{ left: GloveBody; right: GloveBody }>({

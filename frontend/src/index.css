@@ -1203,12 +1203,12 @@ html, body, #root, .app {
 
 .screen-glove {
   position: absolute;
-  width: 182px;
-  height: 218px;
+  width: 112px;
+  height: 134px;
   pointer-events: auto;
   touch-action: none;
   cursor: grab;
-  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.65));
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
   transition: filter 0.08s linear;
 }
 
@@ -1220,17 +1220,13 @@ html, body, #root, .app {
   -webkit-user-drag: none;
   pointer-events: none;
   transition: transform 0.04s linear;
-  opacity: 0.001;
+  opacity: 1;
 }
 
 .screen-glove.grabbed {
   cursor: grabbing;
-  transform: scale(1.05);
-  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.7));
-}
-
-.screen-glove.grabbed .screen-glove-img {
-  opacity: 0.92;
+  transform: scale(1.04);
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.65));
 }
 
 .play-glove-hints {
