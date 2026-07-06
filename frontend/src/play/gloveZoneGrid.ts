@@ -88,8 +88,8 @@ export function defaultAnchorY(): number {
 export const BAG_HIT_ZONE = {
   minX: 0.31,
   maxX: 0.88,
-  minY: 0.25,
-  maxY: 0.46,
+  minY: 0.18,
+  maxY: 0.39,
 } as const;
 
 /** Horizontal centre of the green bag outline. */
