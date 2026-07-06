@@ -8,6 +8,12 @@ import {
   GUARD_GLOVE_POSE,
   springFromTension,
 } from './elasticConfig';
+import {
+  clampGlovePosition,
+  LEFT_GLOVE_MAX_X,
+  rightGloveZoneSrc,
+  RIGHT_GLOVE_MIN_X,
+} from './gloveZoneGrid';
 
 const PUNCH_SPEED = 0.85;
 const PUNCH_COOLDOWN_MS = 180;
@@ -78,6 +84,9 @@ function resolveOverlap(left: GloveBody, right: GloveBody, minDist: number) {
 
 function gloveVisual(pos: GlovePosition, anchor: GlovePosition, side: GloveId): GloveTransform {
   const stretch = Math.hypot(pos.x - anchor.x, pos.y - anchor.y);
+  if (side === 'right') {
+    return { rotate: 0, scale: 1 + stretch * 0.06, scaleX: 1, skewX: 0, originY: '68%' };
+  }
   const guard = GUARD_GLOVE_POSE[side];
   return {
     ...guard,
@@ -161,6 +170,9 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
 
       resolveOverlap(leftBody, rightBody, GLOVE_MIN_SEPARATION);
 
+      rightBody.x = Math.max(RIGHT_GLOVE_MIN_X, rightBody.x);
+      leftBody.x = Math.min(LEFT_GLOVE_MAX_X, leftBody.x);
+
       const leftPos = { x: leftBody.x, y: leftBody.y };
       const rightPos = { x: rightBody.x, y: rightBody.y };
 
@@ -186,7 +198,7 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
     (glove: GloveId, raw: GlovePosition, pointerId: number, isMove: boolean, root: HTMLElement) => {
       const now = performance.now();
       const rect = root.getBoundingClientRect();
-      let pos = { ...raw };
+      let pos = clampGlovePosition(glove, raw);
 
       const other = glove === 'left' ? bodiesRef.current.right : bodiesRef.current.left;
       const dx = pos.x - other.x;
@@ -287,12 +299,14 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
 
   const leftTransform = gloveVisual(left.position, GLOVE_ANCHORS.left, 'left');
   const rightTransform = gloveVisual(right.position, GLOVE_ANCHORS.right, 'right');
+  const rightZoneSrc = rightGloveZoneSrc(right.position);
 
   return {
     left,
     right,
     leftTransform,
     rightTransform,
+    rightZoneSrc,
     rootRef,
     onGloveDown,
     onRootMove,
