@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 import { HeavyBagPlayScene } from './HeavyBagPlayScene';
 import { SlugTrailCanvas } from './SlugTrailCanvas';
-import { HitDebugOverlay } from './HitDebugOverlay';
 import { ScreenGlove } from './ScreenGlove';
 import { useElasticGloves } from './useElasticGloves';
 import { useBuildSha } from '../useBuildSha';
@@ -14,12 +13,10 @@ interface HeavyBagPlayViewProps {
 export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
   const buildSha = useBuildSha(__APP_GIT_SHA__);
   const [punchCount, setPunchCount] = useState(0);
-  const [punchImpulse, setPunchImpulse] = useState(0);
   const [flash, setFlash] = useState<string | null>(null);
 
   const onPunch = useCallback((glove: GloveId) => {
     setPunchCount((c) => c + 1);
-    setPunchImpulse((v) => v + 1);
     setFlash(glove === 'left' ? 'LEFT!' : 'RIGHT!');
     setTimeout(() => setFlash(null), 300);
   }, []);
@@ -47,12 +44,10 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
       onPointerCancel={onRootUp}
     >
       <div className="play-canvas">
-        <HeavyBagPlayScene punchImpulse={punchImpulse} />
+        <HeavyBagPlayScene />
       </div>
 
       <SlugTrailCanvas left={left} right={right} />
-
-      <HitDebugOverlay />
 
       <div className="play-gloves-layer">
         <ScreenGlove
@@ -61,7 +56,6 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           grabbed={left.pointerId !== null}
           transform={leftTransform}
           zoneSrc={leftZoneSrc}
-          showImpactDot
         />
         <ScreenGlove
           side="right"
@@ -69,7 +63,6 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           grabbed={right.pointerId !== null}
           transform={rightTransform}
           zoneSrc={rightZoneSrc}
-          showImpactDot
         />
       </div>
 
@@ -89,8 +82,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
 
         <footer className="play-bottom">
           <p className="play-hint">
-            White outline = bag hit zone. White dots = knuckle impact points.{' '}
-            <strong>Upward</strong> drags leave a vapour trail while you hold; release with the dot inside the outline while moving to score.
+            <strong>Upward</strong> drags leave a vapour trail while you hold; release on the bag while still moving to score.
           </p>
         </footer>
       </div>

@@ -1,29 +1,19 @@
-import { useRef, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
+import { useEffect, useMemo } from 'react';
+import { Canvas } from '@react-three/fiber';
+import { createNutBrownLeatherTexture } from './leatherTexture';
 
 const BAG_Z = -3.8;
 
-function PlayHeavyBag({ punchImpulse }: { punchImpulse: number }) {
-  const bagRef = useRef<THREE.Group>(null);
-  const swingRef = useRef(0);
-  const lastImpulseRef = useRef(0);
+const LEATHER_MAT = {
+  color: '#8B5A2B',
+  roughness: 0.84,
+  metalness: 0.02,
+} as const;
 
-  useEffect(() => {
-    if (punchImpulse > lastImpulseRef.current) {
-      swingRef.current = Math.min((punchImpulse - lastImpulseRef.current) * 0.55, 1) * Math.PI;
-      lastImpulseRef.current = punchImpulse;
-    }
-  }, [punchImpulse]);
+function PlayHeavyBag() {
+  const leatherMap = useMemo(() => createNutBrownLeatherTexture(), []);
 
-  useFrame((_, delta) => {
-    if (bagRef.current && swingRef.current > 0) {
-      const hit = Math.sin(swingRef.current) * 0.5;
-      bagRef.current.rotation.z = hit;
-      bagRef.current.position.x = hit * 0.45;
-      swingRef.current = Math.max(0, swingRef.current - delta * 2.5);
-    }
-  });
+  useEffect(() => () => leatherMap.dispose(), [leatherMap]);
 
   return (
     <group position={[0, 0, BAG_Z]}>
@@ -31,18 +21,18 @@ function PlayHeavyBag({ punchImpulse }: { punchImpulse: number }) {
         <cylinderGeometry args={[0.02, 0.02, 0.6, 6]} />
         <meshStandardMaterial color="#444" metalness={0.5} />
       </mesh>
-      <group ref={bagRef} position={[0, 1.35, 0]}>
+      <group position={[0, 1.35, 0]}>
         <mesh castShadow receiveShadow>
           <cylinderGeometry args={[0.42, 0.48, 2.1, 24]} />
-          <meshStandardMaterial color="#1a1a28" roughness={0.88} />
+          <meshStandardMaterial map={leatherMap} {...LEATHER_MAT} />
         </mesh>
         <mesh position={[0, 1.1, 0]}>
           <cylinderGeometry args={[0.43, 0.43, 0.14, 24]} />
-          <meshStandardMaterial color="#252535" />
+          <meshStandardMaterial map={leatherMap} color="#6B4423" roughness={0.9} metalness={0.01} />
         </mesh>
         <mesh position={[0, -1.08, 0]}>
           <cylinderGeometry args={[0.38, 0.32, 0.16, 24]} />
-          <meshStandardMaterial color="#111" />
+          <meshStandardMaterial map={leatherMap} color="#4A2F18" roughness={0.92} metalness={0.01} />
         </mesh>
       </group>
     </group>
@@ -68,20 +58,16 @@ function PlayEnvironment() {
   );
 }
 
-function PlayScene({ punchImpulse }: { punchImpulse: number }) {
+function PlayScene() {
   return (
     <>
       <PlayEnvironment />
-      <PlayHeavyBag punchImpulse={punchImpulse} />
+      <PlayHeavyBag />
     </>
   );
 }
 
-interface HeavyBagPlaySceneProps {
-  punchImpulse: number;
-}
-
-export function HeavyBagPlayScene({ punchImpulse }: HeavyBagPlaySceneProps) {
+export function HeavyBagPlayScene() {
   return (
     <Canvas
       shadows
@@ -93,7 +79,7 @@ export function HeavyBagPlayScene({ punchImpulse }: HeavyBagPlaySceneProps) {
       gl={{ antialias: true, alpha: false }}
     >
       <color attach="background" args={['#1a1208']} />
-      <PlayScene punchImpulse={punchImpulse} />
+      <PlayScene />
     </Canvas>
   );
 }
