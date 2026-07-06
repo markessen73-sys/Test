@@ -23,9 +23,28 @@ export function SlugTrailCanvas({ left, right }: SlugTrailCanvasProps) {
 
       const drawTrail = (glove: GloveState) => {
         const pts = glove.trail;
-        if (pts.length < 2) return;
+        if (pts.length < 1) return;
 
         const now = performance.now();
+
+        // Wisp at the newest point (bottom of glove)
+        const tip = pts[pts.length - 1];
+        const tipAge = (now - tip.t) / 520;
+        const tipAlpha = Math.max(0, 1 - tipAge);
+        if (tipAlpha > 0) {
+          ctx.save();
+          ctx.fillStyle = tip.isPunch ? 'rgba(255, 250, 235, 0.55)' : 'rgba(220, 235, 255, 0.42)';
+          ctx.globalAlpha = tipAlpha * 0.65;
+          ctx.shadowColor = 'rgba(200, 225, 255, 0.55)';
+          ctx.shadowBlur = tip.isPunch ? 18 : 12;
+          ctx.beginPath();
+          ctx.arc(tip.x * w, tip.y * h, (tip.isPunch ? 14 : 9) * tipAlpha, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        if (pts.length < 2) return;
+
         for (let i = 1; i < pts.length; i++) {
           const a = pts[i - 1];
           const b = pts[i];

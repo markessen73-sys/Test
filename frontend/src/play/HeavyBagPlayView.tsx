@@ -83,7 +83,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
         <footer className="play-bottom">
           <p className="play-hint">
             Touch your <strong>half of the screen</strong> to move a glove.{' '}
-            <strong>Fast upward flicks</strong> leave a vapour trail; the bag is hit when you stop after a fast upward move.
+            A <strong>vapour trail</strong> follows from the bottom of each glove; <strong>release</strong> to hit the bag.
           </p>
         </footer>
       </div>
