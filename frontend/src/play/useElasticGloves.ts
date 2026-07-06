@@ -103,17 +103,20 @@ function resolveOverlap(left: GloveBody, right: GloveBody, minDist: number) {
   }
 }
 
-/** Zone art default: glove bottom (100%) points screen-down at 0°. */
-const GLOVE_BOTTOM_BASE_DEG = -90;
-
 function inwardAim(side: GloveId): number {
   // Bottom of glove tilts toward screen centre when idle.
   return side === 'left' ? -INWARD_GLOVE_TILT : INWARD_GLOVE_TILT;
 }
 
-/** Aim so the bottom of the glove points along the movement vector. */
+/**
+ * Glove leads with the end that faces the movement:
+ * - Downward: bottom (cuff) points along the drag
+ * - Upward: top (knuckles) points along the drag — avoids flipping upside-down on punches
+ */
 function aimFromVelocity(vx: number, vy: number): number {
-  return (Math.atan2(vy, vx) * 180) / Math.PI + GLOVE_BOTTOM_BASE_DEG;
+  const moveDeg = (Math.atan2(vy, vx) * 180) / Math.PI;
+  if (vy > 0) return moveDeg - 90;
+  return moveDeg + 90;
 }
 
 function lerpAngle(current: number, target: number, t: number): number {
