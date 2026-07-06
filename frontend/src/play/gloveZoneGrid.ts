@@ -92,12 +92,12 @@ export const BAG_HIT_ZONE = {
   maxY: 0.34,
 } as const;
 
-/** True when the glove top/knuckle point overlaps the bag on screen. */
-export function isGloveTopOnPunchBag(top: GlovePosition): boolean {
+/** True when the glove knuckle (highest red point) overlaps the bag on screen. */
+export function isGloveTopOnPunchBag(knuckle: GlovePosition): boolean {
   return (
-    top.x >= BAG_HIT_ZONE.minX &&
-    top.x <= BAG_HIT_ZONE.maxX &&
-    top.y >= BAG_HIT_ZONE.minY &&
-    top.y <= BAG_HIT_ZONE.maxY
+    knuckle.x >= BAG_HIT_ZONE.minX &&
+    knuckle.x <= BAG_HIT_ZONE.maxX &&
+    knuckle.y >= BAG_HIT_ZONE.minY &&
+    knuckle.y <= BAG_HIT_ZONE.maxY
   );
 }

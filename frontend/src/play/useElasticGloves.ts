@@ -19,6 +19,11 @@ import {
   rightGloveZoneSrc,
   RIGHT_GLOVE_MIN_X,
 } from './gloveZoneGrid';
+import {
+  gloveBottomNorm,
+  gloveKnuckleNorm,
+  ZONE_GLOVE_W,
+} from './gloveGeometry';
 
 const TRAIL_MAX = 56;
 const TRAIL_FADE_MS = 520;
@@ -28,10 +33,6 @@ const RELEASE_MIN_NORM_SPEED = 0.1;
 const UPWARD_VY_NORM = 0.06;
 const AIM_FOLLOW_SPEED = 0.2;
 const MOVE_AIM_NORM_SPEED = 0.35;
-const ZONE_GLOVE_W = 130;
-const ZONE_GLOVE_H = 155;
-const BOTTOM_OFFSET_PX = ZONE_GLOVE_H * (1 - 0.68);
-const TOP_OFFSET_PX = ZONE_GLOVE_H * 0.68;
 
 interface GloveBody {
   x: number;
@@ -47,37 +48,6 @@ function makeGlove(pos: GlovePosition): GloveState {
 function normFromEvent(e: PointerEvent | React.PointerEvent, root: HTMLElement): GlovePosition {
   const rect = root.getBoundingClientRect();
   return { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height };
-}
-
-function gloveBottomNorm(
-  cuffPos: GlovePosition,
-  aimDeg: number,
-  screenW: number,
-  screenH: number
-): GlovePosition {
-  const rad = (aimDeg * Math.PI) / 180;
-  const px = Math.sin(rad) * BOTTOM_OFFSET_PX;
-  const py = Math.cos(rad) * BOTTOM_OFFSET_PX;
-  return {
-    x: cuffPos.x + px / screenW,
-    y: cuffPos.y + py / screenH,
-  };
-}
-
-/** Knuckle end of the glove (opposite the cuff anchor). */
-function gloveTopNorm(
-  cuffPos: GlovePosition,
-  aimDeg: number,
-  screenW: number,
-  screenH: number
-): GlovePosition {
-  const rad = (aimDeg * Math.PI) / 180;
-  const px = Math.sin(rad) * TOP_OFFSET_PX;
-  const py = -Math.cos(rad) * TOP_OFFSET_PX;
-  return {
-    x: cuffPos.x + px / screenW,
-    y: cuffPos.y + py / screenH,
-  };
 }
 
 function appendTrail(
@@ -217,11 +187,11 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
   }, []);
 
   const tryPunchOnRelease = useCallback(
-    (glove: GloveId, releaseSpeed: number, topPos: GlovePosition, now: number) => {
+    (glove: GloveId, releaseSpeed: number, knucklePos: GlovePosition, now: number) => {
       const last = lastPunchRef.current.get(glove) ?? 0;
       if (
         releaseSpeed >= RELEASE_MIN_NORM_SPEED &&
-        isGloveTopOnPunchBag(topPos) &&
+        isGloveTopOnPunchBag(knucklePos) &&
         now - last > PUNCH_COOLDOWN_MS
       ) {
         lastPunchRef.current.set(glove, now);
@@ -397,14 +367,16 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
       const now = performance.now();
       const body = glove === 'left' ? bodiesRef.current.left : bodiesRef.current.right;
       const cuffPos = { x: body.x, y: body.y };
+      const aim = aimRef.current[glove];
       const { width: screenW, height: screenH } = rootSizeRef.current;
-      const topPos = gloveTopNorm(cuffPos, aimRef.current[glove], screenW, screenH);
+      const zoneSrc = glove === 'left' ? leftGloveZoneSrc(cuffPos) : rightGloveZoneSrc(cuffPos);
+      const knucklePos = gloveKnuckleNorm(cuffPos, aim, screenW, screenH, glove, zoneSrc);
       const releaseSpeed = Math.hypot(body.vx, body.vy);
 
       grabbingRef.current[glove] = false;
       grabTargetRef.current[glove] = null;
 
-      tryPunchOnRelease(glove, releaseSpeed, topPos, now);
+      tryPunchOnRelease(glove, releaseSpeed, knucklePos, now);
 
       const setter = glove === 'left' ? setLeft : setRight;
       setter((prev) => ({
