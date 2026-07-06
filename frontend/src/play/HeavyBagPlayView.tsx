@@ -78,6 +78,9 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           </button>
           <span className="play-title">🎯 Heavy Bag</span>
           <span className="play-punch-count">{punchCount} punches</span>
+          <span className="play-build-tag" title="Build ID — confirms you have the latest code">
+            build {__APP_GIT_SHA__}
+          </span>
         </header>
 
         {flash && <div className="punch-flash play-flash">{flash}</div>}

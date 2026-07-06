@@ -1230,6 +1230,13 @@ html, body, #root, .app {
   font-variant-numeric: tabular-nums;
 }
 
+.play-build-tag {
+  font-size: 0.65rem;
+  color: rgba(180, 210, 240, 0.55);
+  font-family: ui-monospace, monospace;
+  margin-left: 0.75rem;
+}
+
 .play-bottom {
   padding: 0.5rem 1rem max(1rem, env(safe-area-inset-bottom));
   background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);

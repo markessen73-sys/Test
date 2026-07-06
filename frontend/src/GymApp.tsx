@@ -4,9 +4,20 @@ import { HeavyBagPlayView } from './play/HeavyBagPlayView';
 import { BoxingGymScene } from './gym/BoxingGymScene';
 import { GYM_STATIONS, type ViewMode } from './types/game';
 
+const HEAVY_BAG_INDEX = GYM_STATIONS.findIndex((s) => s.id === 'heavy-bag');
+
 export function GymApp() {
   const [stationIndex, setStationIndex] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('browse');
+
+  // Direct link: ?play=heavy-bag jumps straight to ghost boxer test view
+  useEffect(() => {
+    const play = new URLSearchParams(window.location.search).get('play');
+    if (play === 'heavy-bag' && HEAVY_BAG_INDEX >= 0) {
+      setStationIndex(HEAVY_BAG_INDEX);
+      setViewMode('play');
+    }
+  }, []);
 
   const station = GYM_STATIONS[stationIndex];
 
