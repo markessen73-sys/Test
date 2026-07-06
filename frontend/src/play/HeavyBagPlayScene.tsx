@@ -1,11 +1,119 @@
-import { useMemo } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import * as THREE from 'three';
 import { getNutBrownLeatherMaps } from './leatherTexture';
+import {
+  applyBagDents,
+  raycastBagBodyHit,
+  type BagDent,
+  type BagPunchImpact,
+} from './bagImpact';
 
 const BAG_Z = -3.8;
+const DENT_DECAY = 2.4;
+const DENT_ADD_DEPTH = 0.11;
+const DENT_RADIUS = 0.28;
 
-function PlayHeavyBag() {
+function ImpactRing3D({
+  point,
+  normal,
+  startTime,
+  onDone,
+}: {
+  point: THREE.Vector3;
+  normal: THREE.Vector3;
+  startTime: number;
+  onDone: () => void;
+}) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const matRef = useRef<THREE.MeshBasicMaterial>(null);
+  const doneRef = useRef(false);
+  const quat = useMemo(() => {
+    const q = new THREE.Quaternion();
+    const n = normal.clone().normalize();
+    if (n.lengthSq() < 1e-6) n.set(0, 0, 1);
+    q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
+    return q;
+  }, [normal]);
+
+  useFrame(() => {
+    const age = (performance.now() - startTime) / 520;
+    if (!meshRef.current || !matRef.current) return;
+    const scale = 0.45 + age * 2.4;
+    meshRef.current.scale.setScalar(scale);
+    matRef.current.opacity = Math.max(0, 0.9 * (1 - age));
+    if (age >= 1 && !doneRef.current) {
+      doneRef.current = true;
+      onDone();
+    }
+  });
+
+  return (
+    <mesh ref={meshRef} position={point} quaternion={quat}>
+      <ringGeometry args={[0.05, 0.075, 28]} />
+      <meshBasicMaterial
+        ref={matRef}
+        color="#fff0d4"
+        transparent
+        opacity={0.9}
+        side={THREE.DoubleSide}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
+
+function PlayHeavyBag({ impacts }: { impacts: BagPunchImpact[] }) {
   const leather = useMemo(() => getNutBrownLeatherMaps(), []);
+  const bodyRef = useRef<THREE.Mesh>(null);
+  const geometry = useMemo(() => new THREE.CylinderGeometry(0.42, 0.48, 2.1, 40, 20), []);
+  const originalPositions = useMemo(
+    () => new Float32Array(geometry.attributes.position.array as Float32Array),
+    [geometry]
+  );
+  const dentsRef = useRef<BagDent[]>([]);
+  const [activeRings, setActiveRings] = useState<
+    { id: number; point: THREE.Vector3; normal: THREE.Vector3; time: number }[]
+  >([]);
+  const lastImpactIdRef = useRef(0);
+  const { camera } = useThree();
+
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!body || !impacts.length) return;
+    const latest = impacts[impacts.length - 1];
+    if (latest.id <= lastImpactIdRef.current) return;
+    lastImpactIdRef.current = latest.id;
+
+    body.updateWorldMatrix(true, false);
+    const hit = raycastBagBodyHit(latest.knuckle, camera, body);
+    if (!hit) return;
+
+    dentsRef.current.push({
+      localPoint: hit.localPoint,
+      depth: DENT_ADD_DEPTH,
+      radius: DENT_RADIUS,
+    });
+    if (dentsRef.current.length > 6) dentsRef.current.shift();
+
+    setActiveRings((prev) => [
+      ...prev,
+      { id: latest.id, point: hit.localPoint.clone(), normal: hit.localNormal, time: latest.time },
+    ]);
+  }, [impacts, camera]);
+
+  useFrame((_, delta) => {
+    const body = bodyRef.current;
+    if (!body) return;
+
+    const dents = dentsRef.current;
+    for (let i = dents.length - 1; i >= 0; i--) {
+      dents[i].depth = Math.max(0, dents[i].depth - delta * DENT_DECAY * 0.08);
+      if (dents[i].depth <= 0.001) dents.splice(i, 1);
+    }
+
+    applyBagDents(geometry, originalPositions, dents);
+  });
 
   return (
     <group position={[0, 0, BAG_Z]}>
@@ -14,8 +122,7 @@ function PlayHeavyBag() {
         <meshStandardMaterial color="#444" metalness={0.5} />
       </mesh>
       <group position={[0, 1.35, 0]}>
-        <mesh castShadow receiveShadow>
-          <cylinderGeometry args={[0.42, 0.48, 2.1, 32]} />
+        <mesh ref={bodyRef} castShadow receiveShadow geometry={geometry}>
           <meshStandardMaterial
             map={leather.map}
             roughnessMap={leather.roughnessMap}
@@ -50,6 +157,15 @@ function PlayHeavyBag() {
             metalness={0.01}
           />
         </mesh>
+        {activeRings.map((ring) => (
+          <ImpactRing3D
+            key={ring.id}
+            point={ring.point}
+            normal={ring.normal}
+            startTime={ring.time}
+            onDone={() => setActiveRings((prev) => prev.filter((r) => r.id !== ring.id))}
+          />
+        ))}
       </group>
       <pointLight position={[0, 1.5, 0.6]} intensity={12} color="#ffdcb0" distance={5} />
     </group>
@@ -75,16 +191,20 @@ function PlayEnvironment() {
   );
 }
 
-function PlayScene() {
+function PlayScene({ impacts }: { impacts: BagPunchImpact[] }) {
   return (
     <>
       <PlayEnvironment />
-      <PlayHeavyBag />
+      <PlayHeavyBag impacts={impacts} />
     </>
   );
 }
 
-export function HeavyBagPlayScene() {
+interface HeavyBagPlaySceneProps {
+  impacts: BagPunchImpact[];
+}
+
+export function HeavyBagPlayScene({ impacts }: HeavyBagPlaySceneProps) {
   return (
     <Canvas
       shadows
@@ -96,7 +216,7 @@ export function HeavyBagPlayScene() {
       gl={{ antialias: true, alpha: false }}
     >
       <color attach="background" args={['#1a1208']} />
-      <PlayScene />
+      <PlayScene impacts={impacts} />
     </Canvas>
   );
 }

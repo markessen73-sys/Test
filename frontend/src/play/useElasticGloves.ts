@@ -158,7 +158,7 @@ function gloveVisual(
   };
 }
 
-export function useElasticGloves(onPunch: (glove: GloveId) => void) {
+export function useElasticGloves(onPunch: (glove: GloveId, knuckle: GlovePosition) => void) {
   const [left, setLeft] = useState<GloveState>(() => makeGlove(GLOVE_ANCHORS.left));
   const [right, setRight] = useState<GloveState>(() => makeGlove(GLOVE_ANCHORS.right));
   const [leftAim, setLeftAim] = useState(-INWARD_GLOVE_TILT);
@@ -197,7 +197,7 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
         now - last > PUNCH_COOLDOWN_MS
       ) {
         lastPunchRef.current.set(glove, now);
-        onPunch(glove);
+        onPunch(glove, knucklePos);
         return true;
       }
       return false;

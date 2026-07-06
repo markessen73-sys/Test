@@ -1,10 +1,12 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { HeavyBagPlayScene } from './HeavyBagPlayScene';
+import { ImpactWaveOverlay } from './ImpactWaveOverlay';
 import { SlugTrailCanvas } from './SlugTrailCanvas';
 import { ScreenGlove } from './ScreenGlove';
 import { useElasticGloves } from './useElasticGloves';
 import { useBuildSha } from '../useBuildSha';
-import type { GloveId } from '../types/game';
+import type { BagPunchImpact } from './bagImpact';
+import type { GloveId, GlovePosition } from '../types/game';
 
 interface HeavyBagPlayViewProps {
   onBack: () => void;
@@ -13,12 +15,16 @@ interface HeavyBagPlayViewProps {
 export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
   const buildSha = useBuildSha(__APP_GIT_SHA__);
   const [punchCount, setPunchCount] = useState(0);
-  const [flash, setFlash] = useState<string | null>(null);
+  const [impacts, setImpacts] = useState<BagPunchImpact[]>([]);
+  const impactIdRef = useRef(0);
 
-  const onPunch = useCallback((glove: GloveId) => {
+  const onPunch = useCallback((glove: GloveId, knuckle: GlovePosition) => {
     setPunchCount((c) => c + 1);
-    setFlash(glove === 'left' ? 'LEFT!' : 'RIGHT!');
-    setTimeout(() => setFlash(null), 300);
+    impactIdRef.current += 1;
+    setImpacts((prev) => [
+      ...prev,
+      { id: impactIdRef.current, glove, knuckle, time: performance.now() },
+    ]);
   }, []);
 
   const {
@@ -44,10 +50,12 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
       onPointerCancel={onRootUp}
     >
       <div className="play-canvas">
-        <HeavyBagPlayScene />
+        <HeavyBagPlayScene impacts={impacts} />
       </div>
 
       <SlugTrailCanvas left={left} right={right} />
+
+      <ImpactWaveOverlay impacts={impacts} />
 
       <div className="play-gloves-layer">
         <ScreenGlove
@@ -77,8 +85,6 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
             build {buildSha}
           </span>
         </header>
-
-        {flash && <div className="punch-flash play-flash">{flash}</div>}
 
         <footer className="play-bottom">
           <p className="play-hint">
