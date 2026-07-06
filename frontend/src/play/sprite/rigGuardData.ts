@@ -343,7 +343,7 @@ export default {
       "aspect": 0.7884
     }
   },
-  "scaleVmin": 36,
+  "scaleVmin": 40,
   "torsoAttachNorm": {
     "chest": [
       0.4992,

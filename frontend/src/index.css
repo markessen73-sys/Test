@@ -1153,6 +1153,31 @@ html, body, #root, .app {
   z-index: 2;
 }
 
+.sprite-boxer-rig {
+  /* Punch-Out style: see-through body, opponent/bag visible through torso */
+  --ghost-body-opacity: 0.52;
+  --ghost-glow: rgba(100, 180, 255, 0.22);
+  --ghost-outline: rgba(0, 0, 0, 0.85);
+}
+
+/* Body layers — translucent ghost with dark edge read (like SP-O wireframe back) */
+.sprite-boxer-rig .sprite-part:not([class*='glove-']) {
+  opacity: var(--ghost-body-opacity);
+  filter:
+    drop-shadow(0 0 0.6px var(--ghost-outline))
+    drop-shadow(0 0 0.6px var(--ghost-outline))
+    drop-shadow(0 0 10px var(--ghost-glow))
+    brightness(1.08)
+    saturate(0.88);
+}
+
+/* Gloves stay solid — primary visual anchors for player control */
+.sprite-boxer-rig .sprite-part-glove-left,
+.sprite-boxer-rig .sprite-part-glove-right {
+  opacity: 1;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55)) saturate(1.15);
+}
+
 .sprite-part {
   pointer-events: none;
   user-select: none;

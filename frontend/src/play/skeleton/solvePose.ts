@@ -108,10 +108,10 @@ export function solveBoxerPose(
   const t = timeMs * 0.001;
 
   // Idle: breathing, shoulder roll, weight shift, head bob
-  const breath = Math.sin(t * 2.1) * 0.007;
-  const breathSlow = Math.sin(t * 1.35) * 0.004;
-  const sway = Math.sin(t * 1.35) * 0.005;
-  const shoulderRoll = Math.sin(t * 1.65) * 0.009;
+  const breath = Math.sin(t * 2.1) * 0.009;
+  const breathSlow = Math.sin(t * 1.35) * 0.005;
+  const sway = Math.sin(t * 1.35) * 0.007;
+  const shoulderRoll = Math.sin(t * 1.65) * 0.011;
   const weightShift = Math.sin(t * 0.85) * 0.024;
   const headBob = Math.sin(t * 1.9) * 0.005;
 
@@ -250,11 +250,12 @@ export function getGloveTransform(arm: ArmChain, side: 'left' | 'right'): GloveT
 
 export function computeIdleGloveOffset(timeMs: number): { left: Vec2; right: Vec2 } {
   const t = timeMs * 0.001;
-  const bob = Math.sin(t * 2.5) * 0.004;
-  const sway = Math.sin(t * 1.4) * 0.0035;
-  const microL = Math.sin(t * 3.2) * 0.002;
-  const microR = Math.sin(t * 3.6 + 0.8) * 0.002;
-  const shoulderSway = Math.sin(t * 1.65) * 0.002;
+  // Punch-Out style rhythmic bounce — light on feet, gloves bob with shoulders
+  const bob = Math.sin(t * 2.5) * 0.006;
+  const sway = Math.sin(t * 1.4) * 0.005;
+  const microL = Math.sin(t * 3.2) * 0.0025;
+  const microR = Math.sin(t * 3.6 + 0.8) * 0.0025;
+  const shoulderSway = Math.sin(t * 1.65) * 0.0035;
 
   return {
     left: { x: GUARD_LEFT.x + sway + shoulderSway, y: GUARD_LEFT.y + bob + microL },

@@ -230,7 +230,7 @@ def main() -> None:
         "joints": {k: list(v) for k, v in J.items()},
         "torsoAttach": {k: list(v) for k, v in TORSO_ATTACH.items()},
         "parts": {},
-        "scaleVmin": 36,
+        "scaleVmin": 40,
     }
 
     for name, polygon in POLYGONS.items():

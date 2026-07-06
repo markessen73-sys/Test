@@ -8,7 +8,7 @@ https://p-5173-pod-<your-pod>.agent.cvm.dev/?_ingress_token=<token>&play=heavy-b
 
 **Verify build:** top-right shows `build <git-sha>`. Hard-refresh (`Ctrl+Shift+R`) if stale.
 
-**What to expect:** Layered sprite boxer from artwork (not procedural shapes). Put fingers on glove hit areas (invisible overlays) to move arms.
+**What to expect:** Punch-Out–style ghost boxer — semi-transparent body (bag visible through torso), solid red gloves, articulated from-behind guard stance. Reference: `Screenrecorder-2026-07-06-04-15-07-108.mp4` in repo root.
 
 ## Local dev
 
