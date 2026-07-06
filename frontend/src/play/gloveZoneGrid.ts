@@ -81,7 +81,7 @@ export function defaultAnchorY(): number {
   return GRID_TOP_Y + PLAYABLE_HEIGHT * 0.5;
 }
 
-/** True when glove is in the top grid row (contact zone on the heavy bag). */
+/** True when the given point is in the top grid row (heavy bag contact zone). */
 export function isGloveOnPunchBag(pos: GlovePosition): boolean {
   return positionToGridCell(pos).row === 0;
 }
