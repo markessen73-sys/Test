@@ -1126,12 +1126,14 @@ html, body, #root, .app {
   background: #1a1208;
   overflow: hidden;
   touch-action: none;
+  cursor: grab;
 }
 
 .play-canvas {
   position: absolute;
   inset: 0;
   z-index: 1;
+  pointer-events: none;
 }
 
 .slug-trail-canvas {
@@ -1205,9 +1207,8 @@ html, body, #root, .app {
   position: absolute;
   width: 112px;
   height: 134px;
-  pointer-events: auto;
+  pointer-events: none;
   touch-action: none;
-  cursor: grab;
   filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
   transition: filter 0.08s linear;
 }

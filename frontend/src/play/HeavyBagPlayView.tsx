@@ -29,7 +29,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
     leftZoneSrc,
     rightZoneSrc,
     rootRef,
-    onGloveDown,
+    onRootDown,
     onRootMove,
     onRootUp,
   } = useElasticGloves(onPunch);
@@ -38,6 +38,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
     <div
       className="play-fullscreen"
       ref={rootRef}
+      onPointerDown={onRootDown}
       onPointerMove={onRootMove}
       onPointerUp={onRootUp}
       onPointerCancel={onRootUp}
@@ -55,7 +56,6 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           grabbed={left.pointerId !== null}
           transform={leftTransform}
           zoneSrc={leftZoneSrc}
-          onPointerDown={onGloveDown('left')}
         />
         <ScreenGlove
           side="right"
@@ -63,7 +63,6 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           grabbed={right.pointerId !== null}
           transform={rightTransform}
           zoneSrc={rightZoneSrc}
-          onPointerDown={onGloveDown('right')}
         />
       </div>
 
@@ -83,7 +82,8 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
 
         <footer className="play-bottom">
           <p className="play-hint">
-            Drag a <strong>glove</strong> — it snaps back on elastic. <strong>Quick flicks</strong> punch.
+            Touch your <strong>half of the screen</strong> to move a glove.{' '}
+            <strong>Fast flicks</strong> leave a vapour trail; the bag is hit when you stop after a fast move.
           </p>
         </footer>
       </div>

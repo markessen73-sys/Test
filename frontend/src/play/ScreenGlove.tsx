@@ -9,15 +9,13 @@ function ScreenGlove({
   grabbed,
   transform,
   zoneSrc,
-  onPointerDown,
 }: {
   side: GloveId;
   position: { x: number; y: number };
   grabbed: boolean;
   transform: GloveTransform;
-  /** Per-zone sprite (right glove grid art) — no CSS rotation applied */
+  /** Per-zone sprite (right glove grid art) */
   zoneSrc?: string;
-  onPointerDown: (e: React.PointerEvent) => void;
 }) {
   const candidates = gloveImageCandidates(side);
   const [srcIndex, setSrcIndex] = useState(0);
@@ -53,8 +51,7 @@ function ScreenGlove({
         height: gloveH,
         margin: `${-cuffAnchorY}px 0 0 ${-gloveW / 2}px`,
       }}
-      onPointerDown={onPointerDown}
-      role="button"
+      role="img"
       aria-label={`${side} glove`}
     >
       <img

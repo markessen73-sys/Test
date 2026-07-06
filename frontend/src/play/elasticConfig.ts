@@ -11,8 +11,25 @@ export const GLOVE_ANCHORS: Record<'left' | 'right', GlovePosition> = {
   right: { x: 0.66, y: anchorY },
 };
 
-/** Fixed inward tilt (degrees) — knuckles angle toward centre, not outward. */
+/** Fixed inward tilt (degrees) — knuckles angle toward centre when idle. */
 export const INWARD_GLOVE_TILT = 14;
+
+/**
+ * Fast-move threshold on a 0–100 scale (trail + bag impact).
+ * 50 = moderate flick; raise for harder/faster required, lower for easier.
+ */
+export const FAST_MOVE_SPEED_LEVEL = 50;
+
+/** Pixel speed that maps to 100 on the fast-move scale. */
+export const MAX_SPEED_PX_S = 1200;
+
+export function fastMoveThresholdPxPerSec(level = FAST_MOVE_SPEED_LEVEL): number {
+  return (Math.max(0, Math.min(100, level)) / 100) * MAX_SPEED_PX_S;
+}
+
+export function speedLevelFromPxPerSec(pxPerSec: number): number {
+  return Math.min(100, (pxPerSec / MAX_SPEED_PX_S) * 100);
+}
 
 /**
  * Fixed guard orientation for SVG fallback — knuckles up, angled slightly inward.

@@ -21,7 +21,7 @@ export function SlugTrailCanvas({ left, right }: SlugTrailCanvasProps) {
       const h = canvas.height;
       ctx.clearRect(0, 0, w, h);
 
-      const drawTrail = (glove: GloveState, baseColor: string, punchColor: string) => {
+      const drawTrail = (glove: GloveState) => {
         const pts = glove.trail;
         if (pts.length < 2) return;
 
@@ -29,42 +29,48 @@ export function SlugTrailCanvas({ left, right }: SlugTrailCanvasProps) {
         for (let i = 1; i < pts.length; i++) {
           const a = pts[i - 1];
           const b = pts[i];
-          const age = (now - b.t) / 600;
+          const age = (now - b.t) / 520;
           const alpha = Math.max(0, 1 - age);
           if (alpha <= 0) continue;
 
-          const isPunch = b.isPunch || a.isPunch;
-          const width = (isPunch ? 28 : 14) * alpha;
-          const blur = isPunch ? 12 : 6;
+          const isImpact = b.isPunch || a.isPunch;
+          const width = (isImpact ? 18 : 8) * alpha;
 
           ctx.save();
-          ctx.strokeStyle = isPunch ? punchColor : baseColor;
-          ctx.globalAlpha = alpha * (isPunch ? 0.7 : 0.4);
+          ctx.strokeStyle = isImpact ? 'rgba(255, 245, 230, 0.55)' : 'rgba(210, 225, 240, 0.38)';
+          ctx.globalAlpha = alpha * (isImpact ? 0.75 : 0.5);
           ctx.lineWidth = width;
           ctx.lineCap = 'round';
-          ctx.shadowColor = isPunch ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.4)';
-          ctx.shadowBlur = blur;
+          ctx.shadowColor = isImpact ? 'rgba(255, 255, 255, 0.65)' : 'rgba(200, 220, 255, 0.45)';
+          ctx.shadowBlur = isImpact ? 16 : 10;
           ctx.beginPath();
           ctx.moveTo(a.x * w, a.y * h);
           ctx.lineTo(b.x * w, b.y * h);
           ctx.stroke();
           ctx.restore();
 
-          // Slug blob at punch points
-          if (isPunch) {
+          if (!isImpact) {
             ctx.save();
-            ctx.fillStyle = 'rgba(20, 10, 5, 0.55)';
-            ctx.globalAlpha = alpha * 0.6;
+            ctx.fillStyle = 'rgba(235, 245, 255, 0.28)';
+            ctx.globalAlpha = alpha * 0.35;
             ctx.beginPath();
-            ctx.ellipse(b.x * w, b.y * h, width * 0.8, width * 0.5, 0, 0, Math.PI * 2);
+            ctx.arc(b.x * w, b.y * h, width * 0.55, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          } else {
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 250, 240, 0.45)';
+            ctx.globalAlpha = alpha * 0.5;
+            ctx.beginPath();
+            ctx.arc(b.x * w, b.y * h, width * 0.9, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
           }
         }
       };
 
-      drawTrail(left, 'rgba(80, 40, 20, 0.5)', 'rgba(30, 15, 5, 0.85)');
-      drawTrail(right, 'rgba(80, 40, 20, 0.5)', 'rgba(30, 15, 5, 0.85)');
+      drawTrail(left);
+      drawTrail(right);
 
       frame = requestAnimationFrame(draw);
     };

@@ -14,11 +14,14 @@ export const GRID_BOTTOM_Y = 1;
 
 export const PLAYABLE_HEIGHT = GRID_BOTTOM_Y - GRID_TOP_Y;
 
-/** Right glove centre cannot enter column 0. */
-export const RIGHT_GLOVE_MIN_X = 0.3;
+/** Screen midpoint — touch left half controls left glove, right half controls right. */
+export const SCREEN_MID_X = 0.5;
 
-/** Left glove centre stays in columns 0–2. */
-export const LEFT_GLOVE_MAX_X = 0.7;
+/** Right glove centre stays in right half (columns 2–3). */
+export const RIGHT_GLOVE_MIN_X = SCREEN_MID_X;
+
+/** Left glove centre stays in left half (columns 0–1). */
+export const LEFT_GLOVE_MAX_X = SCREEN_MID_X;
 
 export interface GridCell {
   row: number;
@@ -63,6 +66,10 @@ export function clampLeftGlovePosition(pos: GlovePosition): GlovePosition {
     x: Math.max(0, Math.min(LEFT_GLOVE_MAX_X, pos.x)),
     y: clampY(pos.y),
   };
+}
+
+export function gloveFromScreenX(x: number): 'left' | 'right' {
+  return x < SCREEN_MID_X ? 'left' : 'right';
 }
 
 export function clampGlovePosition(side: 'left' | 'right', pos: GlovePosition): GlovePosition {
