@@ -150,8 +150,8 @@ export function solveBoxerPose(
   const sw = BODY_SCALE.stanceHalfWidth;
   const leftHip: Vec2 = { x: pelvis.x - sw - weightShift, y: pelvis.y };
   const rightHip: Vec2 = { x: pelvis.x + sw + weightShift, y: pelvis.y };
-  const leftFoot: Vec2 = { x: leftHip.x - 0.018 * S, y: BODY_SCALE.footY };
-  const rightFoot: Vec2 = { x: rightHip.x + 0.018 * S, y: BODY_SCALE.footY };
+  const leftFoot: Vec2 = { x: leftHip.x - 0.01 * S, y: BODY_SCALE.footY - 0.014 };
+  const rightFoot: Vec2 = { x: rightHip.x + 0.024 * S, y: BODY_SCALE.footY };
 
   const shw = BODY_SCALE.shoulderHalfWidth;
   const leftShoulderBase: Vec2 = {

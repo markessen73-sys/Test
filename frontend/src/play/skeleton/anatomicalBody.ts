@@ -2,6 +2,10 @@ import type { ArmChain, BoxerSkeletonPose, LegChain, Vec2 } from './types';
 import { BODY_SCALE, HEAD_WIDTH } from './types';
 
 const M = BODY_SCALE.muscleScale;
+const FILL = 0.35;
+const FILL_SOFT = 0.28;
+const OUTLINE = 0.72;
+const MUSCLE_LINE = 0.38;
 
 function lerp(a: Vec2, b: Vec2, t: number): Vec2 {
   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
@@ -11,46 +15,35 @@ function px(p: Vec2, w: number, h: number): Vec2 {
   return { x: p.x * w, y: p.y * h };
 }
 
-/** Stack soft elliptical muscle volumes along a bone segment. */
-function drawMuscleAlongBone(
-  ctx: CanvasRenderingContext2D,
-  a: Vec2,
-  b: Vec2,
-  w: number,
-  h: number,
-  radiusNorm: number,
-  stretch: number,
-  samples: number,
-  alpha: number,
-  glow: number
-) {
-  const p0 = px(a, w, h);
-  const p1 = px(b, w, h);
-  const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
-  const rx = radiusNorm * w;
-  const ry = radiusNorm * h * stretch;
-
-  for (let i = 0; i <= samples; i++) {
-    const t = i / samples;
-    const x = p0.x + (p1.x - p0.x) * t;
-    const y = p0.y + (p1.y - p0.y) * t;
-    const bulge = 1 + Math.sin(t * Math.PI) * 0.22;
-    ctx.beginPath();
-    ctx.ellipse(x, y, rx * bulge, ry * bulge, angle, 0, Math.PI * 2);
-    const grad = ctx.createRadialGradient(x, y, 0, x, y, rx * bulge);
-    grad.addColorStop(0, `rgba(220, 245, 255, ${alpha})`);
-    grad.addColorStop(0.55, `rgba(170, 220, 255, ${alpha * 0.75})`);
-    grad.addColorStop(1, `rgba(120, 190, 240, ${alpha * 0.15})`);
-    ctx.fillStyle = grad;
-    ctx.shadowColor = `rgba(130, 210, 255, ${glow})`;
-    ctx.shadowBlur = w * 0.014;
-    ctx.fill();
-    ctx.shadowBlur = 0;
-  }
+function fillGhost(ctx: CanvasRenderingContext2D, w: number, alpha = FILL) {
+  const g = ctx.createLinearGradient(0, 0, w, 0);
+  g.addColorStop(0, `rgba(175, 215, 245, ${alpha * 0.9})`);
+  g.addColorStop(0.5, `rgba(210, 235, 255, ${alpha})`);
+  g.addColorStop(1, `rgba(175, 215, 245, ${alpha * 0.9})`);
+  ctx.fillStyle = g;
+  ctx.fill();
 }
 
-/** Muscular capsule between two bones — bicep/tricep bulge on outer edge. */
-function drawMuscleCapsule(
+function strokeGhost(ctx: CanvasRenderingContext2D, w: number, alpha = MUSCLE_LINE, widthMul = 1) {
+  ctx.strokeStyle = `rgba(235, 248, 255, ${alpha})`;
+  ctx.lineWidth = Math.max(1, w * 0.0018 * widthMul);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+}
+
+function strokeOutline(ctx: CanvasRenderingContext2D, w: number) {
+  ctx.strokeStyle = `rgba(255, 255, 255, ${OUTLINE})`;
+  ctx.lineWidth = Math.max(1.5, w * 0.0028);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.shadowColor = 'rgba(200, 235, 255, 0.85)';
+  ctx.shadowBlur = w * 0.012;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+}
+
+function muscleCapsule(
   ctx: CanvasRenderingContext2D,
   a: Vec2,
   b: Vec2,
@@ -58,110 +51,111 @@ function drawMuscleCapsule(
   wEnd: number,
   w: number,
   h: number,
-  outerSide: 1 | -1,
-  bulge = 1.15
+  side: 1 | -1,
+  bulge = 1.12
 ) {
   const p0 = px(a, w, h);
   const p1 = px(b, w, h);
-  const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
-  const perp = angle + (Math.PI / 2) * outerSide;
+  const ang = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+  const perp = ang + (Math.PI / 2) * side;
   const ws = wStart * w;
   const we = wEnd * w;
   const mid = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
   const bulgePt = {
-    x: mid.x + Math.cos(perp) * ws * bulge * 0.55,
-    y: mid.y + Math.sin(perp) * ws * bulge * 0.55,
+    x: mid.x + Math.cos(perp) * ws * bulge * 0.5,
+    y: mid.y + Math.sin(perp) * ws * bulge * 0.5,
   };
-
   const o0a = { x: p0.x + Math.cos(perp) * ws, y: p0.y + Math.sin(perp) * ws };
-  const o0b = { x: p0.x - Math.cos(perp) * ws * 0.75, y: p0.y - Math.sin(perp) * ws * 0.75 };
+  const o0b = { x: p0.x - Math.cos(perp) * ws * 0.72, y: p0.y - Math.sin(perp) * ws * 0.72 };
   const o1a = { x: p1.x + Math.cos(perp) * we, y: p1.y + Math.sin(perp) * we };
-  const o1b = { x: p1.x - Math.cos(perp) * we * 0.75, y: p1.y - Math.sin(perp) * we * 0.75 };
-
+  const o1b = { x: p1.x - Math.cos(perp) * we * 0.72, y: p1.y - Math.sin(perp) * we * 0.72 };
   ctx.beginPath();
   ctx.moveTo(o0a.x, o0a.y);
   ctx.quadraticCurveTo(bulgePt.x, bulgePt.y, o1a.x, o1a.y);
   ctx.lineTo(o1b.x, o1b.y);
-  ctx.quadraticCurveTo(mid.x - Math.cos(perp) * ws * 0.2, mid.y - Math.sin(perp) * ws * 0.2, o0b.x, o0b.y);
+  ctx.quadraticCurveTo(mid.x, mid.y, o0b.x, o0b.y);
   ctx.closePath();
 }
 
-function fillVolume(ctx: CanvasRenderingContext2D, alpha: number, glow: number, w: number) {
-  const grad = ctx.createLinearGradient(0, 0, w, 0);
-  grad.addColorStop(0, `rgba(180, 225, 255, ${alpha * 0.85})`);
-  grad.addColorStop(0.5, `rgba(220, 245, 255, ${alpha})`);
-  grad.addColorStop(1, `rgba(180, 225, 255, ${alpha * 0.85})`);
-  ctx.fillStyle = grad;
-  ctx.shadowColor = `rgba(120, 200, 255, ${glow})`;
-  ctx.shadowBlur = w * 0.02;
-  ctx.fill();
-  ctx.shadowBlur = 0;
+function drawKnee(ctx: CanvasRenderingContext2D, knee: Vec2, side: 'left' | 'right', w: number, h: number) {
+  const k = px(knee, w, h);
+  const sign = side === 'left' ? -1 : 1;
+  ctx.beginPath();
+  ctx.ellipse(k.x + sign * w * 0.006, k.y, w * 0.022 * M, h * 0.016 * M, 0, 0, Math.PI * 2);
+  fillGhost(ctx, w, FILL_SOFT);
+  strokeGhost(ctx, w, 0.3, 0.8);
 }
 
-function strokeDetail(ctx: CanvasRenderingContext2D, w: number, alpha = 0.28) {
-  ctx.strokeStyle = `rgba(200, 235, 255, ${alpha})`;
-  ctx.lineWidth = Math.max(1, w * 0.002);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.stroke();
+function drawAnkle(ctx: CanvasRenderingContext2D, ankle: Vec2, side: 'left' | 'right', w: number, h: number) {
+  const a = px(ankle, w, h);
+  const sign = side === 'left' ? -1 : 1;
+  ctx.beginPath();
+  ctx.ellipse(a.x + sign * w * 0.004, a.y, w * 0.018 * M, h * 0.012 * M, sign * 0.2, 0, Math.PI * 2);
+  fillGhost(ctx, w, FILL_SOFT);
 }
 
-function drawFoot(ctx: CanvasRenderingContext2D, foot: Vec2, side: 'left' | 'right', w: number, h: number) {
+function drawBoxingBoot(
+  ctx: CanvasRenderingContext2D,
+  ankle: Vec2,
+  foot: Vec2,
+  side: 'left' | 'right',
+  w: number,
+  h: number
+) {
   const sign = side === 'left' ? -1 : 1;
   const f = px(foot, w, h);
+
+  // Boot shaft
+  muscleCapsule(ctx, ankle, foot, 0.034, 0.04, w, h, sign as 1 | -1, 1.05);
+  fillGhost(ctx, w, FILL + 0.04);
+
+  // Boot sole
   ctx.beginPath();
-  ctx.ellipse(f.x, f.y - h * 0.008, w * 0.04, h * 0.015, sign * 0.15, 0, Math.PI * 2);
-  fillVolume(ctx, 0.24, 0.32, w);
+  ctx.ellipse(f.x, f.y - h * 0.006, w * 0.044 * M, h * 0.016 * M, sign * 0.12, 0, Math.PI * 2);
+  fillGhost(ctx, w, FILL + 0.06);
+
+  // Heel block
   ctx.beginPath();
-  ctx.ellipse(f.x - sign * w * 0.014, f.y - h * 0.012, w * 0.016, h * 0.011, 0, 0, Math.PI * 2);
-  fillVolume(ctx, 0.2, 0.28, w);
+  ctx.ellipse(f.x - sign * w * 0.016, f.y - h * 0.014, w * 0.018 * M, h * 0.012 * M, 0, 0, Math.PI * 2);
+  fillGhost(ctx, w, FILL_SOFT);
 }
 
-function drawArm(ctx: CanvasRenderingContext2D, arm: ArmChain, side: 'left' | 'right', w: number, h: number) {
-  const out = side === 'left' ? -1 : 1;
-  const { shoulder: s, elbow: e, wrist: wr, hand: hd } = arm;
+function drawBoxingShorts(
+  ctx: CanvasRenderingContext2D,
+  pelvis: Vec2,
+  leftHip: Vec2,
+  rightHip: Vec2,
+  w: number,
+  h: number
+) {
+  const top = px({ x: pelvis.x, y: pelvis.y - 0.008 }, w, h);
+  const hem = px({ x: pelvis.x, y: BODY_SCALE.shortsY }, w, h);
+  const lHip = px(leftHip, w, h);
+  const rHip = px(rightHip, w, h);
+  const lLeg = px({ x: leftHip.x - 0.02 * M, y: BODY_SCALE.shortsY }, w, h);
+  const rLeg = px({ x: rightHip.x + 0.02 * M, y: BODY_SCALE.shortsY }, w, h);
 
-  // Bicep peek on inner upper arm (visible bulk from behind at guard)
-  const biMid = lerp(s, e, 0.38);
-  const bm = px(biMid, w, h);
-  const biAngle = Math.atan2(e.y - s.y, e.x - s.x);
   ctx.beginPath();
-  ctx.ellipse(
-    bm.x - out * w * 0.014,
-    bm.y + h * 0.003,
-    w * 0.028 * M,
-    h * 0.02 * M,
-    biAngle,
-    0,
-    Math.PI * 2
-  );
-  fillVolume(ctx, 0.3, 0.4, w);
+  ctx.moveTo(lHip.x, top.y);
+  ctx.lineTo(rHip.x, top.y);
+  ctx.lineTo(rLeg.x, hem.y);
+  ctx.quadraticCurveTo(hem.x, hem.y + h * 0.012, lLeg.x, hem.y);
+  ctx.closePath();
+  fillGhost(ctx, w, FILL + 0.05);
 
-  // Deltoid — rounded cap
-  const delt = px(s, w, h);
+  // Waistband
   ctx.beginPath();
-  ctx.ellipse(delt.x + out * w * 0.01, delt.y + h * 0.005, w * 0.052, h * 0.036, out * 0.25, 0, Math.PI * 2);
-  fillVolume(ctx, 0.34, 0.46, w);
+  ctx.moveTo(lHip.x, top.y);
+  ctx.lineTo(rHip.x, top.y);
+  strokeGhost(ctx, w, 0.45, 1.2);
 
-  // Upper arm — tricep horseshoe (visible from behind) + bicep bulk
-  drawMuscleAlongBone(ctx, s, e, w, h, 0.048, 1.35, 5, 0.28, 0.38);
-  drawMuscleCapsule(ctx, s, e, 0.056, 0.048, w, h, out as 1 | -1, 1.3);
-  fillVolume(ctx, 0.36, 0.5, w);
-
-  // Forearm — brachioradialis bulk
-  drawMuscleAlongBone(ctx, e, wr, w, h, 0.036, 1.25, 4, 0.26, 0.36);
-  drawMuscleCapsule(ctx, e, wr, 0.042, 0.034, w, h, out as 1 | -1, 1.14);
-  fillVolume(ctx, 0.34, 0.44, w);
-
-  // Wrist → glove cuff (solid connector — never floating)
-  drawMuscleCapsule(ctx, wr, hd, 0.032, 0.026, w, h, out as 1 | -1, 1.05);
-  fillVolume(ctx, 0.42, 0.55, w);
-
-  const cuff = px(hd, w, h);
-  const cuffAngle = Math.atan2(hd.y - wr.y, hd.x - wr.x);
+  // Leg openings
   ctx.beginPath();
-  ctx.ellipse(cuff.x, cuff.y, w * 0.028, h * 0.014, cuffAngle, 0, Math.PI * 2);
-  fillVolume(ctx, 0.45, 0.58, w);
+  ctx.moveTo(lLeg.x, hem.y);
+  ctx.quadraticCurveTo(lHip.x, hem.y - h * 0.008, lHip.x, top.y);
+  ctx.moveTo(rLeg.x, hem.y);
+  ctx.quadraticCurveTo(rHip.x, hem.y - h * 0.008, rHip.x, top.y);
+  strokeGhost(ctx, w, 0.32, 0.9);
 }
 
 function drawLeg(
@@ -171,69 +165,47 @@ function drawLeg(
   w: number,
   h: number
 ) {
-  const out = side === 'left' ? -1 : 1;
+  const sign = side === 'left' ? -1 : 1;
 
-  drawMuscleAlongBone(ctx, leg.hip, leg.knee, w, h, 0.058, 1.4, 5, 0.26, 0.38);
-  drawMuscleCapsule(ctx, leg.hip, leg.knee, 0.068, 0.054, w, h, out as 1 | -1, 1.2);
-  fillVolume(ctx, 0.32, 0.42, w);
-
-  const hamMid = lerp(leg.hip, leg.knee, 0.45);
-  const hm = px(hamMid, w, h);
-  const hk = px(leg.knee, w, h);
+  // Thigh
+  muscleCapsule(ctx, leg.hip, leg.knee, 0.064, 0.052, w, h, sign as 1 | -1, 1.18);
+  fillGhost(ctx, w);
+  const hamMid = lerp(leg.hip, leg.knee, 0.42);
   ctx.beginPath();
-  ctx.moveTo(hm.x - out * w * 0.01, hm.y);
-  ctx.quadraticCurveTo(hk.x - out * w * 0.018, hk.y - h * 0.016, hk.x, hk.y);
-  strokeDetail(ctx, w, 0.18);
+  ctx.moveTo(px(hamMid, w, h).x - sign * w * 0.008, px(hamMid, w, h).y);
+  ctx.quadraticCurveTo(px(leg.knee, w, h).x, px(leg.knee, w, h).y - h * 0.014, px(leg.knee, w, h).x, px(leg.knee, w, h).y);
+  strokeGhost(ctx, w, 0.28);
 
-  drawMuscleAlongBone(ctx, leg.knee, leg.foot, w, h, 0.04, 1.3, 4, 0.24, 0.34);
-  drawMuscleCapsule(ctx, leg.knee, leg.foot, 0.048, 0.036, w, h, out as 1 | -1, 1.12);
-  fillVolume(ctx, 0.3, 0.4, w);
+  drawKnee(ctx, leg.knee, side, w, h);
 
-  const k = px(leg.knee, w, h);
-  const f = px(leg.foot, w, h);
+  // Calf
+  muscleCapsule(ctx, leg.knee, leg.ankle, 0.046, 0.036, w, h, sign as 1 | -1, 1.1);
+  fillGhost(ctx, w, FILL);
   ctx.beginPath();
-  ctx.moveTo(k.x + out * w * 0.014, k.y);
-  ctx.lineTo(f.x + out * w * 0.012, f.y - h * 0.014);
-  strokeDetail(ctx, w, 0.22);
+  ctx.moveTo(px(leg.knee, w, h).x + sign * w * 0.012, px(leg.knee, w, h).y);
+  ctx.lineTo(px(leg.ankle, w, h).x + sign * w * 0.01, px(leg.ankle, w, h).y - h * 0.01);
+  strokeGhost(ctx, w, 0.3);
 
-  drawFoot(ctx, leg.foot, side, w, h);
+  drawAnkle(ctx, leg.ankle, side, w, h);
+  drawBoxingBoot(ctx, leg.ankle, leg.foot, side, w, h);
 }
 
-function drawSmokeWisps(
+function drawShoulderCap(
   ctx: CanvasRenderingContext2D,
-  chest: Vec2,
-  timeMs: number,
+  shoulder: Vec2,
+  side: 'left' | 'right',
   w: number,
   h: number
 ) {
-  const t = timeMs * 0.0004;
-  const c = px(chest, w, h);
-
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-
-  for (let i = 0; i < 8; i++) {
-    const phase = t + i * 1.1;
-    const angle = phase * 0.7 + i * 1.05;
-    const radius = w * (0.16 + (i % 3) * 0.07);
-    const x = c.x + Math.cos(angle) * radius;
-    const y = c.y + h * (0.06 + i * 0.065) + Math.sin(phase * 1.3) * h * 0.025;
-    const r = w * (0.07 + Math.sin(phase) * 0.025);
-
-    const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
-    grad.addColorStop(0, `rgba(160, 225, 255, ${0.06 + Math.sin(phase) * 0.02})`);
-    grad.addColorStop(0.45, 'rgba(110, 200, 255, 0.03)');
-    grad.addColorStop(1, 'rgba(70, 150, 220, 0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.ellipse(x, y, r, r * 0.65, angle * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.restore();
+  const sign = side === 'left' ? -1 : 1;
+  const s = px(shoulder, w, h);
+  ctx.beginPath();
+  ctx.ellipse(s.x + sign * w * 0.01, s.y + h * 0.004, w * 0.05 * M, h * 0.034 * M, sign * 0.22, 0, Math.PI * 2);
+  fillGhost(ctx, w, FILL);
 }
 
-export function drawAnatomicalGhost(
+/** Full body without arms — head through boots */
+export function drawGhostBody(
   ctx: CanvasRenderingContext2D,
   pose: BoxerSkeletonPose,
   width: number,
@@ -241,162 +213,193 @@ export function drawAnatomicalGhost(
 ) {
   const w = width;
   const h = height;
-  const { head, neck, chest, pelvis, spineTwist, leftArm, rightArm, leftLeg, rightLeg, time } = pose;
+  const { head, neck, chest, pelvis, spineTwist, leftArm, rightArm, leftLeg, rightLeg } = pose;
   const cx = chest.x;
   const shL = px(leftArm.shoulder, w, h);
   const shR = px(rightArm.shoulder, w, h);
 
-  // ── Legs ──
+  // ── Legs (full length: thigh → knee → calf → ankle → boot) ──
   drawLeg(ctx, leftLeg, 'left', w, h);
   drawLeg(ctx, rightLeg, 'right', w, h);
 
-  // ── Glutes ──
-  const gluteL = px({ x: pelvis.x - 0.1 * M, y: pelvis.y + 0.012 }, w, h);
-  const gluteR = px({ x: pelvis.x + 0.1 * M, y: pelvis.y + 0.012 }, w, h);
-  const gluteC = px({ x: pelvis.x, y: pelvis.y + 0.058 * M }, w, h);
-  const pelTop = px({ x: pelvis.x, y: pelvis.y - 0.006 }, w, h);
-
+  // ── Glutes / hips ──
+  const gluteL = px({ x: pelvis.x - 0.1 * M, y: pelvis.y + 0.01 }, w, h);
+  const gluteR = px({ x: pelvis.x + 0.1 * M, y: pelvis.y + 0.01 }, w, h);
+  const gluteC = px({ x: pelvis.x, y: pelvis.y + 0.055 * M }, w, h);
+  const pelTop = px({ x: pelvis.x, y: pelvis.y - 0.008 }, w, h);
   ctx.beginPath();
   ctx.moveTo(gluteL.x, gluteL.y);
-  ctx.quadraticCurveTo(gluteC.x - w * 0.028, gluteC.y + h * 0.022, gluteC.x, gluteC.y);
-  ctx.quadraticCurveTo(gluteC.x + w * 0.028, gluteC.y + h * 0.022, gluteR.x, gluteR.y);
-  ctx.quadraticCurveTo(pelTop.x + w * 0.045, pelTop.y, pelTop.x - w * 0.045, pelTop.y);
+  ctx.quadraticCurveTo(gluteC.x - w * 0.026, gluteC.y + h * 0.02, gluteC.x, gluteC.y);
+  ctx.quadraticCurveTo(gluteC.x + w * 0.026, gluteC.y + h * 0.02, gluteR.x, gluteR.y);
+  ctx.quadraticCurveTo(pelTop.x + w * 0.042, pelTop.y, pelTop.x - w * 0.042, pelTop.y);
   ctx.closePath();
-  fillVolume(ctx, 0.28, 0.36, w);
+  fillGhost(ctx, w, FILL);
 
-  // ── Lats — wide V-torso ──
+  // ── Boxing shorts ──
+  drawBoxingShorts(ctx, pelvis, leftLeg.hip, rightLeg.hip, w, h);
+
+  // ── Lats (V-torso) ──
   for (const side of ['left', 'right'] as const) {
     const sign = side === 'left' ? -1 : 1;
     const sh = side === 'left' ? leftArm.shoulder : rightArm.shoulder;
-    const latOuter = { x: cx + sign * 0.26 * M + spineTwist * sign * 0.08, y: chest.y + 0.035 };
-    const waist = { x: pelvis.x + sign * 0.08 * M, y: BODY_SCALE.waistY };
+    const latOuter = { x: cx + sign * 0.25 * M + spineTwist * sign * 0.07, y: chest.y + 0.03 };
+    const waist = { x: pelvis.x + sign * 0.078 * M, y: BODY_SCALE.waistY };
     const pSh = px(sh, w, h);
     const pLat = px(latOuter, w, h);
     const pWaist = px(waist, w, h);
-    const pInner = px({ x: cx + sign * 0.05, y: chest.y + 0.13 }, w, h);
-
+    const pInner = px({ x: cx + sign * 0.048, y: chest.y + 0.12 }, w, h);
     ctx.beginPath();
     ctx.moveTo(pSh.x, pSh.y);
-    ctx.bezierCurveTo(
-      pLat.x, pLat.y - h * 0.02,
-      pLat.x, pLat.y + h * 0.04,
-      pWaist.x, pWaist.y
-    );
-    ctx.quadraticCurveTo(pInner.x, pInner.y, pSh.x + sign * w * -0.03, pSh.y + h * 0.028);
+    ctx.bezierCurveTo(pLat.x, pLat.y - h * 0.018, pLat.x, pLat.y + h * 0.035, pWaist.x, pWaist.y);
+    ctx.quadraticCurveTo(pInner.x, pInner.y, pSh.x + sign * w * -0.028, pSh.y + h * 0.024);
     ctx.closePath();
-    fillVolume(ctx, 0.3, 0.4, w);
+    fillGhost(ctx, w);
   }
 
-  // ── Upper / lower back (erector spinae) ──
+  // ── Back muscles (erector spinae + rhomboids) ──
   const n = px(neck, w, h);
   const c = px(chest, w, h);
   const pel = px(pelvis, w, h);
   ctx.beginPath();
-  ctx.moveTo(n.x - w * 0.034, n.y + h * 0.014);
-  ctx.quadraticCurveTo(c.x - w * 0.048, c.y - h * 0.01, c.x - w * 0.038, c.y + h * 0.07);
-  ctx.lineTo(pel.x - w * 0.024, pel.y - h * 0.028);
-  ctx.lineTo(pel.x + w * 0.024, pel.y - h * 0.028);
-  ctx.lineTo(c.x + w * 0.038, c.y + h * 0.07);
-  ctx.quadraticCurveTo(c.x + w * 0.048, c.y - h * 0.01, n.x + w * 0.034, n.y + h * 0.014);
+  ctx.moveTo(n.x - w * 0.033, n.y + h * 0.012);
+  ctx.quadraticCurveTo(c.x - w * 0.046, c.y - h * 0.012, c.x - w * 0.036, c.y + h * 0.068);
+  ctx.lineTo(pel.x - w * 0.022, pel.y - h * 0.026);
+  ctx.lineTo(pel.x + w * 0.022, pel.y - h * 0.026);
+  ctx.lineTo(c.x + w * 0.036, c.y + h * 0.068);
+  ctx.quadraticCurveTo(c.x + w * 0.046, c.y - h * 0.012, n.x + w * 0.033, n.y + h * 0.012);
   ctx.closePath();
-  fillVolume(ctx, 0.26, 0.34, w);
+  fillGhost(ctx, w, FILL_SOFT);
 
   ctx.beginPath();
-  ctx.moveTo(n.x, n.y + h * 0.02);
-  ctx.lineTo(pel.x + spineTwist * w * 0.05, pel.y - h * 0.038);
-  strokeDetail(ctx, w, 0.32);
+  ctx.moveTo(n.x, n.y + h * 0.018);
+  ctx.lineTo(pel.x + spineTwist * w * 0.048, pel.y - h * 0.036);
+  strokeGhost(ctx, w, 0.35);
 
-  // ── Traps — broad, flowing to neck ──
-  const trapL = px({ x: leftArm.shoulder.x - 0.05, y: neck.y - 0.014 }, w, h);
-  const trapR = px({ x: rightArm.shoulder.x + 0.05, y: neck.y - 0.014 }, w, h);
-  const trapTop = px({ x: neck.x, y: neck.y - 0.032 }, w, h);
+  // ── Traps ──
+  const trapL = px({ x: leftArm.shoulder.x - 0.048, y: neck.y - 0.012 }, w, h);
+  const trapR = px({ x: rightArm.shoulder.x + 0.048, y: neck.y - 0.012 }, w, h);
+  const trapTop = px({ x: neck.x, y: neck.y - 0.03 }, w, h);
   ctx.beginPath();
   ctx.moveTo(trapL.x, trapL.y);
-  ctx.bezierCurveTo(trapTop.x - w * 0.06, trapTop.y - h * 0.01, trapTop.x - w * 0.02, trapTop.y + h * 0.01, trapTop.x, trapTop.y + h * 0.02);
-  ctx.bezierCurveTo(trapTop.x + w * 0.02, trapTop.y + h * 0.01, trapTop.x + w * 0.06, trapTop.y - h * 0.01, trapR.x, trapR.y);
+  ctx.bezierCurveTo(trapTop.x - w * 0.058, trapTop.y - h * 0.008, trapTop.x - w * 0.018, trapTop.y + h * 0.01, trapTop.x, trapTop.y + h * 0.018);
+  ctx.bezierCurveTo(trapTop.x + w * 0.018, trapTop.y + h * 0.01, trapTop.x + w * 0.058, trapTop.y - h * 0.008, trapR.x, trapR.y);
   ctx.quadraticCurveTo(shR.x, shR.y, shL.x, shL.y);
   ctx.closePath();
-  fillVolume(ctx, 0.34, 0.46, w);
+  fillGhost(ctx, w, FILL + 0.02);
 
-  // ── Narrow waist contour ──
-  const waistL = px({ x: pelvis.x - 0.072, y: BODY_SCALE.waistY }, w, h);
-  const waistR = px({ x: pelvis.x + 0.072, y: BODY_SCALE.waistY }, w, h);
+  // ── Waist ──
+  const waistL = px({ x: pelvis.x - 0.07, y: BODY_SCALE.waistY }, w, h);
+  const waistR = px({ x: pelvis.x + 0.07, y: BODY_SCALE.waistY }, w, h);
   ctx.beginPath();
   ctx.moveTo(waistL.x, waistL.y);
-  ctx.quadraticCurveTo(pel.x, waistL.y + h * 0.018, waistR.x, waistR.y);
-  strokeDetail(ctx, w, 0.22);
+  ctx.quadraticCurveTo(pel.x, waistL.y + h * 0.016, waistR.x, waistR.y);
+  strokeGhost(ctx, w, 0.32);
 
   // ── Neck ──
-  const neckBase = px({ x: neck.x, y: neck.y + 0.03 }, w, h);
+  const neckBase = px({ x: neck.x, y: neck.y + 0.028 }, w, h);
   ctx.beginPath();
-  ctx.ellipse(neckBase.x, neckBase.y, w * 0.032, h * 0.022, 0, 0, Math.PI * 2);
-  fillVolume(ctx, 0.28, 0.38, w);
+  ctx.ellipse(neckBase.x, neckBase.y, w * 0.03 * M, h * 0.02 * M, 0, 0, Math.PI * 2);
+  fillGhost(ctx, w, FILL);
 
-  // ── Head (back of skull) ──
+  // ── Head (back, no face) ──
   const hp = px(head, w, h);
   const headTop = px({ x: head.x, y: BODY_SCALE.headTop }, w, h);
   ctx.beginPath();
-  ctx.ellipse(hp.x, (hp.y + headTop.y) / 2, w * HEAD_WIDTH * 0.56, h * 0.046, 0, 0, Math.PI * 2);
-  fillVolume(ctx, 0.32, 0.42, w);
+  ctx.ellipse(hp.x, (hp.y + headTop.y) / 2, w * HEAD_WIDTH * 0.55, h * 0.044 * M, 0, 0, Math.PI * 2);
+  fillGhost(ctx, w, FILL);
   ctx.beginPath();
-  ctx.ellipse(hp.x, hp.y - h * 0.01, w * 0.03, h * 0.024, 0, 0, Math.PI * 2);
-  fillVolume(ctx, 0.24, 0.32, w);
+  ctx.ellipse(hp.x, hp.y - h * 0.01, w * 0.028 * M, h * 0.022 * M, 0, 0, Math.PI * 2);
+  fillGhost(ctx, w, FILL_SOFT);
 
-  // ── Arms (shoulder → glove cuff) ──
-  drawArm(ctx, leftArm, 'left', w, h);
-  drawArm(ctx, rightArm, 'right', w, h);
+  // ── Shoulder caps (deltoids, no arm segments) ──
+  drawShoulderCap(ctx, leftArm.shoulder, 'left', w, h);
+  drawShoulderCap(ctx, rightArm.shoulder, 'right', w, h);
 
-  // ── Anatomical detail strokes ──
+  // ── Muscle contour lines ──
   ctx.beginPath();
-  ctx.moveTo(n.x - w * 0.03, n.y);
+  ctx.moveTo(n.x - w * 0.028, n.y);
   ctx.lineTo(trapL.x, trapL.y);
-  ctx.moveTo(n.x + w * 0.03, n.y);
+  ctx.moveTo(n.x + w * 0.028, n.y);
   ctx.lineTo(trapR.x, trapR.y);
-
   for (const side of [-1, 1] as const) {
-    const latY = px({ x: cx + side * 0.2, y: chest.y + 0.1 }, w, h);
-    const waistP = px({ x: pelvis.x + side * 0.07, y: BODY_SCALE.waistY }, w, h);
-    const midLat = px({ x: cx + side * 0.12, y: chest.y + 0.16 }, w, h);
+    const latY = px({ x: cx + side * 0.19, y: chest.y + 0.09 }, w, h);
+    const waistP = px({ x: pelvis.x + side * 0.068, y: BODY_SCALE.waistY }, w, h);
+    const midLat = px({ x: cx + side * 0.11, y: chest.y + 0.15 }, w, h);
     ctx.moveTo(latY.x, latY.y);
     ctx.quadraticCurveTo(midLat.x, midLat.y, waistP.x, waistP.y);
   }
+  strokeGhost(ctx, w, 0.28);
 
-  for (const arm of [leftArm, rightArm]) {
-    const mid = lerp(arm.shoulder, arm.elbow, 0.5);
-    const m = px(mid, w, h);
-    const e = px(arm.elbow, w, h);
-    ctx.moveTo(m.x, m.y);
-    ctx.lineTo(e.x, e.y);
-  }
-
-  ctx.moveTo(shL.x + w * 0.012, shL.y + h * 0.022);
-  ctx.lineTo(px({ x: chest.x - 0.045, y: chest.y + 0.045 }, w, h).x, px({ x: chest.x - 0.045, y: chest.y + 0.045 }, w, h).y);
-  ctx.moveTo(shR.x - w * 0.012, shR.y + h * 0.022);
-  ctx.lineTo(px({ x: chest.x + 0.045, y: chest.y + 0.045 }, w, h).x, px({ x: chest.x + 0.045, y: chest.y + 0.045 }, w, h).y);
-  strokeDetail(ctx, w, 0.24);
-
-  drawSmokeWisps(ctx, chest, time, w, h);
-
-  // ── Unified outer silhouette (readable human form) ──
+  // ── Full-body white glowing outline ──
+  const lf = px(leftLeg.foot, w, h);
+  const rf = px(rightLeg.foot, w, h);
+  const hd = px(head, w, h);
   ctx.beginPath();
   ctx.moveTo(shL.x, shL.y);
-  ctx.lineTo(px(leftLeg.foot, w, h).x - w * 0.04 * M, px(leftLeg.foot, w, h).y);
-  ctx.lineTo(px(rightLeg.foot, w, h).x + w * 0.04 * M, px(rightLeg.foot, w, h).y);
+  ctx.lineTo(lf.x - w * 0.038 * M, lf.y);
+  ctx.lineTo(rf.x + w * 0.038 * M, rf.y);
   ctx.lineTo(shR.x, shR.y);
-  ctx.quadraticCurveTo(px(head, w, h).x + w * 0.06 * M, px(head, w, h).y, px(head, w, h).x - w * 0.06 * M, px(head, w, h).y);
+  ctx.quadraticCurveTo(hd.x + w * 0.058 * M, hd.y, hd.x - w * 0.058 * M, hd.y);
   ctx.closePath();
-  ctx.strokeStyle = 'rgba(190, 230, 255, 0.12)';
-  ctx.lineWidth = Math.max(1.5, w * 0.003);
-  ctx.stroke();
+  strokeOutline(ctx, w);
+}
 
-  // ── Full-figure halo ──
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-  const glow = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, w * 0.46);
-  glow.addColorStop(0, 'rgba(180, 230, 255, 0.12)');
-  glow.addColorStop(0.55, 'rgba(130, 210, 255, 0.05)');
-  glow.addColorStop(1, 'rgba(90, 170, 230, 0)');
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, h * BODY_SCALE.viewTop, w, h * (1 - BODY_SCALE.viewTop));
-  ctx.restore();
+function drawArmSegment(
+  ctx: CanvasRenderingContext2D,
+  arm: ArmChain,
+  side: 'left' | 'right',
+  w: number,
+  h: number
+) {
+  const sign = side === 'left' ? -1 : 1;
+  const { shoulder: s, elbow: e, wrist: wr, hand: hd } = arm;
+
+  // Bicep (inner bulk)
+  const biMid = lerp(s, e, 0.4);
+  const bm = px(biMid, w, h);
+  const biAng = Math.atan2(e.y - s.y, e.x - s.x);
+  ctx.beginPath();
+  ctx.ellipse(bm.x - sign * w * 0.013, bm.y + h * 0.002, w * 0.026 * M, h * 0.019 * M, biAng, 0, Math.PI * 2);
+  fillGhost(ctx, w, FILL);
+
+  // Tricep (outer — visible from behind)
+  muscleCapsule(ctx, s, e, 0.054, 0.046, w, h, sign as 1 | -1, 1.26);
+  fillGhost(ctx, w, FILL + 0.02);
+
+  // Forearm
+  muscleCapsule(ctx, e, wr, 0.04, 0.032, w, h, sign as 1 | -1, 1.12);
+  fillGhost(ctx, w, FILL);
+
+  // Wrist → glove cuff connector (IK hand target)
+  muscleCapsule(ctx, wr, hd, 0.028, 0.022, w, h, sign as 1 | -1, 1);
+  fillGhost(ctx, w, FILL + 0.04);
+
+  // Arm outline
+  ctx.beginPath();
+  const pts = [s, e, wr, hd].map((p) => px(p, w, h));
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  strokeOutline(ctx, w);
+}
+
+/** Arms layer — upper arm, forearm, wrist; sits above body, below gloves */
+export function drawGhostArms(
+  ctx: CanvasRenderingContext2D,
+  pose: BoxerSkeletonPose,
+  width: number,
+  height: number
+) {
+  drawArmSegment(ctx, pose.leftArm, 'left', width, height);
+  drawArmSegment(ctx, pose.rightArm, 'right', width, height);
+}
+
+/** @deprecated Use drawGhostBody + drawGhostArms */
+export function drawAnatomicalGhost(
+  ctx: CanvasRenderingContext2D,
+  pose: BoxerSkeletonPose,
+  width: number,
+  height: number
+) {
+  drawGhostBody(ctx, pose, width, height);
+  drawGhostArms(ctx, pose, width, height);
 }

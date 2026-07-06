@@ -1,23 +1,18 @@
 import { useEffect, useRef } from 'react';
 import type { BoxerSkeletonPose } from './types';
-import { BODY_SCALE } from './types';
-import { drawAnatomicalGhost } from './anatomicalBody';
+import { drawGhostBody, drawGhostArms } from './anatomicalBody';
 
-interface GhostBodyCanvasProps {
-  pose: BoxerSkeletonPose;
-}
-
-export function GhostBodyCanvas({ pose }: GhostBodyCanvasProps) {
+function useGhostCanvas(pose: BoxerSkeletonPose, draw: typeof drawGhostBody) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const poseRef = useRef(pose);
   poseRef.current = pose;
 
   useEffect(() => {
     let raf = 0;
-    const draw = () => {
+    const loop = () => {
       const canvas = canvasRef.current;
       if (!canvas?.parentElement) {
-        raf = requestAnimationFrame(draw);
+        raf = requestAnimationFrame(loop);
         return;
       }
 
@@ -34,23 +29,24 @@ export function GhostBodyCanvas({ pose }: GhostBodyCanvasProps) {
       if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
+      draw(ctx, p, width, height);
 
-      // Smoky blue backdrop behind the figure
-      const smoke = ctx.createLinearGradient(0, height * BODY_SCALE.viewTop, 0, height);
-      smoke.addColorStop(0, 'rgba(100, 180, 240, 0.04)');
-      smoke.addColorStop(0.5, 'rgba(80, 160, 230, 0.07)');
-      smoke.addColorStop(1, 'rgba(60, 140, 210, 0.1)');
-      ctx.fillStyle = smoke;
-      ctx.fillRect(0, height * BODY_SCALE.viewTop, width, height * (1 - BODY_SCALE.viewTop));
-
-      drawAnatomicalGhost(ctx, p, width, height);
-
-      raf = requestAnimationFrame(draw);
+      raf = requestAnimationFrame(loop);
     };
 
-    raf = requestAnimationFrame(draw);
+    raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [draw]);
 
-  return <canvas ref={canvasRef} className="ghost-body-canvas" aria-hidden />;
+  return canvasRef;
+}
+
+export function GhostBodyCanvas({ pose }: { pose: BoxerSkeletonPose }) {
+  const ref = useGhostCanvas(pose, drawGhostBody);
+  return <canvas ref={ref} className="ghost-body-canvas" aria-hidden />;
+}
+
+export function GhostArmsCanvas({ pose }: { pose: BoxerSkeletonPose }) {
+  const ref = useGhostCanvas(pose, drawGhostArms);
+  return <canvas ref={ref} className="ghost-arms-canvas" aria-hidden />;
 }
