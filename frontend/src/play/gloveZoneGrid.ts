@@ -81,7 +81,23 @@ export function defaultAnchorY(): number {
   return GRID_TOP_Y + PLAYABLE_HEIGHT * 0.5;
 }
 
-/** True when the given point is in the top grid row (heavy bag contact zone). */
-export function isGloveOnPunchBag(pos: GlovePosition): boolean {
-  return positionToGridCell(pos).row === 0;
+/**
+ * Tight screen-normalized zone over the visible heavy bag face.
+ * Glove knuckle (top) must land inside this box to score a hit.
+ */
+export const BAG_HIT_ZONE = {
+  minX: 0.34,
+  maxX: 0.66,
+  minY: GRID_TOP_Y,
+  maxY: 0.34,
+} as const;
+
+/** True when the glove top/knuckle point overlaps the bag on screen. */
+export function isGloveTopOnPunchBag(top: GlovePosition): boolean {
+  return (
+    top.x >= BAG_HIT_ZONE.minX &&
+    top.x <= BAG_HIT_ZONE.maxX &&
+    top.y >= BAG_HIT_ZONE.minY &&
+    top.y <= BAG_HIT_ZONE.maxY
+  );
 }

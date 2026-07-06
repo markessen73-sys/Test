@@ -13,7 +13,7 @@ import {
   clampGlovePosition,
   gloveFromScreenX,
   GRID_TOP_Y,
-  isGloveOnPunchBag,
+  isGloveTopOnPunchBag,
   LEFT_GLOVE_MAX_X,
   leftGloveZoneSrc,
   rightGloveZoneSrc,
@@ -72,7 +72,7 @@ function gloveTopNorm(
   screenH: number
 ): GlovePosition {
   const rad = (aimDeg * Math.PI) / 180;
-  const px = -Math.sin(rad) * TOP_OFFSET_PX;
+  const px = Math.sin(rad) * TOP_OFFSET_PX;
   const py = -Math.cos(rad) * TOP_OFFSET_PX;
   return {
     x: cuffPos.x + px / screenW,
@@ -217,11 +217,11 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
   }, []);
 
   const tryPunchOnRelease = useCallback(
-    (glove: GloveId, releaseSpeed: number, pos: GlovePosition, now: number) => {
+    (glove: GloveId, releaseSpeed: number, topPos: GlovePosition, now: number) => {
       const last = lastPunchRef.current.get(glove) ?? 0;
       if (
         releaseSpeed >= RELEASE_MIN_NORM_SPEED &&
-        isGloveOnPunchBag(pos) &&
+        isGloveTopOnPunchBag(topPos) &&
         now - last > PUNCH_COOLDOWN_MS
       ) {
         lastPunchRef.current.set(glove, now);
