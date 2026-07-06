@@ -9,23 +9,27 @@ export const CUFF_ANCHOR_Y_FRAC = 0.68;
 
 const BOTTOM_DIST_PX = ZONE_GLOVE_H * (1 - CUFF_ANCHOR_Y_FRAC);
 
-/** Knuckle (highest red point) offset from cuff in display pixels, per zone sprite. */
+/**
+ * Pink-tip contact point offset from cuff (display px), per zone sprite.
+ * Calibrated from top red cluster on zone art + user pink markup on
+ * 57a20c7f-157d-4457-bfdc-4ad5b25a8732.png.
+ */
 const KNUCKLE_OFFSET_PX: Record<string, { dx: number; dy: number }> = {
-  'zone-r0-c1': { dx: -4.5, dy: -105.4 },
-  'zone-r0-c2': { dx: 3.4, dy: -105.4 },
-  'zone-r0-c3': { dx: 16.6, dy: -103.2 },
-  'zone-r1-c1': { dx: -3.0, dy: -105.4 },
-  'zone-r1-c2': { dx: 15.7, dy: -103.6 },
-  'zone-r1-c3': { dx: 17.9, dy: -103.6 },
-  'zone-r2-c1': { dx: -7.8, dy: -97.6 },
-  'zone-r2-c2': { dx: -8.6, dy: -98.0 },
-  'zone-r2-c3': { dx: 18.9, dy: -103.6 },
-  'zone-r3-c1': { dx: -7.6, dy: -97.6 },
-  'zone-r3-c2': { dx: -9.6, dy: -99.1 },
-  'zone-r3-c3': { dx: 16.1, dy: -103.6 },
+  'zone-r0-c1': { dx: 2.1, dy: -98.2 },
+  'zone-r0-c2': { dx: 1.9, dy: -97.9 },
+  'zone-r0-c3': { dx: 22.2, dy: -96.1 },
+  'zone-r1-c1': { dx: 2.3, dy: -98.2 },
+  'zone-r1-c2': { dx: 21.5, dy: -96.8 },
+  'zone-r1-c3': { dx: 22.1, dy: -96.5 },
+  'zone-r2-c1': { dx: 10.6, dy: -93.1 },
+  'zone-r2-c2': { dx: 9.9, dy: -93.5 },
+  'zone-r2-c3': { dx: 22.2, dy: -96.4 },
+  'zone-r3-c1': { dx: 10.9, dy: -93.1 },
+  'zone-r3-c2': { dx: 9.5, dy: -94.6 },
+  'zone-r3-c3': { dx: 21.6, dy: -96.3 },
 };
 
-const DEFAULT_KNUCKLE_OFFSET = { dx: 4.0, dy: -102.2 };
+const DEFAULT_KNUCKLE_OFFSET = { dx: 10.0, dy: -96.0 };
 
 function zoneKeyFromSrc(zoneSrc?: string): string | null {
   if (!zoneSrc) return null;
@@ -48,7 +52,7 @@ function rotateLocalOffset(localDx: number, localDy: number, aimDeg: number) {
   };
 }
 
-/** Highest red knuckle point in normalized screen coords. */
+/** Pink knuckle tip in normalized screen coords. */
 export function gloveKnuckleNorm(
   cuffPos: GlovePosition,
   aimDeg: number,

@@ -82,22 +82,31 @@ export function defaultAnchorY(): number {
 }
 
 /**
- * Tight screen-normalized zone over the visible heavy bag face.
- * Glove knuckle (top) must land inside this box to score a hit.
+ * Heavy bag hit zone traced from user annotation
+ * (57a20c7f-157d-4457-bfdc-4ad5b25a8732.png — green outline).
  */
 export const BAG_HIT_ZONE = {
-  minX: 0.34,
-  maxX: 0.66,
-  minY: GRID_TOP_Y,
-  maxY: 0.34,
+  minX: 0.31,
+  maxX: 0.88,
+  minY: 0.25,
+  maxY: 0.46,
 } as const;
 
-/** True when the glove knuckle (highest red point) overlaps the bag on screen. */
+/** Horizontal centre of the green bag outline. */
+export const BAG_HIT_CENTER_X = 0.595;
+
+/** Half-width of green outline at the top (y = minY). */
+export const BAG_HIT_TOP_HALF_WIDTH = 0.29;
+
+/** Half-width reduction from top → bottom of green outline. */
+export const BAG_HIT_WIDTH_TAPER = 0.09;
+
+/** True when the pink knuckle tip lies inside the green bag outline. */
 export function isGloveTopOnPunchBag(knuckle: GlovePosition): boolean {
-  return (
-    knuckle.x >= BAG_HIT_ZONE.minX &&
-    knuckle.x <= BAG_HIT_ZONE.maxX &&
-    knuckle.y >= BAG_HIT_ZONE.minY &&
-    knuckle.y <= BAG_HIT_ZONE.maxY
-  );
+  const { minY, maxY } = BAG_HIT_ZONE;
+  if (knuckle.y < minY || knuckle.y > maxY) return false;
+
+  const t = (knuckle.y - minY) / (maxY - minY);
+  const halfWidth = BAG_HIT_TOP_HALF_WIDTH - BAG_HIT_WIDTH_TAPER * t;
+  return Math.abs(knuckle.x - BAG_HIT_CENTER_X) <= halfWidth;
 }
