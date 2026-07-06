@@ -54,7 +54,41 @@ def strip_cell(im: Image.Image) -> Image.Image:
     bbox = im.getbbox()
     if not bbox:
         return im
-    return im.crop(bbox)
+    return fill_holes(im.crop(bbox))
+
+
+def is_dark_hole(r: int, g: int, b: int, a: int) -> bool:
+    return a > 128 and r < 45 and g < 45 and b < 45
+
+
+def fill_holes(im: Image.Image, passes: int = 6) -> Image.Image:
+    im = im.convert("RGBA")
+    px = im.load()
+    w, h = im.size
+
+    for _ in range(passes):
+        changed = False
+        for y in range(h):
+            for x in range(w):
+                r, g, b, a = px[x, y]
+                if not is_dark_hole(r, g, b, a):
+                    continue
+                neighbors = []
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)):
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < w and 0 <= ny < h:
+                        nr, ng, nb, na = px[nx, ny]
+                        if na > 128 and not is_dark_hole(nr, ng, nb, na):
+                            neighbors.append((nr, ng, nb))
+                if neighbors:
+                    ar = sum(c[0] for c in neighbors) // len(neighbors)
+                    ag = sum(c[1] for c in neighbors) // len(neighbors)
+                    ab = sum(c[2] for c in neighbors) // len(neighbors)
+                    px[x, y] = (ar, ag, ab, 255)
+                    changed = True
+        if not changed:
+            break
+    return im
 
 
 def main() -> None:

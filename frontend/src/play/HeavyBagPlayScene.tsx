@@ -1,19 +1,11 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { createNutBrownLeatherTexture } from './leatherTexture';
+import { getNutBrownLeatherMaps } from './leatherTexture';
 
 const BAG_Z = -3.8;
 
-const LEATHER_MAT = {
-  color: '#8B5A2B',
-  roughness: 0.84,
-  metalness: 0.02,
-} as const;
-
 function PlayHeavyBag() {
-  const leatherMap = useMemo(() => createNutBrownLeatherTexture(), []);
-
-  useEffect(() => () => leatherMap.dispose(), [leatherMap]);
+  const leather = useMemo(() => getNutBrownLeatherMaps(), []);
 
   return (
     <group position={[0, 0, BAG_Z]}>
@@ -23,18 +15,43 @@ function PlayHeavyBag() {
       </mesh>
       <group position={[0, 1.35, 0]}>
         <mesh castShadow receiveShadow>
-          <cylinderGeometry args={[0.42, 0.48, 2.1, 24]} />
-          <meshStandardMaterial map={leatherMap} {...LEATHER_MAT} />
+          <cylinderGeometry args={[0.42, 0.48, 2.1, 32]} />
+          <meshStandardMaterial
+            map={leather.map}
+            roughnessMap={leather.roughnessMap}
+            bumpMap={leather.bumpMap}
+            bumpScale={0.035}
+            color="#ffffff"
+            roughness={0.88}
+            metalness={0.02}
+          />
         </mesh>
         <mesh position={[0, 1.1, 0]}>
-          <cylinderGeometry args={[0.43, 0.43, 0.14, 24]} />
-          <meshStandardMaterial map={leatherMap} color="#6B4423" roughness={0.9} metalness={0.01} />
+          <cylinderGeometry args={[0.43, 0.43, 0.14, 32]} />
+          <meshStandardMaterial
+            map={leather.map}
+            roughnessMap={leather.roughnessMap}
+            bumpMap={leather.bumpMap}
+            bumpScale={0.03}
+            color="#d4b896"
+            roughness={0.92}
+            metalness={0.01}
+          />
         </mesh>
         <mesh position={[0, -1.08, 0]}>
-          <cylinderGeometry args={[0.38, 0.32, 0.16, 24]} />
-          <meshStandardMaterial map={leatherMap} color="#4A2F18" roughness={0.92} metalness={0.01} />
+          <cylinderGeometry args={[0.38, 0.32, 0.16, 32]} />
+          <meshStandardMaterial
+            map={leather.map}
+            roughnessMap={leather.roughnessMap}
+            bumpMap={leather.bumpMap}
+            bumpScale={0.03}
+            color="#8a5c32"
+            roughness={0.95}
+            metalness={0.01}
+          />
         </mesh>
       </group>
+      <pointLight position={[0, 1.5, 0.6]} intensity={12} color="#ffdcb0" distance={5} />
     </group>
   );
 }
@@ -50,10 +67,10 @@ function PlayEnvironment() {
         <planeGeometry args={[12, 7]} />
         <meshStandardMaterial color="#9B4E32" roughness={1} />
       </mesh>
-      <ambientLight intensity={0.45} color="#FFE4B5" />
-      <directionalLight position={[2, 6, 2]} intensity={1} color="#FFD699" castShadow />
-      <pointLight position={[0, 4, 0]} intensity={8} color="#FFE4B5" distance={10} />
-      <fog attach="fog" args={['#1a1208', 4, 14]} />
+      <ambientLight intensity={0.55} color="#FFE4B5" />
+      <directionalLight position={[2, 6, 2]} intensity={1.2} color="#FFD699" castShadow />
+      <pointLight position={[0, 4, 0]} intensity={10} color="#FFE4B5" distance={10} />
+      <fog attach="fog" args={['#1a1208', 5, 16]} />
     </>
   );
 }
