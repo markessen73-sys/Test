@@ -24,6 +24,7 @@ import {
 const TRAIL_MAX = 48;
 const TRAIL_FADE_MS = 520;
 const PUNCH_COOLDOWN_MS = 220;
+const PUNCH_RELEASE_WINDOW_MS = 90;
 const AIM_FOLLOW_SPEED = 0.2;
 const MOVE_AIM_NORM_SPEED = 0.35;
 
@@ -51,6 +52,20 @@ function speedFromHistory(recent: HistPoint[]): number {
   const last = recent[recent.length - 1];
   const dt = last.t - first.t;
   return dt > 0 ? Math.hypot(last.px - first.px, last.py - first.py) / dt : 0;
+}
+
+/** Peak speed (px/s) over upward segments in recent history. */
+function peakUpwardSpeedPx(recent: HistPoint[]): number {
+  let peak = 0;
+  for (let i = 1; i < recent.length; i++) {
+    const dt = recent[i].t - recent[i - 1].t;
+    if (dt <= 0) continue;
+    const dy = recent[i].py - recent[i - 1].py;
+    if (dy >= 0) continue;
+    const dx = recent[i].px - recent[i - 1].px;
+    peak = Math.max(peak, Math.hypot(dx, dy) / dt);
+  }
+  return peak;
 }
 
 function idleWobble(anchor: GlovePosition, side: GloveId, timeMs: number, amp: number): GlovePosition {
@@ -88,13 +103,17 @@ function resolveOverlap(left: GloveBody, right: GloveBody, minDist: number) {
   }
 }
 
+/** Zone art default: glove bottom (100%) points screen-down at 0°. */
+const GLOVE_BOTTOM_BASE_DEG = -90;
+
 function inwardAim(side: GloveId): number {
-  return side === 'left' ? INWARD_GLOVE_TILT : -INWARD_GLOVE_TILT;
+  // Bottom of glove tilts toward screen centre when idle.
+  return side === 'left' ? -INWARD_GLOVE_TILT : INWARD_GLOVE_TILT;
 }
 
-function aimFromVelocity(vx: number, vy: number, side: GloveId): number {
-  const deg = Math.atan2(vy, vx) * (180 / Math.PI) + 90;
-  return side === 'left' ? -deg : deg;
+/** Aim so the bottom of the glove points along the movement vector. */
+function aimFromVelocity(vx: number, vy: number): number {
+  return (Math.atan2(vy, vx) * 180) / Math.PI + GLOVE_BOTTOM_BASE_DEG;
 }
 
 function lerpAngle(current: number, target: number, t: number): number {
@@ -127,8 +146,8 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
 
   const [left, setLeft] = useState<GloveState>(() => makeGlove(GLOVE_ANCHORS.left));
   const [right, setRight] = useState<GloveState>(() => makeGlove(GLOVE_ANCHORS.right));
-  const [leftAim, setLeftAim] = useState(INWARD_GLOVE_TILT);
-  const [rightAim, setRightAim] = useState(-INWARD_GLOVE_TILT);
+  const [leftAim, setLeftAim] = useState(-INWARD_GLOVE_TILT);
+  const [rightAim, setRightAim] = useState(INWARD_GLOVE_TILT);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const bodiesRef = useRef<{ left: GloveBody; right: GloveBody }>({
@@ -142,18 +161,19 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
   const grabbingRef = useRef({ left: false, right: false });
   const historyRef = useRef<Map<number, HistPoint[]>>(new Map());
   const peakSpeedRef = useRef<Map<number, number>>(new Map());
+  const peakUpwardSpeedRef = useRef<Map<number, number>>(new Map());
   const lastPunchRef = useRef<Map<GloveId, number>>(new Map());
   const activeGloveRef = useRef<Map<number, GloveId>>(new Map());
   const lastDragRef = useRef<{ left: GlovePosition; right: GlovePosition }>({
     left: { ...GLOVE_ANCHORS.left },
     right: { ...GLOVE_ANCHORS.right },
   });
-  const aimRef = useRef({ left: INWARD_GLOVE_TILT, right: -INWARD_GLOVE_TILT });
+  const aimRef = useRef({ left: -INWARD_GLOVE_TILT, right: INWARD_GLOVE_TILT });
 
   const tryPunchOnStop = useCallback(
-    (glove: GloveId, peakSpeed: number, now: number) => {
+    (glove: GloveId, upwardSpeed: number, now: number) => {
       const last = lastPunchRef.current.get(glove) ?? 0;
-      if (peakSpeed >= fastSpeedPx && now - last > PUNCH_COOLDOWN_MS) {
+      if (upwardSpeed >= fastSpeedPx && now - last > PUNCH_COOLDOWN_MS) {
         lastPunchRef.current.set(glove, now);
         onPunch(glove);
         return true;
@@ -201,9 +221,7 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
 
         const normSpeed = Math.hypot(body.vx, body.vy);
         const targetAim =
-          normSpeed > MOVE_AIM_NORM_SPEED
-            ? aimFromVelocity(body.vx, body.vy, side)
-            : inwardAim(side);
+          normSpeed > MOVE_AIM_NORM_SPEED ? aimFromVelocity(body.vx, body.vy) : inwardAim(side);
         aimRef.current[side] = lerpAngle(aimRef.current[side], targetAim, AIM_FOLLOW_SPEED);
       }
 
@@ -264,8 +282,11 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
         const recent = hist.filter((h) => h.t > now - 100);
         historyRef.current.set(pointerId, recent);
         const speed = speedFromHistory(recent);
+        const upwardSpeed = peakUpwardSpeedPx(recent);
         const prevPeak = peakSpeedRef.current.get(pointerId) ?? 0;
+        const prevUpPeak = peakUpwardSpeedRef.current.get(pointerId) ?? 0;
         peakSpeedRef.current.set(pointerId, Math.max(prevPeak, speed));
+        peakUpwardSpeedRef.current.set(pointerId, Math.max(prevUpPeak, upwardSpeed));
 
         if (speed >= fastSpeedPx) {
           const point: TrailPoint = { x: pos.x, y: pos.y, t: now, isPunch: false };
@@ -288,6 +309,7 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
       grabbingRef.current[glove] = true;
       activeGloveRef.current.set(e.pointerId, glove);
       peakSpeedRef.current.set(e.pointerId, 0);
+      peakUpwardSpeedRef.current.set(e.pointerId, 0);
       root.setPointerCapture(e.pointerId);
 
       const setter = glove === 'left' ? setLeft : setRight;
@@ -330,9 +352,11 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
       if (!glove || !root) return;
 
       const now = performance.now();
-      const peakSpeed = peakSpeedRef.current.get(e.pointerId) ?? 0;
+      const hist = historyRef.current.get(e.pointerId) ?? [];
+      const releaseHist = hist.filter((h) => h.t > now - PUNCH_RELEASE_WINDOW_MS);
+      const releaseUpwardSpeed = peakUpwardSpeedPx(releaseHist);
       const pos = normFromEvent(e, root);
-      const isPunch = tryPunchOnStop(glove, peakSpeed, now);
+      const isPunch = tryPunchOnStop(glove, releaseUpwardSpeed, now);
 
       if (isPunch) {
         const setter = glove === 'left' ? setLeft : setRight;
@@ -352,6 +376,7 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
       activeGloveRef.current.delete(e.pointerId);
       historyRef.current.delete(e.pointerId);
       peakSpeedRef.current.delete(e.pointerId);
+      peakUpwardSpeedRef.current.delete(e.pointerId);
 
       if (root.hasPointerCapture(e.pointerId)) root.releasePointerCapture(e.pointerId);
     },

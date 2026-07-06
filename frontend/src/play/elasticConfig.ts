@@ -36,8 +36,8 @@ export function speedLevelFromPxPerSec(pxPerSec: number): number {
  * Rotation does not change with elastic stretch (no spinning).
  */
 export const GUARD_GLOVE_POSE: Record<GloveId, GloveTransform> = {
-  left: { rotate: INWARD_GLOVE_TILT, scale: 1, scaleX: -1, skewX: 0, originY: '68%' },
-  right: { rotate: -INWARD_GLOVE_TILT, scale: 1, scaleX: -1, skewX: 0, originY: '68%' },
+  left: { rotate: -INWARD_GLOVE_TILT, scale: 1, scaleX: -1, skewX: 0, originY: '68%' },
+  right: { rotate: INWARD_GLOVE_TILT, scale: 1, scaleX: -1, skewX: 0, originY: '68%' },
 };
 
 /**
