@@ -80,3 +80,8 @@ export function clampGlovePosition(side: 'left' | 'right', pos: GlovePosition): 
 export function defaultAnchorY(): number {
   return GRID_TOP_Y + PLAYABLE_HEIGHT * 0.5;
 }
+
+/** True when glove is in the top grid row (contact zone on the heavy bag). */
+export function isGloveOnPunchBag(pos: GlovePosition): boolean {
+  return positionToGridCell(pos).row === 0;
+}
