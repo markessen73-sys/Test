@@ -1,7 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { GlovePosition } from '../types/game';
 
 const BAG_Z = -3.8;
 
@@ -79,8 +78,6 @@ function PlayScene({ punchImpulse }: { punchImpulse: number }) {
 }
 
 interface HeavyBagPlaySceneProps {
-  leftPos: GlovePosition;
-  rightPos: GlovePosition;
   punchImpulse: number;
 }
 

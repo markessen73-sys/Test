@@ -8,7 +8,7 @@ https://p-5173-pod-<your-pod>.agent.cvm.dev/?_ingress_token=<token>&play=heavy-b
 
 **Verify build:** top-right shows `build <git-sha>`. Hard-refresh (`Ctrl+Shift+R`) if stale.
 
-**What to expect:** Punch-Out–style ghost boxer — semi-transparent body (bag visible through torso), solid red gloves, articulated from-behind guard stance. Reference: `Screenrecorder-2026-07-06-04-15-07-108.mp4` in repo root.
+**What to expect:** Two boxing gloves only (no body). Each glove is anchored by invisible elastic at 25% / 75% screen width, 50% height. Drag and release to feel the bounce-back. Tension: `ELASTIC_TENSION` in `src/play/elasticConfig.ts` (default 50/100).
 
 ## Local dev
 

@@ -47,7 +47,6 @@ function ScreenGlove({
         alt=""
         draggable={false}
         style={{
-          opacity: 0.001,
           transform: imgTransform,
           transformOrigin: `50% ${transform.originY}`,
         }}

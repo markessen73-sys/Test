@@ -1,9 +1,8 @@
 import { useCallback, useState } from 'react';
 import { HeavyBagPlayScene } from './HeavyBagPlayScene';
 import { SlugTrailCanvas } from './SlugTrailCanvas';
-import { SpriteBoxerRig } from './sprite/SpriteBoxerRig';
 import { ScreenGlove } from './ScreenGlove';
-import { useBoxerAnimation } from './useBoxerAnimation';
+import { useElasticGloves } from './useElasticGloves';
 import type { GloveId } from '../types/game';
 
 interface HeavyBagPlayViewProps {
@@ -22,17 +21,8 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
     setTimeout(() => setFlash(null), 300);
   }, []);
 
-  const {
-    skeletonPose,
-    left,
-    right,
-    leftTransform,
-    rightTransform,
-    rootRef,
-    onGloveDown,
-    onRootMove,
-    onRootUp,
-  } = useBoxerAnimation(onPunch);
+  const { left, right, leftTransform, rightTransform, rootRef, onGloveDown, onRootMove, onRootUp } =
+    useElasticGloves(onPunch);
 
   return (
     <div
@@ -43,14 +33,8 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
       onPointerCancel={onRootUp}
     >
       <div className="play-canvas">
-        <HeavyBagPlayScene
-          leftPos={left.position}
-          rightPos={right.position}
-          punchImpulse={punchImpulse}
-        />
+        <HeavyBagPlayScene punchImpulse={punchImpulse} />
       </div>
-
-      <SpriteBoxerRig pose={skeletonPose} />
 
       <SlugTrailCanvas left={left} right={right} />
 
@@ -87,8 +71,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
 
         <footer className="play-bottom">
           <p className="play-hint">
-            Put fingers on the <strong>gloves</strong> — slow drags reposition, <strong>quick flicks</strong>{' '}
-            punch
+            Drag a <strong>glove</strong> — it snaps back on elastic. <strong>Quick flicks</strong> punch.
           </p>
         </footer>
       </div>
