@@ -84,42 +84,31 @@ export function defaultAnchorY(): number {
 /**
  * Heavy bag hit zone traced from user annotation
  * (57a20c7f-157d-4457-bfdc-4ad5b25a8732.png — green outline).
+ * Trapezoid corners: top-left → top-right → bottom-right → bottom-left.
  */
-export const BAG_HIT_ZONE = {
-  minX: 0.31,
-  maxX: 0.88,
-  minY: 0.18,
-  maxY: 0.39,
-} as const;
+export const BAG_HIT_CORNERS: readonly [GlovePosition, GlovePosition, GlovePosition, GlovePosition] = [
+  { x: 0.305, y: 0.18 }, // top left
+  { x: 0.685, y: 0.18 }, // top right
+  { x: 0.695, y: 0.46 }, // bottom right
+  { x: 0.295, y: 0.46 }, // bottom left
+];
 
-/** Horizontal centre of the green bag outline. */
-export const BAG_HIT_CENTER_X = 0.595;
-
-/** Half-width of green outline at the top (y = minY). */
-export const BAG_HIT_TOP_HALF_WIDTH = 0.29;
-
-/** Half-width reduction from top → bottom of green outline. */
-export const BAG_HIT_WIDTH_TAPER = 0.09;
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
 
 /** True when the pink knuckle tip lies inside the green bag outline. */
 export function isGloveTopOnPunchBag(knuckle: GlovePosition): boolean {
-  const { minY, maxY } = BAG_HIT_ZONE;
-  if (knuckle.y < minY || knuckle.y > maxY) return false;
+  const [tl, tr, br, bl] = BAG_HIT_CORNERS;
+  if (knuckle.y < tl.y || knuckle.y > bl.y) return false;
 
-  const t = (knuckle.y - minY) / (maxY - minY);
-  const halfWidth = BAG_HIT_TOP_HALF_WIDTH - BAG_HIT_WIDTH_TAPER * t;
-  return Math.abs(knuckle.x - BAG_HIT_CENTER_X) <= halfWidth;
+  const t = (knuckle.y - tl.y) / (bl.y - tl.y);
+  const leftX = lerp(tl.x, bl.x, t);
+  const rightX = lerp(tr.x, br.x, t);
+  return knuckle.x >= leftX && knuckle.x <= rightX;
 }
 
 /** Normalized polygon tracing the bag hit outline (for debug overlay). */
 export function bagHitZoneOutline(): GlovePosition[] {
-  const { minY, maxY } = BAG_HIT_ZONE;
-  const bottomHalf = BAG_HIT_TOP_HALF_WIDTH - BAG_HIT_WIDTH_TAPER;
-  const cx = BAG_HIT_CENTER_X;
-  return [
-    { x: cx - BAG_HIT_TOP_HALF_WIDTH, y: minY },
-    { x: cx + BAG_HIT_TOP_HALF_WIDTH, y: minY },
-    { x: cx + bottomHalf, y: maxY },
-    { x: cx - bottomHalf, y: maxY },
-  ];
+  return [...BAG_HIT_CORNERS];
 }
