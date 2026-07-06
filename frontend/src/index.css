@@ -1158,7 +1158,15 @@ html, body, #root, .app {
   user-select: none;
   -webkit-user-drag: none;
   image-rendering: auto;
-  transition: transform 0.04s linear, left 0.04s linear, top 0.04s linear;
+}
+
+.bone-segment,
+.bone-child,
+.torso-mount,
+.pelvis-mount,
+.torso-root,
+.torso-spin {
+  pointer-events: none;
 }
 
 .play-gloves-layer {

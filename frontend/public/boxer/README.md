@@ -9,4 +9,4 @@ Layered character art for the Heavy Bag play mode, sliced from `boxer-behind-gua
 | `parts/*.png` | 15 body layers (head → boots) |
 | `reference-game-screen.png` | Target in-game look |
 
-Regenerate parts: `cd frontend && python3 scripts/slice-boxer-parts.py`
+# Regenerate parts: python3 scripts/extract-boxer-parts.py

@@ -14,7 +14,7 @@ https://p-5173-pod-<your-pod>.agent.cvm.dev/?_ingress_token=<token>&play=heavy-b
 
 ```bash
 cd frontend
-python3 scripts/slice-boxer-parts.py   # if parts missing
+python3 scripts/extract-boxer-parts.py   # if parts missing
 npm run build
 npm run dev:fresh
 ```

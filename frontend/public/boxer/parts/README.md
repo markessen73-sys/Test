@@ -1,25 +1,30 @@
 # Boxer sprite parts
 
-Layered character art sliced from `boxer-behind-guard.png` (reference style matches `reference-game-screen.png`).
+Articulated 2D character layers for Heavy Bag play mode — **not** grid tiles.
 
-## Parts
+Each PNG is clipped to an anatomical body-region polygon, background removed, and
+tight-trimmed to the limb silhouette. Parts overlap at joints so seams stay hidden.
 
-| File | Joint pivot |
-|------|-------------|
+## Parts (15)
+
+| Layer | Parent attach |
+|-------|----------------|
+| torso | root (chest anchor) |
 | head | neck |
-| torso | pelvis / chest |
-| pelvis | hips |
+| pelvis | waist |
 | upper-arm-left/right | shoulder |
 | forearm-left/right | elbow |
-| glove-left/right | wrist (visual; touch via ScreenGlove) |
+| glove-left/right | wrist |
 | thigh-left/right | hip |
-| shin-left/right | knee |
+| calf-left/right | knee |
 | boot-left/right | ankle |
 
-## Regenerate parts
+## Regenerate
 
 ```bash
-cd frontend && python3 scripts/slice-boxer-parts.py
+cd frontend && python3 scripts/extract-boxer-parts.py
 ```
 
-IK drives **translate + rotate** only — no procedural body drawing.
+Writes PNGs here plus `src/play/sprite/rigGuardData.ts` with pivot/attach metadata.
+
+IK drives hierarchical **translate + rotate** only — Flash-style skeletal animation.
