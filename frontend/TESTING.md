@@ -2,29 +2,25 @@
 
 ## Quick test link (Heavy Bag play mode)
 
-Append `?play=heavy-bag` to your dev URL to jump straight to the ghost boxer:
-
 ```
 https://p-5173-pod-<your-pod>.agent.cvm.dev/?_ingress_token=<token>&play=heavy-bag
 ```
 
-**Verify build:** top-right of play screen shows `build <git-sha>` (e.g. `build 0c8f6ad`). If the SHA doesn't match the latest commit, hard-refresh (`Ctrl+Shift+R`) or restart the dev server.
+**Verify build:** top-right shows `build <git-sha>`. Hard-refresh (`Ctrl+Shift+R`) if stale.
 
-## Local dev (port 5173)
+**What to expect:** Layered sprite boxer from artwork (not procedural shapes). Put fingers on glove hit areas (invisible overlays) to move arms.
+
+## Local dev
 
 ```bash
 cd frontend
-npm run build          # refresh production bundle too
-npm run dev:fresh      # clears Vite cache, serves latest on :5173
+python3 scripts/slice-boxer-parts.py   # if parts missing
+npm run build
+npm run dev:fresh
 ```
 
-Then open: `http://localhost:5173/?play=heavy-bag`
+Open: `http://localhost:5173/?play=heavy-bag`
 
-## Why you might see an old version
+## Stale server fix
 
-- A **stale Vite process** on port 5173 keeps serving cached modules from an earlier iteration.
-- Fix: kill old node on 5173, run `npm run dev:fresh`, hard-refresh the browser.
-
-## Backend (port 8000)
-
-Serves `frontend/dist` — run `npm run build` in `frontend/` before testing on :8000.
+Kill old Vite on 5173, run `npm run dev:fresh`, hard-refresh.

@@ -1,9 +1,12 @@
-# Boxer shape reference (not used in-game)
+# Boxer sprite assets
 
-These images are **design references only** for the muscular from-behind body shape.
-The play view renders a **see-through SVG ghost** programmatically — it does not display these photos.
+Layered character art for the Heavy Bag play mode, sliced from `boxer-behind-guard.png`.
 
 | File | Reference pose |
 |------|----------------|
-| `boxer-behind-guard.png` | High guard, wide back |
+| `boxer-behind-guard.png` | High guard, wide back (source for sprite parts) |
 | `boxer-behind-relaxed.png` | Arms down |
+| `parts/*.png` | 15 body layers (head → boots) |
+| `reference-game-screen.png` | Target in-game look |
+
+Regenerate parts: `cd frontend && python3 scripts/slice-boxer-parts.py`

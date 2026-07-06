@@ -1142,6 +1142,7 @@ html, body, #root, .app {
 }
 
 .ghost-body-canvas,
+.sprite-boxer-rig,
 .boxer-ghost,
 .ghost-body-overlay {
   position: absolute;
@@ -1150,6 +1151,14 @@ html, body, #root, .app {
   height: 100%;
   pointer-events: none;
   z-index: 2;
+}
+
+.sprite-part {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  image-rendering: auto;
+  transition: transform 0.04s linear, left 0.04s linear, top 0.04s linear;
 }
 
 .play-gloves-layer {
@@ -1178,7 +1187,7 @@ html, body, #root, .app {
   -webkit-user-drag: none;
   pointer-events: none;
   transition: transform 0.04s linear;
-  filter: saturate(1.2) contrast(1.1) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+  opacity: 0.001;
 }
 
 .screen-glove.grabbed {
