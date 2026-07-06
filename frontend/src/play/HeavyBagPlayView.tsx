@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { HeavyBagPlayScene } from './HeavyBagPlayScene';
 import { SlugTrailCanvas } from './SlugTrailCanvas';
+import { HitDebugOverlay } from './HitDebugOverlay';
 import { ScreenGlove } from './ScreenGlove';
 import { useElasticGloves } from './useElasticGloves';
 import { useBuildSha } from '../useBuildSha';
@@ -30,6 +31,8 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
     rightTransform,
     leftZoneSrc,
     rightZoneSrc,
+    leftKnuckle,
+    rightKnuckle,
     rootRef,
     onRootDown,
     onRootMove,
@@ -50,6 +53,8 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
       </div>
 
       <SlugTrailCanvas left={left} right={right} />
+
+      <HitDebugOverlay leftKnuckle={leftKnuckle} rightKnuckle={rightKnuckle} />
 
       <div className="play-gloves-layer">
         <ScreenGlove
@@ -84,8 +89,8 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
 
         <footer className="play-bottom">
           <p className="play-hint">
-            Touch your <strong>half of the screen</strong> to move a glove.{' '}
-            <strong>Upward</strong> drags leave a vapour trail while you hold; <strong>release with the pink knuckle tip inside the green bag zone while moving</strong> to score a hit.
+            White outline = bag hit zone. White dots = knuckle impact points.{' '}
+            <strong>Upward</strong> drags leave a vapour trail while you hold; release with the dot inside the outline while moving to score.
           </p>
         </footer>
       </div>

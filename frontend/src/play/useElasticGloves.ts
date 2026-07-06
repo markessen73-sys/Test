@@ -204,6 +204,20 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
   );
 
   useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const sync = () => syncRootSize(root);
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(root);
+    window.addEventListener('resize', sync);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', sync);
+    };
+  }, [syncRootSize]);
+
+  useEffect(() => {
     let raf = 0;
     let lastT = performance.now();
 
@@ -397,6 +411,10 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
   const leftTransform = gloveVisual(left.position, GLOVE_ANCHORS.left, 'left', true, leftAim);
   const rightTransform = gloveVisual(right.position, GLOVE_ANCHORS.right, 'right', true, rightAim);
 
+  const { width: screenW, height: screenH } = rootSizeRef.current;
+  const leftKnuckle = gloveKnuckleNorm(left.position, leftAim, screenW, screenH, 'left', leftZoneSrc);
+  const rightKnuckle = gloveKnuckleNorm(right.position, rightAim, screenW, screenH, 'right', rightZoneSrc);
+
   return {
     left,
     right,
@@ -404,6 +422,8 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
     rightTransform,
     leftZoneSrc,
     rightZoneSrc,
+    leftKnuckle,
+    rightKnuckle,
     rootRef,
     onRootDown,
     onRootMove,

@@ -110,3 +110,16 @@ export function isGloveTopOnPunchBag(knuckle: GlovePosition): boolean {
   const halfWidth = BAG_HIT_TOP_HALF_WIDTH - BAG_HIT_WIDTH_TAPER * t;
   return Math.abs(knuckle.x - BAG_HIT_CENTER_X) <= halfWidth;
 }
+
+/** Normalized polygon tracing the bag hit outline (for debug overlay). */
+export function bagHitZoneOutline(): GlovePosition[] {
+  const { minY, maxY } = BAG_HIT_ZONE;
+  const bottomHalf = BAG_HIT_TOP_HALF_WIDTH - BAG_HIT_WIDTH_TAPER;
+  const cx = BAG_HIT_CENTER_X;
+  return [
+    { x: cx - BAG_HIT_TOP_HALF_WIDTH, y: minY },
+    { x: cx + BAG_HIT_TOP_HALF_WIDTH, y: minY },
+    { x: cx + bottomHalf, y: maxY },
+    { x: cx - bottomHalf, y: maxY },
+  ];
+}
