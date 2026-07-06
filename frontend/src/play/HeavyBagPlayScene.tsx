@@ -8,6 +8,13 @@ import {
   type BagDent,
   type BagPunchImpact,
 } from './bagImpact';
+import {
+  applyBagHitImpulse,
+  BAG_HANG_OFFSET_Y,
+  BAG_PIVOT_Y,
+  createBagSwingState,
+  stepBagSwing,
+} from './bagSwing';
 
 export const BAG_WORLD_Z = -3.8;
 const BAG_Z = BAG_WORLD_Z;
@@ -66,6 +73,8 @@ function ImpactRing3D({
 
 function PlayHeavyBag({ impacts }: { impacts: BagPunchImpact[] }) {
   const leather = useMemo(() => getNutBrownLeatherMaps(), []);
+  const swingRef = useRef(createBagSwingState());
+  const pivotRef = useRef<THREE.Group>(null);
   const bodyRef = useRef<THREE.Mesh>(null);
   const geometry = useMemo(() => new THREE.CylinderGeometry(0.42, 0.48, 2.1, 40, 20), []);
   const originalPositions = useMemo(
@@ -80,11 +89,15 @@ function PlayHeavyBag({ impacts }: { impacts: BagPunchImpact[] }) {
   const { camera } = useThree();
 
   useEffect(() => {
-    const body = bodyRef.current;
-    if (!body || !impacts.length) return;
+    if (!impacts.length) return;
     const latest = impacts[impacts.length - 1];
     if (latest.id <= lastImpactIdRef.current) return;
     lastImpactIdRef.current = latest.id;
+
+    applyBagHitImpulse(swingRef.current, latest.glove);
+
+    const body = bodyRef.current;
+    if (!body) return;
 
     body.updateWorldMatrix(true, false);
     const hit = raycastBagBodyHit(latest.knuckle, camera, body);
@@ -105,7 +118,11 @@ function PlayHeavyBag({ impacts }: { impacts: BagPunchImpact[] }) {
 
   useFrame((_, delta) => {
     const body = bodyRef.current;
-    if (!body) return;
+    const pivot = pivotRef.current;
+    if (!body || !pivot) return;
+
+    stepBagSwing(swingRef.current, delta);
+    pivot.rotation.z = swingRef.current.angle;
 
     const dents = dentsRef.current;
     for (let i = dents.length - 1; i >= 0; i--) {
@@ -118,57 +135,63 @@ function PlayHeavyBag({ impacts }: { impacts: BagPunchImpact[] }) {
 
   return (
     <group position={[0, 0, BAG_Z]}>
-      <mesh position={[0, 3.2, 0]}>
-        <cylinderGeometry args={[0.02, 0.02, 0.6, 6]} />
-        <meshStandardMaterial color="#444" metalness={0.5} />
+      <mesh position={[0, 3.85, 0]}>
+        <boxGeometry args={[0.12, 0.08, 0.12]} />
+        <meshStandardMaterial color="#333" metalness={0.4} />
       </mesh>
-      <group position={[0, 1.35, 0]}>
-        <mesh ref={bodyRef} castShadow receiveShadow geometry={geometry}>
-          <meshStandardMaterial
-            map={leather.map}
-            roughnessMap={leather.roughnessMap}
-            bumpMap={leather.bumpMap}
-            bumpScale={0.035}
-            color="#ffffff"
-            roughness={0.88}
-            metalness={0.02}
-          />
+      <group ref={pivotRef} position={[0, BAG_PIVOT_Y, 0]}>
+        <mesh position={[0, 0.2, 0]}>
+          <cylinderGeometry args={[0.02, 0.02, 0.4, 6]} />
+          <meshStandardMaterial color="#444" metalness={0.5} />
         </mesh>
-        <mesh position={[0, 1.1, 0]}>
-          <cylinderGeometry args={[0.43, 0.43, 0.14, 32]} />
-          <meshStandardMaterial
-            map={leather.map}
-            roughnessMap={leather.roughnessMap}
-            bumpMap={leather.bumpMap}
-            bumpScale={0.03}
-            color="#d4b896"
-            roughness={0.92}
-            metalness={0.01}
-          />
-        </mesh>
-        <mesh position={[0, -1.08, 0]}>
-          <cylinderGeometry args={[0.38, 0.32, 0.16, 32]} />
-          <meshStandardMaterial
-            map={leather.map}
-            roughnessMap={leather.roughnessMap}
-            bumpMap={leather.bumpMap}
-            bumpScale={0.03}
-            color="#8a5c32"
-            roughness={0.95}
-            metalness={0.01}
-          />
-        </mesh>
-        {activeRings.map((ring) => (
-          <ImpactRing3D
-            key={ring.id}
-            point={ring.point}
-            normal={ring.normal}
-            startTime={ring.time}
-            onDone={() => setActiveRings((prev) => prev.filter((r) => r.id !== ring.id))}
-          />
-        ))}
+        <group position={[0, BAG_HANG_OFFSET_Y, 0]}>
+          <mesh ref={bodyRef} castShadow receiveShadow geometry={geometry}>
+            <meshStandardMaterial
+              map={leather.map}
+              roughnessMap={leather.roughnessMap}
+              bumpMap={leather.bumpMap}
+              bumpScale={0.035}
+              color="#ffffff"
+              roughness={0.88}
+              metalness={0.02}
+            />
+          </mesh>
+          <mesh position={[0, 1.1, 0]}>
+            <cylinderGeometry args={[0.43, 0.43, 0.14, 32]} />
+            <meshStandardMaterial
+              map={leather.map}
+              roughnessMap={leather.roughnessMap}
+              bumpMap={leather.bumpMap}
+              bumpScale={0.03}
+              color="#d4b896"
+              roughness={0.92}
+              metalness={0.01}
+            />
+          </mesh>
+          <mesh position={[0, -1.08, 0]}>
+            <cylinderGeometry args={[0.38, 0.32, 0.16, 32]} />
+            <meshStandardMaterial
+              map={leather.map}
+              roughnessMap={leather.roughnessMap}
+              bumpMap={leather.bumpMap}
+              bumpScale={0.03}
+              color="#8a5c32"
+              roughness={0.95}
+              metalness={0.01}
+            />
+          </mesh>
+          {activeRings.map((ring) => (
+            <ImpactRing3D
+              key={ring.id}
+              point={ring.point}
+              normal={ring.normal}
+              startTime={ring.time}
+              onDone={() => setActiveRings((prev) => prev.filter((r) => r.id !== ring.id))}
+            />
+          ))}
+          <pointLight position={[0, 1.5, 0.6]} intensity={12} color="#ffdcb0" distance={5} />
+        </group>
       </group>
-      <pointLight position={[0, 1.5, 0.6]} intensity={12} color="#ffdcb0" distance={5} />
     </group>
   );
 }
