@@ -21,8 +21,18 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
     setTimeout(() => setFlash(null), 300);
   }, []);
 
-  const { left, right, leftTransform, rightTransform, rightZoneSrc, rootRef, onGloveDown, onRootMove, onRootUp } =
-    useElasticGloves(onPunch);
+  const {
+    left,
+    right,
+    leftTransform,
+    rightTransform,
+    leftZoneSrc,
+    rightZoneSrc,
+    rootRef,
+    onGloveDown,
+    onRootMove,
+    onRootUp,
+  } = useElasticGloves(onPunch);
 
   return (
     <div
@@ -44,6 +54,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           position={left.position}
           grabbed={left.pointerId !== null}
           transform={leftTransform}
+          zoneSrc={leftZoneSrc}
           onPointerDown={onGloveDown('left')}
         />
         <ScreenGlove

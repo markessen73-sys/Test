@@ -7,17 +7,20 @@ const anchorY = defaultAnchorY();
 
 /** Anchor midway left↔centre and right↔centre, vertically centred in playable grid. */
 export const GLOVE_ANCHORS: Record<'left' | 'right', GlovePosition> = {
-  left: { x: 0.25, y: anchorY },
-  right: { x: 0.75, y: anchorY },
+  left: { x: 0.34, y: anchorY },
+  right: { x: 0.66, y: anchorY },
 };
 
+/** Fixed inward tilt (degrees) — knuckles angle toward centre, not outward. */
+export const INWARD_GLOVE_TILT = 14;
+
 /**
- * Fixed guard orientation — knuckles up, thumbs toward player, angled slightly inward.
+ * Fixed guard orientation for SVG fallback — knuckles up, angled slightly inward.
  * Rotation does not change with elastic stretch (no spinning).
  */
 export const GUARD_GLOVE_POSE: Record<GloveId, GloveTransform> = {
-  left: { rotate: 20, scale: 1, scaleX: -1, skewX: 0, originY: '68%' },
-  right: { rotate: -20, scale: 1, scaleX: -1, skewX: 0, originY: '68%' },
+  left: { rotate: INWARD_GLOVE_TILT, scale: 1, scaleX: -1, skewX: 0, originY: '68%' },
+  right: { rotate: -INWARD_GLOVE_TILT, scale: 1, scaleX: -1, skewX: 0, originY: '68%' },
 };
 
 /**
@@ -27,7 +30,7 @@ export const GUARD_GLOVE_POSE: Record<GloveId, GloveTransform> = {
 export const ELASTIC_TENSION = 50;
 
 /** Minimum centre-to-centre distance so gloves never overlap (normalized screen). */
-export const GLOVE_MIN_SEPARATION = 0.2;
+export const GLOVE_MIN_SEPARATION = 0.18;
 
 export function springFromTension(tension: number) {
   const t = Math.max(0, Math.min(100, tension)) / 100;

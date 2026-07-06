@@ -6,12 +6,14 @@ import {
   GLOVE_ANCHORS,
   GLOVE_MIN_SEPARATION,
   GUARD_GLOVE_POSE,
+  INWARD_GLOVE_TILT,
   springFromTension,
 } from './elasticConfig';
 import {
   clampGlovePosition,
   GRID_TOP_Y,
   LEFT_GLOVE_MAX_X,
+  leftGloveZoneSrc,
   rightGloveZoneSrc,
   RIGHT_GLOVE_MIN_X,
 } from './gloveZoneGrid';
@@ -83,10 +85,11 @@ function resolveOverlap(left: GloveBody, right: GloveBody, minDist: number) {
   }
 }
 
-function gloveVisual(pos: GlovePosition, anchor: GlovePosition, side: GloveId): GloveTransform {
+function gloveVisual(pos: GlovePosition, anchor: GlovePosition, side: GloveId, zoneArt: boolean): GloveTransform {
   const stretch = Math.hypot(pos.x - anchor.x, pos.y - anchor.y);
-  if (side === 'right') {
-    return { rotate: 0, scale: 1 + stretch * 0.06, scaleX: 1, skewX: 0, originY: '68%' };
+  if (zoneArt) {
+    const tilt = side === 'left' ? INWARD_GLOVE_TILT : -INWARD_GLOVE_TILT;
+    return { rotate: tilt, scale: 1 + stretch * 0.06, scaleX: 1, skewX: 0, originY: '68%' };
   }
   const guard = GUARD_GLOVE_POSE[side];
   return {
@@ -300,15 +303,17 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
     [tryPunch]
   );
 
-  const leftTransform = gloveVisual(left.position, GLOVE_ANCHORS.left, 'left');
-  const rightTransform = gloveVisual(right.position, GLOVE_ANCHORS.right, 'right');
+  const leftZoneSrc = leftGloveZoneSrc(left.position);
   const rightZoneSrc = rightGloveZoneSrc(right.position);
+  const leftTransform = gloveVisual(left.position, GLOVE_ANCHORS.left, 'left', true);
+  const rightTransform = gloveVisual(right.position, GLOVE_ANCHORS.right, 'right', true);
 
   return {
     left,
     right,
     leftTransform,
     rightTransform,
+    leftZoneSrc,
     rightZoneSrc,
     rootRef,
     onGloveDown,

@@ -24,7 +24,13 @@ function ScreenGlove({
   const useZoneArt = Boolean(zoneSrc);
 
   const imgTransform = useZoneArt
-    ? `scale(${transform.scale})`
+    ? [
+        side === 'left' ? 'scaleX(-1)' : null,
+        `scale(${transform.scale})`,
+        `rotate(${transform.rotate}deg)`,
+      ]
+        .filter(Boolean)
+        .join(' ')
     : [
         `scale(${transform.scaleX * transform.scale}, ${transform.scale})`,
         `rotate(${transform.rotate}deg)`,

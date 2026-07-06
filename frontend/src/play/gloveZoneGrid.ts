@@ -14,11 +14,11 @@ export const GRID_BOTTOM_Y = 1;
 
 export const PLAYABLE_HEIGHT = GRID_BOTTOM_Y - GRID_TOP_Y;
 
-/** Right glove centre cannot enter column 0 (x < 0.25). */
-export const RIGHT_GLOVE_MIN_X = 0.25;
+/** Right glove centre cannot enter column 0. */
+export const RIGHT_GLOVE_MIN_X = 0.3;
 
 /** Left glove centre stays in columns 0–2. */
-export const LEFT_GLOVE_MAX_X = 0.75;
+export const LEFT_GLOVE_MAX_X = 0.7;
 
 export interface GridCell {
   row: number;
@@ -37,6 +37,13 @@ export function positionToGridCell(pos: GlovePosition): GridCell {
 export function rightGloveZoneSrc(pos: GlovePosition): string {
   const { row, col } = positionToGridCell(pos);
   const zoneCol = Math.max(1, Math.min(3, col));
+  return `/gloves/right-zones/zone-r${row}-c${zoneCol}.png`;
+}
+
+/** Left glove reuses right zone art, mirrored horizontally (col 0→c3, col 2→c1). */
+export function leftGloveZoneSrc(pos: GlovePosition): string {
+  const { row, col } = positionToGridCell(pos);
+  const zoneCol = Math.max(1, Math.min(3, 3 - col));
   return `/gloves/right-zones/zone-r${row}-c${zoneCol}.png`;
 }
 
