@@ -6,7 +6,7 @@
 https://p-5173-pod-<your-pod>.agent.cvm.dev/?_ingress_token=<token>&play=heavy-bag
 ```
 
-**Verify build:** top-right shows `build <git-sha>`. Hard-refresh (`Ctrl+Shift+R`) if stale.
+**Verify build:** top-right shows `build <git-sha>` (fetched live from `/build-info.json`). Hard-refresh (`Ctrl+Shift+R`) if stale. If the SHA is old, restart dev: `npm run dev:fresh`.
 
 **What to expect:** Two boxing gloves only (no body). Each glove is anchored by invisible elastic at 25% / 75% screen width, 50% height. Drag and release to feel the bounce-back. Tension: `ELASTIC_TENSION` in `src/play/elasticConfig.ts` (default 50/100).
 

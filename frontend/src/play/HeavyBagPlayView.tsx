@@ -3,6 +3,7 @@ import { HeavyBagPlayScene } from './HeavyBagPlayScene';
 import { SlugTrailCanvas } from './SlugTrailCanvas';
 import { ScreenGlove } from './ScreenGlove';
 import { useElasticGloves } from './useElasticGloves';
+import { useBuildSha } from '../useBuildSha';
 import type { GloveId } from '../types/game';
 
 interface HeavyBagPlayViewProps {
@@ -10,6 +11,7 @@ interface HeavyBagPlayViewProps {
 }
 
 export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
+  const buildSha = useBuildSha(__APP_GIT_SHA__);
   const [punchCount, setPunchCount] = useState(0);
   const [punchImpulse, setPunchImpulse] = useState(0);
   const [flash, setFlash] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           <span className="play-title">🎯 Heavy Bag</span>
           <span className="play-punch-count">{punchCount} punches</span>
           <span className="play-build-tag" title="Build ID — confirms you have the latest code">
-            build {__APP_GIT_SHA__}
+            build {buildSha}
           </span>
         </header>
 
