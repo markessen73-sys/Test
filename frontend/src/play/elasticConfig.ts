@@ -7,8 +7,8 @@ const anchorY = defaultAnchorY();
 
 /** Anchor midway left↔centre and right↔centre, vertically centred in playable grid. */
 export const GLOVE_ANCHORS: Record<'left' | 'right', GlovePosition> = {
-  left: { x: 0.34, y: anchorY },
-  right: { x: 0.66, y: anchorY },
+  left: { x: 0.4, y: anchorY },
+  right: { x: 0.6, y: anchorY },
 };
 
 /** Fixed inward tilt (degrees) — knuckles angle toward centre when idle. */
@@ -47,7 +47,7 @@ export const GUARD_GLOVE_POSE: Record<GloveId, GloveTransform> = {
 export const ELASTIC_TENSION = 50;
 
 /** Minimum centre-to-centre distance so gloves never overlap (normalized screen). */
-export const GLOVE_MIN_SEPARATION = 0.18;
+export const GLOVE_MIN_SEPARATION = 0.15;
 
 export function springFromTension(tension: number) {
   const t = Math.max(0, Math.min(100, tension)) / 100;

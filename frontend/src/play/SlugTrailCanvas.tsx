@@ -6,6 +6,8 @@ interface SlugTrailCanvasProps {
   right: GloveState;
 }
 
+const DEFAULT_TRAIL_WIDTH_NORM = 0.14;
+
 export function SlugTrailCanvas({ left, right }: SlugTrailCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -27,18 +29,19 @@ export function SlugTrailCanvas({ left, right }: SlugTrailCanvasProps) {
 
         const now = performance.now();
 
-        // Wisp at the newest point (bottom of glove)
         const tip = pts[pts.length - 1];
         const tipAge = (now - tip.t) / 520;
         const tipAlpha = Math.max(0, 1 - tipAge);
         if (tipAlpha > 0) {
+          const tipW = (tip.width ?? DEFAULT_TRAIL_WIDTH_NORM) * w * tipAlpha;
+          const tipRad = ((tip.angle ?? 0) * Math.PI) / 180;
           ctx.save();
-          ctx.fillStyle = tip.isPunch ? 'rgba(255, 250, 235, 0.55)' : 'rgba(220, 235, 255, 0.42)';
-          ctx.globalAlpha = tipAlpha * 0.65;
-          ctx.shadowColor = 'rgba(200, 225, 255, 0.55)';
+          ctx.fillStyle = tip.isPunch ? 'rgba(255, 250, 235, 0.55)' : 'rgba(220, 235, 255, 0.4)';
+          ctx.globalAlpha = tipAlpha * 0.6;
+          ctx.shadowColor = 'rgba(200, 225, 255, 0.5)';
           ctx.shadowBlur = tip.isPunch ? 18 : 12;
           ctx.beginPath();
-          ctx.arc(tip.x * w, tip.y * h, (tip.isPunch ? 14 : 9) * tipAlpha, 0, Math.PI * 2);
+          ctx.ellipse(tip.x * w, tip.y * h, tipW * 0.5, tipW * 0.22, tipRad, 0, Math.PI * 2);
           ctx.fill();
           ctx.restore();
         }
@@ -53,38 +56,21 @@ export function SlugTrailCanvas({ left, right }: SlugTrailCanvasProps) {
           if (alpha <= 0) continue;
 
           const isImpact = b.isPunch || a.isPunch;
-          const width = (isImpact ? 18 : 8) * alpha;
+          const segW = ((a.width ?? DEFAULT_TRAIL_WIDTH_NORM) + (b.width ?? DEFAULT_TRAIL_WIDTH_NORM)) * 0.5 * w * alpha;
 
           ctx.save();
-          ctx.strokeStyle = isImpact ? 'rgba(255, 245, 230, 0.55)' : 'rgba(210, 225, 240, 0.38)';
-          ctx.globalAlpha = alpha * (isImpact ? 0.75 : 0.5);
-          ctx.lineWidth = width;
+          ctx.strokeStyle = isImpact ? 'rgba(255, 245, 230, 0.55)' : 'rgba(210, 225, 240, 0.36)';
+          ctx.globalAlpha = alpha * (isImpact ? 0.75 : 0.48);
+          ctx.lineWidth = Math.max(6, segW);
           ctx.lineCap = 'round';
-          ctx.shadowColor = isImpact ? 'rgba(255, 255, 255, 0.65)' : 'rgba(200, 220, 255, 0.45)';
+          ctx.lineJoin = 'round';
+          ctx.shadowColor = isImpact ? 'rgba(255, 255, 255, 0.65)' : 'rgba(200, 220, 255, 0.4)';
           ctx.shadowBlur = isImpact ? 16 : 10;
           ctx.beginPath();
           ctx.moveTo(a.x * w, a.y * h);
           ctx.lineTo(b.x * w, b.y * h);
           ctx.stroke();
           ctx.restore();
-
-          if (!isImpact) {
-            ctx.save();
-            ctx.fillStyle = 'rgba(235, 245, 255, 0.28)';
-            ctx.globalAlpha = alpha * 0.35;
-            ctx.beginPath();
-            ctx.arc(b.x * w, b.y * h, width * 0.55, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-          } else {
-            ctx.save();
-            ctx.fillStyle = 'rgba(255, 250, 240, 0.45)';
-            ctx.globalAlpha = alpha * 0.5;
-            ctx.beginPath();
-            ctx.arc(b.x * w, b.y * h, width * 0.9, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-          }
         }
       };
 

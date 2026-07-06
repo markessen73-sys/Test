@@ -23,8 +23,11 @@ const TRAIL_MAX = 56;
 const TRAIL_FADE_MS = 520;
 const TRAIL_EMIT_MS = 24;
 const PUNCH_COOLDOWN_MS = 180;
+const RELEASE_MIN_NORM_SPEED = 0.1;
+const UPWARD_VY_NORM = 0.06;
 const AIM_FOLLOW_SPEED = 0.2;
 const MOVE_AIM_NORM_SPEED = 0.35;
+const ZONE_GLOVE_W = 130;
 const ZONE_GLOVE_H = 155;
 const BOTTOM_OFFSET_PX = ZONE_GLOVE_H * (1 - 0.68);
 
@@ -61,18 +64,38 @@ function gloveBottomNorm(
 
 function appendTrail(
   trail: TrailPoint[],
-  point: GlovePosition,
+  point: TrailPoint,
   now: number,
-  isPunch: boolean,
   minGapMs: number
 ): TrailPoint[] {
   const last = trail[trail.length - 1];
-  if (!isPunch && last && now - last.t < minGapMs) {
+  if (!point.isPunch && last && now - last.t < minGapMs) {
     return trail.filter((p) => now - p.t < TRAIL_FADE_MS);
   }
-  return [...trail.filter((p) => now - p.t < TRAIL_FADE_MS), { x: point.x, y: point.y, t: now, isPunch }].slice(
-    -TRAIL_MAX
-  );
+  return [...trail.filter((p) => now - p.t < TRAIL_FADE_MS), point].slice(-TRAIL_MAX);
+}
+
+function makeBottomTrailPoint(
+  cuffPos: GlovePosition,
+  aimDeg: number,
+  screenW: number,
+  screenH: number,
+  now: number,
+  isPunch: boolean
+): TrailPoint {
+  const bottom = gloveBottomNorm(cuffPos, aimDeg, screenW, screenH);
+  return {
+    x: bottom.x,
+    y: bottom.y,
+    t: now,
+    isPunch,
+    width: ZONE_GLOVE_W / screenW,
+    angle: aimDeg,
+  };
+}
+
+function isMovingUpward(vy: number): boolean {
+  return vy < -UPWARD_VY_NORM;
 }
 
 function idleWobble(anchor: GlovePosition, side: GloveId, timeMs: number, amp: number): GlovePosition {
@@ -176,9 +199,9 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
   }, []);
 
   const tryPunchOnRelease = useCallback(
-    (glove: GloveId, now: number) => {
+    (glove: GloveId, releaseSpeed: number, now: number) => {
       const last = lastPunchRef.current.get(glove) ?? 0;
-      if (now - last > PUNCH_COOLDOWN_MS) {
+      if (releaseSpeed >= RELEASE_MIN_NORM_SPEED && now - last > PUNCH_COOLDOWN_MS) {
         lastPunchRef.current.set(glove, now);
         onPunch(glove);
         return true;
@@ -245,20 +268,34 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
       setRightAim(aimRef.current.right);
 
       setLeft((prev) => {
-        const bottom = gloveBottomNorm(leftPos, aimRef.current.left, screenW, screenH);
-        return {
-          ...prev,
-          position: leftPos,
-          trail: appendTrail(prev.trail, bottom, now, false, TRAIL_EMIT_MS),
-        };
+        const trail = prev.trail.filter((p) => now - p.t < TRAIL_FADE_MS);
+        if (isMovingUpward(leftBody.vy)) {
+          const pt = makeBottomTrailPoint(
+            leftPos,
+            aimRef.current.left,
+            screenW,
+            screenH,
+            now,
+            false
+          );
+          return { ...prev, position: leftPos, trail: appendTrail(trail, pt, now, TRAIL_EMIT_MS) };
+        }
+        return { ...prev, position: leftPos, trail };
       });
       setRight((prev) => {
-        const bottom = gloveBottomNorm(rightPos, aimRef.current.right, screenW, screenH);
-        return {
-          ...prev,
-          position: rightPos,
-          trail: appendTrail(prev.trail, bottom, now, false, TRAIL_EMIT_MS),
-        };
+        const trail = prev.trail.filter((p) => now - p.t < TRAIL_FADE_MS);
+        if (isMovingUpward(rightBody.vy)) {
+          const pt = makeBottomTrailPoint(
+            rightPos,
+            aimRef.current.right,
+            screenW,
+            screenH,
+            now,
+            false
+          );
+          return { ...prev, position: rightPos, trail: appendTrail(trail, pt, now, TRAIL_EMIT_MS) };
+        }
+        return { ...prev, position: rightPos, trail };
       });
 
       raf = requestAnimationFrame(tick);
@@ -339,15 +376,21 @@ export function useElasticGloves(onPunch: (glove: GloveId) => void) {
       const cuffPos = normFromEvent(e, root);
       const aim = aimRef.current[glove];
       const { width: screenW, height: screenH } = rootSizeRef.current;
-      const bottom = gloveBottomNorm(cuffPos, aim, screenW, screenH);
-      const isPunch = tryPunchOnRelease(glove, now);
+      const body = glove === 'left' ? bodiesRef.current.left : bodiesRef.current.right;
+      const releaseSpeed = Math.hypot(body.vx, body.vy);
+      const isPunch = tryPunchOnRelease(glove, releaseSpeed, now);
 
       const setter = glove === 'left' ? setLeft : setRight;
       setter((prev) => ({
         ...prev,
         pointerId: null,
         trail: isPunch
-          ? appendTrail(prev.trail, bottom, now, true, 0)
+          ? appendTrail(
+              prev.trail.filter((p) => now - p.t < TRAIL_FADE_MS),
+              makeBottomTrailPoint(cuffPos, aim, screenW, screenH, now, true),
+              now,
+              0
+            )
           : prev.trail.filter((p) => now - p.t < TRAIL_FADE_MS),
       }));
 

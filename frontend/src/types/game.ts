@@ -77,6 +77,10 @@ export interface TrailPoint {
   y: number;
   t: number;
   isPunch: boolean;
+  /** Trail width as fraction of screen width (glove bottom width). */
+  width?: number;
+  /** Bottom-edge angle in degrees. */
+  angle?: number;
 }
 
 export type GloveId = 'left' | 'right';
