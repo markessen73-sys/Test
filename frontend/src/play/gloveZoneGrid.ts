@@ -105,9 +105,21 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
+function shiftPoint(p: GlovePosition, offset: GlovePosition): GlovePosition {
+  return { x: p.x + offset.x, y: p.y + offset.y };
+}
+
 /** True when the pink knuckle tip lies inside the green bag outline. */
-export function isGloveTopOnPunchBag(knuckle: GlovePosition): boolean {
-  const [tl, tr, br, bl] = BAG_HIT_CORNERS;
+export function isGloveTopOnPunchBag(
+  knuckle: GlovePosition,
+  zoneOffset: GlovePosition = { x: 0, y: 0 }
+): boolean {
+  const [tl, tr, br, bl] = BAG_HIT_CORNERS.map((p) => shiftPoint(p, zoneOffset)) as [
+    GlovePosition,
+    GlovePosition,
+    GlovePosition,
+    GlovePosition,
+  ];
   if (knuckle.y < tl.y || knuckle.y > bl.y) return false;
 
   const t = (knuckle.y - tl.y) / (bl.y - tl.y);
@@ -117,6 +129,6 @@ export function isGloveTopOnPunchBag(knuckle: GlovePosition): boolean {
 }
 
 /** Normalized polygon tracing the bag hit outline (for debug overlay). */
-export function bagHitZoneOutline(): GlovePosition[] {
-  return [...BAG_HIT_CORNERS];
+export function bagHitZoneOutline(zoneOffset: GlovePosition = { x: 0, y: 0 }): GlovePosition[] {
+  return BAG_HIT_CORNERS.map((p) => shiftPoint(p, zoneOffset));
 }

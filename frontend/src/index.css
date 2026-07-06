@@ -1226,6 +1226,14 @@ html, body, #root, .app {
   vector-effect: non-scaling-stroke;
 }
 
+.screen-glove-zoned {
+  overflow: hidden;
+}
+
+.screen-glove-zoned .screen-glove-art {
+  overflow: hidden;
+}
+
 .screen-glove {
   position: absolute;
   width: 112px;

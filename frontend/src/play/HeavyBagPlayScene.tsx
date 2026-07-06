@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import type { GlovePosition } from '../types/game';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { getNutBrownLeatherMaps } from './leatherTexture';
 import {
   applyBagDents,
+  bagZoneScreenOffset,
   raycastBagBodyHit,
   type BagDent,
   type BagPunchImpact,
@@ -71,7 +73,13 @@ function ImpactRing3D({
   );
 }
 
-function PlayHeavyBag({ impacts }: { impacts: BagPunchImpact[] }) {
+function PlayHeavyBag({
+  impacts,
+  bagZoneOffsetRef,
+}: {
+  impacts: BagPunchImpact[];
+  bagZoneOffsetRef: RefObject<GlovePosition>;
+}) {
   const leather = useMemo(() => getNutBrownLeatherMaps(), []);
   const swingRef = useRef(createBagSwingState());
   const pivotRef = useRef<THREE.Group>(null);
@@ -123,6 +131,10 @@ function PlayHeavyBag({ impacts }: { impacts: BagPunchImpact[] }) {
 
     stepBagSwing(swingRef.current, delta);
     pivot.rotation.z = swingRef.current.angle;
+
+    const zoneOffset = bagZoneScreenOffset(swingRef.current.angle, camera);
+    bagZoneOffsetRef.current.x = zoneOffset.x;
+    bagZoneOffsetRef.current.y = zoneOffset.y;
 
     const dents = dentsRef.current;
     for (let i = dents.length - 1; i >= 0; i--) {
@@ -215,20 +227,27 @@ function PlayEnvironment() {
   );
 }
 
-function PlayScene({ impacts }: { impacts: BagPunchImpact[] }) {
+function PlayScene({
+  impacts,
+  bagZoneOffsetRef,
+}: {
+  impacts: BagPunchImpact[];
+  bagZoneOffsetRef: RefObject<GlovePosition>;
+}) {
   return (
     <>
       <PlayEnvironment />
-      <PlayHeavyBag impacts={impacts} />
+      <PlayHeavyBag impacts={impacts} bagZoneOffsetRef={bagZoneOffsetRef} />
     </>
   );
 }
 
 interface HeavyBagPlaySceneProps {
   impacts: BagPunchImpact[];
+  bagZoneOffsetRef: RefObject<GlovePosition>;
 }
 
-export function HeavyBagPlayScene({ impacts }: HeavyBagPlaySceneProps) {
+export function HeavyBagPlayScene({ impacts, bagZoneOffsetRef }: HeavyBagPlaySceneProps) {
   return (
     <Canvas
       shadows
@@ -240,7 +259,7 @@ export function HeavyBagPlayScene({ impacts }: HeavyBagPlaySceneProps) {
       gl={{ antialias: true, alpha: false }}
     >
       <color attach="background" args={['#1a1208']} />
-      <PlayScene impacts={impacts} />
+      <PlayScene impacts={impacts} bagZoneOffsetRef={bagZoneOffsetRef} />
     </Canvas>
   );
 }

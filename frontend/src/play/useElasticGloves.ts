@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import type { GloveId, GloveState, TrailPoint, GlovePosition } from '../types/game';
 import type { GloveTransform } from './skeleton/types';
 import {
@@ -168,7 +168,10 @@ function gloveVisual(
   };
 }
 
-export function useElasticGloves(onPunch: (glove: GloveId, knuckle: GlovePosition) => void) {
+export function useElasticGloves(
+  onPunch: (glove: GloveId, knuckle: GlovePosition) => void,
+  bagZoneOffsetRef: RefObject<GlovePosition>
+) {
   const [left, setLeft] = useState<GloveState>(() => makeGlove(GLOVE_ANCHORS.left));
   const [right, setRight] = useState<GloveState>(() => makeGlove(GLOVE_ANCHORS.right));
   const [leftAim, setLeftAim] = useState(-INWARD_GLOVE_TILT);
@@ -203,7 +206,7 @@ export function useElasticGloves(onPunch: (glove: GloveId, knuckle: GlovePositio
       const last = lastPunchRef.current.get(glove) ?? 0;
       if (
         releaseSpeed >= RELEASE_MIN_NORM_SPEED &&
-        isGloveTopOnPunchBag(knucklePos) &&
+        isGloveTopOnPunchBag(knucklePos, bagZoneOffsetRef.current) &&
         now - last > PUNCH_COOLDOWN_MS
       ) {
         lastPunchRef.current.set(glove, now);
@@ -212,7 +215,7 @@ export function useElasticGloves(onPunch: (glove: GloveId, knuckle: GlovePositio
       }
       return false;
     },
-    [onPunch]
+    [bagZoneOffsetRef, onPunch]
   );
 
   useEffect(() => {

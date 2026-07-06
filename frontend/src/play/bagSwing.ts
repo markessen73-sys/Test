@@ -7,7 +7,7 @@ export interface BagSwingState {
 export const BAG_PIVOT_Y = 3.5;
 export const BAG_HANG_OFFSET_Y = -2.15;
 
-const HIT_IMPULSE = 0.09;
+const HIT_IMPULSE = 0.18;
 const MAX_ANGULAR_VELOCITY = 1.05;
 const MAX_ANGLE = 0.32;
 const RESTORE_STIFFNESS = 10;

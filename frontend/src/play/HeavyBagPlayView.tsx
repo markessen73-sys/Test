@@ -16,6 +16,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
   const [punchCount, setPunchCount] = useState(0);
   const [impacts, setImpacts] = useState<BagPunchImpact[]>([]);
   const impactIdRef = useRef(0);
+  const bagZoneOffsetRef = useRef<GlovePosition>({ x: 0, y: 0 });
 
   const onPunch = useCallback((glove: GloveId, knuckle: GlovePosition) => {
     setPunchCount((c) => c + 1);
@@ -37,7 +38,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
     onRootDown,
     onRootMove,
     onRootUp,
-  } = useElasticGloves(onPunch);
+  } = useElasticGloves(onPunch, bagZoneOffsetRef);
 
   return (
     <div
@@ -49,7 +50,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
       onPointerCancel={onRootUp}
     >
       <div className="play-canvas">
-        <HeavyBagPlayScene impacts={impacts} />
+        <HeavyBagPlayScene impacts={impacts} bagZoneOffsetRef={bagZoneOffsetRef} />
       </div>
 
       <SlugTrailCanvas left={left} right={right} />
