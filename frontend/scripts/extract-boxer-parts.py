@@ -109,6 +109,7 @@ PART_JOINTS: dict[str, dict[str, tuple[int, int]]] = {
 
 # Torso attachment points for child bones (source px)
 TORSO_ATTACH = {
+    "chest": J["chest"],
     "neck": J["neck"],
     "shoulder_l": J["shoulder_l"],
     "shoulder_r": J["shoulder_r"],
@@ -160,7 +161,7 @@ def strip_background(im: Image.Image) -> Image.Image:
             r, g, b, a = px[x, y]
             if is_background(r, g, b, a):
                 px[x, y] = (0, 0, 0, 0)
-    return flood_transparent(im)
+    return im
 
 
 def flood_background(im: Image.Image) -> Image.Image:

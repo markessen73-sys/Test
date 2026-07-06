@@ -87,6 +87,10 @@ export default {
     ]
   },
   "torsoAttach": {
+    "chest": [
+      543,
+      360
+    ],
     "neck": [
       543,
       248
@@ -341,6 +345,10 @@ export default {
   },
   "scaleVmin": 36,
   "torsoAttachNorm": {
+    "chest": [
+      0.4992,
+      0.3927
+    ],
     "neck": [
       0.4992,
       0.0544
