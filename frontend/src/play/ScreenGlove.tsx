@@ -7,14 +7,12 @@ function ScreenGlove({
   side,
   position,
   grabbed,
-  atMaxReach,
   transform,
   onPointerDown,
 }: {
   side: GloveId;
   position: { x: number; y: number };
   grabbed: boolean;
-  atMaxReach?: boolean;
   transform: GloveTransform;
   onPointerDown: (e: React.PointerEvent) => void;
 }) {
@@ -27,14 +25,13 @@ function ScreenGlove({
     `skewX(${transform.skewX}deg)`,
   ].join(' ');
 
-  // Anchor cuff (transform-origin 68%) to IK wrist — 30% larger gloves
   const gloveW = 182;
   const gloveH = 218;
   const cuffAnchorY = gloveH * 0.68;
 
   return (
     <div
-      className={`screen-glove screen-glove-${side} ${grabbed ? 'grabbed' : ''} ${atMaxReach ? 'max-reach' : ''}`}
+      className={`screen-glove screen-glove-${side} ${grabbed ? 'grabbed' : ''}`}
       style={{
         left: `${position.x * 100}%`,
         top: `${position.y * 100}%`,

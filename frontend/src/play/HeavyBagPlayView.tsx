@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { HeavyBagPlayScene } from './HeavyBagPlayScene';
 import { SlugTrailCanvas } from './SlugTrailCanvas';
-import { GhostBodyCanvas, GhostArmsCanvas } from './skeleton/GhostBodyCanvas';
+import { GhostBoxerCanvas } from './skeleton/GhostBodyCanvas';
 import { ScreenGlove } from './ScreenGlove';
 import { useBoxerAnimation } from './useBoxerAnimation';
 import type { GloveId } from '../types/game';
@@ -50,8 +50,7 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
         />
       </div>
 
-      <GhostBodyCanvas pose={skeletonPose} />
-      <GhostArmsCanvas pose={skeletonPose} />
+      <GhostBoxerCanvas pose={skeletonPose} />
 
       <SlugTrailCanvas left={left} right={right} />
 
@@ -60,7 +59,6 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           side="left"
           position={left.position}
           grabbed={left.pointerId !== null}
-          atMaxReach={skeletonPose.leftArm.atMaxReach}
           transform={leftTransform}
           onPointerDown={onGloveDown('left')}
         />
@@ -68,7 +66,6 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
           side="right"
           position={right.position}
           grabbed={right.pointerId !== null}
-          atMaxReach={skeletonPose.rightArm.atMaxReach}
           transform={rightTransform}
           onPointerDown={onGloveDown('right')}
         />

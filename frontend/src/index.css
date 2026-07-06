@@ -1152,15 +1152,6 @@ html, body, #root, .app {
   z-index: 2;
 }
 
-.ghost-arms-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 3;
-}
-
 .play-gloves-layer {
   position: absolute;
   inset: 0;
@@ -1187,20 +1178,7 @@ html, body, #root, .app {
   -webkit-user-drag: none;
   pointer-events: none;
   transition: transform 0.04s linear;
-  filter: saturate(1.15) contrast(1.08);
-}
-
-.screen-glove.max-reach .screen-glove-img {
-  filter: brightness(1.08) saturate(1.1);
-}
-
-.screen-glove.max-reach::after {
-  content: '';
-  position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 200, 100, 0.35);
-  pointer-events: none;
+  filter: saturate(1.2) contrast(1.1) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
 }
 
 .screen-glove.grabbed {

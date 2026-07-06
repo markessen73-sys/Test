@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import type { BoxerSkeletonPose } from './types';
-import { drawGhostBody, drawGhostArms } from './anatomicalBody';
+import { drawFullGhostBoxer } from './anatomicalBody';
 
-function useGhostCanvas(pose: BoxerSkeletonPose, draw: typeof drawGhostBody) {
+export function GhostBoxerCanvas({ pose }: { pose: BoxerSkeletonPose }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const poseRef = useRef(pose);
   poseRef.current = pose;
@@ -29,24 +29,22 @@ function useGhostCanvas(pose: BoxerSkeletonPose, draw: typeof drawGhostBody) {
       if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
-      draw(ctx, p, width, height);
+      drawFullGhostBoxer(ctx, p, width, height);
 
       raf = requestAnimationFrame(loop);
     };
 
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [draw]);
+  }, []);
 
-  return canvasRef;
+  return <canvas ref={canvasRef} className="ghost-body-canvas" aria-hidden />;
 }
 
-export function GhostBodyCanvas({ pose }: { pose: BoxerSkeletonPose }) {
-  const ref = useGhostCanvas(pose, drawGhostBody);
-  return <canvas ref={ref} className="ghost-body-canvas" aria-hidden />;
-}
+/** @deprecated Use GhostBoxerCanvas */
+export const GhostBodyCanvas = GhostBoxerCanvas;
 
-export function GhostArmsCanvas({ pose }: { pose: BoxerSkeletonPose }) {
-  const ref = useGhostCanvas(pose, drawGhostArms);
-  return <canvas ref={ref} className="ghost-arms-canvas" aria-hidden />;
+/** @deprecated Arms are rendered in GhostBoxerCanvas — no separate layer */
+export function GhostArmsCanvas(_props: { pose: BoxerSkeletonPose }) {
+  return null;
 }
