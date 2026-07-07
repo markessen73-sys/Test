@@ -4,6 +4,7 @@ import { useTexture } from '@react-three/drei';
 import type { Group } from 'three';
 import * as THREE from 'three';
 import { PartnerFaceDecal } from '../play/face/PartnerFaceDecal';
+import type { FaceDamageId } from '../play/face/faceDamage';
 
 const SPARRING_BOXER_TEXTURE = '/boxer/sparring-boxer.png';
 
@@ -51,6 +52,8 @@ interface SparringPartnerProps {
   scale?: number;
   /** Show caricature face on head (ring play only). */
   showFace?: boolean;
+  /** Accumulated face injuries (ring play). */
+  faceDamages?: readonly FaceDamageId[];
   innerRef?: RefObject<Group | null>;
 }
 
@@ -60,6 +63,7 @@ function SparringPartnerSprite({
   animate = false,
   scale = 1,
   showFace = false,
+  faceDamages = [],
   innerRef,
 }: SparringPartnerProps) {
   const animRef = useRef<Group>(null);
@@ -99,7 +103,7 @@ function SparringPartnerSprite({
           />
         </mesh>
         {showFace && (
-          <PartnerFaceDecal spriteWidth={width} spriteHeight={height} />
+          <PartnerFaceDecal spriteWidth={width} spriteHeight={height} damages={faceDamages} />
         )}
       </group>
     </group>

@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { FACE_CONTAIN_PAD } from './composeFaceTexture';
 import { FACE_NOSE_LANDMARK, FACE_SOURCE_SIZE, FACE_TEMPLATE_SRC, RING_PARTNER_FACE } from './faceTemplate';
 import { drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture';
+import { drawFaceDamageOverlays } from './drawFaceDamageOverlays';
+import type { FaceDamageId } from './faceDamage';
 import {
   landmarkOffsetInDecal,
   scalePlacement,
@@ -43,12 +45,15 @@ interface PartnerFaceDecalProps {
   spriteWidth: number;
   /** Sprite plane height in metres. */
   spriteHeight: number;
+  /** Accumulated face injuries from landed punches. */
+  damages?: readonly FaceDamageId[];
 }
 
 /** Template face decal mapped onto the sparring partner head (ring play only). */
 export function PartnerFaceDecal({
   spriteWidth,
   spriteHeight,
+  damages = [],
 }: PartnerFaceDecalProps) {
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -89,6 +94,8 @@ export function PartnerFaceDecal({
     };
   }, []);
 
+  const damagesKey = damages.join(',');
+
   useEffect(() => {
     let frame = 0;
     const tick = () => {
@@ -101,11 +108,12 @@ export function PartnerFaceDecal({
       if (!ctx) return;
 
       drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE);
+      drawFaceDamageOverlays(ctx, CANVAS_SIZE, CANVAS_SIZE, damages);
       tex.needsUpdate = true;
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [damagesKey]);
 
   if (!texture) return null;
 

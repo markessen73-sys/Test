@@ -4,6 +4,7 @@ import { GlovesPlayShell } from './GlovesPlayShell';
 import { useElasticGloves } from './useElasticGloves';
 import { isKnuckleOnSparringPartner } from './ringZoneGrid';
 import { playPunchSfx, preloadPunchSfx } from './playPunchSfx';
+import { useFaceDamage } from './face/useFaceDamage';
 import type { PunchImpact } from './punchImpact';
 import type { GloveId, GlovePosition } from '../types/game';
 
@@ -16,16 +17,21 @@ export function RingPlayView({ onBack }: RingPlayViewProps) {
   const [impacts, setImpacts] = useState<PunchImpact[]>([]);
   const impactIdRef = useRef(0);
   const targetZoneOffsetRef = useRef<GlovePosition>({ x: 0, y: 0 });
+  const { damages: faceDamages, registerHit: registerFaceHit } = useFaceDamage();
 
-  const onPunch = useCallback((glove: GloveId, knuckle: GlovePosition) => {
-    playPunchSfx('ring');
-    setPunchCount((c) => c + 1);
-    impactIdRef.current += 1;
-    setImpacts((prev) => [
-      ...prev,
-      { id: impactIdRef.current, glove, knuckle, time: performance.now() },
-    ]);
-  }, []);
+  const onPunch = useCallback(
+    (glove: GloveId, knuckle: GlovePosition) => {
+      playPunchSfx('ring');
+      setPunchCount((c) => c + 1);
+      impactIdRef.current += 1;
+      setImpacts((prev) => [
+        ...prev,
+        { id: impactIdRef.current, glove, knuckle, time: performance.now() },
+      ]);
+      registerFaceHit();
+    },
+    [registerFaceHit]
+  );
 
   useEffect(() => {
     preloadPunchSfx('ring');
@@ -47,7 +53,13 @@ export function RingPlayView({ onBack }: RingPlayViewProps) {
           <strong>Upward</strong> drags leave a vapour trail; release on your opponent while still moving to land shots.
         </>
       }
-      canvas={<RingPlayScene impacts={impacts} ringZoneOffsetRef={targetZoneOffsetRef} />}
+      canvas={
+        <RingPlayScene
+          impacts={impacts}
+          ringZoneOffsetRef={targetZoneOffsetRef}
+          faceDamages={faceDamages}
+        />
+      }
       {...gloves}
     />
   );
