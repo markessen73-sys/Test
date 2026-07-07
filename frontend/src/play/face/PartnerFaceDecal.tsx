@@ -5,6 +5,8 @@ import { drawFullFaceOnCanvas, loadFaceImage, warpForPunch } from './composeFace
 import { spriteNormRectToLocal } from './spriteFacePlacement';
 
 const CANVAS_SIZE = 512;
+/** Grow face while pinning the top-right corner (user-calibrated). */
+const PARTNER_FACE_SCALE = 1.25;
 
 interface PartnerFaceDecalProps {
   /** Sprite plane width in metres. */
@@ -27,7 +29,11 @@ export function PartnerFaceDecal({
   const texRef = useRef<THREE.CanvasTexture | null>(null);
 
   const placement = useMemo(
-    () => spriteNormRectToLocal(RING_PARTNER_FACE, spriteWidth, spriteHeight),
+    () =>
+      spriteNormRectToLocal(RING_PARTNER_FACE, spriteWidth, spriteHeight, {
+        scale: PARTNER_FACE_SCALE,
+        anchor: 'top-right',
+      }),
     [spriteWidth, spriteHeight]
   );
   const [fw, fh] = placement.size;
