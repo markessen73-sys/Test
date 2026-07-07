@@ -15,8 +15,28 @@ const CANVAS_SIZE = 512;
 const PARTNER_FACE_SCALE_TOP_RIGHT = 1.25;
 /** Prior calibration: bottom-left pinned, +10% right and up. */
 const PARTNER_FACE_SCALE_BOTTOM_LEFT = 1.1;
-/** Latest calibration: nose pinned, +10% every direction. */
+/** Nose pinned, +10% every direction (applied per user calibration step). */
 const PARTNER_FACE_SCALE_NOSE = 1.1;
+const PARTNER_FACE_NOSE_SCALE_STEPS = 2;
+
+function scaleFromNose(
+  placement: ReturnType<typeof spriteNormRectToLocal>,
+  scale: number
+) {
+  const [fw, fh] = placement.size;
+  const [iw, ih] = FACE_SOURCE_SIZE;
+  const noseOffset = landmarkOffsetInDecal(
+    fw,
+    fh,
+    CANVAS_SIZE,
+    CANVAS_SIZE,
+    iw,
+    ih,
+    FACE_NOSE_LANDMARK,
+    FACE_CONTAIN_PAD
+  );
+  return scalePlacementFromPoint(placement, scale, noseOffset);
+}
 
 interface PartnerFaceDecalProps {
   /** Sprite plane width in metres. */
@@ -40,20 +60,11 @@ export function PartnerFaceDecal({
       scale: PARTNER_FACE_SCALE_TOP_RIGHT,
       anchor: 'top-right',
     });
-    const bottomLeft = scalePlacement(base, PARTNER_FACE_SCALE_BOTTOM_LEFT, 'bottom-left');
-    const [fw, fh] = bottomLeft.size;
-    const [iw, ih] = FACE_SOURCE_SIZE;
-    const noseOffset = landmarkOffsetInDecal(
-      fw,
-      fh,
-      CANVAS_SIZE,
-      CANVAS_SIZE,
-      iw,
-      ih,
-      FACE_NOSE_LANDMARK,
-      FACE_CONTAIN_PAD
-    );
-    return scalePlacementFromPoint(bottomLeft, PARTNER_FACE_SCALE_NOSE, noseOffset);
+    let current = scalePlacement(base, PARTNER_FACE_SCALE_BOTTOM_LEFT, 'bottom-left');
+    for (let i = 0; i < PARTNER_FACE_NOSE_SCALE_STEPS; i++) {
+      current = scaleFromNose(current, PARTNER_FACE_SCALE_NOSE);
+    }
+    return current;
   }, [spriteWidth, spriteHeight]);
   const [fw, fh] = placement.size;
 
