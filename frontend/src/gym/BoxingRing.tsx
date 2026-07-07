@@ -12,7 +12,7 @@ export function BoxingRing({ highlighted }: BoxingRingProps) {
 
   useFrame(() => {
     if (!partnerRef.current || !highlighted) return;
-    partnerRef.current.position.x = Math.sin(Date.now() * 0.0015) * 0.05;
+    partnerRef.current.position.x = Math.sin(Date.now() * 0.0015) * 0.03;
   });
 
   const rope = '#CC0000';
@@ -66,7 +66,7 @@ export function BoxingRing({ highlighted }: BoxingRingProps) {
       ))}
 
       <group ref={partnerRef} position={[0, 0.22, 0]}>
-        <SparringPartner dimmed={!highlighted} />
+        <SparringPartner dimmed={!highlighted} animate={highlighted} />
       </group>
 
       {highlighted && (
