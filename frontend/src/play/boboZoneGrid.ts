@@ -1,12 +1,12 @@
 import type { GlovePosition } from '../types/game';
 import { hitZoneOutline, isKnuckleInHitZone, type HitZoneCorners } from './targetZone';
 
-/** Bobo doll body + head hit zone in play mode. */
+/** Bobo doll — full height hit zone (matches heavy bag scale). */
 export const BOBO_HIT_CORNERS: HitZoneCorners = [
-  { x: 0.34, y: 0.1 },
-  { x: 0.66, y: 0.1 },
-  { x: 0.7, y: 0.58 },
-  { x: 0.3, y: 0.58 },
+  { x: 0.32, y: 0.12 },
+  { x: 0.68, y: 0.12 },
+  { x: 0.72, y: 0.54 },
+  { x: 0.28, y: 0.54 },
 ];
 
 export function isKnuckleOnBoboDoll(

@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { CartoonFace } from './CartoonFace';
 import { CeilingChain } from '../play/CeilingChain';
+import { BAG_CHAIN_LENGTH } from '../play/bagSwing';
 
 interface EquipmentProps {
   highlighted: boolean;
@@ -76,11 +76,11 @@ export function HeavyBag({ highlighted, position = [0, 0, 0] }: EquipmentProps) 
 
   return (
     <group position={position}>
-      <mesh position={[0, 3.5, 0]}>
-        <boxGeometry args={[0.5, 0.1, 0.5]} />
-        <meshStandardMaterial color="#333" />
+      <mesh position={[0, 3.55, 0]}>
+        <boxGeometry args={[0.22, 0.1, 0.22]} />
+        <meshStandardMaterial color="#2a2a2a" metalness={0.5} />
       </mesh>
-      <CeilingChain topY={3.45} length={0.55} linkCount={7} />
+      <CeilingChain topY={3.5} length={BAG_CHAIN_LENGTH * 0.85} linkCount={12} />
 
       <group ref={bagRef} position={[0, 1.3, 0]}>
         <mesh castShadow>
@@ -110,41 +110,37 @@ export function HeavyBag({ highlighted, position = [0, 0, 0] }: EquipmentProps) 
 
 export function BoboDoll({ highlighted, position = [0, 0, 0] }: EquipmentProps) {
   const dollRef = useRef<THREE.Group>(null);
+  const material = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: '#ffffff',
+        roughness: 0.16,
+        metalness: 0.1,
+        transparent: !highlighted,
+        opacity: highlighted ? 1 : DIM,
+      }),
+    [highlighted]
+  );
 
   useFrame(() => {
     if (!dollRef.current || !highlighted) return;
-    dollRef.current.rotation.z = Math.sin(Date.now() * 0.002) * 0.04;
+    const t = Date.now() * 0.001;
+    dollRef.current.rotation.x = Math.sin(t * 1.35) * 0.02;
+    dollRef.current.rotation.z = Math.sin(t * 1.1 + 0.8) * 0.025;
   });
 
   return (
     <group position={position}>
-      <mesh position={[0, 0.06, 0]} castShadow>
-        <cylinderGeometry args={[0.5, 0.62, 0.12, 24]} />
-        <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
-      </mesh>
-
-      <group ref={dollRef} position={[0, 0.12, 0]}>
-        <mesh position={[0, 0.6, 0]} castShadow>
-          <cylinderGeometry args={[0.34, 0.44, 1.1, 16]} />
-          <meshStandardMaterial
-            color="#D42020"
-            roughness={0.5}
-            transparent={!highlighted}
-            opacity={highlighted ? 1 : DIM}
-          />
+      <group ref={dollRef}>
+        <mesh position={[0, 0.52, 0]} castShadow material={material}>
+          <sphereGeometry args={[0.52, 24, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />
         </mesh>
-        <group position={[0, 1.25, 0]}>
-          <mesh castShadow>
-            <sphereGeometry args={[0.4, 24, 24]} />
-            <meshStandardMaterial
-              color="#D42020"
-              roughness={0.5}
-              transparent={!highlighted}
-              opacity={highlighted ? 1 : DIM}
-            />
-          </mesh>
-          {highlighted && <CartoonFace scale={0.85} />}
-        </group>
+        <mesh position={[0, 1.35, 0]} castShadow material={material}>
+          <cylinderGeometry args={[0.4, 0.52, 1.45, 24]} />
+        </mesh>
+        <mesh position={[0, 2.28, 0]} castShadow material={material}>
+          <sphereGeometry args={[0.44, 24, 24]} />
+        </mesh>
       </group>
 
       {highlighted && (

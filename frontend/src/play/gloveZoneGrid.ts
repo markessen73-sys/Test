@@ -1,5 +1,4 @@
 import type { GlovePosition } from '../types/game';
-import { halfGloveWidthNorm } from './gloveGeometry';
 import { hitZoneOutline, isKnuckleInHitZone, type HitZoneCorners } from './targetZone';
 
 /** Play area split 4×4 below the heavy bag top. */
@@ -19,15 +18,12 @@ export const PLAYABLE_HEIGHT = GRID_BOTTOM_Y - GRID_TOP_Y;
 /** Screen midpoint — touch left half controls left glove, right half controls right. */
 export const SCREEN_MID_X = 0.5;
 
-const REF_SCREEN_W = 1080;
-const halfGloveNorm = halfGloveWidthNorm(REF_SCREEN_W);
-
 /**
- * Cuff limits — extend past screen centre so the knuckle (offset inward on the art)
- * can reach the bag hit zone symmetrically for both hands.
+ * Cuff limits — extend toward screen edges so glove art is not clipped on the outer side.
+ * Inner reach past centre is looser so knuckles can hit the bag zone.
  */
-export const LEFT_GLOVE_MAX_X = SCREEN_MID_X + halfGloveNorm * 0.9;
-export const RIGHT_GLOVE_MIN_X = SCREEN_MID_X - halfGloveNorm * 0.9;
+export const LEFT_GLOVE_MAX_X = 0.97;
+export const RIGHT_GLOVE_MIN_X = 0.03;
 
 /** Looser separation when dragging a glove toward the bag past the other idle hand. */
 export const GLOVE_BAG_REACH_SEPARATION = 0.085;

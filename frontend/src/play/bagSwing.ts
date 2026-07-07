@@ -4,8 +4,9 @@ export interface BagSwingState {
   angularVelocity: number;
 }
 
-export const BAG_PIVOT_Y = 3.5;
-export const BAG_HANG_OFFSET_Y = -2.15;
+export const BAG_PIVOT_Y = 3.75;
+export const BAG_CHAIN_LENGTH = 1.38;
+export const BAG_HANG_OFFSET_Y = -(BAG_CHAIN_LENGTH + 1.05);
 
 const HIT_IMPULSE = 0.18;
 const MAX_ANGULAR_VELOCITY = 1.05;

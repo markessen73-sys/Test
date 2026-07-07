@@ -7,17 +7,29 @@ interface CeilingChainProps {
   /** Total chain length downward from topY. */
   length: number;
   linkCount?: number;
-  linkRadius?: number;
 }
 
-/** Linked metal chain hanging from the ceiling mount to the bag pivot. */
-export function CeilingChain({ topY, length, linkCount = 9, linkRadius = 0.026 }: CeilingChainProps) {
-  const material = useMemo(
+const LINK_W = 0.095;
+const LINK_H = 0.052;
+const LINK_T = 0.038;
+
+/** Heavy interlocking chain — chunky steel links from ceiling to bag. */
+export function CeilingChain({ topY, length, linkCount = 14 }: CeilingChainProps) {
+  const linkMat = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: '#7a7a84',
-        metalness: 0.82,
-        roughness: 0.32,
+        color: '#3a3a42',
+        metalness: 0.92,
+        roughness: 0.28,
+      }),
+    []
+  );
+  const pinMat = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: '#555560',
+        metalness: 0.95,
+        roughness: 0.22,
       }),
     []
   );
@@ -28,15 +40,16 @@ export function CeilingChain({ topY, length, linkCount = 9, linkRadius = 0.026 }
     <group>
       {Array.from({ length: linkCount }, (_, i) => {
         const y = topY - spacing * (i + 0.5);
+        const rotZ = i % 2 === 0 ? 0 : Math.PI / 2;
         return (
-          <mesh
-            key={i}
-            position={[0, y, 0]}
-            rotation={[Math.PI / 2, 0, i % 2 === 0 ? 0 : Math.PI / 2]}
-            material={material}
-          >
-            <torusGeometry args={[linkRadius * 1.2, linkRadius * 0.42, 8, 14]} />
-          </mesh>
+          <group key={i} position={[0, y, 0]} rotation={[0, 0, rotZ]}>
+            <mesh material={linkMat} castShadow>
+              <boxGeometry args={[LINK_W, LINK_H, LINK_T]} />
+            </mesh>
+            <mesh position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]} material={pinMat}>
+              <cylinderGeometry args={[0.014, 0.014, LINK_T + 0.018, 8]} />
+            </mesh>
+          </group>
         );
       })}
     </group>

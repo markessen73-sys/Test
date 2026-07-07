@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type { GlovePosition } from '../types/game';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { CartoonFace } from '../gym/CartoonFace';
 import { boboZoneScreenOffset } from './boboImpact';
 import { applyBoboHitImpulse, createBoboSwingState, stepBoboSwing } from './boboSwing';
 import { BOBO_PLAY_CAMERA } from './playCamera';
@@ -36,8 +35,31 @@ function ImpactFlash({
   return (
     <mesh ref={meshRef} position={position}>
       <ringGeometry args={[0.08, 0.12, 24]} />
-      <meshBasicMaterial color="#fff0d4" transparent opacity={0.85} side={THREE.DoubleSide} depthWrite={false} />
+      <meshBasicMaterial color="#ffffff" transparent opacity={0.85} side={THREE.DoubleSide} depthWrite={false} />
     </mesh>
+  );
+}
+
+function BoboDollBody({ material }: { material: THREE.MeshStandardMaterial }) {
+  return (
+    <group>
+      {/* Weighted round base — pivot point is floor centre (0,0,0) */}
+      <mesh position={[0, 0.52, 0]} castShadow receiveShadow material={material}>
+        <sphereGeometry args={[0.52, 36, 24, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />
+      </mesh>
+      {/* Tapered torso — full height to match heavy bag */}
+      <mesh position={[0, 1.35, 0]} castShadow receiveShadow material={material}>
+        <cylinderGeometry args={[0.4, 0.52, 1.45, 36]} />
+      </mesh>
+      {/* Round head */}
+      <mesh position={[0, 2.28, 0]} castShadow receiveShadow material={material}>
+        <sphereGeometry args={[0.44, 36, 36]} />
+      </mesh>
+      {/* Neck collar ring */}
+      <mesh position={[0, 1.88, 0]} material={material}>
+        <torusGeometry args={[0.28, 0.06, 12, 28]} />
+      </mesh>
+    </group>
   );
 }
 
@@ -54,6 +76,17 @@ function PlayBoboDoll({
   const lastImpactIdRef = useRef(0);
   const { camera } = useThree();
 
+  const material = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: '#ffffff',
+        roughness: 0.14,
+        metalness: 0.12,
+        envMapIntensity: 1.2,
+      }),
+    []
+  );
+
   useEffect(() => {
     if (!impacts.length) return;
     const latest = impacts[impacts.length - 1];
@@ -63,39 +96,31 @@ function PlayBoboDoll({
     applyBoboHitImpulse(swingRef.current, latest.glove);
     setFlashes((prev) => [
       ...prev,
-      { id: latest.id, pos: [0, 1.35, 0.42], time: latest.time },
+      { id: latest.id, pos: [0, 1.35, 0.46], time: latest.time },
     ]);
   }, [impacts]);
 
   useFrame((_, delta) => {
     stepBoboSwing(swingRef.current, delta);
+    const { tiltX, tiltZ } = swingRef.current;
     if (dollRef.current) {
-      dollRef.current.rotation.z = swingRef.current.angle;
+      dollRef.current.rotation.x = tiltX;
+      dollRef.current.rotation.z = tiltZ;
     }
-    const zoneOffset = boboZoneScreenOffset(swingRef.current.angle, camera);
+    const zoneOffset = boboZoneScreenOffset(tiltX, tiltZ, camera);
     boboZoneOffsetRef.current.x = zoneOffset.x;
     boboZoneOffsetRef.current.y = zoneOffset.y;
   });
 
   return (
     <group position={[0, 0, -3.8]}>
-      <mesh position={[0, 0.06, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.5, 0.62, 0.12, 24]} />
-        <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]} receiveShadow>
+        <circleGeometry args={[0.62, 32]} />
+        <meshStandardMaterial color="#1a1a1a" roughness={0.95} />
       </mesh>
 
-      <group ref={dollRef} position={[0, 0.12, 0]}>
-        <mesh position={[0, 0.6, 0]} castShadow>
-          <cylinderGeometry args={[0.34, 0.44, 1.1, 16]} />
-          <meshStandardMaterial color="#D42020" roughness={0.5} />
-        </mesh>
-        <group position={[0, 1.25, 0]}>
-          <mesh castShadow>
-            <sphereGeometry args={[0.4, 24, 24]} />
-            <meshStandardMaterial color="#D42020" roughness={0.5} />
-          </mesh>
-          <CartoonFace scale={0.85} />
-        </group>
+      <group ref={dollRef}>
+        <BoboDollBody material={material} />
         {flashes.map((flash) => (
           <ImpactFlash
             key={flash.id}
@@ -105,6 +130,8 @@ function PlayBoboDoll({
           />
         ))}
       </group>
+      <pointLight position={[1.2, 2.2, 1.5]} intensity={18} color="#ffffff" distance={6} />
+      <pointLight position={[-1, 1.5, 2]} intensity={8} color="#e8f0ff" distance={5} />
     </group>
   );
 }

@@ -15,6 +15,7 @@ import {
 } from './bagImpact';
 import {
   applyBagHitImpulse,
+  BAG_CHAIN_LENGTH,
   BAG_HANG_OFFSET_Y,
   BAG_PIVOT_Y,
   createBagSwingState,
@@ -150,12 +151,16 @@ function PlayHeavyBag({
 
   return (
     <group position={[0, 0, BAG_Z]}>
-      <mesh position={[0, 3.85, 0]}>
-        <boxGeometry args={[0.12, 0.08, 0.12]} />
-        <meshStandardMaterial color="#333" metalness={0.4} />
+      <mesh position={[0, 3.92, 0]}>
+        <boxGeometry args={[0.22, 0.1, 0.22]} />
+        <meshStandardMaterial color="#2a2a2a" metalness={0.55} roughness={0.4} />
       </mesh>
-      <CeilingChain topY={3.85} length={0.35} />
+      <mesh position={[0, 3.84, 0]}>
+        <cylinderGeometry args={[0.045, 0.045, 0.06, 12]} />
+        <meshStandardMaterial color="#444" metalness={0.7} roughness={0.35} />
+      </mesh>
       <group ref={pivotRef} position={[0, BAG_PIVOT_Y, 0]}>
+        <CeilingChain topY={0} length={BAG_CHAIN_LENGTH} linkCount={16} />
         <group position={[0, BAG_HANG_OFFSET_Y, 0]}>
           <mesh ref={bodyRef} castShadow receiveShadow geometry={geometry}>
             <meshStandardMaterial

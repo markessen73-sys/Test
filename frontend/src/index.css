@@ -1201,6 +1201,14 @@ html, body, #root, .app {
   inset: 0;
   z-index: 5;
   pointer-events: none;
+  overflow: visible;
+}
+
+.screen-glove,
+.screen-glove-art,
+.screen-glove-zoned,
+.screen-glove-zoned .screen-glove-art {
+  overflow: visible;
 }
 
 .hit-debug-overlay {
@@ -1224,14 +1232,6 @@ html, body, #root, .app {
   stroke: rgba(0, 0, 0, 0.65);
   stroke-width: 0.0025;
   vector-effect: non-scaling-stroke;
-}
-
-.screen-glove-zoned {
-  overflow: hidden;
-}
-
-.screen-glove-zoned .screen-glove-art {
-  overflow: hidden;
 }
 
 .screen-glove {

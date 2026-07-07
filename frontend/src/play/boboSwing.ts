@@ -1,37 +1,49 @@
-/** Rocking bobo doll — weighted base spring. */
+/** 3-axis rocking bobo — pinned at floor centre, wobbles side-to-side and toward camera. */
 export interface BoboSwingState {
-  angle: number;
-  angularVelocity: number;
+  tiltX: number;
+  tiltZ: number;
+  velX: number;
+  velZ: number;
+  time: number;
 }
 
-const HIT_IMPULSE = 0.16;
-const MAX_ANGULAR_VELOCITY = 1.2;
-const MAX_ANGLE = 0.42;
-const RESTORE_STIFFNESS = 14;
-const DAMPING = 3.2;
+const HIT_IMPULSE_Z = 0.2;
+const HIT_IMPULSE_X = 0.09;
+const MAX_VEL = 1.35;
+const MAX_TILT = 0.38;
+const RESTORE = 11;
+const DAMPING = 3.0;
+const IDLE_X_AMP = 0.016;
+const IDLE_Z_AMP = 0.02;
+const IDLE_FREQ = 1.35;
 
 export function createBoboSwingState(): BoboSwingState {
-  return { angle: 0, angularVelocity: 0 };
+  return { tiltX: 0, tiltZ: 0, velX: 0, velZ: 0, time: 0 };
 }
 
 export function applyBoboHitImpulse(state: BoboSwingState, glove: 'left' | 'right'): void {
-  const impulse = glove === 'left' ? HIT_IMPULSE : -HIT_IMPULSE;
-  state.angularVelocity = Math.max(
-    -MAX_ANGULAR_VELOCITY,
-    Math.min(MAX_ANGULAR_VELOCITY, state.angularVelocity + impulse)
-  );
+  const zImpulse = glove === 'left' ? HIT_IMPULSE_Z : -HIT_IMPULSE_Z;
+  state.velZ = Math.max(-MAX_VEL, Math.min(MAX_VEL, state.velZ + zImpulse));
+  state.velX = Math.max(-MAX_VEL, Math.min(MAX_VEL, state.velX + HIT_IMPULSE_X));
 }
 
 export function stepBoboSwing(state: BoboSwingState, delta: number): void {
   const dt = Math.min(delta, 0.05);
+  state.time += dt;
 
-  state.angularVelocity += -state.angle * RESTORE_STIFFNESS * dt;
-  state.angularVelocity *= Math.exp(-DAMPING * dt);
+  const idleX = Math.sin(state.time * IDLE_FREQ) * IDLE_X_AMP;
+  const idleZ = Math.sin(state.time * IDLE_FREQ * 0.88 + 0.9) * IDLE_Z_AMP;
 
-  state.angle += state.angularVelocity * dt;
-  state.angle = Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, state.angle));
+  state.velX += (-state.tiltX + idleX) * RESTORE * dt;
+  state.velZ += (-state.tiltZ + idleZ) * RESTORE * dt;
+  state.velX *= Math.exp(-DAMPING * dt);
+  state.velZ *= Math.exp(-DAMPING * dt);
 
-  if (Math.abs(state.angle) >= MAX_ANGLE * 0.98) {
-    state.angularVelocity *= 0.35;
-  }
+  state.tiltX += state.velX * dt;
+  state.tiltZ += state.velZ * dt;
+  state.tiltX = Math.max(-MAX_TILT, Math.min(MAX_TILT, state.tiltX));
+  state.tiltZ = Math.max(-MAX_TILT, Math.min(MAX_TILT, state.tiltZ));
 }
+
+/** Torso centre height when upright (pivot at floor). */
+export const BOBO_TORSO_HEIGHT = 1.35;
