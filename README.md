@@ -31,6 +31,16 @@ cd frontend && npm install && npm run dev
 
 Open http://localhost:5173 — you land straight in the gym.
 
+### Direct links
+
+| URL | Opens |
+|-----|-------|
+| `/?gym` | Main gym browse view |
+| `/?gym=heavy-bag` | Main gym, focused on heavy bag |
+| `/?play=heavy-bag` | Glove play at heavy bag |
+
+Station ids: `ring`, `speedball`, `heavy-bag`, `bobo-doll`.
+
 For production build served by backend:
 
 ```bash

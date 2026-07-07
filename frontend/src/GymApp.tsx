@@ -21,9 +21,21 @@ export function GymApp() {
   const [stationIndex, setStationIndex] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('browse');
 
-  // Direct link: ?play=heavy-bag (or bobo-doll, speedball, ring)
+  // Direct links:
+  //   ?gym           — main gym browse (optional station: ?gym=heavy-bag)
+  //   ?play=heavy-bag — jump straight into glove play
   useEffect(() => {
-    const play = new URLSearchParams(window.location.search).get('play') as GymStation | null;
+    const params = new URLSearchParams(window.location.search);
+    const gym = params.get('gym');
+    if (gym !== null) {
+      if (gym && PLAY_STATIONS.has(gym as GymStation) && STATION_INDEX[gym as GymStation] >= 0) {
+        setStationIndex(STATION_INDEX[gym as GymStation]);
+      }
+      setViewMode('browse');
+      return;
+    }
+
+    const play = params.get('play') as GymStation | null;
     if (play && PLAY_STATIONS.has(play) && STATION_INDEX[play] >= 0) {
       setStationIndex(STATION_INDEX[play]);
       setViewMode('play');
