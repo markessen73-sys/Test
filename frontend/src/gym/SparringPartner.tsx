@@ -11,16 +11,22 @@ export const SPARRING_SPRITE_BASE_HEIGHT = 3.44;
 /** Ring play mode scale (50% larger than base). */
 export const RING_SPRITE_SCALE = 1.5;
 
-/** Transparent padding below the feet in the source image. */
-const FEET_INSET_FRAC = 74 / 1536;
+/**
+ * Lowest opaque boot pixels in the source image (1024×1536 RGBA).
+ * Rows ~76 px from the bottom — the visible shoe contact line, not the knee (~401 px).
+ */
+const FEET_SOLE_FRAC = 76 / 1536;
+/** Knee row from image bottom — corrects figure sinking to knee height on the canvas. */
+const KNEE_FROM_BOTTOM_FRAC = 401 / 1536;
+const SHIN_LENGTH_FRAC = KNEE_FROM_BOTTOM_FRAC - FEET_SOLE_FRAC;
 
 /** Ring canvas top surface — partner feet sit here (ring-local Y). */
 export const RING_CANVAS_SURFACE_Y = 0.24;
-/** Extra lift in main gym browse so feet read on the canvas, not sunken. */
-export const GYM_PARTNER_LIFT = 0.6;
+/** Raise browse view by one shin length so soles (not knees) meet the canvas. */
+export const GYM_PARTNER_LIFT = SHIN_LENGTH_FRAC * SPARRING_SPRITE_BASE_HEIGHT;
 
 function spriteCenterY(height: number): number {
-  return height * (0.5 - FEET_INSET_FRAC);
+  return height * (0.5 - FEET_SOLE_FRAC);
 }
 
 interface SparringPartnerProps {
