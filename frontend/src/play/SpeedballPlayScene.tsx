@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { speedballZoneScreenOffset } from './speedballImpact';
 import { applySpeedballHitImpulse, createSpeedballSwingState, stepSpeedballSwing } from './speedballSwing';
-import { SPEEDBALL_PLAY_CAMERA } from './playCamera';
+import { SPEEDBALL_BALL_Y, SPEEDBALL_PLAY_CAMERA } from './playCamera';
 import { PlayEnvironment } from './PlayEnvironment';
 import type { PunchImpact } from './punchImpact';
 
@@ -35,7 +35,7 @@ function PlaySpeedball({
     stepSpeedballSwing(swingRef.current, delta);
     const state = swingRef.current;
     if (ballRef.current) {
-      ballRef.current.position.set(state.offsetX, 1.55, state.offsetZ);
+      ballRef.current.position.set(state.offsetX, SPEEDBALL_BALL_Y, state.offsetZ);
     }
     const zoneOffset = speedballZoneScreenOffset(state, camera);
     speedballZoneOffsetRef.current.x = zoneOffset.x;
@@ -46,12 +46,12 @@ function PlaySpeedball({
 
   return (
     <group position={[0, 0, -3.8]}>
-      <mesh position={[0, 2.6, -0.35]}>
+      <mesh position={[0, 3.05, -0.35]}>
         <boxGeometry args={[1.0, 0.14, 0.2]} />
         <meshStandardMaterial color="#4A3728" />
       </mesh>
-      <mesh position={[0, 2.15, -0.25]}>
-        <cylinderGeometry args={[0.03, 0.03, 0.8, 8]} />
+      <mesh position={[0, 2.6, -0.25]}>
+        <cylinderGeometry args={[0.03, 0.03, 0.9, 8]} />
         <meshStandardMaterial color="#777" metalness={0.4} />
       </mesh>
       <mesh position={[0, 0.04, 0]}>
@@ -59,7 +59,7 @@ function PlaySpeedball({
         <meshStandardMaterial color="#5C4033" />
       </mesh>
 
-      <group ref={ballRef} position={[0, 1.55, 0]}>
+      <group ref={ballRef} position={[0, SPEEDBALL_BALL_Y, 0]}>
         <mesh castShadow>
           <sphereGeometry args={[0.3, 24, 24]} />
           <meshStandardMaterial
