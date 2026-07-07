@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { setBackgroundMusicPlayMode } from './backgroundMusic';
 import { HeavyBagPlayView } from './play/HeavyBagPlayView';
 import { BoboDollPlayView } from './play/BoboDollPlayView';
 import { SpeedballPlayView } from './play/SpeedballPlayView';
@@ -28,6 +29,10 @@ export function GymApp() {
       setViewMode('play');
     }
   }, []);
+
+  useEffect(() => {
+    setBackgroundMusicPlayMode(viewMode === 'play');
+  }, [viewMode]);
 
   const station = GYM_STATIONS[stationIndex];
 
