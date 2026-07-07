@@ -146,8 +146,8 @@ function drawSwollenEye(ctx: CanvasRenderingContext2D, x: number, y: number, u: 
 }
 
 /**
- * Auricular hematoma / cauliflower ear — lumpy folded pinna with purple nodules.
- * Drawn over the caricature's protruding ear from a front-three-quarter view.
+ * Swollen auricular hematoma — smooth puffy distension with reddish-purple bruising.
+ * Calibrated against reference caricature (swollen right ear with suture line).
  */
 function drawCauliflowerEar(
   ctx: CanvasRenderingContext2D,
@@ -160,70 +160,98 @@ function drawCauliflowerEar(
   ctx.translate(x, y);
   ctx.scale(side, 1);
 
-  // Thickened swollen ear base — cartilage folded forward
-  const base = ctx.createLinearGradient(-u * 0.3, -u * 0.6, u * 1.1, u * 0.9);
-  base.addColorStop(0, '#d4a898');
-  base.addColorStop(0.35, '#a87870');
-  base.addColorStop(0.7, '#7a4850');
-  base.addColorStop(1, '#5a3038');
-  ctx.fillStyle = base;
+  // Enlarged smooth pinna — ~2× volume, protrudes forward and upward
+  const skin = ctx.createLinearGradient(-u * 0.2, -u * 0.65, u * 1.05, u * 0.85);
+  skin.addColorStop(0, '#f0d0bc');
+  skin.addColorStop(0.3, '#e0b0a0');
+  skin.addColorStop(0.6, '#d08880');
+  skin.addColorStop(1, '#b87070');
+  ctx.fillStyle = skin;
   ctx.beginPath();
-  ctx.moveTo(-u * 0.2, -u * 0.6);
-  ctx.bezierCurveTo(u * 0.55, -u * 0.75, u * 1.2, -u * 0.2, u * 1.05, u * 0.35);
-  ctx.bezierCurveTo(u * 0.95, u * 0.85, u * 0.45, u * 1.1, -u * 0.1, u * 0.85);
-  ctx.bezierCurveTo(-u * 0.45, u * 0.55, -u * 0.45, u * 0.05, -u * 0.2, -u * 0.6);
+  ctx.moveTo(u * 0.02, -u * 0.58);
+  ctx.bezierCurveTo(u * 0.85, -u * 0.72, u * 1.28, -u * 0.28, u * 1.15, u * 0.28);
+  ctx.bezierCurveTo(u * 1.05, u * 0.72, u * 0.62, u * 1.05, u * 0.2, u * 0.95);
+  ctx.bezierCurveTo(-u * 0.08, u * 0.85, -u * 0.18, u * 0.42, -u * 0.05, u * 0.08);
+  ctx.bezierCurveTo(-u * 0.1, -u * 0.22, -u * 0.08, -u * 0.42, u * 0.02, -u * 0.58);
   ctx.closePath();
   ctx.fill();
 
-  // Hematoma nodules — irregular cauliflower florets
-  const nodules: [number, number, number, number, number][] = [
-    [u * 0.55, -u * 0.35, u * 0.28, u * 0.32, -0.3],
-    [u * 0.75, -u * 0.05, u * 0.32, u * 0.35, 0.2],
-    [u * 0.45, u * 0.2, u * 0.26, u * 0.3, 0.5],
-    [u * 0.85, u * 0.35, u * 0.24, u * 0.28, 0.8],
-    [u * 0.3, u * 0.45, u * 0.22, u * 0.26, 1.1],
-    [u * 0.65, u * 0.6, u * 0.3, u * 0.34, 0.4],
-    [u * 0.15, -u * 0.1, u * 0.2, u * 0.22, -0.6],
-    [u * 0.95, u * 0.1, u * 0.2, u * 0.24, 0.1],
-  ];
-  const lumpColors = ['#6e2838', '#852f42', '#5a2230', '#9a4555', '#703040', '#4a1e28', '#7a3548'];
-  for (let i = 0; i < nodules.length; i++) {
-    const [nx, ny, rx, ry, rot] = nodules[i];
-    const grad = ctx.createRadialGradient(nx - rx * 0.2, ny - ry * 0.2, 0, nx, ny, Math.max(rx, ry));
-    grad.addColorStop(0, lumpColors[i % lumpColors.length]);
-    grad.addColorStop(0.6, '#5a2835');
-    grad.addColorStop(1, '#3a1520');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.ellipse(nx, ny, rx, ry, rot, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(30, 10, 15, 0.4)';
-    ctx.lineWidth = u * 0.025;
-    ctx.stroke();
-  }
-
-  // Deep bruise wash in folds between lumps
+  // Deep reddish-purple hematoma wash
   ctx.globalCompositeOperation = 'multiply';
-  ctx.fillStyle = 'rgba(70, 20, 45, 0.5)';
+  const bruise = ctx.createRadialGradient(u * 0.5, u * 0.02, u * 0.05, u * 0.5, u * 0.02, u * 1.05);
+  bruise.addColorStop(0, 'rgba(95, 25, 55, 0.85)');
+  bruise.addColorStop(0.35, 'rgba(130, 35, 65, 0.78)');
+  bruise.addColorStop(0.6, 'rgba(165, 48, 72, 0.62)');
+  bruise.addColorStop(0.82, 'rgba(185, 65, 78, 0.38)');
+  bruise.addColorStop(1, 'rgba(200, 90, 85, 0.12)');
+  ctx.fillStyle = bruise;
   ctx.beginPath();
-  ctx.ellipse(u * 0.5, u * 0.15, u * 0.7, u * 0.8, 0.2, 0, Math.PI * 2);
+  ctx.ellipse(u * 0.48, u * 0.05, u * 0.95, u * 0.98, 0.06, 0, Math.PI * 2);
   ctx.fill();
   ctx.globalCompositeOperation = 'source-over';
 
-  // Folded-over helix rim — characteristic collapsed cartilage edge
-  ctx.strokeStyle = '#3a1820';
+  // Magenta-pink inflamed overlay at peak swelling
+  ctx.globalCompositeOperation = 'overlay';
+  ctx.fillStyle = 'rgba(180, 60, 90, 0.4)';
+  ctx.beginPath();
+  ctx.ellipse(u * 0.52, -u * 0.08, u * 0.72, u * 0.65, 0.05, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+
+  // Taut swollen skin sheen — bright highlight along outer rim
+  const sheen = ctx.createLinearGradient(u * 0.1, -u * 0.5, u * 1.0, u * 0.3);
+  sheen.addColorStop(0, 'rgba(255, 230, 215, 0.7)');
+  sheen.addColorStop(0.4, 'rgba(255, 210, 195, 0.45)');
+  sheen.addColorStop(1, 'rgba(255, 190, 180, 0.1)');
+  ctx.strokeStyle = sheen;
   ctx.lineWidth = u * 0.07;
   ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(u * 0.05, -u * 0.5);
-  ctx.bezierCurveTo(u * 0.65, -u * 0.62, u * 1.05, -u * 0.2, u * 0.92, u * 0.25);
-  ctx.bezierCurveTo(u * 0.82, u * 0.55, u * 0.55, u * 0.7, u * 0.35, u * 0.55);
+  ctx.moveTo(u * 0.1, -u * 0.52);
+  ctx.bezierCurveTo(u * 0.78, -u * 0.62, u * 1.12, -u * 0.18, u * 1.02, u * 0.32);
   ctx.stroke();
 
-  // Lobe — swollen and misshapen
-  ctx.fillStyle = '#8a5058';
+  // Specular spot — fluid-filled taut surface
+  ctx.fillStyle = 'rgba(255, 245, 240, 0.45)';
   ctx.beginPath();
-  ctx.ellipse(u * 0.2, u * 0.72, u * 0.22, u * 0.18, 0.3, 0, Math.PI * 2);
+  ctx.ellipse(u * 0.62, -u * 0.18, u * 0.18, u * 0.12, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Inner ear bowl — smoothed out by swelling
+  ctx.fillStyle = 'rgba(120, 40, 58, 0.4)';
+  ctx.beginPath();
+  ctx.ellipse(u * 0.42, u * 0.14, u * 0.42, u * 0.52, 0.08, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Suture / scab line across upper cartilage (reference detail)
+  ctx.strokeStyle = 'rgba(35, 12, 18, 0.9)';
+  ctx.lineWidth = u * 0.05;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(u * 0.15, -u * 0.32);
+  ctx.quadraticCurveTo(u * 0.52, -u * 0.24, u * 0.88, -u * 0.34);
+  ctx.stroke();
+
+  // Stitch marks along suture
+  ctx.lineWidth = u * 0.028;
+  for (let i = 0; i < 6; i++) {
+    const t = 0.1 + i * 0.15;
+    const sx = u * (0.15 + t * 0.73);
+    const sy = -u * (0.32 - 0.05 * Math.sin(t * Math.PI));
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - u * 0.055);
+    ctx.lineTo(sx, sy + u * 0.055);
+    ctx.stroke();
+  }
+
+  // Swollen lobe — smooth bulbous bottom, enlarged
+  const lobe = ctx.createRadialGradient(u * 0.24, u * 0.85, 0, u * 0.24, u * 0.85, u * 0.34);
+  lobe.addColorStop(0, 'rgba(210, 110, 105, 0.75)');
+  lobe.addColorStop(0.5, 'rgba(175, 70, 75, 0.6)');
+  lobe.addColorStop(1, 'rgba(145, 55, 65, 0.3)');
+  ctx.fillStyle = lobe;
+  ctx.beginPath();
+  ctx.ellipse(u * 0.24, u * 0.85, u * 0.32, u * 0.24, 0.2, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.restore();
@@ -430,8 +458,9 @@ export function drawFaceDamageOverlays(
   const [rx, ry] = toCanvas(0.6487, 0.3464, canvasW, canvasH);
   const [nx, ny] = toCanvas(0.499, 0.456, canvasW, canvasH);
   const [mx, my] = toCanvas(0.499, 0.597, canvasW, canvasH);
-  const [leftEarX, leftEarY] = toCanvas(0.14, 0.42, canvasW, canvasH);
-  const [rightEarX, rightEarY] = toCanvas(0.86, 0.42, canvasW, canvasH);
+  // Anatomical left/right ears (subject's left = image right, subject's right = image left).
+  const [anatLeftEarX, anatLeftEarY] = toCanvas(0.86, 0.42, canvasW, canvasH);
+  const [anatRightEarX, anatRightEarY] = toCanvas(0.14, 0.42, canvasW, canvasH);
   const [foreheadX, foreheadY] = toCanvas(0.5, 0.19, canvasW, canvasH);
 
   ctx.save();
@@ -440,10 +469,10 @@ export function drawFaceDamageOverlays(
   for (const d of damages) {
     switch (d) {
       case 'cauliflowerLeftEar':
-        drawCauliflowerEar(ctx, leftEarX, leftEarY, u * 1.5, -1);
+        drawCauliflowerEar(ctx, anatLeftEarX, anatLeftEarY, u * 1.65, 1);
         break;
       case 'cauliflowerRightEar':
-        drawCauliflowerEar(ctx, rightEarX, rightEarY, u * 1.5, 1);
+        drawCauliflowerEar(ctx, anatRightEarX, anatRightEarY, u * 1.65, -1);
         break;
       case 'blackLeftEye':
         drawBlackEye(ctx, lx, ly, u);
