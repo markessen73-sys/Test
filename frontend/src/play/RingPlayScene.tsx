@@ -2,7 +2,7 @@ import { Suspense, useEffect, useRef, useState, type RefObject } from 'react';
 import type { GlovePosition } from '../types/game';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { SparringPartner, RING_CANVAS_SURFACE_Y } from '../gym/SparringPartner';
+import { SparringPartner, RING_CANVAS_SURFACE_Y, RING_SPRITE_SCALE } from '../gym/SparringPartner';
 import { ringZoneScreenOffset } from './ringImpact';
 import { applyRingHitImpulse, createRingSwingState, stepRingSwing } from './ringSwing';
 import { RING_PARTNER_FORWARD, RING_PARTNER_LIFT, RING_PARTNER_YAW, RING_PLAY_CAMERA } from './playCamera';
@@ -106,7 +106,7 @@ function PlayRing({
       </mesh>
 
       <group ref={partnerRef} position={[0, RING_CANVAS_SURFACE_Y + RING_PARTNER_LIFT, RING_PARTNER_FORWARD]} rotation={[0, RING_PARTNER_YAW, 0]}>
-        <SparringPartner hitFlashAge={flashAge} animate />
+        <SparringPartner hitFlashAge={flashAge} animate scale={RING_SPRITE_SCALE} />
       </group>
     </group>
   );

@@ -6,9 +6,10 @@ import * as THREE from 'three';
 
 const SPARRING_BOXER_TEXTURE = '/boxer/sparring-boxer.png';
 
-/** Full sprite plane height (2× original 1.72 m). */
-export const SPARRING_SPRITE_HEIGHT = 3.44;
-const SPRITE_WIDTH = SPARRING_SPRITE_HEIGHT * (1024 / 1536);
+/** Base sprite plane height in metres. */
+export const SPARRING_SPRITE_BASE_HEIGHT = 3.44;
+/** Ring play mode scale (50% larger than base). */
+export const RING_SPRITE_SCALE = 1.5;
 
 /** Transparent padding below the feet in the source image. */
 const FEET_INSET_FRAC = 74 / 1536;
@@ -16,8 +17,9 @@ const FEET_INSET_FRAC = 74 / 1536;
 /** Ring canvas top surface — partner feet sit here (ring-local Y). */
 export const RING_CANVAS_SURFACE_Y = 0.24;
 
-/** Plane centre Y so visible feet rest on local Y=0. */
-export const SPARRING_SPRITE_CENTER_Y = SPARRING_SPRITE_HEIGHT * (0.5 - FEET_INSET_FRAC);
+function spriteCenterY(height: number): number {
+  return height * (0.5 - FEET_INSET_FRAC);
+}
 
 interface SparringPartnerProps {
   dimmed?: boolean;
@@ -25,6 +27,8 @@ interface SparringPartnerProps {
   hitFlashAge?: number;
   /** Subtle side-to-side and weight-shift idle */
   animate?: boolean;
+  /** Height multiplier (ring play uses 1.5). */
+  scale?: number;
   innerRef?: RefObject<Group | null>;
 }
 
@@ -32,29 +36,34 @@ function SparringPartnerSprite({
   dimmed = false,
   hitFlashAge = 1,
   animate = false,
+  scale = 1,
   innerRef,
 }: SparringPartnerProps) {
   const animRef = useRef<Group>(null);
   const texture = useTexture(SPARRING_BOXER_TEXTURE);
   const opacity = dimmed ? 0.35 : 1;
   const flash = hitFlashAge < 1;
+  const height = SPARRING_SPRITE_BASE_HEIGHT * scale;
+  const width = height * (1024 / 1536);
+  const centerY = spriteCenterY(height);
+  const motion = scale;
 
   useFrame((state) => {
     if (!animate || !animRef.current) return;
     const t = state.clock.elapsedTime;
     animRef.current.position.set(
-      Math.sin(t * 1.15) * 0.09,
+      Math.sin(t * 1.15) * 0.09 * motion,
       0,
-      Math.sin(t * 0.85 + 0.4) * 0.1
+      Math.sin(t * 0.85 + 0.4) * 0.1 * motion
     );
     animRef.current.rotation.z = Math.sin(t * 1.05) * 0.065;
   });
 
   return (
     <group ref={innerRef}>
-      <group ref={animRef} position={[0, SPARRING_SPRITE_CENTER_Y, 0]}>
+      <group ref={animRef} position={[0, centerY, 0]}>
         <mesh castShadow position={[0, 0, 0.02]}>
-          <planeGeometry args={[SPRITE_WIDTH, SPARRING_SPRITE_HEIGHT]} />
+          <planeGeometry args={[width, height]} />
           <meshStandardMaterial
             map={texture}
             transparent

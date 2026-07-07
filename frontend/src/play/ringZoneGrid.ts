@@ -3,10 +3,10 @@ import { hitZoneOutline, isKnuckleInHitZone, type HitZoneCorners } from './targe
 
 /** Sparring partner torso + head hit zone in ring play mode. */
 export const RING_HIT_CORNERS: HitZoneCorners = [
-  { x: 0.28, y: 0.02 },
-  { x: 0.72, y: 0.02 },
-  { x: 0.72, y: 0.5 },
-  { x: 0.28, y: 0.5 },
+  { x: 0.24, y: 0.0 },
+  { x: 0.76, y: 0.0 },
+  { x: 0.76, y: 0.42 },
+  { x: 0.24, y: 0.42 },
 ];
 
 export function isKnuckleOnSparringPartner(
