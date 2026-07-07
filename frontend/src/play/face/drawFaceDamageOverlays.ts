@@ -17,9 +17,10 @@ function toCanvas(
   return [canvasW / 2 + (lx - 0.5) * drawW, canvasH / 2 + (ly - 0.5) * drawH];
 }
 
-function drawScale(canvasW: number, canvasH: number): number {
+/** Pixel width of the drawn face on canvas (matches drawFullFaceOnCanvas). */
+function faceDrawWidth(canvasW: number, canvasH: number): number {
   const contain = Math.min(canvasW / IMAGE_W, canvasH / IMAGE_H) * FACE_CONTAIN_PAD;
-  return (canvasW / 512) * contain;
+  return IMAGE_W * contain;
 }
 
 function drawCauliflowerEar(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, side: -1 | 1) {
@@ -147,7 +148,7 @@ export function drawFaceDamageOverlays(
 ) {
   if (!damages.length) return;
 
-  const s = drawScale(canvasW, canvasH);
+  const s = faceDrawWidth(canvasW, canvasH) * 0.22;
   const [lx, ly] = toCanvas(0.3493, 0.3464, canvasW, canvasH);
   const [rx, ry] = toCanvas(0.6487, 0.3464, canvasW, canvasH);
   const [nx, ny] = toCanvas(0.499, 0.456, canvasW, canvasH);
@@ -159,10 +160,10 @@ export function drawFaceDamageOverlays(
   for (const d of damages) {
     switch (d) {
       case 'cauliflowerLeftEar':
-        drawCauliflowerEar(ctx, leftEarX, leftEarY, s * 1.1, -1);
+        drawCauliflowerEar(ctx, leftEarX, leftEarY, s * 1.15, -1);
         break;
       case 'cauliflowerRightEar':
-        drawCauliflowerEar(ctx, rightEarX, rightEarY, s * 1.1, 1);
+        drawCauliflowerEar(ctx, rightEarX, rightEarY, s * 1.15, 1);
         break;
       case 'blackLeftEye':
         drawBlackEye(ctx, lx, ly, s);

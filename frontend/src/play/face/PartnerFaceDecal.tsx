@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { FACE_CONTAIN_PAD } from './composeFaceTexture';
 import { FACE_NOSE_LANDMARK, FACE_SOURCE_SIZE, FACE_TEMPLATE_SRC, RING_PARTNER_FACE } from './faceTemplate';
@@ -56,9 +56,12 @@ export function PartnerFaceDecal({
   damages = [],
 }: PartnerFaceDecalProps) {
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
+  const [imageReady, setImageReady] = useState(false);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const texRef = useRef<THREE.CanvasTexture | null>(null);
+  const damagesRef = useRef(damages);
+  damagesRef.current = damages;
 
   const placement = useMemo(() => {
     const base = spriteNormRectToLocal(RING_PARTNER_FACE, spriteWidth, spriteHeight, {
@@ -73,6 +76,19 @@ export function PartnerFaceDecal({
   }, [spriteWidth, spriteHeight]);
   const [fw, fh] = placement.size;
 
+  const redraw = useCallback(() => {
+    const img = imgRef.current;
+    const canvas = canvasRef.current;
+    const tex = texRef.current;
+    if (!img || !canvas || !tex) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE);
+    drawFaceDamageOverlays(ctx, CANVAS_SIZE, CANVAS_SIZE, damagesRef.current);
+    tex.needsUpdate = true;
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const canvas = document.createElement('canvas');
@@ -85,7 +101,9 @@ export function PartnerFaceDecal({
     setTexture(tex);
 
     loadFaceImage(FACE_TEMPLATE_SRC).then((img) => {
-      if (!cancelled) imgRef.current = img;
+      if (cancelled) return;
+      imgRef.current = img;
+      setImageReady(true);
     });
 
     return () => {
@@ -97,23 +115,9 @@ export function PartnerFaceDecal({
   const damagesKey = damages.join(',');
 
   useEffect(() => {
-    let frame = 0;
-    const tick = () => {
-      frame = requestAnimationFrame(tick);
-      const img = imgRef.current;
-      const canvas = canvasRef.current;
-      const tex = texRef.current;
-      if (!img || !canvas || !tex) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE);
-      drawFaceDamageOverlays(ctx, CANVAS_SIZE, CANVAS_SIZE, damages);
-      tex.needsUpdate = true;
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [damagesKey]);
+    if (!imageReady) return;
+    redraw();
+  }, [damagesKey, imageReady, redraw]);
 
   if (!texture) return null;
 
