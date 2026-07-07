@@ -22,10 +22,10 @@ export function createBoboSwingState(): BoboSwingState {
 }
 
 export function applyBoboHitImpulse(state: BoboSwingState, glove: 'left' | 'right'): void {
-  // Push in the punch direction: right glove → tilt right, left → tilt left, front hit → lean toward camera.
+  // Every hit: sideways in punch direction + lean away from camera.
   const zImpulse = glove === 'right' ? HIT_IMPULSE_Z : -HIT_IMPULSE_Z;
   state.velZ = Math.max(-MAX_VEL, Math.min(MAX_VEL, state.velZ + zImpulse));
-  state.velX = Math.max(-MAX_VEL, Math.min(MAX_VEL, state.velX - HIT_IMPULSE_X));
+  state.velX = Math.max(-MAX_VEL, Math.min(MAX_VEL, state.velX + HIT_IMPULSE_X));
 }
 
 export function stepBoboSwing(state: BoboSwingState, delta: number): void {
