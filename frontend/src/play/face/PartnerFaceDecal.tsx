@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { FACE_TEMPLATE_SRC, RING_PARTNER_FACE } from './faceTemplate';
 import { drawFullFaceOnCanvas, loadFaceImage, warpForPunch } from './composeFaceTexture';
-import { spriteNormRectToLocal } from './spriteFacePlacement';
+import { scalePlacement, spriteNormRectToLocal } from './spriteFacePlacement';
 
 const CANVAS_SIZE = 512;
-/** Grow face while pinning the top-right corner (user-calibrated). */
-const PARTNER_FACE_SCALE = 1.25;
+/** Prior calibration: top-right pinned, +25%. */
+const PARTNER_FACE_SCALE_TOP_RIGHT = 1.25;
+/** Latest calibration: bottom-left pinned, +10% right and up. */
+const PARTNER_FACE_SCALE_BOTTOM_LEFT = 1.1;
 
 interface PartnerFaceDecalProps {
   /** Sprite plane width in metres. */
@@ -28,14 +30,13 @@ export function PartnerFaceDecal({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const texRef = useRef<THREE.CanvasTexture | null>(null);
 
-  const placement = useMemo(
-    () =>
-      spriteNormRectToLocal(RING_PARTNER_FACE, spriteWidth, spriteHeight, {
-        scale: PARTNER_FACE_SCALE,
-        anchor: 'top-right',
-      }),
-    [spriteWidth, spriteHeight]
-  );
+  const placement = useMemo(() => {
+    const base = spriteNormRectToLocal(RING_PARTNER_FACE, spriteWidth, spriteHeight, {
+      scale: PARTNER_FACE_SCALE_TOP_RIGHT,
+      anchor: 'top-right',
+    });
+    return scalePlacement(base, PARTNER_FACE_SCALE_BOTTOM_LEFT, 'bottom-left');
+  }, [spriteWidth, spriteHeight]);
   const [fw, fh] = placement.size;
 
   useEffect(() => {
