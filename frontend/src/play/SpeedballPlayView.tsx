@@ -1,8 +1,9 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { SpeedballPlayScene } from './SpeedballPlayScene';
 import { GlovesPlayShell } from './GlovesPlayShell';
 import { useElasticGloves } from './useElasticGloves';
 import { isKnuckleOnSpeedball } from './speedballZoneGrid';
+import { playPunchSfx, preloadPunchSfx } from './playPunchSfx';
 import type { PunchImpact } from './punchImpact';
 import type { GloveId, GlovePosition } from '../types/game';
 import type { HitZoneCorners } from './targetZone';
@@ -26,12 +27,17 @@ export function SpeedballPlayView({ onBack }: SpeedballPlayViewProps) {
   const targetZoneCornersRef = useRef<HitZoneCorners>(FALLBACK_ZONE);
 
   const onPunch = useCallback((glove: GloveId, knuckle: GlovePosition) => {
+    playPunchSfx('speedball');
     setPunchCount((c) => c + 1);
     impactIdRef.current += 1;
     setImpacts((prev) => [
       ...prev,
       { id: impactIdRef.current, glove, knuckle, time: performance.now() },
     ]);
+  }, []);
+
+  useEffect(() => {
+    preloadPunchSfx('speedball');
   }, []);
 
   const isKnuckleOnTarget = useCallback(

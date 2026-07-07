@@ -1,6 +1,7 @@
 import type { PointerEvent, ReactNode, RefObject } from 'react';
 import { ScreenGlove } from './ScreenGlove';
 import { SlugTrailCanvas } from './SlugTrailCanvas';
+import { unlockPunchAudio } from './playPunchSfx';
 import { useBuildSha } from '../useBuildSha';
 import type { GloveState } from '../types/game';
 import type { GloveTransform } from './skeleton/types';
@@ -42,11 +43,16 @@ export function GlovesPlayShell({
 }: GlovesPlayShellProps) {
   const buildSha = useBuildSha(__APP_GIT_SHA__);
 
+  const handlePointerDown = (e: PointerEvent) => {
+    unlockPunchAudio();
+    onRootDown(e);
+  };
+
   return (
     <div
       className="play-fullscreen"
       ref={rootRef}
-      onPointerDown={onRootDown}
+      onPointerDown={handlePointerDown}
       onPointerMove={onRootMove}
       onPointerUp={onRootUp}
       onPointerCancel={onRootUp}

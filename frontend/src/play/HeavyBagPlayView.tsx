@@ -1,8 +1,9 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { HeavyBagPlayScene } from './HeavyBagPlayScene';
 import { GlovesPlayShell } from './GlovesPlayShell';
 import { useElasticGloves } from './useElasticGloves';
 import { isGloveTopOnPunchBag } from './gloveZoneGrid';
+import { playPunchSfx, preloadPunchSfx } from './playPunchSfx';
 import type { BagPunchImpact } from './bagImpact';
 import type { GloveId, GlovePosition } from '../types/game';
 
@@ -17,12 +18,17 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
   const targetZoneOffsetRef = useRef<GlovePosition>({ x: 0, y: 0 });
 
   const onPunch = useCallback((glove: GloveId, knuckle: GlovePosition) => {
+    playPunchSfx('heavy-bag');
     setPunchCount((c) => c + 1);
     impactIdRef.current += 1;
     setImpacts((prev) => [
       ...prev,
       { id: impactIdRef.current, glove, knuckle, time: performance.now() },
     ]);
+  }, []);
+
+  useEffect(() => {
+    preloadPunchSfx('heavy-bag');
   }, []);
 
   const gloves = useElasticGloves({
