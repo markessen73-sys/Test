@@ -13,7 +13,6 @@ import {
   type BagDent,
   type BagPunchImpact,
 } from './bagImpact';
-import { BagFaceDecal } from './face/BagFaceDecal';
 import {
   applyBagHitImpulse,
   BAG_CHAIN_LENGTH,
@@ -100,7 +99,6 @@ function PlayHeavyBag({
   >([]);
   const lastImpactIdRef = useRef(0);
   const { camera } = useThree();
-  const lastPunchTime = impacts.length ? impacts[impacts.length - 1].time : 0;
 
   useEffect(() => {
     if (!impacts.length) return;
@@ -208,7 +206,6 @@ function PlayHeavyBag({
               onDone={() => setActiveRings((prev) => prev.filter((r) => r.id !== ring.id))}
             />
           ))}
-          <BagFaceDecal lastPunchTime={lastPunchTime} />
           <pointLight position={[0, 1.5, 0.6]} intensity={12} color="#ffdcb0" distance={5} />
         </group>
       </group>

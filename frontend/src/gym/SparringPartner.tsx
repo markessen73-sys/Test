@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import type { Group } from 'three';
 import * as THREE from 'three';
+import { PartnerFaceDecal } from '../play/face/PartnerFaceDecal';
 
 const SPARRING_BOXER_TEXTURE = '/boxer/sparring-boxer.png';
 
@@ -48,6 +49,8 @@ interface SparringPartnerProps {
   animate?: boolean;
   /** Height multiplier (ring play uses 1.5). */
   scale?: number;
+  /** Show caricature face on head (ring play only). */
+  showFace?: boolean;
   innerRef?: RefObject<Group | null>;
 }
 
@@ -56,6 +59,7 @@ function SparringPartnerSprite({
   hitFlashAge = 1,
   animate = false,
   scale = 1,
+  showFace = false,
   innerRef,
 }: SparringPartnerProps) {
   const animRef = useRef<Group>(null);
@@ -94,6 +98,9 @@ function SparringPartnerSprite({
             side={THREE.DoubleSide}
           />
         </mesh>
+        {showFace && (
+          <PartnerFaceDecal spriteWidth={width} spriteHeight={height} hitFlashAge={hitFlashAge} />
+        )}
       </group>
     </group>
   );

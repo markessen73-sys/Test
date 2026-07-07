@@ -106,7 +106,7 @@ function PlayRing({
       </mesh>
 
       <group ref={partnerRef} position={[0, RING_CANVAS_SURFACE_Y + RING_PARTNER_LIFT, RING_PARTNER_FORWARD]} rotation={[0, RING_PARTNER_YAW, 0]}>
-        <SparringPartner hitFlashAge={flashAge} animate scale={RING_SPRITE_SCALE} />
+        <SparringPartner hitFlashAge={flashAge} animate scale={RING_SPRITE_SCALE} showFace />
       </group>
     </group>
   );

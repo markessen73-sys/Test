@@ -21,10 +21,57 @@ DEFAULT_SRC = ROOT.parent / "file_00000000ffb871f4ac76239e6911f3b9.png"
 OUT_JSON = ROOT / "public/faces/face-template-map.json"
 OUT_TS = ROOT / "src/play/face/faceTemplateMap.ts"
 PUBLIC_FACE = ROOT / "public/faces/test-template-face.png"
+SPARRING_SPRITE = ROOT / "public/boxer/sparring-boxer.png"
 
 
 def norm_rect(x0: float, y0: float, x1: float, y1: float, w: int, h: int) -> list[float]:
     return [round(x0 / w, 4), round(y0 / h, 4), round(x1 / w, 4), round(y1 / h, 4)]
+
+
+def analyze_sparring_head(sprite_path: Path, inset_frac: float = 0.03) -> list[float]:
+    """Head oval on sparring-boxer.png (1024×1536, top-left norm)."""
+    im = Image.open(sprite_path).convert("RGBA")
+    arr = np.array(im)
+    h, w = arr.shape[:2]
+    alpha = arr[:, :, 3] > 30
+
+    row_counts = alpha.sum(axis=1)
+    opaque_rows = np.where(row_counts > w * 0.05)[0]
+    if len(opaque_rows) == 0:
+        return [0.28, 0.06, 0.72, 0.22]
+
+    y_top = int(opaque_rows[0])
+
+    def row_extent(y: int) -> tuple[int, int, int] | None:
+        cols = np.where(alpha[y])[0]
+        if len(cols) == 0:
+            return None
+        return int(cols[0]), int(cols[-1]), int(cols[-1] - cols[0] + 1)
+
+    # Cranium only — stop before jaw flares into shoulders (~top 4.5% of sprite).
+    scan_end = y_top + int(0.045 * h)
+    head_rows: list[tuple[int, int, int, int]] = []
+    for y in range(y_top, scan_end):
+        ex = row_extent(y)
+        if ex:
+            head_rows.append((y, ex[0], ex[1], ex[2]))
+
+    if not head_rows:
+        return [0.28, 0.06, 0.72, 0.22]
+
+    hx0 = min(r[1] for r in head_rows)
+    hx1 = max(r[2] for r in head_rows)
+    hy0 = head_rows[0][0]
+    hy1 = head_rows[-1][0]
+
+    ix = max(1, int((hx1 - hx0 + 1) * inset_frac))
+    iy = max(1, int((hy1 - hy0 + 1) * inset_frac))
+    hx0 += ix
+    hx1 -= ix
+    hy0 += iy
+    hy1 -= iy
+
+    return norm_rect(hx0, hy0, hx1 + 1, hy1, w, h)
 
 
 def map_template(src_path: Path) -> dict:
@@ -77,8 +124,8 @@ def map_template(src_path: Path) -> dict:
                 "size": [0.52, 0.62],
             },
             "ringPartner": {
-                "comment": "Front-face rect on sparring-boxer sprite if turned (1024×1536 norm)",
-                "rect": [0.28, 0.06, 0.72, 0.22],
+                "comment": "Head oval on sparring-boxer sprite (1024×1536, top-left norm)",
+                "rect": analyze_sparring_head(SPARRING_SPRITE),
             },
             "hudPlayer": {"rect": [0.02, 0.02, 0.22, 0.18]},
             "hudOpponent": {"rect": [0.78, 0.02, 0.98, 0.18]},
