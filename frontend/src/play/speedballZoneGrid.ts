@@ -3,10 +3,10 @@ import { hitZoneOutline, isKnuckleInHitZone, type HitZoneCorners } from './targe
 
 /** Speedball strike zone — upper screen (ball sits above fixed camera aim). */
 export const SPEEDBALL_HIT_CORNERS: HitZoneCorners = [
-  { x: 0.36, y: -0.04 },
-  { x: 0.64, y: -0.04 },
-  { x: 0.66, y: 0.16 },
-  { x: 0.34, y: 0.16 },
+  { x: 0.38, y: 0.02 },
+  { x: 0.62, y: 0.02 },
+  { x: 0.64, y: 0.24 },
+  { x: 0.36, y: 0.24 },
 ];
 
 export function isKnuckleOnSpeedball(

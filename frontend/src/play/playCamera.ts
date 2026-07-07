@@ -22,7 +22,7 @@ export const HEAVY_BAG_PLAY_TARGET: PlayTarget = [0, 1.3, -3.8];
 export const BOBO_PLAY_TARGET: PlayTarget = [0, 1.35, -3.8];
 
 /** Speedball ball centre in play mode (world Y). */
-export const SPEEDBALL_BALL_Y = 2.75;
+export const SPEEDBALL_BALL_Y = 2.15;
 export const SPEEDBALL_PLAY_TARGET: PlayTarget = [0, SPEEDBALL_BALL_Y, -3.8];
 
 /** Fixed camera aim — same as heavy bag/bobo so a raised ball reads higher on screen. */

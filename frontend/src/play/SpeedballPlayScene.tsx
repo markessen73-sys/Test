@@ -46,11 +46,11 @@ function PlaySpeedball({
 
   return (
     <group position={[0, 0, -3.8]}>
-      <mesh position={[0, 3.65, -0.35]}>
+      <mesh position={[0, 3.05, -0.35]}>
         <boxGeometry args={[1.0, 0.14, 0.2]} />
         <meshStandardMaterial color="#4A3728" />
       </mesh>
-      <mesh position={[0, 3.2, -0.25]}>
+      <mesh position={[0, 2.6, -0.25]}>
         <cylinderGeometry args={[0.03, 0.03, 0.9, 8]} />
         <meshStandardMaterial color="#777" metalness={0.4} />
       </mesh>
