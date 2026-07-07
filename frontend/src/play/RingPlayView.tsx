@@ -1,8 +1,9 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { RingPlayScene } from './RingPlayScene';
 import { GlovesPlayShell } from './GlovesPlayShell';
 import { useElasticGloves } from './useElasticGloves';
 import { isKnuckleOnSparringPartner } from './ringZoneGrid';
+import { playPunchSfx, preloadPunchSfx } from './playPunchSfx';
 import type { PunchImpact } from './punchImpact';
 import type { GloveId, GlovePosition } from '../types/game';
 
@@ -17,12 +18,17 @@ export function RingPlayView({ onBack }: RingPlayViewProps) {
   const targetZoneOffsetRef = useRef<GlovePosition>({ x: 0, y: 0 });
 
   const onPunch = useCallback((glove: GloveId, knuckle: GlovePosition) => {
+    playPunchSfx('ring');
     setPunchCount((c) => c + 1);
     impactIdRef.current += 1;
     setImpacts((prev) => [
       ...prev,
       { id: impactIdRef.current, glove, knuckle, time: performance.now() },
     ]);
+  }, []);
+
+  useEffect(() => {
+    preloadPunchSfx('ring');
   }, []);
 
   const gloves = useElasticGloves({

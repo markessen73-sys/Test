@@ -1,4 +1,4 @@
-export type PunchSfxStation = 'heavy-bag' | 'speedball' | 'bobo-doll';
+export type PunchSfxStation = 'heavy-bag' | 'speedball' | 'bobo-doll' | 'ring';
 
 const BACKGROUND_MUSIC_SRC = '/sounds/Boxing gym.mp3';
 const BACKGROUND_MUSIC_VOLUME = 0.18;
@@ -8,6 +8,7 @@ const PUNCH_SFX: Record<PunchSfxStation, string> = {
   'heavy-bag': '/sounds/universfield-punch-03-352040.mp3',
   speedball: '/sounds/universfield-power-punch-192118.mp3',
   'bobo-doll': '/sounds/floraphonic-rubber-chicken-squeak-toy-1-181416.mp3',
+  ring: '/sounds/beetpro-ouch-sound-effect-30-11844.mp3',
 };
 
 /** Skip encoder/file silence so impact aligns with the punch. */
@@ -15,6 +16,7 @@ const PUNCH_START_OFFSET: Record<PunchSfxStation, number> = {
   'heavy-bag': 0.29,
   speedball: 0.11,
   'bobo-doll': 0.03,
+  ring: 0.08,
 };
 
 let audioCtx: AudioContext | null = null;
