@@ -7,10 +7,10 @@ export interface BoboSwingState {
   time: number;
 }
 
-const HIT_IMPULSE_Z = 0.2;
-const HIT_IMPULSE_X = 0.09;
-const MAX_VEL = 1.35;
-const MAX_TILT = 0.38;
+const HIT_IMPULSE_Z = 0.6;
+const HIT_IMPULSE_X = 0.27;
+const MAX_VEL = 4.05;
+const MAX_TILT = 1.14;
 const RESTORE = 11;
 const DAMPING = 3.0;
 const IDLE_X_AMP = 0.016;
