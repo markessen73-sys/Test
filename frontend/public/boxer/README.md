@@ -4,6 +4,7 @@ Layered character art for the Heavy Bag play mode, sliced from `boxer-behind-gua
 
 | File | Reference pose |
 |------|----------------|
+| `sparring-boxer.png` | Ring sparring partner (arms down) |
 | `boxer-behind-guard.png` | High guard, wide back (source for sprite parts) |
 | `boxer-behind-relaxed.png` | Arms down |
 | `parts/*.png` | 15 body layers (head → boots) |

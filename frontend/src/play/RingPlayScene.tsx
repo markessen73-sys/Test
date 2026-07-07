@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { Suspense, useEffect, useRef, useState, type RefObject } from 'react';
 import type { GlovePosition } from '../types/game';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -131,7 +131,9 @@ export function RingPlayScene({ impacts, ringZoneOffsetRef }: RingPlaySceneProps
     >
       <color attach="background" args={['#1a1208']} />
       <RingPlayEnvironment />
-      <PlayRing impacts={impacts} ringZoneOffsetRef={ringZoneOffsetRef} />
+      <Suspense fallback={null}>
+        <PlayRing impacts={impacts} ringZoneOffsetRef={ringZoneOffsetRef} />
+      </Suspense>
     </Canvas>
   );
 }

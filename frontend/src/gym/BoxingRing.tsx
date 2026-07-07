@@ -1,6 +1,3 @@
-import { useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
-import type { Group } from 'three';
 import { SparringPartner } from './SparringPartner';
 
 interface BoxingRingProps {
@@ -8,13 +5,6 @@ interface BoxingRingProps {
 }
 
 export function BoxingRing({ highlighted }: BoxingRingProps) {
-  const partnerRef = useRef<Group>(null);
-
-  useFrame(() => {
-    if (!partnerRef.current || !highlighted) return;
-    partnerRef.current.position.x = Math.sin(Date.now() * 0.0015) * 0.03;
-  });
-
   const rope = '#CC0000';
   const post = '#F0EAD6';
 
@@ -65,7 +55,7 @@ export function BoxingRing({ highlighted }: BoxingRingProps) {
         </group>
       ))}
 
-      <group ref={partnerRef} position={[0, 0.22, 0]}>
+      <group position={[0, 0.22, 0]}>
         <SparringPartner dimmed={!highlighted} animate={highlighted} />
       </group>
 
