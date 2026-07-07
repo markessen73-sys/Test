@@ -146,10 +146,10 @@ function drawSwollenEye(ctx: CanvasRenderingContext2D, x: number, y: number, u: 
 }
 
 /**
- * Swollen auricular hematoma — smooth puffy distension with reddish-purple bruising.
+ * Swollen auricular hematoma — right ear (massive bulbous distension).
  * Calibrated against reference caricature (swollen right ear with suture line).
  */
-function drawCauliflowerEar(
+function drawCauliflowerEarRight(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
@@ -223,26 +223,8 @@ function drawCauliflowerEar(
   ctx.ellipse(u * 0.42, u * 0.14, u * 0.42, u * 0.52, 0.08, 0, Math.PI * 2);
   ctx.fill();
 
-  // Suture / scab line across upper cartilage (reference detail)
-  ctx.strokeStyle = 'rgba(35, 12, 18, 0.9)';
-  ctx.lineWidth = u * 0.05;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(u * 0.15, -u * 0.32);
-  ctx.quadraticCurveTo(u * 0.52, -u * 0.24, u * 0.88, -u * 0.34);
-  ctx.stroke();
-
-  // Stitch marks along suture
-  ctx.lineWidth = u * 0.028;
-  for (let i = 0; i < 6; i++) {
-    const t = 0.1 + i * 0.15;
-    const sx = u * (0.15 + t * 0.73);
-    const sy = -u * (0.32 - 0.05 * Math.sin(t * Math.PI));
-    ctx.beginPath();
-    ctx.moveTo(sx, sy - u * 0.055);
-    ctx.lineTo(sx, sy + u * 0.055);
-    ctx.stroke();
-  }
+  // Suture / scab line across upper cartilage
+  drawEarSuture(ctx, u, 0.15, -0.32, 0.88, -0.34, 6);
 
   // Swollen lobe — smooth bulbous bottom, enlarged
   const lobe = ctx.createRadialGradient(u * 0.24, u * 0.85, 0, u * 0.24, u * 0.85, u * 0.34);
@@ -255,6 +237,138 @@ function drawCauliflowerEar(
   ctx.fill();
 
   ctx.restore();
+}
+
+/**
+ * Left ear hematoma — preserves ear silhouette with purple bruising and cross-stitch suture.
+ * Calibrated against reference caricature (cauliflower left ear).
+ */
+function drawCauliflowerEarLeft(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  u: number,
+  side: -1 | 1
+) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(side, 1);
+
+  // Moderate thickening — ear outline preserved, puffy but not 2× volume
+  const skin = ctx.createLinearGradient(-u * 0.1, -u * 0.5, u * 0.75, u * 0.7);
+  skin.addColorStop(0, '#ecd0bc');
+  skin.addColorStop(0.45, '#d8a898');
+  skin.addColorStop(1, '#c08880');
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.moveTo(u * 0.08, -u * 0.48);
+  ctx.bezierCurveTo(u * 0.62, -u * 0.56, u * 0.95, -u * 0.2, u * 0.88, u * 0.18);
+  ctx.bezierCurveTo(u * 0.82, u * 0.52, u * 0.5, u * 0.78, u * 0.22, u * 0.72);
+  ctx.bezierCurveTo(-u * 0.02, u * 0.66, -u * 0.08, u * 0.32, u * 0.02, u * 0.06);
+  ctx.bezierCurveTo(-u * 0.04, -u * 0.15, -u * 0.02, -u * 0.32, u * 0.08, -u * 0.48);
+  ctx.closePath();
+  ctx.fill();
+
+  // Deep burgundy bruise in scaphoid / antihelix folds
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = 'rgba(85, 18, 42, 0.82)';
+  ctx.beginPath();
+  ctx.ellipse(u * 0.42, -u * 0.08, u * 0.4, u * 0.34, 0.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(100, 22, 48, 0.78)';
+  ctx.beginPath();
+  ctx.ellipse(u * 0.38, u * 0.18, u * 0.44, u * 0.4, 0.08, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+
+  // Dark red concha wash
+  ctx.fillStyle = 'rgba(130, 32, 55, 0.58)';
+  ctx.beginPath();
+  ctx.ellipse(u * 0.36, u * 0.12, u * 0.36, u * 0.44, 0.06, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Outer helix rim — still defined through swelling
+  ctx.strokeStyle = 'rgba(220, 175, 160, 0.6)';
+  ctx.lineWidth = u * 0.05;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(u * 0.1, -u * 0.44);
+  ctx.bezierCurveTo(u * 0.58, -u * 0.52, u * 0.9, -u * 0.16, u * 0.84, u * 0.22);
+  ctx.stroke();
+
+  // Slightly swollen lobe
+  ctx.fillStyle = 'rgba(185, 95, 95, 0.55)';
+  ctx.beginPath();
+  ctx.ellipse(u * 0.22, u * 0.7, u * 0.24, u * 0.18, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Cross-stitch suture along outer helix rim (drawn last, on top)
+  ctx.strokeStyle = '#120608';
+  ctx.lineWidth = u * 0.09;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(u * 0.12, -u * 0.42);
+  ctx.bezierCurveTo(u * 0.55, -u * 0.5, u * 0.88, -u * 0.14, u * 0.8, u * 0.08);
+  ctx.stroke();
+
+  ctx.lineWidth = u * 0.042;
+  const suturePts = [
+    [0.22, -0.46], [0.38, -0.48], [0.54, -0.44], [0.68, -0.36], [0.78, -0.22],
+  ];
+  for (const [px, py] of suturePts) {
+    const sx = u * px;
+    const sy = u * py;
+    const cs = u * 0.075;
+    ctx.beginPath();
+    ctx.moveTo(sx - cs, sy - cs * 0.55);
+    ctx.lineTo(sx + cs, sy + cs * 0.55);
+    ctx.moveTo(sx + cs, sy - cs * 0.55);
+    ctx.lineTo(sx - cs, sy + cs * 0.55);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+/** Horizontal suture line with optional cross-stitch marks. */
+function drawEarSuture(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  stitches: number,
+  crossStitch = false
+) {
+  ctx.strokeStyle = 'rgba(12, 4, 8, 1)';
+  ctx.lineWidth = u * (crossStitch ? 0.08 : 0.05);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(u * x0, u * y0);
+  ctx.quadraticCurveTo(u * ((x0 + x1) / 2), u * ((y0 + y1) / 2 + 0.04), u * x1, u * y1);
+  ctx.stroke();
+
+  const stitchW = crossStitch ? 0.045 : 0.028;
+  ctx.lineWidth = u * stitchW;
+  for (let i = 0; i < stitches; i++) {
+    const t = (i + 0.5) / stitches;
+    const sx = u * (x0 + t * (x1 - x0));
+    const sy = u * (y0 + t * (y1 - y0) + 0.02 * Math.sin(t * Math.PI));
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - u * 0.07);
+    ctx.lineTo(sx, sy + u * 0.07);
+    ctx.stroke();
+    if (crossStitch) {
+      const cs = u * 0.065;
+      ctx.beginPath();
+      ctx.moveTo(sx - cs, sy - cs * 0.65);
+      ctx.lineTo(sx + cs, sy + cs * 0.65);
+      ctx.moveTo(sx + cs, sy - cs * 0.65);
+      ctx.lineTo(sx - cs, sy + cs * 0.65);
+      ctx.stroke();
+    }
+  }
 }
 
 /** Ringside cut dressing — horizontal gauze pad taped across the forehead. */
@@ -469,10 +583,10 @@ export function drawFaceDamageOverlays(
   for (const d of damages) {
     switch (d) {
       case 'cauliflowerLeftEar':
-        drawCauliflowerEar(ctx, anatLeftEarX, anatLeftEarY, u * 1.65, 1);
+        drawCauliflowerEarLeft(ctx, anatLeftEarX, anatLeftEarY, u * 1.5, 1);
         break;
       case 'cauliflowerRightEar':
-        drawCauliflowerEar(ctx, anatRightEarX, anatRightEarY, u * 1.65, -1);
+        drawCauliflowerEarRight(ctx, anatRightEarX, anatRightEarY, u * 1.65, -1);
         break;
       case 'blackLeftEye':
         drawBlackEye(ctx, lx, ly, u);
