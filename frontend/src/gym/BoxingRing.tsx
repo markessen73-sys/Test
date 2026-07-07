@@ -1,4 +1,4 @@
-import { SparringPartner, RING_CANVAS_SURFACE_Y } from './SparringPartner';
+import { SparringPartner, GYM_PARTNER_LIFT, RING_CANVAS_SURFACE_Y } from './SparringPartner';
 
 interface BoxingRingProps {
   highlighted: boolean;
@@ -55,7 +55,7 @@ export function BoxingRing({ highlighted }: BoxingRingProps) {
         </group>
       ))}
 
-      <group position={[0, RING_CANVAS_SURFACE_Y, 0]}>
+      <group position={[0, RING_CANVAS_SURFACE_Y + GYM_PARTNER_LIFT, 0]}>
         <SparringPartner dimmed={!highlighted} animate={highlighted} />
       </group>
 

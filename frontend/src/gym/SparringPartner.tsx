@@ -16,6 +16,8 @@ const FEET_INSET_FRAC = 74 / 1536;
 
 /** Ring canvas top surface — partner feet sit here (ring-local Y). */
 export const RING_CANVAS_SURFACE_Y = 0.24;
+/** Extra lift in main gym browse so feet read on the canvas, not sunken. */
+export const GYM_PARTNER_LIFT = 0.6;
 
 function spriteCenterY(height: number): number {
   return height * (0.5 - FEET_INSET_FRAC);
