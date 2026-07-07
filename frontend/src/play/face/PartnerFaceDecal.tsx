@@ -76,7 +76,7 @@ export function PartnerFaceDecal({
   return (
     <mesh position={[cx, cy + nudgeY, cz]} renderOrder={2}>
       <planeGeometry args={[fw, fh]} />
-      <meshBasicMaterial map={texture} transparent depthWrite={false} />
+      <meshBasicMaterial map={texture} transparent alphaTest={0.04} depthWrite={false} />
     </mesh>
   );
 }

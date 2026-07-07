@@ -47,7 +47,7 @@ export function drawFaceOnCanvas(
   ctx.rotate(warp.rotation ?? 0);
   ctx.scale(warp.squashX ?? 1, warp.squashY ?? 1);
 
-  const draw = size * 0.92;
+  const draw = size * 0.96;
   ctx.drawImage(image, crop.x, crop.y, crop.width, crop.height, -draw / 2, -draw / 2, draw, draw);
   ctx.restore();
 }

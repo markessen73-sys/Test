@@ -74,22 +74,41 @@ def analyze_sparring_head(sprite_path: Path, inset_frac: float = 0.03) -> list[f
     return norm_rect(hx0, hy0, hx1 + 1, hy1, w, h)
 
 
-def map_template(src_path: Path) -> dict:
-    im = Image.open(src_path).convert("RGB")
-    arr = np.array(im)
-    h, w, _ = arr.shape
-    r, g, b = arr[:, :, 0].astype(int), arr[:, :, 1].astype(int), arr[:, :, 2].astype(int)
+def detect_foreground(arr: np.ndarray) -> np.ndarray:
+    """Mask subject pixels — handles photo backgrounds and black-backdrop caricatures."""
+    h, w = arr.shape[:2]
+    if arr.shape[2] == 4:
+        r, g, b, a = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2], arr[:, :, 3]
+    else:
+        r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+        a = np.full((h, w), 255, dtype=np.uint8)
 
-    bg = (np.abs(r - g) < 15) & (np.abs(g - b) < 15) & (r > 160)
-    fg = ~bg
+    ri, gi, bi = r.astype(int), g.astype(int), b.astype(int)
+    dark_bg = (ri < 36) & (gi < 36) & (bi < 36)
+    light_bg = (np.abs(ri - gi) < 15) & (np.abs(gi - bi) < 15) & (ri > 160)
+    fg = (a > 48) & ~dark_bg & ~light_bg
+    if int(fg.sum()) < 500:
+        fg = (a > 20) & ~dark_bg
+    if int(fg.sum()) < 500:
+        fg = (np.maximum(np.maximum(r, g), b) > 24) & (a > 10)
+    return fg
+
+
+def map_template(src_path: Path) -> dict:
+    im = Image.open(src_path).convert("RGBA")
+    arr = np.array(im)
+    h, w = arr.shape[:2]
+    fg = detect_foreground(arr)
     ys, xs = np.where(fg)
     if len(xs) == 0:
         raise RuntimeError("No foreground detected in template image")
 
     x0, x1, y0, y1 = int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max())
-    face_y1 = y0 + int((y1 - y0) * 0.62)
-    face_x0 = x0 + int((x1 - x0) * 0.08)
-    face_x1 = x1 - int((x1 - x0) * 0.08)
+    # Head-only caricatures fill the frame; photos crop to upper face oval.
+    chin_frac = 0.92 if (x1 - x0) > 0.7 * w and (y1 - y0) > 0.7 * h else 0.62
+    face_y1 = y0 + int((y1 - y0) * chin_frac)
+    face_x0 = x0 + int((x1 - x0) * 0.06)
+    face_x1 = x1 - int((x1 - x0) * 0.06)
     face_y0 = y0 + int((face_y1 - y0) * 0.02)
     fw, fh = face_x1 - face_x0 + 1, face_y1 - face_y0 + 1
 
@@ -146,7 +165,7 @@ def main() -> None:
         raise SystemExit(f"Template not found: {src}")
 
     PUBLIC_FACE.parent.mkdir(parents=True, exist_ok=True)
-    Image.open(src).save(PUBLIC_FACE, optimize=True)
+    Image.open(src).convert("RGBA").save(PUBLIC_FACE, optimize=True)
 
     data = map_template(src)
     OUT_JSON.parent.mkdir(parents=True, exist_ok=True)
