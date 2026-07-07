@@ -12,6 +12,6 @@
 |------|---------|--------|
 | `universfield-punch-03-352040.mp3` | Heavy bag | [Universfield — Punch 03](https://freesound.org/people/Universfield/sounds/352040/) |
 | `universfield-power-punch-192118.mp3` | Speedball | [Universfield — Power punch](https://freesound.org/people/Universfield/sounds/192118/) |
-| `Rubber chicken.wav` | Bobo doll | [MattHawkins Cartoon SFX](https://www.matthawkins.co.uk/item-36.html) (`toyduck2.wav`) |
+| `floraphonic-rubber-chicken-squeak-toy-1-181416.mp3` | Bobo doll | [Floraphonic — Rubber chicken squeak toy](https://freesound.org/people/Floraphonic/sounds/181416/) |
 
-Free for use in amateur film/game projects per MattHawkins site terms.
+Free for use per respective Freesound license terms.

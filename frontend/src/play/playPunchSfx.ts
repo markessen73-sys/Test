@@ -5,7 +5,7 @@ export type PunchSfxStation = 'heavy-bag' | 'speedball' | 'bobo-doll';
 const PUNCH_SFX: Record<PunchSfxStation, string> = {
   'heavy-bag': '/sounds/universfield-punch-03-352040.mp3',
   speedball: '/sounds/universfield-power-punch-192118.mp3',
-  'bobo-doll': '/sounds/Rubber chicken.wav',
+  'bobo-doll': '/sounds/floraphonic-rubber-chicken-squeak-toy-1-181416.mp3',
 };
 
 const preloaded = new Map<string, HTMLAudioElement>();
