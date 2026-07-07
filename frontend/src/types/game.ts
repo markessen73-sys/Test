@@ -1,4 +1,4 @@
-import { playCameraForTarget } from '../play/playCamera';
+import { playCameraForTarget, RING_PARTNER_TARGET, RING_PLAY_CAMERA } from '../play/playCamera';
 
 export type GymStation = 'ring' | 'speedball' | 'heavy-bag' | 'bobo-doll';
 
@@ -22,7 +22,7 @@ export interface StationInfo {
 
 /** Aim points for gym equipment when framing close-ups (matches play-mode distance). */
 const GYM_AIM: Record<GymStation, [number, number, number]> = {
-  ring: [0, 1.2, 0],
+  ring: RING_PARTNER_TARGET,
   speedball: [-5.8, 2.15, 0.5],
   'heavy-bag': [0.2, 1.3, -5.5],
   'bobo-doll': [5.8, 1.4, 1.8],
@@ -36,7 +36,7 @@ export const GYM_STATIONS: StationInfo[] = [
     emoji: '🥊',
     equipmentPos: [0, 0, 0],
     overview: { position: [0, 4.5, 11], lookAt: [0, 1.0, 0], fov: 52 },
-    close: playCameraForTarget(GYM_AIM.ring),
+    close: RING_PLAY_CAMERA,
   },
   {
     id: 'speedball',

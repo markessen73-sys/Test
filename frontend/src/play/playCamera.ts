@@ -28,10 +28,26 @@ export const SPEEDBALL_PLAY_TARGET: PlayTarget = [0, SPEEDBALL_BALL_Y, -3.8];
 /** Fixed camera aim — same as heavy bag/bobo so a raised ball reads higher on screen. */
 const SPEEDBALL_CAMERA_LOOK_AT: PlayTarget = [0, 1.35, -3.8];
 
-/** Sparring partner centre in ring play mode. */
-export const RING_PLAY_TARGET: PlayTarget = [0, 1.15, -2.2];
+/** Sparring partner chest height in ring play mode (world space). */
+export const RING_PARTNER_TARGET: PlayTarget = [0, 1.38, -2.2];
+
+/** Back-right corner — player stands here inside the ring. */
+export const RING_PLAYER_CORNER: PlayTarget = [1.72, 1.44, -4.02];
+
+/** Partner faces the player corner. */
+export const RING_PARTNER_YAW = Math.atan2(
+  RING_PLAYER_CORNER[0] - RING_PARTNER_TARGET[0],
+  RING_PLAYER_CORNER[2] - RING_PARTNER_TARGET[2]
+);
+
+/** @deprecated Use RING_PARTNER_TARGET */
+export const RING_PLAY_TARGET: PlayTarget = RING_PARTNER_TARGET;
 
 export const HEAVY_BAG_PLAY_CAMERA = playCameraForTarget(HEAVY_BAG_PLAY_TARGET);
 export const BOBO_PLAY_CAMERA = playCameraForTarget(BOBO_PLAY_TARGET);
 export const SPEEDBALL_PLAY_CAMERA = playCameraForTarget(SPEEDBALL_CAMERA_LOOK_AT);
-export const RING_PLAY_CAMERA = playCameraForTarget(RING_PLAY_TARGET);
+export const RING_PLAY_CAMERA: CameraShot = {
+  position: RING_PLAYER_CORNER,
+  lookAt: RING_PARTNER_TARGET,
+  fov: 62,
+};

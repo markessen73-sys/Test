@@ -5,9 +5,19 @@ import * as THREE from 'three';
 import { SparringPartner } from '../gym/SparringPartner';
 import { ringZoneScreenOffset } from './ringImpact';
 import { applyRingHitImpulse, createRingSwingState, stepRingSwing } from './ringSwing';
-import { RING_PLAY_CAMERA } from './playCamera';
-import { PlayEnvironment } from './PlayEnvironment';
+import { RING_PARTNER_YAW, RING_PLAY_CAMERA } from './playCamera';
 import type { PunchImpact } from './punchImpact';
+
+function RingPlayEnvironment() {
+  return (
+    <>
+      <ambientLight intensity={0.52} color="#FFE4B5" />
+      <directionalLight position={[0, 7, -1]} intensity={1.15} color="#FFD699" castShadow />
+      <pointLight position={[0, 4, -2.2]} intensity={9} color="#FFF0D0" distance={14} />
+      <fog attach="fog" args={['#1a1208', 6, 20]} />
+    </>
+  );
+}
 
 function PlayRing({
   impacts,
@@ -89,7 +99,13 @@ function PlayRing({
         </group>
       ))}
 
-      <group ref={partnerRef} position={[0, 0.22, 0]}>
+      {/* Player corner pad (back-right) */}
+      <mesh position={[1.75, 0.24, -1.85]} rotation={[0, RING_PARTNER_YAW, 0]}>
+        <boxGeometry args={[0.58, 0.035, 0.58]} />
+        <meshStandardMaterial color="#B80000" roughness={0.85} />
+      </mesh>
+
+      <group ref={partnerRef} position={[0, 0.22, 0]} rotation={[0, RING_PARTNER_YAW, 0]}>
         <SparringPartner hitFlashAge={flashAge} />
       </group>
     </group>
@@ -114,7 +130,7 @@ export function RingPlayScene({ impacts, ringZoneOffsetRef }: RingPlaySceneProps
       gl={{ antialias: true, alpha: false }}
     >
       <color attach="background" args={['#1a1208']} />
-      <PlayEnvironment />
+      <RingPlayEnvironment />
       <PlayRing impacts={impacts} ringZoneOffsetRef={ringZoneOffsetRef} />
     </Canvas>
   );
