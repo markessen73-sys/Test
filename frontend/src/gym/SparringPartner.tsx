@@ -5,8 +5,19 @@ import type { Group } from 'three';
 import * as THREE from 'three';
 
 const SPARRING_BOXER_TEXTURE = '/boxer/sparring-boxer.png';
-const SPRITE_HEIGHT = 1.72;
-const SPRITE_WIDTH = SPRITE_HEIGHT * (1024 / 1536);
+
+/** Full sprite plane height (2× original 1.72 m). */
+export const SPARRING_SPRITE_HEIGHT = 3.44;
+const SPRITE_WIDTH = SPARRING_SPRITE_HEIGHT * (1024 / 1536);
+
+/** Transparent padding below the feet in the source image. */
+const FEET_INSET_FRAC = 74 / 1536;
+
+/** Ring canvas top surface — partner feet sit here (ring-local Y). */
+export const RING_CANVAS_SURFACE_Y = 0.24;
+
+/** Plane centre Y so visible feet rest on local Y=0. */
+export const SPARRING_SPRITE_CENTER_Y = SPARRING_SPRITE_HEIGHT * (0.5 - FEET_INSET_FRAC);
 
 interface SparringPartnerProps {
   dimmed?: boolean;
@@ -32,18 +43,18 @@ function SparringPartnerSprite({
     if (!animate || !animRef.current) return;
     const t = state.clock.elapsedTime;
     animRef.current.position.set(
-      Math.sin(t * 1.15) * 0.045,
+      Math.sin(t * 1.15) * 0.09,
       0,
-      Math.sin(t * 0.85 + 0.4) * 0.05
+      Math.sin(t * 0.85 + 0.4) * 0.1
     );
     animRef.current.rotation.z = Math.sin(t * 1.05) * 0.065;
   });
 
   return (
     <group ref={innerRef}>
-      <group ref={animRef} position={[0, SPRITE_HEIGHT * 0.5, 0]}>
+      <group ref={animRef} position={[0, SPARRING_SPRITE_CENTER_Y, 0]}>
         <mesh castShadow position={[0, 0, 0.02]}>
-          <planeGeometry args={[SPRITE_WIDTH, SPRITE_HEIGHT]} />
+          <planeGeometry args={[SPRITE_WIDTH, SPARRING_SPRITE_HEIGHT]} />
           <meshStandardMaterial
             map={texture}
             transparent
