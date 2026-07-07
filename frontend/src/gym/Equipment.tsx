@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CeilingChain } from '../play/CeilingChain';
 import { BAG_CHAIN_LENGTH } from '../play/bagSwing';
+import { SPEEDBALL_BALL_Y } from '../play/playCamera';
 
 interface EquipmentProps {
   highlighted: boolean;
@@ -23,11 +24,11 @@ export function Speedball({ highlighted, position = [0, 0, 0] }: EquipmentProps)
 
   return (
     <group position={position}>
-      <mesh position={[0, 3.05, -0.35]}>
+      <mesh position={[0, 3.65, -0.35]}>
         <boxGeometry args={[1.0, 0.14, 0.2]} />
         <meshStandardMaterial color="#4A3728" />
       </mesh>
-      <mesh position={[0, 2.6, -0.25]}>
+      <mesh position={[0, 3.2, -0.25]}>
         <cylinderGeometry args={[0.03, 0.03, 0.9, 8]} />
         <meshStandardMaterial color="#777" metalness={0.4} />
       </mesh>
@@ -36,7 +37,7 @@ export function Speedball({ highlighted, position = [0, 0, 0] }: EquipmentProps)
         <meshStandardMaterial color="#5C4033" />
       </mesh>
 
-      <group ref={ballRef} position={[0, 2.15, 0]}>
+      <group ref={ballRef} position={[0, SPEEDBALL_BALL_Y, 0]}>
         <mesh castShadow>
           <sphereGeometry args={[0.3, 24, 24]} />
           <meshStandardMaterial

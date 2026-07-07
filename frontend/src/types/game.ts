@@ -23,7 +23,7 @@ export interface StationInfo {
 /** Aim points for gym equipment when framing close-ups (matches play-mode distance). */
 const GYM_AIM: Record<GymStation, [number, number, number]> = {
   ring: [0, 1.2, 0],
-  speedball: [-5.8, 2.15, 0.5],
+  speedball: [-5.8, 2.75, 0.5],
   'heavy-bag': [0.2, 1.3, -5.5],
   'bobo-doll': [5.8, 1.4, 1.8],
 };
