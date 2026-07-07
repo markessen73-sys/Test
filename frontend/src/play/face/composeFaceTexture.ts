@@ -59,3 +59,33 @@ export function drawFaceOnCanvas(
 export function warpForPunch(): FacePunchWarp {
   return { squashX: 0.78, squashY: 1.08, offsetX: -0.04, rotation: -0.08 };
 }
+
+/**
+ * Draw the full caricature image with contain-fit — nothing clipped.
+ * Used for the sparring partner where the whole head must remain visible.
+ */
+export function drawFullFaceOnCanvas(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  width: number,
+  height: number = width,
+  warp: FacePunchWarp = DEFAULT_FACE_WARP
+) {
+  const iw = image.naturalWidth;
+  const ih = image.naturalHeight;
+
+  ctx.clearRect(0, 0, width, height);
+  const cx = width / 2 + (warp.offsetX ?? 0) * width;
+  const cy = height / 2 + (warp.offsetY ?? 0) * height;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(warp.rotation ?? 0);
+  ctx.scale(warp.squashX ?? 1, warp.squashY ?? 1);
+
+  const contain = Math.min(width / iw, height / ih) * 0.94;
+  const drawW = iw * contain;
+  const drawH = ih * contain;
+  ctx.drawImage(image, 0, 0, iw, ih, -drawW / 2, -drawH / 2, drawW, drawH);
+  ctx.restore();
+}

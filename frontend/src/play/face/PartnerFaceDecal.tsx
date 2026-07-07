@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { FACE_TEMPLATE_SRC, RING_PARTNER_FACE } from './faceTemplate';
-import { drawFaceOnCanvas, loadFaceImage, warpForPunch } from './composeFaceTexture';
+import { drawFullFaceOnCanvas, loadFaceImage, warpForPunch } from './composeFaceTexture';
 import { spriteNormRectToLocal } from './spriteFacePlacement';
 
-const CANVAS_WIDTH = 640;
+const CANVAS_SIZE = 512;
 
 interface PartnerFaceDecalProps {
   /** Sprite plane width in metres. */
@@ -31,13 +31,12 @@ export function PartnerFaceDecal({
     [spriteWidth, spriteHeight]
   );
   const [fw, fh] = placement.size;
-  const canvasHeight = Math.max(64, Math.round(CANVAS_WIDTH * (fh / fw)));
 
   useEffect(() => {
     let cancelled = false;
     const canvas = document.createElement('canvas');
-    canvas.width = CANVAS_WIDTH;
-    canvas.height = canvasHeight;
+    canvas.width = CANVAS_SIZE;
+    canvas.height = CANVAS_SIZE;
     canvasRef.current = canvas;
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -52,7 +51,7 @@ export function PartnerFaceDecal({
       cancelled = true;
       tex.dispose();
     };
-  }, [canvasHeight]);
+  }, []);
 
   useEffect(() => {
     let frame = 0;
@@ -66,19 +65,19 @@ export function PartnerFaceDecal({
       if (!ctx) return;
 
       const warp = hitFlashAge < 1 ? warpForPunch() : undefined;
-      drawFaceOnCanvas(ctx, img, canvas.width, canvas.height, undefined, warp);
+      drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE, warp);
       tex.needsUpdate = true;
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [hitFlashAge, canvasHeight]);
+  }, [hitFlashAge]);
 
   if (!texture) return null;
 
   return (
     <mesh position={placement.center} renderOrder={2}>
       <planeGeometry args={[fw, fh]} />
-      <meshBasicMaterial map={texture} transparent alphaTest={0.04} depthWrite={false} />
+      <meshBasicMaterial map={texture} transparent depthWrite={false} />
     </mesh>
   );
 }

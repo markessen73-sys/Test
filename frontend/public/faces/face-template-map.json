@@ -93,12 +93,12 @@
       ]
     },
     "ringPartner": {
-      "comment": "Face rect calibrated from 1783451254081.png mockup (1024\u00d71536 norm)",
+      "comment": "Square head slot on sparring-boxer silhouette (1024\u00d71536 norm)",
       "rect": [
-        0.3262,
-        0.0965,
-        0.6976,
-        0.3198
+        0.4269,
+        0.1143,
+        0.5731,
+        0.2118
       ]
     },
     "hudPlayer": {
