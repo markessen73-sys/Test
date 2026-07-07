@@ -1,3 +1,5 @@
+import { ensureBackgroundMusic } from '../backgroundMusic';
+
 export type PunchSfxStation = 'heavy-bag' | 'speedball' | 'bobo-doll';
 
 const PUNCH_SFX: Record<PunchSfxStation, string> = {
@@ -17,6 +19,7 @@ function getSrc(station: PunchSfxStation): string {
 export function unlockPunchAudio(): void {
   if (audioUnlocked) return;
   audioUnlocked = true;
+  ensureBackgroundMusic();
   for (const src of Object.values(PUNCH_SFX)) {
     const probe = new Audio(src);
     probe.volume = 0;

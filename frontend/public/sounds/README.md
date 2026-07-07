@@ -1,4 +1,12 @@
-# Punch sound effects
+# Sound effects
+
+## Background
+
+| File | Use | Source |
+|------|-----|--------|
+| `Boxing gym.mp3` | Looping gym ambience from title screen onward | [Freesound — Boxing gym atmosphere in California](https://freesound.org/people/freesound_community/sounds/18282/) |
+
+## Punch impacts
 
 | File | Station | Source |
 |------|---------|--------|
