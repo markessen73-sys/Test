@@ -51,7 +51,7 @@ export function BagFaceDecal({ lastPunchTime = 0 }: BagFaceDecalProps) {
 
       const age = performance.now() - lastPunchTime;
       const warp = lastPunchTime > 0 && age < 280 ? warpForPunch() : undefined;
-      drawFaceOnCanvas(ctx, img, CANVAS_SIZE, undefined, warp);
+      drawFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE, undefined, warp);
       tex.needsUpdate = true;
     };
     frame = requestAnimationFrame(tick);

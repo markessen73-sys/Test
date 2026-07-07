@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { FACE_TEMPLATE_SRC, RING_PARTNER_FACE } from './faceTemplate';
 import { drawFaceOnCanvas, loadFaceImage, warpForPunch } from './composeFaceTexture';
 import { spriteNormRectToLocal } from './spriteFacePlacement';
 
-const CANVAS_SIZE = 512;
+const CANVAS_WIDTH = 640;
 
 interface PartnerFaceDecalProps {
   /** Sprite plane width in metres. */
@@ -26,11 +26,18 @@ export function PartnerFaceDecal({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const texRef = useRef<THREE.CanvasTexture | null>(null);
 
+  const placement = useMemo(
+    () => spriteNormRectToLocal(RING_PARTNER_FACE, spriteWidth, spriteHeight),
+    [spriteWidth, spriteHeight]
+  );
+  const [fw, fh] = placement.size;
+  const canvasHeight = Math.max(64, Math.round(CANVAS_WIDTH * (fh / fw)));
+
   useEffect(() => {
     let cancelled = false;
     const canvas = document.createElement('canvas');
-    canvas.width = CANVAS_SIZE;
-    canvas.height = CANVAS_SIZE;
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = canvasHeight;
     canvasRef.current = canvas;
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -45,7 +52,7 @@ export function PartnerFaceDecal({
       cancelled = true;
       tex.dispose();
     };
-  }, []);
+  }, [canvasHeight]);
 
   useEffect(() => {
     let frame = 0;
@@ -59,22 +66,17 @@ export function PartnerFaceDecal({
       if (!ctx) return;
 
       const warp = hitFlashAge < 1 ? warpForPunch() : undefined;
-      drawFaceOnCanvas(ctx, img, CANVAS_SIZE, undefined, warp);
+      drawFaceOnCanvas(ctx, img, canvas.width, canvas.height, undefined, warp);
       tex.needsUpdate = true;
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [hitFlashAge]);
+  }, [hitFlashAge, canvasHeight]);
 
   if (!texture) return null;
 
-  const { center, size } = spriteNormRectToLocal(RING_PARTNER_FACE, spriteWidth, spriteHeight);
-  const [cx, cy, cz] = center;
-  const nudgeY = spriteHeight * 0.012;
-  const [fw, fh] = size;
-
   return (
-    <mesh position={[cx, cy + nudgeY, cz]} renderOrder={2}>
+    <mesh position={placement.center} renderOrder={2}>
       <planeGeometry args={[fw, fh]} />
       <meshBasicMaterial map={texture} transparent alphaTest={0.04} depthWrite={false} />
     </mesh>

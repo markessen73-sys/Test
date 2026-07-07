@@ -94,12 +94,12 @@ export default {
       ]
     },
     "ringPartner": {
-      "comment": "Head oval on sparring-boxer sprite (1024\u00d71536, top-left norm)",
+      "comment": "Face rect calibrated from 1783451254081.png mockup (1024\u00d71536 norm)",
       "rect": [
-        0.4219,
-        0.1178,
-        0.5596,
-        0.1595
+        0.3262,
+        0.0965,
+        0.6976,
+        0.3198
       ]
     },
     "hudPlayer": {

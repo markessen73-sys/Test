@@ -22,13 +22,38 @@ OUT_JSON = ROOT / "public/faces/face-template-map.json"
 OUT_TS = ROOT / "src/play/face/faceTemplateMap.ts"
 PUBLIC_FACE = ROOT / "public/faces/test-template-face.png"
 SPARRING_SPRITE = ROOT / "public/boxer/sparring-boxer.png"
+REFERENCE_MOCKUP = ROOT.parent / "1783451254081.png"
 
 
 def norm_rect(x0: float, y0: float, x1: float, y1: float, w: int, h: int) -> list[float]:
     return [round(x0 / w, 4), round(y0 / h, 4), round(x1 / w, 4), round(y1 / h, 4)]
 
 
-def analyze_sparring_head(sprite_path: Path, inset_frac: float = 0.03) -> list[float]:
+def analyze_reference_mockup(mockup_path: Path) -> list[float] | None:
+    """Face placement rect from the user's composited reference mockup."""
+    if not mockup_path.is_file():
+        return None
+
+    arr = np.array(Image.open(mockup_path).convert("RGBA"))
+    h, w = arr.shape[:2]
+    r, g, b, a = arr[:, :, 0].astype(int), arr[:, :, 1].astype(int), arr[:, :, 2].astype(int), arr[:, :, 3]
+    top = np.zeros((h, w), dtype=bool)
+    top[: int(h * 0.32), :] = True
+    red_glow = (r > 150) & (g < 100) & (b < 100)
+    face = top & (a > 50) & ~((r < 30) & (g < 30) & (b < 30)) & ~red_glow
+    ys, xs = np.where(face)
+    if len(xs) < 200:
+        return None
+
+    return [
+        round(xs.min() / w, 4),
+        round(ys.min() / h, 4),
+        round((xs.max() + 1) / w, 4),
+        round((ys.max() + 1) / h, 4),
+    ]
+
+
+def analyze_sparring_head(sprite_path: Path, inset_frac: float = 0.02) -> list[float]:
     """Head oval on sparring-boxer.png (1024×1536, top-left norm)."""
     im = Image.open(sprite_path).convert("RGBA")
     arr = np.array(im)
@@ -40,6 +65,7 @@ def analyze_sparring_head(sprite_path: Path, inset_frac: float = 0.03) -> list[f
     if len(opaque_rows) == 0:
         return [0.28, 0.06, 0.72, 0.22]
 
+    # Full head crown-to-chin — stop when silhouette reaches shoulder width.
     y_top = int(opaque_rows[0])
 
     def row_extent(y: int) -> tuple[int, int, int] | None:
@@ -48,13 +74,17 @@ def analyze_sparring_head(sprite_path: Path, inset_frac: float = 0.03) -> list[f
             return None
         return int(cols[0]), int(cols[-1]), int(cols[-1] - cols[0] + 1)
 
-    # Cranium only — stop before jaw flares into shoulders (~top 4.5% of sprite).
-    scan_end = y_top + int(0.045 * h)
     head_rows: list[tuple[int, int, int, int]] = []
-    for y in range(y_top, scan_end):
+    head_bottom = y_top
+    for y in range(y_top, y_top + int(0.22 * h)):
         ex = row_extent(y)
-        if ex:
-            head_rows.append((y, ex[0], ex[1], ex[2]))
+        if not ex:
+            continue
+        head_rows.append((y, ex[0], ex[1], ex[2]))
+        if y > y_top + 12 and ex[2] > w * 0.22:
+            head_bottom = y
+            break
+        head_bottom = y
 
     if not head_rows:
         return [0.28, 0.06, 0.72, 0.22]
@@ -62,7 +92,7 @@ def analyze_sparring_head(sprite_path: Path, inset_frac: float = 0.03) -> list[f
     hx0 = min(r[1] for r in head_rows)
     hx1 = max(r[2] for r in head_rows)
     hy0 = head_rows[0][0]
-    hy1 = head_rows[-1][0]
+    hy1 = head_bottom
 
     ix = max(1, int((hx1 - hx0 + 1) * inset_frac))
     iy = max(1, int((hy1 - hy0 + 1) * inset_frac))
@@ -72,6 +102,14 @@ def analyze_sparring_head(sprite_path: Path, inset_frac: float = 0.03) -> list[f
     hy1 -= iy
 
     return norm_rect(hx0, hy0, hx1 + 1, hy1, w, h)
+
+
+def ring_partner_face_rect() -> list[float]:
+    """Prefer the user mockup; fall back to sprite head analysis."""
+    ref = analyze_reference_mockup(REFERENCE_MOCKUP)
+    if ref:
+        return ref
+    return analyze_sparring_head(SPARRING_SPRITE)
 
 
 def detect_foreground(arr: np.ndarray) -> np.ndarray:
@@ -143,8 +181,8 @@ def map_template(src_path: Path) -> dict:
                 "size": [0.52, 0.62],
             },
             "ringPartner": {
-                "comment": "Head oval on sparring-boxer sprite (1024×1536, top-left norm)",
-                "rect": analyze_sparring_head(SPARRING_SPRITE),
+                "comment": "Face rect calibrated from 1783451254081.png mockup (1024×1536 norm)",
+                "rect": ring_partner_face_rect(),
             },
             "hudPlayer": {"rect": [0.02, 0.02, 0.22, 0.18]},
             "hudOpponent": {"rect": [0.78, 0.02, 0.98, 0.18]},

@@ -24,13 +24,14 @@ export function loadFaceImage(src: string): Promise<HTMLImageElement> {
 }
 
 /**
- * Draw the template face (cropped to faceOval) into a square canvas.
- * Used for 3D decals and HUD portraits until caricature pipeline is wired.
+ * Draw the template face (cropped to faceOval) into a canvas.
+ * Uses cover-fit so the head fills wide or tall destination rects.
  */
 export function drawFaceOnCanvas(
   ctx: CanvasRenderingContext2D,
   image: HTMLImageElement,
-  size: number,
+  width: number,
+  height: number = width,
   sourceOval: NormRect = FACE_SOURCE_OVAL,
   warp: FacePunchWarp = DEFAULT_FACE_WARP
 ) {
@@ -38,17 +39,19 @@ export function drawFaceOnCanvas(
   const h = image.naturalHeight;
   const crop = rectPixels(sourceOval, w, h);
 
-  ctx.clearRect(0, 0, size, size);
-  const cx = size / 2 + (warp.offsetX ?? 0) * size;
-  const cy = size / 2 + (warp.offsetY ?? 0) * size;
+  ctx.clearRect(0, 0, width, height);
+  const cx = width / 2 + (warp.offsetX ?? 0) * width;
+  const cy = height / 2 + (warp.offsetY ?? 0) * height;
 
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(warp.rotation ?? 0);
   ctx.scale(warp.squashX ?? 1, warp.squashY ?? 1);
 
-  const draw = size * 0.96;
-  ctx.drawImage(image, crop.x, crop.y, crop.width, crop.height, -draw / 2, -draw / 2, draw, draw);
+  const cover = Math.max(width / crop.width, height / crop.height) * 0.98;
+  const drawW = crop.width * cover;
+  const drawH = crop.height * cover;
+  ctx.drawImage(image, crop.x, crop.y, crop.width, crop.height, -drawW / 2, -drawH / 2, drawW, drawH);
   ctx.restore();
 }
 
