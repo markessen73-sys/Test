@@ -1,0 +1,121 @@
+{
+  "template": "/faces/test-template-face.png",
+  "sourceSize": [
+    1536,
+    1024
+  ],
+  "faceOval": [
+    0.071,
+    0.0342,
+    0.8242,
+    0.6289
+  ],
+  "regions": {
+    "leftEye": [
+      0.2065,
+      0.2007,
+      0.3723,
+      0.2721
+    ],
+    "rightEye": [
+      0.5229,
+      0.2007,
+      0.6886,
+      0.2721
+    ],
+    "nose": [
+      0.3421,
+      0.2721,
+      0.553,
+      0.3672
+    ],
+    "mouth": [
+      0.2819,
+      0.3791,
+      0.6133,
+      0.4743
+    ]
+  },
+  "landmarks": {
+    "leftEye": [
+      0.2894,
+      0.2364
+    ],
+    "rightEye": [
+      0.6058,
+      0.2364
+    ],
+    "nose": [
+      0.4476,
+      0.3196
+    ],
+    "mouth": [
+      0.4476,
+      0.4267
+    ],
+    "chin": [
+      0.4476,
+      0.6289
+    ]
+  },
+  "targets": {
+    "heavyBag": {
+      "comment": "Screen trapezoid \u2014 matches BAG_HIT_CORNERS in gloveZoneGrid.ts",
+      "corners": [
+        [
+          0.305,
+          0.18
+        ],
+        [
+          0.685,
+          0.18
+        ],
+        [
+          0.695,
+          0.46
+        ],
+        [
+          0.295,
+          0.46
+        ]
+      ]
+    },
+    "heavyBagMesh": {
+      "comment": "3D decal on cylinder body (bag-local metres)",
+      "center": [
+        0,
+        0.35,
+        0.44
+      ],
+      "size": [
+        0.52,
+        0.62
+      ]
+    },
+    "ringPartner": {
+      "comment": "Front-face rect on sparring-boxer sprite if turned (1024\u00d71536 norm)",
+      "rect": [
+        0.28,
+        0.06,
+        0.72,
+        0.22
+      ]
+    },
+    "hudPlayer": {
+      "rect": [
+        0.02,
+        0.02,
+        0.22,
+        0.18
+      ]
+    },
+    "hudOpponent": {
+      "rect": [
+        0.78,
+        0.02,
+        0.98,
+        0.18
+      ]
+    }
+  }
+}
