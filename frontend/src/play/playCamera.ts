@@ -30,7 +30,9 @@ const SPEEDBALL_CAMERA_LOOK_AT: PlayTarget = [0, 1.35, -3.8];
 
 /** Sparring partner chest height in ring play mode (world space). */
 export const RING_PARTNER_FORWARD = 0.8;
-export const RING_PARTNER_TARGET: PlayTarget = [0, 2.05, -2.2 + RING_PARTNER_FORWARD];
+/** Raise partner so feet sit just below glove height on screen. */
+export const RING_PARTNER_LIFT = 1.0;
+export const RING_PARTNER_TARGET: PlayTarget = [0, 2.1, -2.2 + RING_PARTNER_FORWARD];
 
 /** Back-right corner — player stands here inside the ring. */
 export const RING_PLAYER_CORNER: PlayTarget = [1.72, 1.44, -4.02];
@@ -50,5 +52,5 @@ export const SPEEDBALL_PLAY_CAMERA = playCameraForTarget(SPEEDBALL_CAMERA_LOOK_A
 export const RING_PLAY_CAMERA: CameraShot = {
   position: RING_PLAYER_CORNER,
   lookAt: RING_PARTNER_TARGET,
-  fov: 62,
+  fov: 68,
 };

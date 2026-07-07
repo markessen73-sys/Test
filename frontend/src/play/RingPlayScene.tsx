@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { SparringPartner, RING_CANVAS_SURFACE_Y } from '../gym/SparringPartner';
 import { ringZoneScreenOffset } from './ringImpact';
 import { applyRingHitImpulse, createRingSwingState, stepRingSwing } from './ringSwing';
-import { RING_PARTNER_FORWARD, RING_PARTNER_YAW, RING_PLAY_CAMERA } from './playCamera';
+import { RING_PARTNER_FORWARD, RING_PARTNER_LIFT, RING_PARTNER_YAW, RING_PLAY_CAMERA } from './playCamera';
 import type { PunchImpact } from './punchImpact';
 
 function RingPlayEnvironment() {
@@ -105,7 +105,7 @@ function PlayRing({
         <meshStandardMaterial color="#B80000" roughness={0.85} />
       </mesh>
 
-      <group ref={partnerRef} position={[0, RING_CANVAS_SURFACE_Y, RING_PARTNER_FORWARD]} rotation={[0, RING_PARTNER_YAW, 0]}>
+      <group ref={partnerRef} position={[0, RING_CANVAS_SURFACE_Y + RING_PARTNER_LIFT, RING_PARTNER_FORWARD]} rotation={[0, RING_PARTNER_YAW, 0]}>
         <SparringPartner hitFlashAge={flashAge} animate />
       </group>
     </group>
