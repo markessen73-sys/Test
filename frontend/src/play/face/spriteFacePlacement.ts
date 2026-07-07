@@ -64,3 +64,43 @@ export function scalePlacement(
     size: [newFw, newFh],
   };
 }
+
+/** Uniform scale around a point given as offset from the placement centre. */
+export function scalePlacementFromPoint(
+  placement: SpritePlacement,
+  scale: number,
+  pointOffset: readonly [number, number]
+): SpritePlacement {
+  if (scale === 1) return placement;
+
+  const [cx, cy, cz] = placement.center;
+  const [fw, fh] = placement.size;
+  const [ox, oy] = pointOffset;
+  const ax = cx + ox;
+  const ay = cy + oy;
+
+  return {
+    center: [ax + scale * (cx - ax), ay + scale * (cy - ay), cz],
+    size: [fw * scale, fh * scale],
+  };
+}
+
+/** Landmark position on a decal plane (metres from centre), matching contain-fit draw. */
+export function landmarkOffsetInDecal(
+  planeWidth: number,
+  planeHeight: number,
+  canvasWidth: number,
+  canvasHeight: number,
+  imageWidth: number,
+  imageHeight: number,
+  landmark: readonly [number, number],
+  containPad: number
+): [number, number] {
+  const contain = Math.min(canvasWidth / imageWidth, canvasHeight / imageHeight) * containPad;
+  const drawW = imageWidth * contain;
+  const drawH = imageHeight * contain;
+  const [lx, ly] = landmark;
+  const ox = ((lx - 0.5) * drawW / canvasWidth) * planeWidth;
+  const oy = (-(ly - 0.5) * drawH / canvasHeight) * planeHeight;
+  return [ox, oy];
+}

@@ -1,14 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { FACE_TEMPLATE_SRC, RING_PARTNER_FACE } from './faceTemplate';
+import { FACE_CONTAIN_PAD } from './composeFaceTexture';
+import { FACE_NOSE_LANDMARK, FACE_SOURCE_SIZE, FACE_TEMPLATE_SRC, RING_PARTNER_FACE } from './faceTemplate';
 import { drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture';
-import { scalePlacement, spriteNormRectToLocal } from './spriteFacePlacement';
+import {
+  landmarkOffsetInDecal,
+  scalePlacement,
+  scalePlacementFromPoint,
+  spriteNormRectToLocal,
+} from './spriteFacePlacement';
 
 const CANVAS_SIZE = 512;
 /** Prior calibration: top-right pinned, +25%. */
 const PARTNER_FACE_SCALE_TOP_RIGHT = 1.25;
-/** Latest calibration: bottom-left pinned, +10% right and up. */
+/** Prior calibration: bottom-left pinned, +10% right and up. */
 const PARTNER_FACE_SCALE_BOTTOM_LEFT = 1.1;
+/** Latest calibration: nose pinned, +10% every direction. */
+const PARTNER_FACE_SCALE_NOSE = 1.1;
 
 interface PartnerFaceDecalProps {
   /** Sprite plane width in metres. */
@@ -32,7 +40,20 @@ export function PartnerFaceDecal({
       scale: PARTNER_FACE_SCALE_TOP_RIGHT,
       anchor: 'top-right',
     });
-    return scalePlacement(base, PARTNER_FACE_SCALE_BOTTOM_LEFT, 'bottom-left');
+    const bottomLeft = scalePlacement(base, PARTNER_FACE_SCALE_BOTTOM_LEFT, 'bottom-left');
+    const [fw, fh] = bottomLeft.size;
+    const [iw, ih] = FACE_SOURCE_SIZE;
+    const noseOffset = landmarkOffsetInDecal(
+      fw,
+      fh,
+      CANVAS_SIZE,
+      CANVAS_SIZE,
+      iw,
+      ih,
+      FACE_NOSE_LANDMARK,
+      FACE_CONTAIN_PAD
+    );
+    return scalePlacementFromPoint(bottomLeft, PARTNER_FACE_SCALE_NOSE, noseOffset);
   }, [spriteWidth, spriteHeight]);
   const [fw, fh] = placement.size;
 

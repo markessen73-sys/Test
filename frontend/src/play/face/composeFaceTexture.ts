@@ -2,6 +2,9 @@ import type { FacePunchWarp } from './types';
 import { DEFAULT_FACE_WARP, type NormRect } from './types';
 import { FACE_SOURCE_OVAL } from './faceTemplate';
 
+/** Match drawFullFaceOnCanvas contain padding. */
+export const FACE_CONTAIN_PAD = 0.94;
+
 function rectPixels(rect: NormRect, w: number, h: number) {
   const [x0, y0, x1, y1] = rect;
   return {
@@ -83,7 +86,7 @@ export function drawFullFaceOnCanvas(
   ctx.rotate(warp.rotation ?? 0);
   ctx.scale(warp.squashX ?? 1, warp.squashY ?? 1);
 
-  const contain = Math.min(width / iw, height / ih) * 0.94;
+  const contain = Math.min(width / iw, height / ih) * FACE_CONTAIN_PAD;
   const drawW = iw * contain;
   const drawH = ih * contain;
   ctx.drawImage(image, 0, 0, iw, ih, -drawW / 2, -drawH / 2, drawW, drawH);
