@@ -99,7 +99,7 @@ function SparringPartnerSprite({
           />
         </mesh>
         {showFace && (
-          <PartnerFaceDecal spriteWidth={width} spriteHeight={height} hitFlashAge={hitFlashAge} />
+          <PartnerFaceDecal spriteWidth={width} spriteHeight={height} />
         )}
       </group>
     </group>

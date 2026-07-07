@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { FACE_TEMPLATE_SRC, RING_PARTNER_FACE } from './faceTemplate';
-import { drawFullFaceOnCanvas, loadFaceImage, warpForPunch } from './composeFaceTexture';
+import { drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture';
 import { scalePlacement, spriteNormRectToLocal } from './spriteFacePlacement';
 
 const CANVAS_SIZE = 512;
@@ -15,15 +15,12 @@ interface PartnerFaceDecalProps {
   spriteWidth: number;
   /** Sprite plane height in metres. */
   spriteHeight: number;
-  /** 0 = full hit flash, 1+ = no flash */
-  hitFlashAge?: number;
 }
 
 /** Template face decal mapped onto the sparring partner head (ring play only). */
 export function PartnerFaceDecal({
   spriteWidth,
   spriteHeight,
-  hitFlashAge = 1,
 }: PartnerFaceDecalProps) {
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -71,13 +68,12 @@ export function PartnerFaceDecal({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const warp = hitFlashAge < 1 ? warpForPunch() : undefined;
-      drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE, warp);
+      drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE);
       tex.needsUpdate = true;
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [hitFlashAge]);
+  }, []);
 
   if (!texture) return null;
 
