@@ -21,14 +21,17 @@ export const HEAVY_BAG_PLAY_TARGET: PlayTarget = [0, 1.3, -3.8];
 /** Bobo doll torso centre in play mode. */
 export const BOBO_PLAY_TARGET: PlayTarget = [0, 1.35, -3.8];
 
-/** Speedball centre in play mode. */
+/** Speedball ball centre in play mode (world Y). */
 export const SPEEDBALL_BALL_Y = 2.75;
 export const SPEEDBALL_PLAY_TARGET: PlayTarget = [0, SPEEDBALL_BALL_Y, -3.8];
+
+/** Fixed camera aim — same as heavy bag/bobo so a raised ball reads higher on screen. */
+const SPEEDBALL_CAMERA_LOOK_AT: PlayTarget = [0, 1.35, -3.8];
 
 /** Sparring partner centre in ring play mode. */
 export const RING_PLAY_TARGET: PlayTarget = [0, 1.15, -2.2];
 
 export const HEAVY_BAG_PLAY_CAMERA = playCameraForTarget(HEAVY_BAG_PLAY_TARGET);
 export const BOBO_PLAY_CAMERA = playCameraForTarget(BOBO_PLAY_TARGET);
-export const SPEEDBALL_PLAY_CAMERA = playCameraForTarget(SPEEDBALL_PLAY_TARGET);
+export const SPEEDBALL_PLAY_CAMERA = playCameraForTarget(SPEEDBALL_CAMERA_LOOK_AT);
 export const RING_PLAY_CAMERA = playCameraForTarget(RING_PLAY_TARGET);
