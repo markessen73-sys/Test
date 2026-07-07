@@ -22,15 +22,19 @@ const SHIN_LENGTH_FRAC = KNEE_FROM_BOTTOM_FRAC - FEET_SOLE_FRAC;
 /** Wide-shoe row (~182 px) — visual mass sits above the stub pixels. */
 const SHOE_BODY_FRAC = 182 / 1536;
 const STUB_TO_SHOE_FRAC = SHOE_BODY_FRAC - FEET_SOLE_FRAC;
+/** Image-space fraction from boot stub to knee — corrects sunken feet. */
+const FOOT_ALIGN_FRAC = SHIN_LENGTH_FRAC + STUB_TO_SHOE_FRAC;
 
 /** Ring canvas top surface — partner feet sit here (ring-local Y). */
 export const RING_CANVAS_SURFACE_Y = 0.24;
-/**
- * Browse overview lift: one shin length plus stub-to-shoe offset so boot soles
- * (not knees or mid-shin) read on the gray canvas from the overview camera.
- */
-export const GYM_PARTNER_LIFT =
-  (SHIN_LENGTH_FRAC + STUB_TO_SHOE_FRAC) * SPARRING_SPRITE_BASE_HEIGHT;
+
+/** Vertical lift so boot soles (not knees) meet the ring canvas. Scales with sprite height. */
+export function partnerFootAlignLift(scale = 1): number {
+  return FOOT_ALIGN_FRAC * SPARRING_SPRITE_BASE_HEIGHT * scale;
+}
+
+/** Browse overview lift for the main gym camera. */
+export const GYM_PARTNER_LIFT = partnerFootAlignLift(1);
 
 function spriteCenterY(height: number): number {
   return height * (0.5 - FEET_SOLE_FRAC);
