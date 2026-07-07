@@ -3,8 +3,8 @@ import { ensureBackgroundMusic } from '../backgroundMusic';
 export type PunchSfxStation = 'heavy-bag' | 'speedball' | 'bobo-doll';
 
 const PUNCH_SFX: Record<PunchSfxStation, string> = {
-  'heavy-bag': '/sounds/Punch_03.wav',
-  speedball: '/sounds/Power punch.wav',
+  'heavy-bag': '/sounds/universfield-punch-03-352040.mp3',
+  speedball: '/sounds/universfield-power-punch-192118.mp3',
   'bobo-doll': '/sounds/Rubber chicken.wav',
 };
 
