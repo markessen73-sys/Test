@@ -7,10 +7,10 @@ export interface BoboSwingState {
   time: number;
 }
 
-const HIT_IMPULSE_Z = 0.6;
-const HIT_IMPULSE_X = 0.27;
-const MAX_VEL = 4.05;
-const MAX_TILT = 1.14;
+const HIT_IMPULSE_Z = 1.8;
+const HIT_IMPULSE_X = 0.81;
+const MAX_VEL = 12.15;
+const MAX_TILT = 3.42;
 const RESTORE = 11;
 const DAMPING = 3.0;
 const IDLE_X_AMP = 0.016;
@@ -22,9 +22,10 @@ export function createBoboSwingState(): BoboSwingState {
 }
 
 export function applyBoboHitImpulse(state: BoboSwingState, glove: 'left' | 'right'): void {
-  const zImpulse = glove === 'left' ? HIT_IMPULSE_Z : -HIT_IMPULSE_Z;
+  // Push in the punch direction: right glove → tilt right, left → tilt left, front hit → lean toward camera.
+  const zImpulse = glove === 'right' ? HIT_IMPULSE_Z : -HIT_IMPULSE_Z;
   state.velZ = Math.max(-MAX_VEL, Math.min(MAX_VEL, state.velZ + zImpulse));
-  state.velX = Math.max(-MAX_VEL, Math.min(MAX_VEL, state.velX + HIT_IMPULSE_X));
+  state.velX = Math.max(-MAX_VEL, Math.min(MAX_VEL, state.velX - HIT_IMPULSE_X));
 }
 
 export function stepBoboSwing(state: BoboSwingState, delta: number): void {
