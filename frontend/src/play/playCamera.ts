@@ -35,10 +35,13 @@ export const RING_PARTNER_FORWARD = 0.8;
 const RING_PLAY_EXTRA_LIFT = 0.32;
 /** Raise partner so boot soles meet the canvas (scales with 1.5× ring sprite). */
 export const RING_PARTNER_LIFT = partnerFootAlignLift(RING_SPRITE_SCALE) + RING_PLAY_EXTRA_LIFT;
-export const RING_PARTNER_TARGET: PlayTarget = [0, 2.75, -2.2 + RING_PARTNER_FORWARD];
+export const RING_PARTNER_TARGET: PlayTarget = [0, 2.55, -2.2 + RING_PARTNER_FORWARD];
 
 /** Back-right corner — player stands here inside the ring. */
 export const RING_PLAYER_CORNER: PlayTarget = [1.72, 1.44, -4.02];
+
+/** Eye height for ring sparring camera (raised so view is level with the partner, not upward). */
+const RING_CAMERA_Y = 2.45;
 
 /** Partner faces the player corner. */
 export const RING_PARTNER_YAW = Math.atan2(
@@ -53,7 +56,7 @@ export const HEAVY_BAG_PLAY_CAMERA = playCameraForTarget(HEAVY_BAG_PLAY_TARGET);
 export const BOBO_PLAY_CAMERA = playCameraForTarget(BOBO_PLAY_TARGET);
 export const SPEEDBALL_PLAY_CAMERA = playCameraForTarget(SPEEDBALL_CAMERA_LOOK_AT);
 export const RING_PLAY_CAMERA: CameraShot = {
-  position: RING_PLAYER_CORNER,
+  position: [RING_PLAYER_CORNER[0], RING_CAMERA_Y, RING_PLAYER_CORNER[2]],
   lookAt: RING_PARTNER_TARGET,
   fov: 78,
 };
