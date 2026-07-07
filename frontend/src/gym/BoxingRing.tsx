@@ -1,14 +1,14 @@
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
-import { CartoonFace } from './CartoonFace';
+import type { Group } from 'three';
+import { SparringPartner } from './SparringPartner';
 
 interface BoxingRingProps {
   highlighted: boolean;
 }
 
 export function BoxingRing({ highlighted }: BoxingRingProps) {
-  const partnerRef = useRef<THREE.Group>(null);
+  const partnerRef = useRef<Group>(null);
 
   useFrame(() => {
     if (!partnerRef.current || !highlighted) return;
@@ -17,7 +17,6 @@ export function BoxingRing({ highlighted }: BoxingRingProps) {
 
   const rope = '#CC0000';
   const post = '#F0EAD6';
-  const dim = 0.35;
 
   return (
     <group>
@@ -67,27 +66,7 @@ export function BoxingRing({ highlighted }: BoxingRingProps) {
       ))}
 
       <group ref={partnerRef} position={[0, 0.22, 0]}>
-        <mesh position={[0, 0.5, 0]} castShadow>
-          <boxGeometry args={[0.6, 0.4, 0.38]} />
-          <meshStandardMaterial color="#1a1a8b" transparent={!highlighted} opacity={highlighted ? 1 : dim} />
-        </mesh>
-        <mesh position={[0, 1.0, 0]} castShadow>
-          <boxGeometry args={[0.7, 0.75, 0.4]} />
-          <meshStandardMaterial color="#C49A6C" transparent={!highlighted} opacity={highlighted ? 1 : dim} />
-        </mesh>
-        {[-0.48, 0.48].map((x) => (
-          <mesh key={x} position={[x, 1.05, 0.18]}>
-            <sphereGeometry args={[0.15, 12, 12]} />
-            <meshStandardMaterial color="#8B0000" />
-          </mesh>
-        ))}
-        <group position={[0, 1.55, 0]}>
-          <mesh castShadow>
-            <sphereGeometry args={[0.34, 20, 20]} />
-            <meshStandardMaterial color="#C49A6C" transparent={!highlighted} opacity={highlighted ? 1 : dim} />
-          </mesh>
-          {highlighted && <CartoonFace scale={0.9} />}
-        </group>
+        <SparringPartner dimmed={!highlighted} />
       </group>
 
       {highlighted && (

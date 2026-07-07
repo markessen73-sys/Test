@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { GlovePosition } from '../types/game';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { CartoonFace } from '../gym/CartoonFace';
+import { SparringPartner } from '../gym/SparringPartner';
 import { ringZoneScreenOffset } from './ringImpact';
 import { applyRingHitImpulse, createRingSwingState, stepRingSwing } from './ringSwing';
 import { RING_PLAY_CAMERA } from './playCamera';
@@ -90,31 +90,7 @@ function PlayRing({
       ))}
 
       <group ref={partnerRef} position={[0, 0.22, 0]}>
-        <mesh position={[0, 0.5, 0]} castShadow>
-          <boxGeometry args={[0.6, 0.4, 0.38]} />
-          <meshStandardMaterial color="#1a1a8b" />
-        </mesh>
-        <mesh position={[0, 1.0, 0]} castShadow>
-          <boxGeometry args={[0.7, 0.75, 0.4]} />
-          <meshStandardMaterial
-            color={flashAge < 1 ? '#e8b090' : '#C49A6C'}
-            emissive={flashAge < 1 ? '#ff6644' : '#000000'}
-            emissiveIntensity={flashAge < 1 ? 0.35 * (1 - flashAge) : 0}
-          />
-        </mesh>
-        {[-0.48, 0.48].map((x) => (
-          <mesh key={x} position={[x, 1.05, 0.18]}>
-            <sphereGeometry args={[0.15, 12, 12]} />
-            <meshStandardMaterial color="#C49A6C" />
-          </mesh>
-        ))}
-        <group position={[0, 1.48, 0.2]}>
-          <mesh castShadow>
-            <sphereGeometry args={[0.28, 20, 20]} />
-            <meshStandardMaterial color="#C49A6C" />
-          </mesh>
-          <CartoonFace scale={0.65} />
-        </group>
+        <SparringPartner hitFlashAge={flashAge} />
       </group>
     </group>
   );
