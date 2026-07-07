@@ -1,26 +1,44 @@
 import * as THREE from 'three';
 import type { GlovePosition } from '../types/game';
-import { SPEEDBALL_PLAY_TARGET } from './playCamera';
-import { projectWorldToScreenNorm, targetZoneScreenOffset } from './punchImpact';
-import type { SpeedballSwingState } from './speedballSwing';
+import { SPEEDBALL_BALL_Y } from './playCamera';
+import { projectWorldToScreenNorm } from './punchImpact';
+import type { HitZoneCorners } from './targetZone';
 
-const _rest = new THREE.Vector3();
-const _current = new THREE.Vector3();
+const _point = new THREE.Vector3();
 
-export const SPEEDBALL_WORLD_Z = SPEEDBALL_PLAY_TARGET[2];
+/** Ball mesh radius + torus (world units). */
+const BALL_RADIUS = 0.34;
 
-export function speedballCenterAtSwing(state: SpeedballSwingState): THREE.Vector3 {
-  return new THREE.Vector3(
-    state.offsetX,
-    SPEEDBALL_PLAY_TARGET[1],
-    SPEEDBALL_WORLD_Z + state.offsetZ
-  );
+export const SPEEDBALL_WORLD_Z = -3.8;
+
+function projectAt(camera: THREE.Camera, x: number, y: number, z: number): GlovePosition {
+  _point.set(x, y, z);
+  return projectWorldToScreenNorm(_point, camera);
 }
 
-export function speedballZoneScreenOffset(state: SpeedballSwingState, camera: THREE.Camera): GlovePosition {
-  _rest.set(SPEEDBALL_PLAY_TARGET[0], SPEEDBALL_PLAY_TARGET[1], SPEEDBALL_WORLD_Z);
-  _current.copy(speedballCenterAtSwing(state));
-  return targetZoneScreenOffset(_rest, _current, camera);
-}
+/** Screen-space hit box traced from the live ball position each frame. */
+export function computeSpeedballHitZone(
+  camera: THREE.Camera,
+  offsetX = 0,
+  offsetZ = 0
+): HitZoneCorners {
+  const wx = offsetX;
+  const wy = SPEEDBALL_BALL_Y;
+  const wz = SPEEDBALL_WORLD_Z + offsetZ;
 
-export { projectWorldToScreenNorm };
+  const center = projectAt(camera, wx, wy, wz);
+  const right = projectAt(camera, wx + BALL_RADIUS, wy, wz);
+  const left = projectAt(camera, wx - BALL_RADIUS, wy, wz);
+  const top = projectAt(camera, wx, wy + BALL_RADIUS, wz);
+  const bottom = projectAt(camera, wx, wy - BALL_RADIUS, wz);
+
+  const halfW = Math.max(right.x - center.x, center.x - left.x) * 1.1;
+  const halfH = Math.max(bottom.y - center.y, center.y - top.y) * 1.1;
+
+  return [
+    { x: center.x - halfW, y: center.y - halfH },
+    { x: center.x + halfW, y: center.y - halfH },
+    { x: center.x + halfW, y: center.y + halfH },
+    { x: center.x - halfW, y: center.y + halfH },
+  ];
+}

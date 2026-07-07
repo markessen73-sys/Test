@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import type { GlovePosition } from '../types/game';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { speedballZoneScreenOffset } from './speedballImpact';
+import { computeSpeedballHitZone } from './speedballImpact';
 import { applySpeedballHitImpulse, createSpeedballSwingState, stepSpeedballSwing } from './speedballSwing';
 import { SPEEDBALL_BALL_Y, SPEEDBALL_PLAY_CAMERA } from './playCamera';
 import { PlayEnvironment } from './PlayEnvironment';
 import type { PunchImpact } from './punchImpact';
+import type { HitZoneCorners } from './targetZone';
 
 function PlaySpeedball({
   impacts,
-  speedballZoneOffsetRef,
+  speedballZoneCornersRef,
 }: {
   impacts: PunchImpact[];
-  speedballZoneOffsetRef: RefObject<GlovePosition>;
+  speedballZoneCornersRef: RefObject<HitZoneCorners>;
 }) {
   const swingRef = useRef(createSpeedballSwingState());
   const ballRef = useRef<THREE.Group>(null);
@@ -37,9 +37,8 @@ function PlaySpeedball({
     if (ballRef.current) {
       ballRef.current.position.set(state.offsetX, SPEEDBALL_BALL_Y, state.offsetZ);
     }
-    const zoneOffset = speedballZoneScreenOffset(state, camera);
-    speedballZoneOffsetRef.current.x = zoneOffset.x;
-    speedballZoneOffsetRef.current.y = zoneOffset.y;
+    const zone = computeSpeedballHitZone(camera, state.offsetX, state.offsetZ);
+    speedballZoneCornersRef.current = zone;
   });
 
   const flashAge = hitFlash > 0 ? (performance.now() - hitFlash) / 300 : 1;
@@ -80,10 +79,10 @@ function PlaySpeedball({
 
 interface SpeedballPlaySceneProps {
   impacts: PunchImpact[];
-  speedballZoneOffsetRef: RefObject<GlovePosition>;
+  speedballZoneCornersRef: RefObject<HitZoneCorners>;
 }
 
-export function SpeedballPlayScene({ impacts, speedballZoneOffsetRef }: SpeedballPlaySceneProps) {
+export function SpeedballPlayScene({ impacts, speedballZoneCornersRef }: SpeedballPlaySceneProps) {
   const cam = SPEEDBALL_PLAY_CAMERA;
   return (
     <Canvas
@@ -97,7 +96,7 @@ export function SpeedballPlayScene({ impacts, speedballZoneOffsetRef }: Speedbal
     >
       <color attach="background" args={['#1a1208']} />
       <PlayEnvironment />
-      <PlaySpeedball impacts={impacts} speedballZoneOffsetRef={speedballZoneOffsetRef} />
+      <PlaySpeedball impacts={impacts} speedballZoneCornersRef={speedballZoneCornersRef} />
     </Canvas>
   );
 }

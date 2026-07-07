@@ -1,21 +1,10 @@
 import type { GlovePosition } from '../types/game';
-import { hitZoneOutline, isKnuckleInHitZone, type HitZoneCorners } from './targetZone';
+import { isKnuckleInHitZone, type HitZoneCorners } from './targetZone';
 
-/** Speedball strike zone — upper screen (ball sits above fixed camera aim). */
-export const SPEEDBALL_HIT_CORNERS: HitZoneCorners = [
-  { x: 0.38, y: 0.02 },
-  { x: 0.62, y: 0.02 },
-  { x: 0.64, y: 0.24 },
-  { x: 0.36, y: 0.24 },
-];
-
-export function isKnuckleOnSpeedball(
-  knuckle: GlovePosition,
-  zoneOffset: GlovePosition = { x: 0, y: 0 }
-): boolean {
-  return isKnuckleInHitZone(knuckle, SPEEDBALL_HIT_CORNERS, zoneOffset);
+export function isKnuckleOnSpeedball(knuckle: GlovePosition, corners: HitZoneCorners): boolean {
+  return isKnuckleInHitZone(knuckle, corners);
 }
 
-export function speedballHitZoneOutline(zoneOffset: GlovePosition = { x: 0, y: 0 }): GlovePosition[] {
-  return hitZoneOutline(SPEEDBALL_HIT_CORNERS, zoneOffset);
+export function speedballHitZoneOutline(corners: HitZoneCorners): GlovePosition[] {
+  return [...corners];
 }
