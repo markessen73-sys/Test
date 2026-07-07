@@ -23,68 +23,325 @@ function faceDrawWidth(canvasW: number, canvasH: number): number {
   return IMAGE_W * contain;
 }
 
-function drawCauliflowerEar(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, side: -1 | 1) {
+function unit(canvasW: number, canvasH: number): number {
+  return faceDrawWidth(canvasW, canvasH) * 0.2;
+}
+
+/**
+ * Periorbital hematoma — classic boxer shiner.
+ * Purple-blue-black raccoon ring, puffy lids, half-shut bruised eye.
+ */
+function drawBlackEye(ctx: CanvasRenderingContext2D, x: number, y: number, u: number) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.fillStyle = '#8b6f5c';
-  ctx.strokeStyle = '#5c4030';
-  ctx.lineWidth = s * 0.08;
-  for (let i = 0; i < 6; i++) {
-    const a = side * (0.4 + i * 0.18);
-    const bx = Math.cos(a) * s * 0.55;
-    const by = Math.sin(a) * s * 0.45;
-    ctx.beginPath();
-    ctx.ellipse(bx, by, s * 0.28, s * 0.32, a, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  }
+
+  // Outer bruise halo — fades into cheek and brow
+  const outer = ctx.createRadialGradient(0, u * 0.1, u * 0.1, 0, u * 0.1, u * 1.45);
+  outer.addColorStop(0, 'rgba(25, 10, 35, 0)');
+  outer.addColorStop(0.35, 'rgba(90, 35, 75, 0.35)');
+  outer.addColorStop(0.6, 'rgba(130, 50, 90, 0.45)');
+  outer.addColorStop(0.8, 'rgba(165, 75, 65, 0.25)');
+  outer.addColorStop(1, 'rgba(190, 110, 75, 0)');
+  ctx.fillStyle = outer;
+  ctx.beginPath();
+  ctx.ellipse(0, u * 0.12, u * 1.35, u * 1.15, -0.05, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Core orbital bruise — darkest under eye and at inner corner
+  ctx.globalCompositeOperation = 'multiply';
+  const core = ctx.createRadialGradient(-u * 0.12, u * 0.22, u * 0.05, 0, u * 0.08, u * 1.05);
+  core.addColorStop(0, 'rgba(12, 4, 18, 0.95)');
+  core.addColorStop(0.2, 'rgba(35, 12, 55, 0.9)');
+  core.addColorStop(0.45, 'rgba(70, 28, 95, 0.82)');
+  core.addColorStop(0.65, 'rgba(105, 42, 110, 0.65)');
+  core.addColorStop(0.82, 'rgba(145, 58, 95, 0.4)');
+  core.addColorStop(1, 'rgba(175, 90, 70, 0)');
+  ctx.fillStyle = core;
+  ctx.beginPath();
+  ctx.ellipse(0, u * 0.1, u * 1.1, u * 0.92, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Blue-purple upper orbit ring
+  ctx.globalCompositeOperation = 'overlay';
+  ctx.fillStyle = 'rgba(55, 65, 145, 0.45)';
+  ctx.beginPath();
+  ctx.ellipse(0, -u * 0.05, u * 1.05, u * 0.38, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.globalCompositeOperation = 'source-over';
+
+  // Swollen puffy upper lid — droops over eye
+  const upperLid = ctx.createLinearGradient(0, -u * 0.45, 0, u * 0.05);
+  upperLid.addColorStop(0, 'rgba(210, 165, 175, 0.7)');
+  upperLid.addColorStop(0.5, 'rgba(175, 120, 145, 0.65)');
+  upperLid.addColorStop(1, 'rgba(130, 70, 100, 0.5)');
+  ctx.fillStyle = upperLid;
+  ctx.beginPath();
+  ctx.ellipse(0, -u * 0.08, u * 1.08, u * 0.38, -0.06, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Puffy lower lid water-bag
+  ctx.fillStyle = 'rgba(115, 45, 80, 0.55)';
+  ctx.beginPath();
+  ctx.ellipse(0, u * 0.42, u * 0.88, u * 0.3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Half-closed bruised eye slit — obscures the blue iris beneath
+  ctx.fillStyle = 'rgba(22, 8, 28, 0.92)';
+  ctx.beginPath();
+  ctx.ellipse(0, u * 0.1, u * 0.5, u * 0.11, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Crusted swollen lid crease
+  ctx.strokeStyle = 'rgba(55, 20, 50, 0.95)';
+  ctx.lineWidth = u * 0.09;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-u * 0.52, u * 0.08);
+  ctx.quadraticCurveTo(0, u * 0.28, u * 0.52, u * 0.08);
+  ctx.stroke();
+
+  // Inner corner blood pocket
+  ctx.fillStyle = 'rgba(80, 15, 25, 0.5)';
+  ctx.beginPath();
+  ctx.ellipse(-u * 0.38, u * 0.14, u * 0.16, u * 0.14, 0.4, 0, Math.PI * 2);
+  ctx.fill();
+
   ctx.restore();
 }
 
-function drawBlackEye(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
-  const g = ctx.createRadialGradient(x, y, 0, x, y, s * 0.55);
-  g.addColorStop(0, '#1a0a18');
-  g.addColorStop(0.45, '#3d1838');
-  g.addColorStop(0.75, 'rgba(80,30,70,0.45)');
-  g.addColorStop(1, 'rgba(80,30,70,0)');
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.ellipse(x, y + s * 0.05, s * 0.5, s * 0.38, 0, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function drawSwollenEye(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
-  ctx.fillStyle = 'rgba(220, 80, 70, 0.35)';
-  ctx.beginPath();
-  ctx.ellipse(x, y, s * 0.62, s * 0.48, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(160, 40, 40, 0.5)';
-  ctx.lineWidth = s * 0.06;
-  ctx.stroke();
-  ctx.fillStyle = 'rgba(255, 200, 190, 0.25)';
-  ctx.beginPath();
-  ctx.ellipse(x - s * 0.12, y - s * 0.1, s * 0.22, s * 0.15, -0.3, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function drawForeheadBandage(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
+/** Acute periorbital edema — red inflamed tissue, nearly shut (not bruised). */
+function drawSwollenEye(ctx: CanvasRenderingContext2D, x: number, y: number, u: number) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(-0.08);
-  ctx.fillStyle = '#f2ebe0';
-  ctx.strokeStyle = '#c8bfb0';
-  ctx.lineWidth = s * 0.05;
-  roundRect(ctx, -s * 0.95, -s * 0.18, s * 1.9, s * 0.36, s * 0.06);
+
+  ctx.fillStyle = 'rgba(240, 130, 115, 0.45)';
+  ctx.beginPath();
+  ctx.ellipse(0, u * 0.08, u * 1.3, u * 1.05, 0, 0, Math.PI * 2);
   ctx.fill();
+
+  const lid = ctx.createRadialGradient(0, -u * 0.18, 0, 0, -u * 0.12, u * 0.75);
+  lid.addColorStop(0, 'rgba(255, 215, 200, 0.9)');
+  lid.addColorStop(0.45, 'rgba(245, 155, 135, 0.75)');
+  lid.addColorStop(1, 'rgba(215, 95, 90, 0.4)');
+  ctx.fillStyle = lid;
+  ctx.beginPath();
+  ctx.ellipse(0, -u * 0.14, u * 1.15, u * 0.58, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(230, 160, 150, 0.7)';
+  ctx.beginPath();
+  ctx.ellipse(0, u * 0.44, u * 0.92, u * 0.34, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(110, 40, 40, 0.9)';
+  ctx.lineWidth = u * 0.11;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-u * 0.5, u * 0.04);
+  ctx.quadraticCurveTo(0, u * 0.24, u * 0.5, u * 0.04);
   ctx.stroke();
-  ctx.strokeStyle = 'rgba(180,170,155,0.7)';
-  ctx.lineWidth = s * 0.03;
-  for (let i = -2; i <= 2; i++) {
+
+  ctx.restore();
+}
+
+/**
+ * Auricular hematoma / cauliflower ear — lumpy folded pinna with purple nodules.
+ * Drawn over the caricature's protruding ear from a front-three-quarter view.
+ */
+function drawCauliflowerEar(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  u: number,
+  side: -1 | 1
+) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(side, 1);
+
+  // Thickened swollen ear base — cartilage folded forward
+  const base = ctx.createLinearGradient(-u * 0.3, -u * 0.6, u * 1.1, u * 0.9);
+  base.addColorStop(0, '#d4a898');
+  base.addColorStop(0.35, '#a87870');
+  base.addColorStop(0.7, '#7a4850');
+  base.addColorStop(1, '#5a3038');
+  ctx.fillStyle = base;
+  ctx.beginPath();
+  ctx.moveTo(-u * 0.2, -u * 0.6);
+  ctx.bezierCurveTo(u * 0.55, -u * 0.75, u * 1.2, -u * 0.2, u * 1.05, u * 0.35);
+  ctx.bezierCurveTo(u * 0.95, u * 0.85, u * 0.45, u * 1.1, -u * 0.1, u * 0.85);
+  ctx.bezierCurveTo(-u * 0.45, u * 0.55, -u * 0.45, u * 0.05, -u * 0.2, -u * 0.6);
+  ctx.closePath();
+  ctx.fill();
+
+  // Hematoma nodules — irregular cauliflower florets
+  const nodules: [number, number, number, number, number][] = [
+    [u * 0.55, -u * 0.35, u * 0.28, u * 0.32, -0.3],
+    [u * 0.75, -u * 0.05, u * 0.32, u * 0.35, 0.2],
+    [u * 0.45, u * 0.2, u * 0.26, u * 0.3, 0.5],
+    [u * 0.85, u * 0.35, u * 0.24, u * 0.28, 0.8],
+    [u * 0.3, u * 0.45, u * 0.22, u * 0.26, 1.1],
+    [u * 0.65, u * 0.6, u * 0.3, u * 0.34, 0.4],
+    [u * 0.15, -u * 0.1, u * 0.2, u * 0.22, -0.6],
+    [u * 0.95, u * 0.1, u * 0.2, u * 0.24, 0.1],
+  ];
+  const lumpColors = ['#6e2838', '#852f42', '#5a2230', '#9a4555', '#703040', '#4a1e28', '#7a3548'];
+  for (let i = 0; i < nodules.length; i++) {
+    const [nx, ny, rx, ry, rot] = nodules[i];
+    const grad = ctx.createRadialGradient(nx - rx * 0.2, ny - ry * 0.2, 0, nx, ny, Math.max(rx, ry));
+    grad.addColorStop(0, lumpColors[i % lumpColors.length]);
+    grad.addColorStop(0.6, '#5a2835');
+    grad.addColorStop(1, '#3a1520');
+    ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.moveTo(i * s * 0.22, -s * 0.14);
-    ctx.lineTo(i * s * 0.22, s * 0.14);
+    ctx.ellipse(nx, ny, rx, ry, rot, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(30, 10, 15, 0.4)';
+    ctx.lineWidth = u * 0.025;
     ctx.stroke();
   }
+
+  // Deep bruise wash in folds between lumps
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = 'rgba(70, 20, 45, 0.5)';
+  ctx.beginPath();
+  ctx.ellipse(u * 0.5, u * 0.15, u * 0.7, u * 0.8, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+
+  // Folded-over helix rim — characteristic collapsed cartilage edge
+  ctx.strokeStyle = '#3a1820';
+  ctx.lineWidth = u * 0.07;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(u * 0.05, -u * 0.5);
+  ctx.bezierCurveTo(u * 0.65, -u * 0.62, u * 1.05, -u * 0.2, u * 0.92, u * 0.25);
+  ctx.bezierCurveTo(u * 0.82, u * 0.55, u * 0.55, u * 0.7, u * 0.35, u * 0.55);
+  ctx.stroke();
+
+  // Lobe — swollen and misshapen
+  ctx.fillStyle = '#8a5058';
+  ctx.beginPath();
+  ctx.ellipse(u * 0.2, u * 0.72, u * 0.22, u * 0.18, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+/** Ringside cut dressing — horizontal gauze pad taped across the forehead. */
+function drawForeheadBandage(ctx: CanvasRenderingContext2D, x: number, y: number, u: number) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Skin shadow beneath pad
+  ctx.fillStyle = 'rgba(60, 35, 30, 0.25)';
+  ctx.beginPath();
+  ctx.ellipse(0, u * 0.1, u * 2.15, u * 0.42, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Main horizontal gauze pad
+  drawGauzePad(ctx, 0, u * 0.02, u * 2.05, u * 0.42);
+
+  // Cross strips of adhesive tape at temples
+  drawMedicalTape(ctx, -u * 1.12, u * 0.02, u * 0.38, u * 0.48, -0.35);
+  drawMedicalTape(ctx, u * 1.12, u * 0.02, u * 0.38, u * 0.48, 0.35);
+
+  // Vertical hold-down tape over center
+  drawMedicalTape(ctx, 0, u * 0.02, u * 0.22, u * 0.52, 0);
+
+  // Blood seepage through gauze
+  ctx.fillStyle = 'rgba(145, 28, 28, 0.55)';
+  ctx.beginPath();
+  ctx.ellipse(-u * 0.15, u * 0.04, u * 0.16, u * 0.12, -0.15, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(100, 18, 18, 0.35)';
+  ctx.beginPath();
+  ctx.ellipse(-u * 0.12, u * 0.08, u * 0.28, u * 0.08, -0.1, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawGauzePad(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  w: number,
+  h: number
+) {
+  const x0 = cx - w / 2;
+  const y0 = cy - h / 2;
+  const r = h * 0.28;
+
+  // Padded body with slight puff
+  const body = ctx.createLinearGradient(x0, y0, x0, y0 + h);
+  body.addColorStop(0, '#faf6ee');
+  body.addColorStop(0.4, '#f0ebe2');
+  body.addColorStop(1, '#d8d0c4');
+  ctx.fillStyle = body;
+  ctx.strokeStyle = '#b8b0a0';
+  ctx.lineWidth = h * 0.06;
+  roundRect(ctx, x0, y0, w, h, r);
+  ctx.fill();
+  ctx.stroke();
+
+  // Gauze cross-weave texture
+  ctx.strokeStyle = 'rgba(160, 150, 135, 0.5)';
+  ctx.lineWidth = h * 0.035;
+  for (let i = -4; i <= 4; i++) {
+    ctx.beginPath();
+    ctx.moveTo(x0 + w * 0.06, cy + i * h * 0.11);
+    ctx.lineTo(x0 + w * 0.94, cy + i * h * 0.11);
+    ctx.stroke();
+  }
+  for (let i = -6; i <= 6; i++) {
+    ctx.beginPath();
+    ctx.moveTo(cx + i * w * 0.07, y0 + h * 0.12);
+    ctx.lineTo(cx + i * w * 0.07, y0 + h * 0.88);
+    ctx.stroke();
+  }
+
+  // Top highlight — cotton pad sheen
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.lineWidth = h * 0.05;
+  ctx.beginPath();
+  ctx.moveTo(x0 + r, y0 + h * 0.14);
+  ctx.lineTo(x0 + w - r, y0 + h * 0.14);
+  ctx.stroke();
+}
+
+function drawMedicalTape(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  w: number,
+  h: number,
+  angle: number
+) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
+  const x0 = -w / 2;
+  const y0 = -h / 2;
+
+  ctx.fillStyle = '#e8dcc8';
+  ctx.strokeStyle = '#c8bca8';
+  ctx.lineWidth = h * 0.08;
+  roundRect(ctx, x0, y0, w, h, h * 0.15);
+  ctx.fill();
+  ctx.stroke();
+
+  // Tape fiber lines
+  ctx.strokeStyle = 'rgba(180, 165, 140, 0.45)';
+  ctx.lineWidth = h * 0.04;
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.moveTo(x0 + w * 0.15, cy + i * h * 0.22 - cy);
+    ctx.lineTo(x0 + w * 0.85, cy + i * h * 0.22 - cy);
+    ctx.stroke();
+  }
+
   ctx.restore();
 }
 
@@ -109,34 +366,54 @@ function roundRect(
   ctx.closePath();
 }
 
-function drawBrokenNose(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
-  ctx.fillStyle = 'rgba(180, 60, 55, 0.4)';
+function drawBrokenNose(ctx: CanvasRenderingContext2D, x: number, y: number, u: number) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = 'rgba(165, 55, 50, 0.55)';
   ctx.beginPath();
-  ctx.ellipse(x, y, s * 0.38, s * 0.48, 0, 0, Math.PI * 2);
+  ctx.ellipse(u * 0.1, 0, u * 0.45, u * 0.58, 0.22, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = '#6a2020';
-  ctx.lineWidth = s * 0.07;
+  ctx.globalCompositeOperation = 'source-over';
+
+  ctx.strokeStyle = '#4a1414';
+  ctx.lineWidth = u * 0.08;
+  ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(x - s * 0.12, y - s * 0.35);
-  ctx.lineTo(x + s * 0.18, y + s * 0.42);
+  ctx.moveTo(-u * 0.1, -u * 0.45);
+  ctx.quadraticCurveTo(u * 0.28, u * 0.02, u * 0.15, u * 0.52);
   ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+
+  ctx.fillStyle = 'rgba(110, 30, 30, 0.6)';
   ctx.beginPath();
-  ctx.ellipse(x + s * 0.05, y - s * 0.05, s * 0.12, s * 0.08, 0.4, 0, Math.PI * 2);
+  ctx.ellipse(u * 0.22, -u * 0.04, u * 0.2, u * 0.14, 0.35, 0, Math.PI * 2);
   ctx.fill();
+
+  ctx.restore();
 }
 
-function drawSwollenLip(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
-  ctx.fillStyle = 'rgba(210, 70, 75, 0.55)';
+function drawSwollenLip(ctx: CanvasRenderingContext2D, x: number, y: number, u: number) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  ctx.fillStyle = 'rgba(195, 45, 58, 0.75)';
   ctx.beginPath();
-  ctx.ellipse(x, y + s * 0.12, s * 0.42, s * 0.22, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, u * 0.16, u * 0.58, u * 0.3, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(140, 30, 35, 0.6)';
-  ctx.lineWidth = s * 0.05;
+
+  ctx.strokeStyle = 'rgba(110, 18, 28, 0.85)';
+  ctx.lineWidth = u * 0.055;
   ctx.beginPath();
-  ctx.moveTo(x - s * 0.38, y + s * 0.08);
-  ctx.quadraticCurveTo(x, y + s * 0.32, x + s * 0.38, y + s * 0.08);
+  ctx.moveTo(-u * 0.44, u * 0.08);
+  ctx.lineTo(u * 0.44, u * 0.08);
   ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-u * 0.14, u * 0.05);
+  ctx.lineTo(-u * 0.08, u * 0.24);
+  ctx.stroke();
+
+  ctx.restore();
 }
 
 /** Paint accumulated injuries on top of the base face texture. */
@@ -148,38 +425,43 @@ export function drawFaceDamageOverlays(
 ) {
   if (!damages.length) return;
 
-  const s = faceDrawWidth(canvasW, canvasH) * 0.22;
+  const u = unit(canvasW, canvasH);
   const [lx, ly] = toCanvas(0.3493, 0.3464, canvasW, canvasH);
   const [rx, ry] = toCanvas(0.6487, 0.3464, canvasW, canvasH);
   const [nx, ny] = toCanvas(0.499, 0.456, canvasW, canvasH);
   const [mx, my] = toCanvas(0.499, 0.597, canvasW, canvasH);
-  const [leftEarX, leftEarY] = toCanvas(0.17, 0.44, canvasW, canvasH);
-  const [rightEarX, rightEarY] = toCanvas(0.83, 0.44, canvasW, canvasH);
-  const [foreheadX, foreheadY] = toCanvas(0.5, 0.2, canvasW, canvasH);
+  const [leftEarX, leftEarY] = toCanvas(0.14, 0.42, canvasW, canvasH);
+  const [rightEarX, rightEarY] = toCanvas(0.86, 0.42, canvasW, canvasH);
+  const [foreheadX, foreheadY] = toCanvas(0.5, 0.19, canvasW, canvasH);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
 
   for (const d of damages) {
     switch (d) {
       case 'cauliflowerLeftEar':
-        drawCauliflowerEar(ctx, leftEarX, leftEarY, s * 1.15, -1);
+        drawCauliflowerEar(ctx, leftEarX, leftEarY, u * 1.5, -1);
         break;
       case 'cauliflowerRightEar':
-        drawCauliflowerEar(ctx, rightEarX, rightEarY, s * 1.15, 1);
+        drawCauliflowerEar(ctx, rightEarX, rightEarY, u * 1.5, 1);
         break;
       case 'blackLeftEye':
-        drawBlackEye(ctx, lx, ly, s);
+        drawBlackEye(ctx, lx, ly, u);
         break;
       case 'swollenRightEye':
-        drawSwollenEye(ctx, rx, ry, s);
+        drawSwollenEye(ctx, rx, ry, u);
         break;
       case 'foreheadBandage':
-        drawForeheadBandage(ctx, foreheadX, foreheadY, s);
+        drawForeheadBandage(ctx, foreheadX, foreheadY, u);
         break;
       case 'brokenNose':
-        drawBrokenNose(ctx, nx, ny, s);
+        drawBrokenNose(ctx, nx, ny, u);
         break;
       case 'swollenBottomLip':
-        drawSwollenLip(ctx, mx, my, s);
+        drawSwollenLip(ctx, mx, my, u);
         break;
     }
   }
+
+  ctx.restore();
 }
