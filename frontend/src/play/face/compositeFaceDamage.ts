@@ -142,7 +142,10 @@ export function compositeReferenceDamages(
     if (!asset) continue;
     const img = imagesBySrc.get(asset.src);
     if (!img) continue;
-    const mirror = asset.nativeSide !== asset.targetSide;
+    const mirror =
+      !!asset.nativeSide &&
+      !!asset.targetSide &&
+      asset.nativeSide !== asset.targetSide;
     compositeFaceDamageReference(ctx, canvasW, canvasH, baseImage, img, mirror);
   }
 }

@@ -5,10 +5,13 @@ export type FaceSide = 'left' | 'right';
 
 export type FaceDamageAsset = {
   src: string;
-  /** Anatomical side where the damage appears in the reference PNG. */
-  nativeSide: FaceSide;
+  /**
+   * Anatomical side where the damage appears in the reference PNG.
+   * Omit (or set equal to targetSide) for centered features like the nose.
+   */
+  nativeSide?: FaceSide;
   /** Anatomical side this damage ID should appear on. */
-  targetSide: FaceSide;
+  targetSide?: FaceSide;
 };
 
 /**
@@ -38,6 +41,10 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
     src: '/faces/damage/swollen-left-eye.png',
     nativeSide: 'left',
     targetSide: 'right',
+  },
+  // Broken nose — centered, no mirroring.
+  brokenNose: {
+    src: '/faces/damage/broken-nose.png',
   },
 };
 
