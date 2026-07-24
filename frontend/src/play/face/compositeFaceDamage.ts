@@ -203,8 +203,8 @@ type PatchPixel = {
 
 /**
  * Build a compact injury patch in native asset space, then optionally mirror.
- * Coordinates are stored relative to the injury centroid so we can stamp the
- * whole coherent patch onto the target landmark (not scatter warped pixels).
+ * Only the strongest local changes are kept so we stamp a coherent wound/bruise,
+ * not a semi-transparent male face slab.
  */
 function extractPatch(
   male: ImageData,
@@ -216,14 +216,20 @@ function extractPatch(
 ): PatchPixel[] {
   const m = male.data;
   const d = damaged.data;
-  const raw: { x: number; y: number; pix: Omit<PatchPixel, 'ox' | 'oy'> }[] = [];
+  const thr = region.diffThreshold ?? 24;
+  const candidates: {
+    x: number;
+    y: number;
+    score: number;
+    pix: Omit<PatchPixel, 'ox' | 'oy'>;
+  }[] = [];
 
   for (let py = 0; py < sh; py++) {
     for (let px = 0; px < sw; px++) {
       const nx = (px + 0.5) / sw;
       const ny = (py + 0.5) / sh;
       const weight = regionWeight(nx, ny, region);
-      if (weight <= 0.05) continue;
+      if (weight <= 0.08) continue;
 
       const i = (py * sw + px) * 4;
       const mr = m[i];
@@ -239,9 +245,22 @@ function extractPatch(
       const maleWasBackdrop = isBackdrop(mr, mg, mb, ma);
       if (!isInjuryDelta(mr, mg, mb, dr, dg, db, region, maleWasBackdrop)) continue;
 
-      raw.push({
+      const diff = Math.abs(dr - mr) + Math.abs(dg - mg) + Math.abs(db - mb);
+      const dLum = luminance(dr, dg, db) - luminance(mr, mg, mb);
+      const dRed = redness(dr, dg, db) - redness(mr, mg, mb);
+      // Score favors real wounds over mild skin drift.
+      let score = diff * weight;
+      if (region.preferDarker) score = Math.max(0, -dLum) * 4 * weight;
+      else if (region.preferRedder) score = (Math.max(0, -dLum) * 2 + Math.max(0, dRed) * 3 + diff * 0.35) * weight;
+      else score = (Math.abs(dLum) * 2 + diff * 0.4) * weight;
+      if (maleWasBackdrop) score += 40;
+
+      if (score < thr * 0.9) continue;
+
+      candidates.push({
         x: nx,
         y: ny,
+        score,
         pix: {
           dR: dr - mr,
           dG: dg - mg,
@@ -256,14 +275,22 @@ function extractPatch(
     }
   }
 
-  if (raw.length === 0) return [];
+  if (candidates.length === 0) return [];
 
-  // Centroid of the injury blob (stronger pixels count more).
+  // Keep only the strongest slice of the region — cuts the "random male skin" slab.
+  candidates.sort((a, b) => b.score - a.score);
+  const keepFrac = region.preferDarker ? 0.5 : region.allowGrow ? 0.28 : 0.14;
+  const keep = Math.max(
+    120,
+    Math.min(candidates.length, Math.round(candidates.length * keepFrac))
+  );
+  const raw = candidates.slice(0, keep);
+
   let sx = 0;
   let sy = 0;
   let swt = 0;
   for (const p of raw) {
-    const wt = p.pix.w;
+    const wt = p.score;
     sx += p.x * wt;
     sy += p.y * wt;
     swt += wt;
@@ -271,14 +298,15 @@ function extractPatch(
   const cx = sx / swt;
   const cy = sy / swt;
 
-  const patch: PatchPixel[] = raw.map((p) => {
+  return raw.map((p) => {
     let ox = p.x - cx;
     const oy = p.y - cy;
     if (mirror) ox = -ox;
-    return { ox, oy, ...p.pix };
+    // Soft falloff from the injury core so the stamp isn't a hard speck cloud.
+    const dist = Math.hypot(ox, oy);
+    const core = Math.max(0.35, 1 - dist / 0.22);
+    return { ox, oy, ...p.pix, w: p.pix.w * core };
   });
-
-  return patch;
 }
 
 function interocular(lm: typeof MALE_DAMAGE_LANDMARKS): number {
