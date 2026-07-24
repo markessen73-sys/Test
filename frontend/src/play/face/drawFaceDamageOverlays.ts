@@ -1,5 +1,6 @@
 import { FACE_CONTAIN_PAD } from './composeFaceTexture';
 import { FACE_SOURCE_SIZE } from './faceTemplate';
+import { TARGET_DAMAGE_LANDMARKS } from './faceDamageAssets';
 import type { FaceDamageId } from './faceDamage';
 
 const [IMAGE_W, IMAGE_H] = FACE_SOURCE_SIZE;
@@ -568,14 +569,49 @@ export function drawFaceDamageOverlays(
   if (!damages.length) return;
 
   const u = unit(canvasW, canvasH);
-  const [lx, ly] = toCanvas(0.3493, 0.3464, canvasW, canvasH);
-  const [rx, ry] = toCanvas(0.6487, 0.3464, canvasW, canvasH);
-  const [nx, ny] = toCanvas(0.499, 0.456, canvasW, canvasH);
-  const [mx, my] = toCanvas(0.499, 0.597, canvasW, canvasH);
-  // Anatomical left/right ears (subject's left = image right, subject's right = image left).
-  const [anatLeftEarX, anatLeftEarY] = toCanvas(0.86, 0.42, canvasW, canvasH);
-  const [anatRightEarX, anatRightEarY] = toCanvas(0.14, 0.42, canvasW, canvasH);
-  const [foreheadX, foreheadY] = toCanvas(0.5, 0.19, canvasW, canvasH);
+  // Image-left = subject's right. Subject's left eye/ear = image right.
+  const [subjRightEyeX, subjRightEyeY] = toCanvas(
+    TARGET_DAMAGE_LANDMARKS.leftEye[0],
+    TARGET_DAMAGE_LANDMARKS.leftEye[1],
+    canvasW,
+    canvasH
+  );
+  const [subjLeftEyeX, subjLeftEyeY] = toCanvas(
+    TARGET_DAMAGE_LANDMARKS.rightEye[0],
+    TARGET_DAMAGE_LANDMARKS.rightEye[1],
+    canvasW,
+    canvasH
+  );
+  const [nx, ny] = toCanvas(
+    TARGET_DAMAGE_LANDMARKS.nose[0],
+    TARGET_DAMAGE_LANDMARKS.nose[1],
+    canvasW,
+    canvasH
+  );
+  const [mx, my] = toCanvas(
+    TARGET_DAMAGE_LANDMARKS.bottomLip[0],
+    TARGET_DAMAGE_LANDMARKS.bottomLip[1],
+    canvasW,
+    canvasH
+  );
+  const [anatLeftEarX, anatLeftEarY] = toCanvas(
+    TARGET_DAMAGE_LANDMARKS.rightEar[0],
+    TARGET_DAMAGE_LANDMARKS.rightEar[1],
+    canvasW,
+    canvasH
+  );
+  const [anatRightEarX, anatRightEarY] = toCanvas(
+    TARGET_DAMAGE_LANDMARKS.leftEar[0],
+    TARGET_DAMAGE_LANDMARKS.leftEar[1],
+    canvasW,
+    canvasH
+  );
+  const [foreheadX, foreheadY] = toCanvas(
+    TARGET_DAMAGE_LANDMARKS.forehead[0],
+    TARGET_DAMAGE_LANDMARKS.forehead[1],
+    canvasW,
+    canvasH
+  );
 
   ctx.save();
   ctx.globalCompositeOperation = 'source-over';
@@ -589,10 +625,10 @@ export function drawFaceDamageOverlays(
         drawCauliflowerEarRight(ctx, anatRightEarX, anatRightEarY, u * 1.65, -1);
         break;
       case 'blackLeftEye':
-        drawBlackEye(ctx, lx, ly, u);
+        drawBlackEye(ctx, subjLeftEyeX, subjLeftEyeY, u);
         break;
       case 'swollenRightEye':
-        drawSwollenEye(ctx, rx, ry, u);
+        drawSwollenEye(ctx, subjRightEyeX, subjRightEyeY, u);
         break;
       case 'foreheadBandage':
         drawForeheadBandage(ctx, foreheadX, foreheadY, u);
