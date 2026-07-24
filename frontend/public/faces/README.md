@@ -11,6 +11,7 @@ Test portrait used to prototype how caricature faces attach to boxing targets be
 | `damage/broken-nose.png` | Broken nose reference (`file_00000000204081…`) |
 | `damage/missing-tooth.png` | Missing tooth reference (`file_00000000757082…`) |
 | `damage/forehead-bandage.png` | Bandaged head reference (`file_00000000494481…`) |
+| `damage/swollen-lip.png` | Swollen lip reference (`file_00000000c51081…`) |
 | `face-template-map.json` | Generated regions + engine targets |
 
 Punch damage: every 3–6 landed hits applies one unused injury. Ear/eye damages composite reference PNGs (diff vs base, backdrop pixels ignored, mirrored when needed). Bandage / nose / lip still use procedural overlays until references are supplied.

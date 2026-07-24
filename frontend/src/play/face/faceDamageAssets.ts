@@ -54,6 +54,10 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
   foreheadBandage: {
     src: '/faces/damage/forehead-bandage.png',
   },
+  // Swollen bottom lip — centered, no mirroring.
+  swollenBottomLip: {
+    src: '/faces/damage/swollen-lip.png',
+  },
 };
 
 /** Unique image URLs needed for reference compositing. */
