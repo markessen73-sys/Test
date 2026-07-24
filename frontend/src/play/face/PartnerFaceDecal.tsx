@@ -6,6 +6,7 @@ import { drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture';
 import { drawFaceDamageOverlays } from './drawFaceDamageOverlays';
 import {
   compositeReferenceDamages,
+  FACE_DAMAGE_BASELINE_SRC,
   proceduralDamagesOnly,
 } from './compositeFaceDamage';
 import { faceDamageAssetSrcs } from './faceDamageAssets';
@@ -63,6 +64,8 @@ export function PartnerFaceDecal({
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
   const [imageReady, setImageReady] = useState(false);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  /** Undamaged male face the damage PNGs were authored against. */
+  const maleBaselineRef = useRef<HTMLImageElement | null>(null);
   const damageImgsRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const texRef = useRef<THREE.CanvasTexture | null>(null);
@@ -84,15 +87,24 @@ export function PartnerFaceDecal({
 
   const redraw = useCallback(() => {
     const img = imgRef.current;
+    const maleBaseline = maleBaselineRef.current;
     const canvas = canvasRef.current;
     const tex = texRef.current;
-    if (!img || !canvas || !tex) return;
+    if (!img || !maleBaseline || !canvas || !tex) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const applied = damagesRef.current;
     drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE);
-    compositeReferenceDamages(ctx, CANVAS_SIZE, CANVAS_SIZE, img, applied, damageImgsRef.current);
+    // Diff damage refs against the male baseline, then map those changes onto this face.
+    compositeReferenceDamages(
+      ctx,
+      CANVAS_SIZE,
+      CANVAS_SIZE,
+      maleBaseline,
+      applied,
+      damageImgsRef.current
+    );
     drawFaceDamageOverlays(ctx, CANVAS_SIZE, CANVAS_SIZE, proceduralDamagesOnly(applied));
     tex.needsUpdate = true;
   }, []);
@@ -112,15 +124,18 @@ export function PartnerFaceDecal({
 
     Promise.all([
       loadFaceImage(FACE_TEMPLATE_SRC),
+      loadFaceImage(FACE_DAMAGE_BASELINE_SRC),
       ...srcs.map(async (src) => {
         const loaded = await loadFaceImage(src);
         return [src, loaded] as const;
       }),
-    ]).then(([base, ...pairs]) => {
+    ]).then(([liveFace, maleBaseline, ...pairs]) => {
       if (cancelled) return;
-      imgRef.current = base;
+      imgRef.current = liveFace;
+      maleBaselineRef.current = maleBaseline;
       const map = new Map<string, HTMLImageElement>();
       for (const [src, loaded] of pairs) map.set(src, loaded);
+      // Baseline is also in srcs — keep it available but injury lookups use asset.src.
       damageImgsRef.current = map;
       setImageReady(true);
     });

@@ -1,6 +1,13 @@
 import { assetUrl } from '../../assetUrl';
 import type { FaceDamageId } from './faceDamage';
 
+/**
+ * Undamaged male face used as the damage baseline.
+ * Injury refs are compared to THIS image (not the live target face) so we
+ * transfer the *change* onto any caricature.
+ */
+export const FACE_DAMAGE_BASELINE_SRC = assetUrl('/faces/test-template-face-male.png');
+
 /** Anatomical side: subject's left = image right, subject's right = image left. */
 export type FaceSide = 'left' | 'right';
 
@@ -10,42 +17,28 @@ export type DamageRegion = {
   cy: number;
   rx: number;
   ry: number;
-  /** Min RGB sum delta to count as a change (default 24). */
+  /** Min |damaged−baseline| RGB sum to count as a change. */
   diffThreshold?: number;
-  /**
-   * Only keep pixels darker than the base — for missing-tooth gaps
-   * so the rest of the smile is not replaced.
-   */
+  /** Prefer darker deltas (missing tooth gap). */
   preferDarker?: boolean;
-  /**
-   * Prefer warmer/redder pixels (bruises, swollen tissue) but still allow
-   * strong structural diffs inside the region.
-   */
+  /** Prefer warmer/redder or strong structural deltas (bruises, swelling). */
   preferRedder?: boolean;
-  /**
-   * Allow painting where the base is backdrop (black) — needed when the
-   * injury grows beyond the original feature (cauliflower ear, puffy lip).
-   */
+  /** Allow deltas where the baseline was backdrop (grown ear / bandage edge). */
   allowGrow?: boolean;
 };
 
 export type FaceDamageAsset = {
   src: string;
-  /** Anatomical side where the damage appears in the reference PNG. */
   nativeSide?: FaceSide;
-  /** Anatomical side this damage ID should appear on. */
   targetSide?: FaceSide;
-  /** Localized region — only this area is sampled from the reference. */
   region: DamageRegion;
 };
 
 /**
- * Pre-rendered damaged faces from the user.
- * Only the localized injury delta is composited onto the live face
- * so the same effects can transfer to other caricatures.
+ * Damaged versions of the male baseline face.
+ * Runtime transfers (damaged − baseline) onto the live target face.
  */
 export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> = {
-  // Ear damage on subject's right (viewer's left) — mirrored for left.
   cauliflowerLeftEar: {
     src: assetUrl('/faces/damage/cauliflower-ear.png'),
     nativeSide: 'right',
@@ -74,14 +67,12 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
       diffThreshold: 18,
     },
   },
-  // Black eye on subject's right (viewer's left) — mirrored for left.
   blackLeftEye: {
     src: assetUrl('/faces/damage/black-right-eye.png'),
     nativeSide: 'right',
     targetSide: 'left',
     region: { cx: 0.35, cy: 0.34, rx: 0.13, ry: 0.12, preferRedder: true, diffThreshold: 24 },
   },
-  // Swollen eye on subject's left (viewer's right) — mirrored for right.
   swollenRightEye: {
     src: assetUrl('/faces/damage/swollen-left-eye.png'),
     nativeSide: 'left',
@@ -92,23 +83,21 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
     src: assetUrl('/faces/damage/broken-nose.png'),
     region: { cx: 0.5, cy: 0.45, rx: 0.12, ry: 0.14, preferRedder: true, diffThreshold: 28 },
   },
-  // Upper-teeth gap only — do not replace the whole mouth.
   missingTooth: {
     src: assetUrl('/faces/damage/missing-tooth.png'),
     region: {
       cx: 0.545,
       cy: 0.575,
-      rx: 0.055,
-      ry: 0.035,
+      rx: 0.07,
+      ry: 0.045,
       preferDarker: true,
-      diffThreshold: 40,
+      diffThreshold: 22,
     },
   },
   foreheadBandage: {
     src: assetUrl('/faces/damage/forehead-bandage.png'),
     region: { cx: 0.5, cy: 0.2, rx: 0.38, ry: 0.12, allowGrow: true, diffThreshold: 22 },
   },
-  // Lower lip swell — may grow slightly beyond original lip.
   swollenBottomLip: {
     src: assetUrl('/faces/damage/swollen-lip.png'),
     region: {
@@ -123,9 +112,9 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
   },
 };
 
-/** Unique image URLs needed for reference compositing. */
+/** Unique image URLs for damage refs + male baseline. */
 export function faceDamageAssetSrcs(): string[] {
-  const set = new Set<string>();
+  const set = new Set<string>([FACE_DAMAGE_BASELINE_SRC]);
   for (const asset of Object.values(FACE_DAMAGE_ASSETS)) {
     if (asset) set.add(asset.src);
   }
