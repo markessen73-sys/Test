@@ -1,9 +1,10 @@
+import { assetUrl } from '../../assetUrl';
 import mapData from './faceTemplateMap';
 import type { FaceTemplateMap } from './types';
 
 export const FACE_TEMPLATE_MAP: FaceTemplateMap = mapData;
 
-export const FACE_TEMPLATE_SRC = FACE_TEMPLATE_MAP.template;
+export const FACE_TEMPLATE_SRC = assetUrl(FACE_TEMPLATE_MAP.template);
 
 /** Crop rect from template image (faceOval). */
 export const FACE_SOURCE_OVAL = FACE_TEMPLATE_MAP.faceOval;

@@ -42,6 +42,7 @@ function buildInfoPlugin(): Plugin {
 const gitSha = currentGitSha()
 
 export default defineConfig({
+  base: './',
   plugins: [react(), buildInfoPlugin()],
   define: {
     __APP_GIT_SHA__: JSON.stringify(gitSha),

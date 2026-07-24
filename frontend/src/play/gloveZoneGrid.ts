@@ -1,3 +1,4 @@
+import { assetUrl } from '../assetUrl';
 import type { GlovePosition } from '../types/game';
 import { hitZoneOutline, isKnuckleInHitZone, type HitZoneCorners } from './targetZone';
 
@@ -45,14 +46,14 @@ export function positionToGridCell(pos: GlovePosition): GridCell {
 export function rightGloveZoneSrc(pos: GlovePosition): string {
   const { row, col } = positionToGridCell(pos);
   const zoneCol = Math.max(1, Math.min(3, col));
-  return `/gloves/right-zones/zone-r${row}-c${zoneCol}.png`;
+  return assetUrl(`/gloves/right-zones/zone-r${row}-c${zoneCol}.png`);
 }
 
 /** Left glove reuses right zone art, mirrored horizontally (col 0→c3, col 2→c1). */
 export function leftGloveZoneSrc(pos: GlovePosition): string {
   const { row, col } = positionToGridCell(pos);
   const zoneCol = Math.max(1, Math.min(3, 3 - col));
-  return `/gloves/right-zones/zone-r${row}-c${zoneCol}.png`;
+  return assetUrl(`/gloves/right-zones/zone-r${row}-c${zoneCol}.png`);
 }
 
 function clampY(y: number): number {

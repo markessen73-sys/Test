@@ -1,3 +1,4 @@
+import { assetUrl } from '../../assetUrl';
 import type { FaceDamageId } from './faceDamage';
 
 /** Anatomical side: subject's left = image right, subject's right = image left. */
@@ -46,7 +47,7 @@ export type FaceDamageAsset = {
 export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> = {
   // Ear damage on subject's right (viewer's left) — mirrored for left.
   cauliflowerLeftEar: {
-    src: '/faces/damage/cauliflower-ear.png',
+    src: assetUrl('/faces/damage/cauliflower-ear.png'),
     nativeSide: 'right',
     targetSide: 'left',
     region: {
@@ -60,7 +61,7 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
     },
   },
   cauliflowerRightEar: {
-    src: '/faces/damage/cauliflower-ear.png',
+    src: assetUrl('/faces/damage/cauliflower-ear.png'),
     nativeSide: 'right',
     targetSide: 'right',
     region: {
@@ -75,25 +76,25 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
   },
   // Black eye on subject's right (viewer's left) — mirrored for left.
   blackLeftEye: {
-    src: '/faces/damage/black-right-eye.png',
+    src: assetUrl('/faces/damage/black-right-eye.png'),
     nativeSide: 'right',
     targetSide: 'left',
     region: { cx: 0.35, cy: 0.34, rx: 0.13, ry: 0.12, preferRedder: true, diffThreshold: 24 },
   },
   // Swollen eye on subject's left (viewer's right) — mirrored for right.
   swollenRightEye: {
-    src: '/faces/damage/swollen-left-eye.png',
+    src: assetUrl('/faces/damage/swollen-left-eye.png'),
     nativeSide: 'left',
     targetSide: 'right',
     region: { cx: 0.65, cy: 0.34, rx: 0.13, ry: 0.13, preferRedder: true, diffThreshold: 24 },
   },
   brokenNose: {
-    src: '/faces/damage/broken-nose.png',
+    src: assetUrl('/faces/damage/broken-nose.png'),
     region: { cx: 0.5, cy: 0.45, rx: 0.12, ry: 0.14, preferRedder: true, diffThreshold: 28 },
   },
   // Upper-teeth gap only — do not replace the whole mouth.
   missingTooth: {
-    src: '/faces/damage/missing-tooth.png',
+    src: assetUrl('/faces/damage/missing-tooth.png'),
     region: {
       cx: 0.545,
       cy: 0.575,
@@ -104,12 +105,12 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
     },
   },
   foreheadBandage: {
-    src: '/faces/damage/forehead-bandage.png',
+    src: assetUrl('/faces/damage/forehead-bandage.png'),
     region: { cx: 0.5, cy: 0.2, rx: 0.38, ry: 0.12, allowGrow: true, diffThreshold: 22 },
   },
   // Lower lip swell — may grow slightly beyond original lip.
   swollenBottomLip: {
-    src: '/faces/damage/swollen-lip.png',
+    src: assetUrl('/faces/damage/swollen-lip.png'),
     region: {
       cx: 0.5,
       cy: 0.635,

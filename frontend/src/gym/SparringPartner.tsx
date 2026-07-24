@@ -3,10 +3,11 @@ import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import type { Group } from 'three';
 import * as THREE from 'three';
+import { assetUrl } from '../assetUrl';
 import { PartnerFaceDecal } from '../play/face/PartnerFaceDecal';
 import type { FaceDamageId } from '../play/face/faceDamage';
 
-const SPARRING_BOXER_TEXTURE = '/boxer/sparring-boxer.png';
+const SPARRING_BOXER_TEXTURE = assetUrl('/boxer/sparring-boxer.png');
 
 /** Base sprite plane height in metres. */
 export const SPARRING_SPRITE_BASE_HEIGHT = 3.44;
