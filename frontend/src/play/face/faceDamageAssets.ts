@@ -40,11 +40,13 @@ export const TARGET_DAMAGE_LANDMARKS: Record<DamageLandmarkId, readonly [number,
   leftEye: [0.375, 0.449],
   rightEye: [0.625, 0.449],
   nose: [0.5, 0.563],
-  mouth: [0.5, 0.7],
+  /** Upper teeth / gap — slightly above mouth mid for missing-tooth stamp. */
+  mouth: [0.52, 0.68],
   chin: [0.5, 0.94],
-  leftEar: [0.188, 0.531],
-  rightEar: [0.812, 0.531],
-  forehead: [0.5, 0.25],
+  leftEar: [0.175, 0.52],
+  rightEar: [0.825, 0.52],
+  /** Mid forehead below hairline — where the bandage wrap sits. */
+  forehead: [0.5, 0.26],
   bottomLip: [0.5, 0.81],
 };
 
@@ -60,6 +62,8 @@ export type DamageRegion = {
   diffThreshold?: number;
   preferDarker?: boolean;
   preferRedder?: boolean;
+  /** Prefer lighter deltas (white bandage cloth). */
+  preferLighter?: boolean;
   allowGrow?: boolean;
 };
 
@@ -70,6 +74,14 @@ export type FaceDamageAsset = {
   nativeSide?: FaceSide;
   targetSide?: FaceSide;
   region: DamageRegion;
+  /** Extra stamp size vs inter-ocular scale (ears need to read bigger). */
+  patchScale?: number;
+  /** Amplify RGB delta when applying (missing tooth gap). */
+  strength?: number;
+  /** 0–1 blend toward absolute damaged color (bandage cloth). */
+  absoluteBlend?: number;
+  /** Fraction of strongest region candidates to keep. */
+  keepFrac?: number;
 };
 
 /**
@@ -83,14 +95,17 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
     anchor: 'rightEar',
     nativeSide: 'right',
     targetSide: 'left',
+    patchScale: 1.85,
+    keepFrac: 0.4,
+    absoluteBlend: 0.35,
     region: {
       cx: 0.13,
       cy: 0.42,
-      rx: 0.16,
-      ry: 0.22,
+      rx: 0.2,
+      ry: 0.26,
       preferRedder: true,
       allowGrow: true,
-      diffThreshold: 18,
+      diffThreshold: 14,
     },
   },
   cauliflowerRightEar: {
@@ -98,14 +113,17 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
     anchor: 'leftEar',
     nativeSide: 'right',
     targetSide: 'right',
+    patchScale: 1.85,
+    keepFrac: 0.4,
+    absoluteBlend: 0.35,
     region: {
       cx: 0.13,
       cy: 0.42,
-      rx: 0.16,
-      ry: 0.22,
+      rx: 0.2,
+      ry: 0.26,
       preferRedder: true,
       allowGrow: true,
-      diffThreshold: 18,
+      diffThreshold: 14,
     },
   },
   // Subject's left eye = image right.
@@ -114,15 +132,19 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
     anchor: 'rightEye',
     nativeSide: 'right',
     targetSide: 'left',
-    region: { cx: 0.35, cy: 0.34, rx: 0.13, ry: 0.12, preferRedder: true, diffThreshold: 24 },
+    patchScale: 1.15,
+    keepFrac: 0.22,
+    region: { cx: 0.35, cy: 0.34, rx: 0.14, ry: 0.13, preferRedder: true, diffThreshold: 22 },
   },
-  // Subject's right eye = image left.
-  swollenRightEye: {
-    src: assetUrl('/faces/damage/swollen-left-eye.png'),
+  // Subject's right eye = image left (same black-eye asset, mirrored).
+  blackRightEye: {
+    src: assetUrl('/faces/damage/black-right-eye.png'),
     anchor: 'leftEye',
-    nativeSide: 'left',
+    nativeSide: 'right',
     targetSide: 'right',
-    region: { cx: 0.65, cy: 0.34, rx: 0.13, ry: 0.13, preferRedder: true, diffThreshold: 24 },
+    patchScale: 1.15,
+    keepFrac: 0.22,
+    region: { cx: 0.35, cy: 0.34, rx: 0.14, ry: 0.13, preferRedder: true, diffThreshold: 22 },
   },
   brokenNose: {
     src: assetUrl('/faces/damage/broken-nose.png'),
@@ -132,19 +154,33 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
   missingTooth: {
     src: assetUrl('/faces/damage/missing-tooth.png'),
     anchor: 'mouth',
+    patchScale: 1.45,
+    strength: 2.2,
+    keepFrac: 0.7,
     region: {
-      cx: 0.545,
-      cy: 0.575,
-      rx: 0.07,
-      ry: 0.045,
+      cx: 0.55,
+      cy: 0.58,
+      rx: 0.09,
+      ry: 0.06,
       preferDarker: true,
-      diffThreshold: 22,
+      diffThreshold: 14,
     },
   },
   foreheadBandage: {
     src: assetUrl('/faces/damage/forehead-bandage.png'),
     anchor: 'forehead',
-    region: { cx: 0.5, cy: 0.2, rx: 0.38, ry: 0.12, allowGrow: true, diffThreshold: 22 },
+    patchScale: 1.25,
+    keepFrac: 0.55,
+    absoluteBlend: 0.85,
+    region: {
+      cx: 0.5,
+      cy: 0.2,
+      rx: 0.42,
+      ry: 0.14,
+      preferLighter: true,
+      allowGrow: true,
+      diffThreshold: 16,
+    },
   },
   swollenBottomLip: {
     src: assetUrl('/faces/damage/swollen-lip.png'),

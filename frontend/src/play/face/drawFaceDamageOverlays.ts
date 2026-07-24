@@ -111,41 +111,6 @@ function drawBlackEye(ctx: CanvasRenderingContext2D, x: number, y: number, u: nu
   ctx.restore();
 }
 
-/** Acute periorbital edema — red inflamed tissue, nearly shut (not bruised). */
-function drawSwollenEye(ctx: CanvasRenderingContext2D, x: number, y: number, u: number) {
-  ctx.save();
-  ctx.translate(x, y);
-
-  ctx.fillStyle = 'rgba(240, 130, 115, 0.45)';
-  ctx.beginPath();
-  ctx.ellipse(0, u * 0.08, u * 1.3, u * 1.05, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  const lid = ctx.createRadialGradient(0, -u * 0.18, 0, 0, -u * 0.12, u * 0.75);
-  lid.addColorStop(0, 'rgba(255, 215, 200, 0.9)');
-  lid.addColorStop(0.45, 'rgba(245, 155, 135, 0.75)');
-  lid.addColorStop(1, 'rgba(215, 95, 90, 0.4)');
-  ctx.fillStyle = lid;
-  ctx.beginPath();
-  ctx.ellipse(0, -u * 0.14, u * 1.15, u * 0.58, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = 'rgba(230, 160, 150, 0.7)';
-  ctx.beginPath();
-  ctx.ellipse(0, u * 0.44, u * 0.92, u * 0.34, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = 'rgba(110, 40, 40, 0.9)';
-  ctx.lineWidth = u * 0.11;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(-u * 0.5, u * 0.04);
-  ctx.quadraticCurveTo(0, u * 0.24, u * 0.5, u * 0.04);
-  ctx.stroke();
-
-  ctx.restore();
-}
-
 /**
  * Swollen auricular hematoma — right ear (massive bulbous distension).
  * Calibrated against reference caricature (swollen right ear with suture line).
@@ -619,19 +584,19 @@ export function drawFaceDamageOverlays(
   for (const d of damages) {
     switch (d) {
       case 'cauliflowerLeftEar':
-        drawCauliflowerEarLeft(ctx, anatLeftEarX, anatLeftEarY, u * 1.5, 1);
+        drawCauliflowerEarLeft(ctx, anatLeftEarX, anatLeftEarY, u * 2.2, 1);
         break;
       case 'cauliflowerRightEar':
-        drawCauliflowerEarRight(ctx, anatRightEarX, anatRightEarY, u * 1.65, -1);
+        drawCauliflowerEarRight(ctx, anatRightEarX, anatRightEarY, u * 2.35, -1);
         break;
       case 'blackLeftEye':
         drawBlackEye(ctx, subjLeftEyeX, subjLeftEyeY, u);
         break;
-      case 'swollenRightEye':
-        drawSwollenEye(ctx, subjRightEyeX, subjRightEyeY, u);
+      case 'blackRightEye':
+        drawBlackEye(ctx, subjRightEyeX, subjRightEyeY, u);
         break;
       case 'foreheadBandage':
-        drawForeheadBandage(ctx, foreheadX, foreheadY, u);
+        drawForeheadBandage(ctx, foreheadX, foreheadY, u * 1.15);
         break;
       case 'brokenNose':
         drawBrokenNose(ctx, nx, ny, u);

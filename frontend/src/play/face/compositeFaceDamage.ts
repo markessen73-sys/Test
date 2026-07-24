@@ -181,7 +181,8 @@ function isInjuryDelta(
   if (diff < thr) return false;
   const dLum = luminance(dr, dg, db) - luminance(mr, mg, mb);
   const dRed = redness(dr, dg, db) - redness(mr, mg, mb);
-  if (region.preferDarker) return dLum < -16;
+  if (region.preferDarker) return dLum < -14;
+  if (region.preferLighter) return dLum > 18 || diff > thr * 1.4;
   if (region.preferRedder) return dLum < -8 || dRed > 10 || diff > thr * 2;
   return Math.abs(dLum) > 16 || diff > thr * 1.6;
 }
@@ -212,7 +213,8 @@ function extractPatch(
   region: DamageRegion,
   mirror: boolean,
   sw: number,
-  sh: number
+  sh: number,
+  keepFracOverride?: number
 ): PatchPixel[] {
   const m = male.data;
   const d = damaged.data;
@@ -248,14 +250,14 @@ function extractPatch(
       const diff = Math.abs(dr - mr) + Math.abs(dg - mg) + Math.abs(db - mb);
       const dLum = luminance(dr, dg, db) - luminance(mr, mg, mb);
       const dRed = redness(dr, dg, db) - redness(mr, mg, mb);
-      // Score favors real wounds over mild skin drift.
       let score = diff * weight;
       if (region.preferDarker) score = Math.max(0, -dLum) * 4 * weight;
+      else if (region.preferLighter) score = Math.max(0, dLum) * 4 * weight + diff * 0.2 * weight;
       else if (region.preferRedder) score = (Math.max(0, -dLum) * 2 + Math.max(0, dRed) * 3 + diff * 0.35) * weight;
       else score = (Math.abs(dLum) * 2 + diff * 0.4) * weight;
       if (maleWasBackdrop) score += 40;
 
-      if (score < thr * 0.9) continue;
+      if (score < thr * 0.75) continue;
 
       candidates.push({
         x: nx,
@@ -277,9 +279,10 @@ function extractPatch(
 
   if (candidates.length === 0) return [];
 
-  // Keep only the strongest slice of the region — cuts the "random male skin" slab.
   candidates.sort((a, b) => b.score - a.score);
-  const keepFrac = region.preferDarker ? 0.5 : region.allowGrow ? 0.28 : 0.14;
+  const keepFrac =
+    keepFracOverride ??
+    (region.preferDarker ? 0.55 : region.preferLighter ? 0.5 : region.allowGrow ? 0.32 : 0.14);
   const keep = Math.max(
     120,
     Math.min(candidates.length, Math.round(candidates.length * keepFrac))
@@ -298,13 +301,15 @@ function extractPatch(
   const cx = sx / swt;
   const cy = sy / swt;
 
+  // Larger falloff radius for big stamps (ears / bandage).
+  const falloff = region.allowGrow || region.preferLighter ? 0.34 : 0.22;
+
   return raw.map((p) => {
     let ox = p.x - cx;
     const oy = p.y - cy;
     if (mirror) ox = -ox;
-    // Soft falloff from the injury core so the stamp isn't a hard speck cloud.
     const dist = Math.hypot(ox, oy);
-    const core = Math.max(0.35, 1 - dist / 0.22);
+    const core = Math.max(0.4, 1 - dist / falloff);
     return { ox, oy, ...p.pix, w: p.pix.w * core };
   });
 }
@@ -334,7 +339,7 @@ export function compositeFaceDamageReference(
 
   const male = sampleMaleOnBlack(maleBaseline, sw, sh);
   const damaged = sampleAlignedToGuide(damagedImage, male, sw, sh, true);
-  const patch = extractPatch(male, damaged, asset.region, mirror, sw, sh);
+  const patch = extractPatch(male, damaged, asset.region, mirror, sw, sh, asset.keepFrac);
   if (patch.length === 0) return;
 
   const face = ctx.getImageData(Math.round(x), Math.round(y), sw, sh);
@@ -342,8 +347,11 @@ export function compositeFaceDamageReference(
   const region = asset.region;
 
   const targetAnchor = TARGET_DAMAGE_LANDMARKS[asset.anchor];
-  // Scale patch by inter-ocular distance so features match the live face size.
-  const scale = interocular(TARGET_DAMAGE_LANDMARKS) / Math.max(1e-6, interocular(MALE_DAMAGE_LANDMARKS));
+  const baseScale =
+    interocular(TARGET_DAMAGE_LANDMARKS) / Math.max(1e-6, interocular(MALE_DAMAGE_LANDMARKS));
+  const scale = baseScale * (asset.patchScale ?? 1);
+  const strength = asset.strength ?? 1;
+  const absoluteBlend = asset.absoluteBlend ?? 0;
 
   const ax = targetAnchor[0];
   const ay = targetAnchor[1];
@@ -358,29 +366,48 @@ export function compositeFaceDamageReference(
     const tg = f[ti + 1];
     const tb = f[ti + 2];
     const ta = f[ti + 3];
-    const weight = p.w;
+    const weight = Math.min(1, p.w * (region.preferDarker ? 1.15 : 1));
     const targetClear = ta < 20 || isBackdrop(tr, tg, tb, ta);
 
     if (targetClear) {
       if (!region.allowGrow && !p.grow) continue;
-      // Paint grown tissue into transparent surround (ears / bandage edge).
       f[ti] = clampByte(p.r);
       f[ti + 1] = clampByte(p.g);
       f[ti + 2] = clampByte(p.b);
-      f[ti + 3] = clampByte(255 * Math.max(0.75, weight));
+      f[ti + 3] = clampByte(255 * Math.max(0.8, weight));
       continue;
     }
 
     if (region.preferDarker) {
-      f[ti] = clampByte(tr + Math.min(0, p.dR) * weight);
-      f[ti + 1] = clampByte(tg + Math.min(0, p.dG) * weight);
-      f[ti + 2] = clampByte(tb + Math.min(0, p.dB) * weight);
+      // Punch a clear dark gap — amplify and bias toward near-black.
+      const useR = Math.min(0, p.dR) * strength;
+      const useG = Math.min(0, p.dG) * strength;
+      const useB = Math.min(0, p.dB) * strength;
+      let outR = tr + useR * weight;
+      let outG = tg + useG * weight;
+      let outB = tb + useB * weight;
+      // Extra darken toward the damaged gap color for readability on bright teeth.
+      outR = outR * (1 - 0.45 * weight) + Math.min(outR, p.r) * (0.45 * weight);
+      outG = outG * (1 - 0.45 * weight) + Math.min(outG, p.g) * (0.45 * weight);
+      outB = outB * (1 - 0.45 * weight) + Math.min(outB, p.b) * (0.45 * weight);
+      f[ti] = clampByte(outR);
+      f[ti + 1] = clampByte(outG);
+      f[ti + 2] = clampByte(outB);
       continue;
     }
 
-    // Relative color transfer keeps the live face's skin identity.
+    if (absoluteBlend > 0.05) {
+      // Bandage / cauliflower: show the damaged look directly on the target.
+      const mixedR = tr * (1 - absoluteBlend) + p.r * absoluteBlend;
+      const mixedG = tg * (1 - absoluteBlend) + p.g * absoluteBlend;
+      const mixedB = tb * (1 - absoluteBlend) + p.b * absoluteBlend;
+      f[ti] = clampByte(tr * (1 - weight) + mixedR * weight);
+      f[ti + 1] = clampByte(tg * (1 - weight) + mixedG * weight);
+      f[ti + 2] = clampByte(tb * (1 - weight) + mixedB * weight);
+      continue;
+    }
+
     const eps = 12;
-    // Reconstruct male sample approx from damaged - delta.
     const mr = Math.max(eps, p.r - p.dR);
     const mg = Math.max(eps, p.g - p.dG);
     const mb = Math.max(eps, p.b - p.dB);
@@ -390,9 +417,9 @@ export function compositeFaceDamageReference(
     const candR = tr * rr;
     const candG = tg * rg;
     const candB = tb * rb;
-    const addR = tr + p.dR;
-    const addG = tg + p.dG;
-    const addB = tb + p.dB;
+    const addR = tr + p.dR * strength;
+    const addG = tg + p.dG * strength;
+    const addB = tb + p.dB * strength;
     const mixedR = candR * 0.7 + addR * 0.3;
     const mixedG = candG * 0.7 + addG * 0.3;
     const mixedB = candB * 0.7 + addB * 0.3;

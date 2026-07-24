@@ -3,7 +3,7 @@ export type FaceDamageId =
   | 'cauliflowerLeftEar'
   | 'cauliflowerRightEar'
   | 'blackLeftEye'
-  | 'swollenRightEye'
+  | 'blackRightEye'
   | 'foreheadBandage'
   | 'brokenNose'
   | 'swollenBottomLip'
@@ -13,7 +13,7 @@ export const ALL_FACE_DAMAGES: readonly FaceDamageId[] = [
   'cauliflowerLeftEar',
   'cauliflowerRightEar',
   'blackLeftEye',
-  'swollenRightEye',
+  'blackRightEye',
   'foreheadBandage',
   'brokenNose',
   'swollenBottomLip',

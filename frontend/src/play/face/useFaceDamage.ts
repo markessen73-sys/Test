@@ -9,7 +9,7 @@ import {
 /**
  * Track ring hits and apply random face injuries.
  * Instructions: randomly every 3–6 landed punches, apply one unused damage
- * (cauliflower L/R ear, black L eye, swollen R eye, forehead bandage,
+ * (cauliflower L/R ear, black L/R eye, forehead bandage,
  * broken nose, swollen bottom lip, missing tooth). After all injuries,
  * reset the face (game-end flow TBD).
  */
