@@ -9,7 +9,7 @@ export type DamageRegion = {
   cy: number;
   rx: number;
   ry: number;
-  /** Min RGB sum delta to count as a change (default 32). */
+  /** Min RGB sum delta to count as a change (default 24). */
   diffThreshold?: number;
   /**
    * Only keep pixels darker than the base — for missing-tooth gaps
@@ -17,10 +17,15 @@ export type DamageRegion = {
    */
   preferDarker?: boolean;
   /**
-   * Only keep pixels that gain red/warm bruising relative to base —
-   * for lips, bruises, swollen tissue.
+   * Prefer warmer/redder pixels (bruises, swollen tissue) but still allow
+   * strong structural diffs inside the region.
    */
   preferRedder?: boolean;
+  /**
+   * Allow painting where the base is backdrop (black) — needed when the
+   * injury grows beyond the original feature (cauliflower ear, puffy lip).
+   */
+  allowGrow?: boolean;
 };
 
 export type FaceDamageAsset = {
@@ -44,31 +49,47 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
     src: '/faces/damage/cauliflower-ear.png',
     nativeSide: 'right',
     targetSide: 'left',
-    region: { cx: 0.14, cy: 0.42, rx: 0.13, ry: 0.2, preferRedder: true, diffThreshold: 28 },
+    region: {
+      cx: 0.13,
+      cy: 0.42,
+      rx: 0.16,
+      ry: 0.22,
+      preferRedder: true,
+      allowGrow: true,
+      diffThreshold: 18,
+    },
   },
   cauliflowerRightEar: {
     src: '/faces/damage/cauliflower-ear.png',
     nativeSide: 'right',
     targetSide: 'right',
-    region: { cx: 0.14, cy: 0.42, rx: 0.13, ry: 0.2, preferRedder: true, diffThreshold: 28 },
+    region: {
+      cx: 0.13,
+      cy: 0.42,
+      rx: 0.16,
+      ry: 0.22,
+      preferRedder: true,
+      allowGrow: true,
+      diffThreshold: 18,
+    },
   },
   // Black eye on subject's right (viewer's left) — mirrored for left.
   blackLeftEye: {
     src: '/faces/damage/black-right-eye.png',
     nativeSide: 'right',
     targetSide: 'left',
-    region: { cx: 0.35, cy: 0.34, rx: 0.12, ry: 0.11, preferRedder: true, diffThreshold: 30 },
+    region: { cx: 0.35, cy: 0.34, rx: 0.13, ry: 0.12, preferRedder: true, diffThreshold: 24 },
   },
   // Swollen eye on subject's left (viewer's right) — mirrored for right.
   swollenRightEye: {
     src: '/faces/damage/swollen-left-eye.png',
     nativeSide: 'left',
     targetSide: 'right',
-    region: { cx: 0.65, cy: 0.34, rx: 0.12, ry: 0.12, preferRedder: true, diffThreshold: 30 },
+    region: { cx: 0.65, cy: 0.34, rx: 0.13, ry: 0.13, preferRedder: true, diffThreshold: 24 },
   },
   brokenNose: {
     src: '/faces/damage/broken-nose.png',
-    region: { cx: 0.5, cy: 0.45, rx: 0.11, ry: 0.13, preferRedder: true, diffThreshold: 36 },
+    region: { cx: 0.5, cy: 0.45, rx: 0.12, ry: 0.14, preferRedder: true, diffThreshold: 28 },
   },
   // Upper-teeth gap only — do not replace the whole mouth.
   missingTooth: {
@@ -84,18 +105,19 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
   },
   foreheadBandage: {
     src: '/faces/damage/forehead-bandage.png',
-    region: { cx: 0.5, cy: 0.2, rx: 0.36, ry: 0.11, diffThreshold: 28 },
+    region: { cx: 0.5, cy: 0.2, rx: 0.38, ry: 0.12, allowGrow: true, diffThreshold: 22 },
   },
-  // Lower lip swell only.
+  // Lower lip swell — may grow slightly beyond original lip.
   swollenBottomLip: {
     src: '/faces/damage/swollen-lip.png',
     region: {
       cx: 0.5,
-      cy: 0.625,
-      rx: 0.15,
-      ry: 0.055,
+      cy: 0.635,
+      rx: 0.18,
+      ry: 0.08,
       preferRedder: true,
-      diffThreshold: 28,
+      allowGrow: true,
+      diffThreshold: 16,
     },
   },
 };

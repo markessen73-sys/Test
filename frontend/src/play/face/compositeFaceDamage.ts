@@ -17,6 +17,7 @@ function faceDrawRect(canvasW: number, canvasH: number) {
   };
 }
 
+/** Sample full image into sw×sh — same framing as drawFullFaceOnCanvas. */
 function sampleImage(image: HTMLImageElement, w: number, h: number): ImageData {
   const c = document.createElement('canvas');
   c.width = w;
@@ -59,14 +60,14 @@ function luminance(r: number, g: number, b: number): number {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
-/** Soft elliptical weight in [0,1] — 1 at center, 0 outside. */
+/** Soft elliptical weight — stays opaque through most of the region. */
 function regionWeight(nx: number, ny: number, region: DamageRegion): number {
   const dx = (nx - region.cx) / region.rx;
   const dy = (ny - region.cy) / region.ry;
   const d = Math.sqrt(dx * dx + dy * dy);
   if (d >= 1) return 0;
-  // Smooth falloff toward the edge so patches blend into the live face.
-  return 1 - d * d;
+  if (d < 0.65) return 1;
+  return 1 - (d - 0.65) / 0.35;
 }
 
 function acceptsPixelChange(
@@ -76,23 +77,25 @@ function acceptsPixelChange(
   dr: number,
   dg: number,
   db: number,
-  region: DamageRegion
+  region: DamageRegion,
+  baseWasBackdrop: boolean
 ): boolean {
-  const thr = region.diffThreshold ?? 32;
+  const thr = region.diffThreshold ?? 24;
   const diff = Math.abs(dr - br) + Math.abs(dg - bg) + Math.abs(db - bb);
+
+  // Injury grows past original silhouette (big cauliflower ear / puffy lip).
+  if (baseWasBackdrop) return true;
   if (diff < thr) return false;
 
   if (region.preferDarker) {
-    // Missing tooth: only the gap (darker than the original tooth).
     return luminance(dr, dg, db) < luminance(br, bg, bb) - 18;
   }
 
   if (region.preferRedder) {
-    // Lip / bruise / swollen tissue: warmer or more saturated red than base.
     const baseWarm = br - (bg + bb) * 0.5;
     const dmgWarm = dr - (dg + db) * 0.5;
-    const gotDarker = luminance(dr, dg, db) < luminance(br, bg, bb) - 8;
-    return dmgWarm > baseWarm + 6 || (gotDarker && dmgWarm > baseWarm - 4);
+    const gotDarker = luminance(dr, dg, db) < luminance(br, bg, bb) - 6;
+    return diff > thr * 1.5 || dmgWarm > baseWarm + 4 || gotDarker;
   }
 
   return true;
@@ -100,8 +103,7 @@ function acceptsPixelChange(
 
 /**
  * Build a transparent layer of localized injury deltas from a reference face.
- * Only pixels inside `region` that meaningfully change the feature are kept,
- * so the rest of the original face structure is preserved.
+ * Only pixels inside `region` that change the feature are kept.
  */
 function buildDamageLayer(
   baseImage: HTMLImageElement,
@@ -123,17 +125,19 @@ function buildDamageLayer(
       const i = (y * sw + x) * 4;
       const nx = (x + 0.5) / sw;
       const ny = (y + 0.5) / sh;
-      const w = regionWeight(nx, ny, region);
-      if (w <= 0) {
+      const weight = regionWeight(nx, ny, region);
+      if (weight <= 0) {
         o[i + 3] = 0;
         continue;
       }
 
-      if (isBackdrop(b[i], b[i + 1], b[i + 2], b[i + 3])) {
+      if (isBackdrop(d[i], d[i + 1], d[i + 2], d[i + 3])) {
         o[i + 3] = 0;
         continue;
       }
-      if (isBackdrop(d[i], d[i + 1], d[i + 2], d[i + 3])) {
+
+      const baseWasBackdrop = isBackdrop(b[i], b[i + 1], b[i + 2], b[i + 3]);
+      if (baseWasBackdrop && !region.allowGrow) {
         o[i + 3] = 0;
         continue;
       }
@@ -146,7 +150,8 @@ function buildDamageLayer(
           d[i],
           d[i + 1],
           d[i + 2],
-          region
+          region,
+          baseWasBackdrop
         )
       ) {
         o[i + 3] = 0;
@@ -156,7 +161,7 @@ function buildDamageLayer(
       o[i] = d[i];
       o[i + 1] = d[i + 1];
       o[i + 2] = d[i + 2];
-      o[i + 3] = Math.round(255 * w);
+      o[i + 3] = Math.round(255 * Math.max(0.85, weight));
     }
   }
 
@@ -190,8 +195,6 @@ export function compositeFaceDamageReference(
 
 /**
  * Cumulatively apply each injury as a localized patch on top of the base face.
- * Patches are derived from reference PNGs but clipped to feature regions so
- * the original face structure stays intact across different caricatures.
  */
 export function compositeReferenceDamages(
   ctx: CanvasRenderingContext2D,
