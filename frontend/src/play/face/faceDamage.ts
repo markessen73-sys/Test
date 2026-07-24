@@ -6,7 +6,8 @@ export type FaceDamageId =
   | 'swollenRightEye'
   | 'foreheadBandage'
   | 'brokenNose'
-  | 'swollenBottomLip';
+  | 'swollenBottomLip'
+  | 'missingTooth';
 
 export const ALL_FACE_DAMAGES: readonly FaceDamageId[] = [
   'cauliflowerLeftEar',
@@ -16,6 +17,7 @@ export const ALL_FACE_DAMAGES: readonly FaceDamageId[] = [
   'foreheadBandage',
   'brokenNose',
   'swollenBottomLip',
+  'missingTooth',
 ] as const;
 
 /** Random hits required before the next face injury (3–6 inclusive). */

@@ -46,6 +46,10 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
   brokenNose: {
     src: '/faces/damage/broken-nose.png',
   },
+  // Missing tooth — centered mouth gap, no mirroring.
+  missingTooth: {
+    src: '/faces/damage/missing-tooth.png',
+  },
 };
 
 /** Unique image URLs needed for reference compositing. */
