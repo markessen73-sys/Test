@@ -8,6 +8,38 @@ import type { FaceDamageId } from './faceDamage';
  */
 export const FACE_DAMAGE_BASELINE_SRC = assetUrl('/faces/test-template-face-male.png');
 
+/**
+ * Landmarks on the male baseline (image-normalized, top-left origin).
+ * Used to warp injury pixels onto the live template's landmarks.
+ * Image-left = subject's right.
+ */
+export const MALE_DAMAGE_LANDMARKS = {
+  leftEye: [0.35, 0.34] as const,
+  rightEye: [0.65, 0.34] as const,
+  nose: [0.5, 0.45] as const,
+  mouth: [0.5, 0.6] as const,
+  chin: [0.5, 0.82] as const,
+  leftEar: [0.13, 0.42] as const,
+  rightEar: [0.87, 0.42] as const,
+  forehead: [0.5, 0.2] as const,
+} as const;
+
+/**
+ * Landmarks on the *current* live template face (`test-template-face.png`).
+ * Measured on the female test face — template-map landmarks still reflect the
+ * older male layout and must not be used for damage placement.
+ */
+export const TARGET_DAMAGE_LANDMARKS = {
+  leftEye: [0.375, 0.449] as const,
+  rightEye: [0.625, 0.449] as const,
+  nose: [0.5, 0.563] as const,
+  mouth: [0.5, 0.7] as const,
+  chin: [0.5, 0.94] as const,
+  leftEar: [0.188, 0.531] as const,
+  rightEar: [0.812, 0.531] as const,
+  forehead: [0.5, 0.22] as const,
+} as const;
+
 /** Anatomical side: subject's left = image right, subject's right = image left. */
 export type FaceSide = 'left' | 'right';
 
@@ -102,9 +134,9 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
     src: assetUrl('/faces/damage/swollen-lip.png'),
     region: {
       cx: 0.5,
-      cy: 0.635,
-      rx: 0.18,
-      ry: 0.08,
+      cy: 0.68,
+      rx: 0.2,
+      ry: 0.1,
       preferRedder: true,
       allowGrow: true,
       diffThreshold: 16,

@@ -4,11 +4,15 @@ import type { FaceDamageId } from './faceDamage';
 import {
   FACE_DAMAGE_ASSETS,
   FACE_DAMAGE_BASELINE_SRC,
+  MALE_DAMAGE_LANDMARKS,
+  TARGET_DAMAGE_LANDMARKS,
   type DamageRegion,
   type FaceDamageAsset,
 } from './faceDamageAssets';
 
 const [IMAGE_W, IMAGE_H] = FACE_SOURCE_SIZE;
+
+type Pt = { x: number; y: number };
 
 function faceDrawRect(canvasW: number, canvasH: number) {
   const contain = Math.min(canvasW / IMAGE_W, canvasH / IMAGE_H) * FACE_CONTAIN_PAD;
@@ -112,7 +116,6 @@ function sampleBilinear(
   return out;
 }
 
-/** Draw image stretched to w×h on black. */
 function sampleStretched(image: HTMLImageElement, w: number, h: number): ImageData {
   const c = document.createElement('canvas');
   c.width = w;
@@ -124,10 +127,6 @@ function sampleStretched(image: HTMLImageElement, w: number, h: number): ImageDa
   return ctx.getImageData(0, 0, w, h);
 }
 
-/**
- * Align `image` content bbox onto `guide` content bbox (same canvas size).
- * Makes male↔damaged comparison isolate injuries instead of framing drift.
- */
 function sampleAlignedToGuide(
   image: HTMLImageElement,
   guide: ImageData,
@@ -175,10 +174,6 @@ function regionWeight(nx: number, ny: number, region: DamageRegion): number {
   return 1 - (d - 0.55) / 0.45;
 }
 
-/**
- * Build a float magnitude map, then a coarse local-median map (downscale → upscale)
- * so we can keep only local outliers = real injuries, not global texture drift.
- */
 function localMedianMag(mag: Float32Array, w: number, h: number): Float32Array {
   const tw = Math.max(8, Math.round(w / 12));
   const th = Math.max(8, Math.round(h / 12));
@@ -210,7 +205,8 @@ function localMedianMag(mag: Float32Array, w: number, h: number): Float32Array {
       const v10 = tiny[y0 * tw + x1];
       const v01 = tiny[y1 * tw + x0];
       const v11 = tiny[y1 * tw + x1];
-      out[y * w + x] = v00 + (v10 - v00) * tx + (v01 - v00) * ty + (v11 - v10 - v01 + v00) * tx * ty;
+      out[y * w + x] =
+        v00 + (v10 - v00) * tx + (v01 - v00) * ty + (v11 - v10 - v01 + v00) * tx * ty;
     }
   }
   return out;
@@ -234,12 +230,10 @@ function isInjuryDelta(
   const dLum = luminance(dr, dg, db) - luminance(mr, mg, mb);
   const dRed = redness(dr, dg, db) - redness(mr, mg, mb);
 
-  // Missing tooth / dark gap — prioritize strong darkening inside the mouth region.
   if (region.preferDarker) {
     return dLum < -16 && mag >= thr;
   }
 
-  // Must beat local texture drift, but strong bruise/cut signals can pass on color alone.
   const localOk = mag >= localMed * 1.25 + thr * 0.55;
   if (!localOk && !(dLum < -22 || dRed > 18)) return false;
   if (mag < thr * 0.75) return false;
@@ -248,31 +242,103 @@ function isInjuryDelta(
     return dLum < -8 || dRed > 10 || mag > localMed * 1.8 + thr;
   }
 
-  // Bandage / general structural change.
   return Math.abs(dLum) > 16 || mag > localMed * 1.7 + thr;
 }
 
 /**
- * Map male-canvas coords → target-canvas coords via content bounding boxes.
- * This is how an injury on the male nose lands on the female nose.
+ * Affine map from 3 source landmarks → 3 destination landmarks.
+ * Solves [x y 1] · M = [x' y'] for each point.
  */
-function mapBoxToBox(
-  x: number,
-  y: number,
-  from: BBox,
-  to: BBox
-): { x: number; y: number } {
-  const fw = Math.max(1, from.x1 - from.x0);
-  const fh = Math.max(1, from.y1 - from.y0);
-  const tw = Math.max(1, to.x1 - to.x0);
-  const th = Math.max(1, to.y1 - to.y0);
-  const u = (x - from.x0) / fw;
-  const v = (y - from.y0) / fh;
-  return { x: to.x0 + u * tw, y: to.y0 + v * th };
+function makeLandmarkAffine(
+  src: [Pt, Pt, Pt],
+  dst: [Pt, Pt, Pt]
+): (x: number, y: number) => Pt {
+  // Solve for columns of the 3×2 affine matrix via 3×3 linear system.
+  const S = [
+    [src[0].x, src[0].y, 1],
+    [src[1].x, src[1].y, 1],
+    [src[2].x, src[2].y, 1],
+  ];
+  const Dx = [dst[0].x, dst[1].x, dst[2].x];
+  const Dy = [dst[0].y, dst[1].y, dst[2].y];
+
+  const inv = invert3(S);
+  if (!inv) {
+    // Fallback: identity in normalized space.
+    return (x, y) => ({ x, y });
+  }
+  const cx = matVec3(inv, Dx);
+  const cy = matVec3(inv, Dy);
+  return (x, y) => ({
+    x: cx[0] * x + cx[1] * y + cx[2],
+    y: cy[0] * x + cy[1] * y + cy[2],
+  });
+}
+
+function invert3(m: number[][]): number[][] | null {
+  const [[a, b, c], [d, e, f], [g, h, i]] = m;
+  const det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+  if (Math.abs(det) < 1e-8) return null;
+  const id = 1 / det;
+  return [
+    [(e * i - f * h) * id, (c * h - b * i) * id, (b * f - c * e) * id],
+    [(f * g - d * i) * id, (a * i - c * g) * id, (c * d - a * f) * id],
+    [(d * h - e * g) * id, (b * g - a * h) * id, (a * e - b * d) * id],
+  ];
+}
+
+function matVec3(m: number[][], v: number[]): [number, number, number] {
+  return [
+    m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2],
+    m[1][0] * v[0] + m[1][1] * v[1] + m[1][2] * v[2],
+    m[2][0] * v[0] + m[2][1] * v[1] + m[2][2] * v[2],
+  ];
+}
+
+function normLandmark(lm: readonly [number, number]): Pt {
+  return { x: lm[0], y: lm[1] };
 }
 
 /**
- * Apply one injury as (damaged − maleBaseline), remapped onto the live face bbox.
+ * Build male→target landmark warp.
+ * Eyes + chin triangle places the upper face; below the male mouth we
+ * additionally lerp toward the target mouth→chin segment so open-mouth
+ * female lips/teeth aren't left too high.
+ */
+function maleToTargetWarp(): (nx: number, ny: number) => Pt {
+  const male: [Pt, Pt, Pt] = [
+    normLandmark(MALE_DAMAGE_LANDMARKS.leftEye),
+    normLandmark(MALE_DAMAGE_LANDMARKS.rightEye),
+    normLandmark(MALE_DAMAGE_LANDMARKS.chin),
+  ];
+  const target: [Pt, Pt, Pt] = [
+    normLandmark(TARGET_DAMAGE_LANDMARKS.leftEye),
+    normLandmark(TARGET_DAMAGE_LANDMARKS.rightEye),
+    normLandmark(TARGET_DAMAGE_LANDMARKS.chin),
+  ];
+  const base = makeLandmarkAffine(male, target);
+  const maleMouthY = MALE_DAMAGE_LANDMARKS.mouth[1];
+  const maleChinY = MALE_DAMAGE_LANDMARKS.chin[1];
+  const tgtMouthY = TARGET_DAMAGE_LANDMARKS.mouth[1];
+  const tgtChinY = TARGET_DAMAGE_LANDMARKS.chin[1];
+  const tgtMouthX = TARGET_DAMAGE_LANDMARKS.mouth[0];
+
+  return (nx, ny) => {
+    const p = base(nx, ny);
+    if (ny <= maleMouthY) return p;
+    const t = Math.min(1, Math.max(0, (ny - maleMouthY) / Math.max(1e-6, maleChinY - maleMouthY)));
+    const lowerY = tgtMouthY + t * (tgtChinY - tgtMouthY);
+    // Blend affine x with slight pull toward mouth center for lip/tooth.
+    const lowerX = p.x * 0.85 + tgtMouthX * 0.15;
+    return { x: lowerX, y: lowerY };
+  };
+}
+
+/**
+ * Apply one injury:
+ *  1) Diff damaged vs male in *native* asset orientation (region coords as authored)
+ *  2) Horizontally flip the injury field when mirroring L↔R
+ *  3) Warp male UV → live-template UV via eye/mouth landmarks
  */
 export function compositeFaceDamageReference(
   ctx: CanvasRenderingContext2D,
@@ -290,36 +356,27 @@ export function compositeFaceDamageReference(
     !!asset.targetSide &&
     asset.nativeSide !== asset.targetSide;
 
-  let male = sampleStretched(maleBaseline, sw, sh);
-  let damaged = sampleAlignedToGuide(damagedImage, male, sw, sh, true);
-  if (mirror) {
-    male = flipImageDataHorizontal(male);
-    damaged = flipImageDataHorizontal(damaged);
-  }
+  const maleNative = sampleStretched(maleBaseline, sw, sh);
+  const damagedNative = sampleAlignedToGuide(damagedImage, maleNative, sw, sh, true);
 
-  const face = ctx.getImageData(Math.round(x), Math.round(y), sw, sh);
-  const maleBox = contentBBox(male, false);
-  const targetBox = contentBBox(face, false);
-  if (!maleBox || !targetBox) {
-    ctx.putImageData(face, Math.round(x), Math.round(y));
-    return;
-  }
-
-  const m = male.data;
-  const d = damaged.data;
-  const f = face.data;
+  // Keep native orientation while building the injury field so region.cx matches the asset.
+  const m0 = maleNative.data;
+  const d0 = damagedNative.data;
   const region = asset.region;
   const n = sw * sh;
 
-  // Precompute |delta| magnitude + local median for outlier gating.
   const mag = new Float32Array(n);
   for (let i = 0, p = 0; p < n; p++, i += 4) {
     mag[p] =
-      Math.abs(d[i] - m[i]) + Math.abs(d[i + 1] - m[i + 1]) + Math.abs(d[i + 2] - m[i + 2]);
+      Math.abs(d0[i] - m0[i]) +
+      Math.abs(d0[i + 1] - m0[i + 1]) +
+      Math.abs(d0[i + 2] - m0[i + 2]);
   }
   const med = localMedianMag(mag, sw, sh);
 
-  // Iterate in MALE injury space, stamp onto mapped TARGET coordinates.
+  // Injury field in native space: RGB delta (+128 bias) + weight in A.
+  let field = new ImageData(sw, sh);
+  const fd = field.data;
   for (let py = 0; py < sh; py++) {
     for (let px = 0; px < sw; px++) {
       const p = py * sw + px;
@@ -329,14 +386,14 @@ export function compositeFaceDamageReference(
       const weight = regionWeight(nx, ny, region);
       if (weight <= 0.02) continue;
 
-      const mr = m[i];
-      const mg = m[i + 1];
-      const mb = m[i + 2];
-      const ma = m[i + 3];
-      const dr = d[i];
-      const dg = d[i + 1];
-      const db = d[i + 2];
-      const da = d[i + 3];
+      const mr = m0[i];
+      const mg = m0[i + 1];
+      const mb = m0[i + 2];
+      const ma = m0[i + 3];
+      const dr = d0[i];
+      const dg = d0[i + 1];
+      const db = d0[i + 2];
+      const da = d0[i + 3];
 
       if (isBackdrop(dr, dg, db, da)) continue;
       const maleWasBackdrop = isBackdrop(mr, mg, mb, ma);
@@ -344,11 +401,49 @@ export function compositeFaceDamageReference(
         continue;
       }
 
-      const mapped = mapBoxToBox(px + 0.5, py + 0.5, maleBox, targetBox);
-      const tx = Math.round(mapped.x - 0.5);
-      const ty = Math.round(mapped.y - 0.5);
+      fd[i] = clampByte(128 + (dr - mr));
+      fd[i + 1] = clampByte(128 + (dg - mg));
+      fd[i + 2] = clampByte(128 + (db - mb));
+      // Weight in alpha; grow uses damagedNative sampled at same (flipped) UV later.
+      fd[i + 3] = clampByte(255 * weight);
+    }
+  }
+
+  if (mirror) {
+    field = flipImageDataHorizontal(field);
+  }
+
+  const face = ctx.getImageData(Math.round(x), Math.round(y), sw, sh);
+  const f = face.data;
+  const warp = maleToTargetWarp();
+  // Damaged colors for allowGrow (same mirror as field).
+  let damagedForGrow = damagedNative;
+  let maleForRatio = maleNative;
+  if (mirror) {
+    damagedForGrow = flipImageDataHorizontal(damagedNative);
+    maleForRatio = flipImageDataHorizontal(maleNative);
+  }
+  const dgrow = damagedForGrow.data;
+  const mratio = maleForRatio.data;
+  const fieldData = field.data;
+
+  for (let py = 0; py < sh; py++) {
+    for (let px = 0; px < sw; px++) {
+      const i = (py * sw + px) * 4;
+      const a = fieldData[i + 3];
+      if (a < 8) continue;
+      const weight = a / 255;
+
+      // Field pixels are in male UV (after optional mirror). Warp to live template UV.
+      const mapped = warp((px + 0.5) / sw, (py + 0.5) / sh);
+      const tx = Math.round(mapped.x * sw - 0.5);
+      const ty = Math.round(mapped.y * sh - 0.5);
       if (tx < 0 || ty < 0 || tx >= sw || ty >= sh) continue;
       const ti = (ty * sw + tx) * 4;
+
+      const dR = fieldData[i] - 128;
+      const dG = fieldData[i + 1] - 128;
+      const dB = fieldData[i + 2] - 128;
 
       const tr = f[ti];
       const tg = f[ti + 1];
@@ -356,15 +451,11 @@ export function compositeFaceDamageReference(
       const ta = f[ti + 3];
       const targetIsBackdrop = isBackdrop(tr, tg, tb, ta);
 
-      const dR = dr - mr;
-      const dG = dg - mg;
-      const dB = db - mb;
-
       if (targetIsBackdrop) {
         if (!region.allowGrow) continue;
-        f[ti] = clampByte(tr * (1 - weight) + dr * weight);
-        f[ti + 1] = clampByte(tg * (1 - weight) + dg * weight);
-        f[ti + 2] = clampByte(tb * (1 - weight) + db * weight);
+        f[ti] = clampByte(tr * (1 - weight) + dgrow[i] * weight);
+        f[ti + 1] = clampByte(tg * (1 - weight) + dgrow[i + 1] * weight);
+        f[ti + 2] = clampByte(tb * (1 - weight) + dgrow[i + 2] * weight);
         f[ti + 3] = clampByte(Math.max(ta, 255 * weight));
         continue;
       }
@@ -376,7 +467,12 @@ export function compositeFaceDamageReference(
         continue;
       }
 
-      // Relative + additive mix: change without stamping male skin identity.
+      const mr = mratio[i];
+      const mg = mratio[i + 1];
+      const mb = mratio[i + 2];
+      const dr = dgrow[i];
+      const dg = dgrow[i + 1];
+      const db = dgrow[i + 2];
       const eps = 10;
       const rr = Math.max(0.25, Math.min(2.0, dr / Math.max(mr, eps)));
       const rg = Math.max(0.25, Math.min(2.0, dg / Math.max(mg, eps)));
@@ -384,12 +480,9 @@ export function compositeFaceDamageReference(
       const candR = tr * rr;
       const candG = tg * rg;
       const candB = tb * rb;
-      const addR = tr + dR;
-      const addG = tg + dG;
-      const addB = tb + dB;
-      const mixedR = candR * 0.65 + addR * 0.35;
-      const mixedG = candG * 0.65 + addG * 0.35;
-      const mixedB = candB * 0.65 + addB * 0.35;
+      const mixedR = candR * 0.65 + (tr + dR) * 0.35;
+      const mixedG = candG * 0.65 + (tg + dG) * 0.35;
+      const mixedB = candB * 0.65 + (tb + dB) * 0.35;
 
       f[ti] = clampByte(tr * (1 - weight) + mixedR * weight);
       f[ti + 1] = clampByte(tg * (1 - weight) + mixedG * weight);
