@@ -4,7 +4,9 @@ Test portrait used to prototype how caricature faces attach to boxing targets be
 
 | File | Purpose |
 |------|---------|
-| `test-template-face.png` | Source portrait (from `file_00000000ffb871f4ac76239e6911f3b9.png`) |
+| `test-template-face.png` | Active test face (currently female: `file_000000002b048246…`) |
+| `test-template-face-male.png` | Previous male test face backup |
+| `test-template-face-female.png` | Female test face (same 1024 slot as male) |
 | `damage/cauliflower-ear.png` | Ear damage reference — mirrored for L/R (`file_00000000174071…`) |
 | `damage/black-right-eye.png` | Black-eye reference — mirrored for left (`file_00000000878871…`) |
 | `damage/swollen-left-eye.png` | Swollen-eye reference — mirrored for right (`file_000000005a5c71…`) |
