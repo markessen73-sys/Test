@@ -6,7 +6,13 @@ import {
   randomDamageThreshold,
 } from './faceDamage';
 
-/** Track ring hits and apply random face injuries every 3–6 landed punches. */
+/**
+ * Track ring hits and apply random face injuries.
+ * Instructions: randomly every 3–6 landed punches, apply one unused damage
+ * (cauliflower L/R ear, black L eye, swollen R eye, forehead bandage,
+ * broken nose, swollen bottom lip). After all seven, reset the face
+ * (game-end flow TBD).
+ */
 export function useFaceDamage() {
   const [damages, setDamages] = useState<FaceDamageId[]>([]);
   const hitsUntilDamageRef = useRef(0);
@@ -20,15 +26,14 @@ export function useFaceDamage() {
     thresholdRef.current = randomDamageThreshold();
 
     setDamages((prev) => {
-      const nextDamage = pickRandomFaceDamage(prev);
-      if (!nextDamage) return prev;
-
-      const next = [...prev, nextDamage];
-      if (next.length >= ALL_FACE_DAMAGES.length) {
-        // All injuries applied — reset for now (game-end flow TBD).
+      // All seven already showing — next threshold clears the face.
+      if (prev.length >= ALL_FACE_DAMAGES.length) {
         return [];
       }
-      return next;
+
+      const nextDamage = pickRandomFaceDamage(prev);
+      if (!nextDamage) return [];
+      return [...prev, nextDamage];
     });
   }, []);
 

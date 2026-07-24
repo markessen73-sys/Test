@@ -4,6 +4,11 @@ import { FACE_CONTAIN_PAD } from './composeFaceTexture';
 import { FACE_NOSE_LANDMARK, FACE_SOURCE_SIZE, FACE_TEMPLATE_SRC, RING_PARTNER_FACE } from './faceTemplate';
 import { drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture';
 import { drawFaceDamageOverlays } from './drawFaceDamageOverlays';
+import {
+  compositeReferenceDamages,
+  proceduralDamagesOnly,
+} from './compositeFaceDamage';
+import { FACE_DAMAGE_REFERENCE_SRC } from './faceDamageAssets';
 import type { FaceDamageId } from './faceDamage';
 import {
   landmarkOffsetInDecal,
@@ -58,6 +63,7 @@ export function PartnerFaceDecal({
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
   const [imageReady, setImageReady] = useState(false);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const damageImgsRef = useRef<Map<FaceDamageId, HTMLImageElement>>(new Map());
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const texRef = useRef<THREE.CanvasTexture | null>(null);
   const damagesRef = useRef(damages);
@@ -84,8 +90,12 @@ export function PartnerFaceDecal({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const applied = damagesRef.current;
     drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE);
-    drawFaceDamageOverlays(ctx, CANVAS_SIZE, CANVAS_SIZE, damagesRef.current);
+    // Exact art from user reference PNGs (ears, etc.)
+    compositeReferenceDamages(ctx, CANVAS_SIZE, CANVAS_SIZE, img, applied, damageImgsRef.current);
+    // Procedural overlays for damages that have no reference PNG yet
+    drawFaceDamageOverlays(ctx, CANVAS_SIZE, CANVAS_SIZE, proceduralDamagesOnly(applied));
     tex.needsUpdate = true;
   }, []);
 
@@ -100,9 +110,23 @@ export function PartnerFaceDecal({
     texRef.current = tex;
     setTexture(tex);
 
-    loadFaceImage(FACE_TEMPLATE_SRC).then((img) => {
+    const damageEntries = Object.entries(FACE_DAMAGE_REFERENCE_SRC) as [
+      FaceDamageId,
+      string,
+    ][];
+
+    Promise.all([
+      loadFaceImage(FACE_TEMPLATE_SRC),
+      ...damageEntries.map(async ([id, src]) => {
+        const loaded = await loadFaceImage(src);
+        return [id, loaded] as const;
+      }),
+    ]).then(([base, ...damagePairs]) => {
       if (cancelled) return;
-      imgRef.current = img;
+      imgRef.current = base;
+      const map = new Map<FaceDamageId, HTMLImageElement>();
+      for (const [id, loaded] of damagePairs) map.set(id, loaded);
+      damageImgsRef.current = map;
       setImageReady(true);
     });
 
