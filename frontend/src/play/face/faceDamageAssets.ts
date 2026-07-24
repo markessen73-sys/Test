@@ -1,15 +1,51 @@
 import type { FaceDamageId } from './faceDamage';
 
-/**
- * Pre-rendered damaged faces supplied by the user.
- * When a damage has a reference PNG, that image's differences from the
- * base face are composited (exact ear/bruise art). Others use procedural overlays.
- */
-export const FACE_DAMAGE_REFERENCE_SRC: Partial<Record<FaceDamageId, string>> = {
-  cauliflowerLeftEar: '/faces/damage/cauliflower-left-ear.png',
-  cauliflowerRightEar: '/faces/damage/cauliflower-right-ear.png',
+/** Anatomical side: subject's left = image right, subject's right = image left. */
+export type FaceSide = 'left' | 'right';
+
+export type FaceDamageAsset = {
+  src: string;
+  /** Anatomical side where the damage appears in the reference PNG. */
+  nativeSide: FaceSide;
+  /** Anatomical side this damage ID should appear on. */
+  targetSide: FaceSide;
 };
 
-export const FACE_DAMAGE_REFERENCE_IDS = Object.keys(
-  FACE_DAMAGE_REFERENCE_SRC
-) as FaceDamageId[];
+/**
+ * Pre-rendered damaged faces from the user.
+ * Shared ear/eye assets are mirrored when nativeSide !== targetSide.
+ */
+export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> = {
+  // One ear reference (damage on subject's right / viewer's left) — mirrored for left.
+  cauliflowerLeftEar: {
+    src: '/faces/damage/cauliflower-ear.png',
+    nativeSide: 'right',
+    targetSide: 'left',
+  },
+  cauliflowerRightEar: {
+    src: '/faces/damage/cauliflower-ear.png',
+    nativeSide: 'right',
+    targetSide: 'right',
+  },
+  // Black-eye reference (on subject's right / viewer's left) — mirrored for left.
+  blackLeftEye: {
+    src: '/faces/damage/black-right-eye.png',
+    nativeSide: 'right',
+    targetSide: 'left',
+  },
+  // Swollen-shut eye reference (on subject's left / viewer's right) — mirrored for right.
+  swollenRightEye: {
+    src: '/faces/damage/swollen-left-eye.png',
+    nativeSide: 'left',
+    targetSide: 'right',
+  },
+};
+
+/** Unique image URLs needed for reference compositing. */
+export function faceDamageAssetSrcs(): string[] {
+  const set = new Set<string>();
+  for (const asset of Object.values(FACE_DAMAGE_ASSETS)) {
+    if (asset) set.add(asset.src);
+  }
+  return [...set];
+}

@@ -8,7 +8,7 @@ import {
   compositeReferenceDamages,
   proceduralDamagesOnly,
 } from './compositeFaceDamage';
-import { FACE_DAMAGE_REFERENCE_SRC } from './faceDamageAssets';
+import { faceDamageAssetSrcs } from './faceDamageAssets';
 import type { FaceDamageId } from './faceDamage';
 import {
   landmarkOffsetInDecal,
@@ -63,7 +63,7 @@ export function PartnerFaceDecal({
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
   const [imageReady, setImageReady] = useState(false);
   const imgRef = useRef<HTMLImageElement | null>(null);
-  const damageImgsRef = useRef<Map<FaceDamageId, HTMLImageElement>>(new Map());
+  const damageImgsRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const texRef = useRef<THREE.CanvasTexture | null>(null);
   const damagesRef = useRef(damages);
@@ -92,9 +92,7 @@ export function PartnerFaceDecal({
 
     const applied = damagesRef.current;
     drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE);
-    // Exact art from user reference PNGs (ears, etc.)
     compositeReferenceDamages(ctx, CANVAS_SIZE, CANVAS_SIZE, img, applied, damageImgsRef.current);
-    // Procedural overlays for damages that have no reference PNG yet
     drawFaceDamageOverlays(ctx, CANVAS_SIZE, CANVAS_SIZE, proceduralDamagesOnly(applied));
     tex.needsUpdate = true;
   }, []);
@@ -110,22 +108,19 @@ export function PartnerFaceDecal({
     texRef.current = tex;
     setTexture(tex);
 
-    const damageEntries = Object.entries(FACE_DAMAGE_REFERENCE_SRC) as [
-      FaceDamageId,
-      string,
-    ][];
+    const srcs = faceDamageAssetSrcs();
 
     Promise.all([
       loadFaceImage(FACE_TEMPLATE_SRC),
-      ...damageEntries.map(async ([id, src]) => {
+      ...srcs.map(async (src) => {
         const loaded = await loadFaceImage(src);
-        return [id, loaded] as const;
+        return [src, loaded] as const;
       }),
-    ]).then(([base, ...damagePairs]) => {
+    ]).then(([base, ...pairs]) => {
       if (cancelled) return;
       imgRef.current = base;
-      const map = new Map<FaceDamageId, HTMLImageElement>();
-      for (const [id, loaded] of damagePairs) map.set(id, loaded);
+      const map = new Map<string, HTMLImageElement>();
+      for (const [src, loaded] of pairs) map.set(src, loaded);
       damageImgsRef.current = map;
       setImageReady(true);
     });
