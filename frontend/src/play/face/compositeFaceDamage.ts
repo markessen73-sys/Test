@@ -1,12 +1,9 @@
 import { FACE_CONTAIN_PAD } from './composeFaceTexture';
 import { FACE_SOURCE_SIZE } from './faceTemplate';
 import type { FaceDamageId } from './faceDamage';
-import { FACE_DAMAGE_ASSETS } from './faceDamageAssets';
+import { FACE_DAMAGE_ASSETS, type DamageRegion, type FaceDamageAsset } from './faceDamageAssets';
 
 const [IMAGE_W, IMAGE_H] = FACE_SOURCE_SIZE;
-
-/** RGB distance threshold — pixels that differ this much are treated as damage. */
-const DIFF_THRESHOLD = 32;
 
 function faceDrawRect(canvasW: number, canvasH: number) {
   const contain = Math.min(canvasW / IMAGE_W, canvasH / IMAGE_H) * FACE_CONTAIN_PAD;
@@ -25,8 +22,6 @@ function sampleImage(image: HTMLImageElement, w: number, h: number): ImageData {
   c.width = w;
   c.height = h;
   const ctx = c.getContext('2d', { willReadFrequently: true })!;
-  // Fill with black so RGB-only (no alpha) white-bg images don't leave holes —
-  // background filtering still rejects near-white / near-black pixels.
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(image, 0, 0, w, h);
@@ -38,9 +33,7 @@ function isBackdrop(r: number, g: number, b: number, a: number): boolean {
   if (a < 20) return true;
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
-  // Solid / near-black studio backdrop
   if (max < 22) return true;
-  // White or light-gray export backdrop (common on RGB PNGs without alpha)
   if (min > 232) return true;
   if (min > 200 && max - min < 14) return true;
   return false;
@@ -62,15 +55,60 @@ function flipImageDataHorizontal(src: ImageData): ImageData {
   return out;
 }
 
+function luminance(r: number, g: number, b: number): number {
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
+/** Soft elliptical weight in [0,1] — 1 at center, 0 outside. */
+function regionWeight(nx: number, ny: number, region: DamageRegion): number {
+  const dx = (nx - region.cx) / region.rx;
+  const dy = (ny - region.cy) / region.ry;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  if (d >= 1) return 0;
+  // Smooth falloff toward the edge so patches blend into the live face.
+  return 1 - d * d;
+}
+
+function acceptsPixelChange(
+  br: number,
+  bg: number,
+  bb: number,
+  dr: number,
+  dg: number,
+  db: number,
+  region: DamageRegion
+): boolean {
+  const thr = region.diffThreshold ?? 32;
+  const diff = Math.abs(dr - br) + Math.abs(dg - bg) + Math.abs(db - bb);
+  if (diff < thr) return false;
+
+  if (region.preferDarker) {
+    // Missing tooth: only the gap (darker than the original tooth).
+    return luminance(dr, dg, db) < luminance(br, bg, bb) - 18;
+  }
+
+  if (region.preferRedder) {
+    // Lip / bruise / swollen tissue: warmer or more saturated red than base.
+    const baseWarm = br - (bg + bb) * 0.5;
+    const dmgWarm = dr - (dg + db) * 0.5;
+    const gotDarker = luminance(dr, dg, db) < luminance(br, bg, bb) - 8;
+    return dmgWarm > baseWarm + 6 || (gotDarker && dmgWarm > baseWarm - 4);
+  }
+
+  return true;
+}
+
 /**
- * Build a transparent layer of damage pixels (diff vs base), optionally mirrored.
- * Skips backdrop pixels so white/transparent reference backgrounds never paint.
+ * Build a transparent layer of localized injury deltas from a reference face.
+ * Only pixels inside `region` that meaningfully change the feature are kept,
+ * so the rest of the original face structure is preserved.
  */
 function buildDamageLayer(
   baseImage: HTMLImageElement,
   damagedImage: HTMLImageElement,
   sw: number,
   sh: number,
+  region: DamageRegion,
   mirror: boolean
 ): HTMLCanvasElement {
   const baseData = sampleImage(baseImage, sw, sh);
@@ -80,27 +118,45 @@ function buildDamageLayer(
   const d = dmgData.data;
   const o = out.data;
 
-  for (let i = 0; i < b.length; i += 4) {
-    // Never paint outside the base face silhouette — fixes white/colored bg bleed.
-    if (isBackdrop(b[i], b[i + 1], b[i + 2], b[i + 3])) {
-      o[i + 3] = 0;
-      continue;
-    }
-    if (isBackdrop(d[i], d[i + 1], d[i + 2], d[i + 3])) {
-      o[i + 3] = 0;
-      continue;
-    }
+  for (let y = 0; y < sh; y++) {
+    for (let x = 0; x < sw; x++) {
+      const i = (y * sw + x) * 4;
+      const nx = (x + 0.5) / sw;
+      const ny = (y + 0.5) / sh;
+      const w = regionWeight(nx, ny, region);
+      if (w <= 0) {
+        o[i + 3] = 0;
+        continue;
+      }
 
-    const dr = Math.abs(d[i] - b[i]);
-    const dg = Math.abs(d[i + 1] - b[i + 1]);
-    const db = Math.abs(d[i + 2] - b[i + 2]);
-    if (dr + dg + db > DIFF_THRESHOLD) {
+      if (isBackdrop(b[i], b[i + 1], b[i + 2], b[i + 3])) {
+        o[i + 3] = 0;
+        continue;
+      }
+      if (isBackdrop(d[i], d[i + 1], d[i + 2], d[i + 3])) {
+        o[i + 3] = 0;
+        continue;
+      }
+
+      if (
+        !acceptsPixelChange(
+          b[i],
+          b[i + 1],
+          b[i + 2],
+          d[i],
+          d[i + 1],
+          d[i + 2],
+          region
+        )
+      ) {
+        o[i + 3] = 0;
+        continue;
+      }
+
       o[i] = d[i];
       o[i + 1] = d[i + 1];
       o[i + 2] = d[i + 2];
-      o[i + 3] = 255;
-    } else {
-      o[i + 3] = 0;
+      o[i + 3] = Math.round(255 * w);
     }
   }
 
@@ -112,23 +168,31 @@ function buildDamageLayer(
   return layer;
 }
 
-/** Composite one reference damage (with optional horizontal mirror) onto the face. */
+/** Composite one localized injury delta onto the accumulating face canvas. */
 export function compositeFaceDamageReference(
   ctx: CanvasRenderingContext2D,
   canvasW: number,
   canvasH: number,
   baseImage: HTMLImageElement,
   damagedImage: HTMLImageElement,
-  mirror = false
+  asset: FaceDamageAsset
 ) {
   const { x, y, w, h } = faceDrawRect(canvasW, canvasH);
   const sw = Math.max(1, Math.round(w));
   const sh = Math.max(1, Math.round(h));
-  const layer = buildDamageLayer(baseImage, damagedImage, sw, sh, mirror);
+  const mirror =
+    !!asset.nativeSide &&
+    !!asset.targetSide &&
+    asset.nativeSide !== asset.targetSide;
+  const layer = buildDamageLayer(baseImage, damagedImage, sw, sh, asset.region, mirror);
   ctx.drawImage(layer, x, y, w, h);
 }
 
-/** Apply all damages that have pre-rendered reference faces. */
+/**
+ * Cumulatively apply each injury as a localized patch on top of the base face.
+ * Patches are derived from reference PNGs but clipped to feature regions so
+ * the original face structure stays intact across different caricatures.
+ */
 export function compositeReferenceDamages(
   ctx: CanvasRenderingContext2D,
   canvasW: number,
@@ -142,11 +206,7 @@ export function compositeReferenceDamages(
     if (!asset) continue;
     const img = imagesBySrc.get(asset.src);
     if (!img) continue;
-    const mirror =
-      !!asset.nativeSide &&
-      !!asset.targetSide &&
-      asset.nativeSide !== asset.targetSide;
-    compositeFaceDamageReference(ctx, canvasW, canvasH, baseImage, img, mirror);
+    compositeFaceDamageReference(ctx, canvasW, canvasH, baseImage, img, asset);
   }
 }
 

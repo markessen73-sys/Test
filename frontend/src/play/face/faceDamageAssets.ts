@@ -3,60 +3,100 @@ import type { FaceDamageId } from './faceDamage';
 /** Anatomical side: subject's left = image right, subject's right = image left. */
 export type FaceSide = 'left' | 'right';
 
+/** Soft elliptical region in normalized face-image coordinates (0–1). */
+export type DamageRegion = {
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+  /** Min RGB sum delta to count as a change (default 32). */
+  diffThreshold?: number;
+  /**
+   * Only keep pixels darker than the base — for missing-tooth gaps
+   * so the rest of the smile is not replaced.
+   */
+  preferDarker?: boolean;
+  /**
+   * Only keep pixels that gain red/warm bruising relative to base —
+   * for lips, bruises, swollen tissue.
+   */
+  preferRedder?: boolean;
+};
+
 export type FaceDamageAsset = {
   src: string;
-  /**
-   * Anatomical side where the damage appears in the reference PNG.
-   * Omit (or set equal to targetSide) for centered features like the nose.
-   */
+  /** Anatomical side where the damage appears in the reference PNG. */
   nativeSide?: FaceSide;
   /** Anatomical side this damage ID should appear on. */
   targetSide?: FaceSide;
+  /** Localized region — only this area is sampled from the reference. */
+  region: DamageRegion;
 };
 
 /**
  * Pre-rendered damaged faces from the user.
- * Shared ear/eye assets are mirrored when nativeSide !== targetSide.
+ * Only the localized injury delta is composited onto the live face
+ * so the same effects can transfer to other caricatures.
  */
 export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> = {
-  // One ear reference (damage on subject's right / viewer's left) — mirrored for left.
+  // Ear damage on subject's right (viewer's left) — mirrored for left.
   cauliflowerLeftEar: {
     src: '/faces/damage/cauliflower-ear.png',
     nativeSide: 'right',
     targetSide: 'left',
+    region: { cx: 0.14, cy: 0.42, rx: 0.13, ry: 0.2, preferRedder: true, diffThreshold: 28 },
   },
   cauliflowerRightEar: {
     src: '/faces/damage/cauliflower-ear.png',
     nativeSide: 'right',
     targetSide: 'right',
+    region: { cx: 0.14, cy: 0.42, rx: 0.13, ry: 0.2, preferRedder: true, diffThreshold: 28 },
   },
-  // Black-eye reference (on subject's right / viewer's left) — mirrored for left.
+  // Black eye on subject's right (viewer's left) — mirrored for left.
   blackLeftEye: {
     src: '/faces/damage/black-right-eye.png',
     nativeSide: 'right',
     targetSide: 'left',
+    region: { cx: 0.35, cy: 0.34, rx: 0.12, ry: 0.11, preferRedder: true, diffThreshold: 30 },
   },
-  // Swollen-shut eye reference (on subject's left / viewer's right) — mirrored for right.
+  // Swollen eye on subject's left (viewer's right) — mirrored for right.
   swollenRightEye: {
     src: '/faces/damage/swollen-left-eye.png',
     nativeSide: 'left',
     targetSide: 'right',
+    region: { cx: 0.65, cy: 0.34, rx: 0.12, ry: 0.12, preferRedder: true, diffThreshold: 30 },
   },
-  // Broken nose — centered, no mirroring.
   brokenNose: {
     src: '/faces/damage/broken-nose.png',
+    region: { cx: 0.5, cy: 0.45, rx: 0.11, ry: 0.13, preferRedder: true, diffThreshold: 36 },
   },
-  // Missing tooth — centered mouth gap, no mirroring.
+  // Upper-teeth gap only — do not replace the whole mouth.
   missingTooth: {
     src: '/faces/damage/missing-tooth.png',
+    region: {
+      cx: 0.545,
+      cy: 0.575,
+      rx: 0.055,
+      ry: 0.035,
+      preferDarker: true,
+      diffThreshold: 40,
+    },
   },
-  // Forehead bandage / bandaged head — centered, no mirroring.
   foreheadBandage: {
     src: '/faces/damage/forehead-bandage.png',
+    region: { cx: 0.5, cy: 0.2, rx: 0.36, ry: 0.11, diffThreshold: 28 },
   },
-  // Swollen bottom lip — centered, no mirroring.
+  // Lower lip swell only.
   swollenBottomLip: {
     src: '/faces/damage/swollen-lip.png',
+    region: {
+      cx: 0.5,
+      cy: 0.625,
+      rx: 0.15,
+      ry: 0.055,
+      preferRedder: true,
+      diffThreshold: 28,
+    },
   },
 };
 
