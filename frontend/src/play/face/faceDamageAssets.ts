@@ -50,6 +50,10 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
   missingTooth: {
     src: '/faces/damage/missing-tooth.png',
   },
+  // Forehead bandage / bandaged head — centered, no mirroring.
+  foreheadBandage: {
+    src: '/faces/damage/forehead-bandage.png',
+  },
 };
 
 /** Unique image URLs needed for reference compositing. */
