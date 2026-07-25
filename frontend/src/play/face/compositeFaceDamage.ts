@@ -301,16 +301,16 @@ function extractPatch(
   const cx = sx / swt;
   const cy = sy / swt;
 
-  // Larger falloff radius for big stamps (ears / bandage); solid stamps stay dense.
-  const falloff = region.allowGrow || region.preferLighter ? 0.42 : 0.22;
+  // Larger falloff radius for big stamps (ears / bandage).
+  const falloff = region.allowGrow || region.preferLighter ? 0.34 : 0.22;
 
   return raw.map((p) => {
     let ox = p.x - cx;
     const oy = p.y - cy;
     if (mirror) ox = -ox;
     const dist = Math.hypot(ox, oy);
-    const core = Math.max(region.allowGrow || region.preferLighter || region.preferDarker ? 0.75 : 0.4, 1 - dist / falloff);
-    return { ox, oy, ...p.pix, w: Math.min(1, p.pix.w * core) };
+    const core = Math.max(0.4, 1 - dist / falloff);
+    return { ox, oy, ...p.pix, w: p.pix.w * core };
   });
 }
 
@@ -366,9 +366,11 @@ export function compositeFaceDamageReference(
     const tg = f[ti + 1];
     const tb = f[ti + 2];
     const ta = f[ti + 3];
-    // Solid stamps: push weight up so gauze / ear / tooth gap read clearly.
-    const solid = absoluteBlend >= 0.95 || region.preferDarker;
-    const weight = solid ? Math.min(1, Math.max(0.88, p.w)) : Math.min(1, p.w);
+    // Bandage (solid absolute): keep high weight. Other injuries use soft weights.
+    const solidBandage = Boolean(region.preferLighter) && absoluteBlend >= 0.95;
+    const weight = solidBandage
+      ? Math.min(1, Math.max(0.9, p.w))
+      : Math.min(1, p.w * (region.preferDarker ? 1.15 : 1));
     const targetClear = ta < 20 || isBackdrop(tr, tg, tb, ta);
 
     if (targetClear) {
@@ -376,29 +378,32 @@ export function compositeFaceDamageReference(
       f[ti] = clampByte(p.r);
       f[ti + 1] = clampByte(p.g);
       f[ti + 2] = clampByte(p.b);
-      f[ti + 3] = 255;
+      f[ti + 3] = solidBandage ? 255 : clampByte(255 * Math.max(0.8, weight));
       continue;
     }
 
     if (region.preferDarker) {
-      // Force a visible gap: darken hard toward near-black mouth interior.
-      const gapR = Math.min(p.r, 28);
-      const gapG = Math.min(p.g, 22);
-      const gapB = Math.min(p.b, 20);
-      const punch = Math.min(1, weight * strength);
-      f[ti] = clampByte(tr * (1 - punch) + gapR * punch);
-      f[ti + 1] = clampByte(tg * (1 - punch) + gapG * punch);
-      f[ti + 2] = clampByte(tb * (1 - punch) + gapB * punch);
+      const useR = Math.min(0, p.dR) * strength;
+      const useG = Math.min(0, p.dG) * strength;
+      const useB = Math.min(0, p.dB) * strength;
+      let outR = tr + useR * weight;
+      let outG = tg + useG * weight;
+      let outB = tb + useB * weight;
+      outR = outR * (1 - 0.45 * weight) + Math.min(outR, p.r) * (0.45 * weight);
+      outG = outG * (1 - 0.45 * weight) + Math.min(outG, p.g) * (0.45 * weight);
+      outB = outB * (1 - 0.45 * weight) + Math.min(outB, p.b) * (0.45 * weight);
+      f[ti] = clampByte(outR);
+      f[ti + 1] = clampByte(outG);
+      f[ti + 2] = clampByte(outB);
       continue;
     }
 
     if (absoluteBlend > 0.05) {
-      // Solid cloth / cauliflower: overwrite with damaged color.
       const ab = Math.min(1, absoluteBlend);
       f[ti] = clampByte(tr * (1 - weight * ab) + p.r * (weight * ab));
       f[ti + 1] = clampByte(tg * (1 - weight * ab) + p.g * (weight * ab));
       f[ti + 2] = clampByte(tb * (1 - weight * ab) + p.b * (weight * ab));
-      if (ta < 250) f[ti + 3] = 255;
+      if (solidBandage && ta < 250) f[ti + 3] = 255;
       continue;
     }
 
@@ -448,21 +453,6 @@ export function proceduralDamagesOnly(
   damages: readonly FaceDamageId[]
 ): FaceDamageId[] {
   return damages.filter((id) => !FACE_DAMAGE_ASSETS[id]);
-}
-
-/**
- * Always reinforce these with procedural art so they stay readable even when
- * the photo-ref patch is weak on a differently shaped face.
- */
-export function proceduralReinforcements(
-  damages: readonly FaceDamageId[]
-): FaceDamageId[] {
-  return damages.filter(
-    (id) =>
-      id === 'cauliflowerLeftEar' ||
-      id === 'cauliflowerRightEar' ||
-      id === 'missingTooth'
-  );
 }
 
 export { FACE_DAMAGE_BASELINE_SRC };

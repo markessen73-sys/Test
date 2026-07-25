@@ -8,7 +8,6 @@ import {
   compositeReferenceDamages,
   FACE_DAMAGE_BASELINE_SRC,
   proceduralDamagesOnly,
-  proceduralReinforcements,
 } from './compositeFaceDamage';
 import { faceDamageAssetSrcs } from './faceDamageAssets';
 import type { FaceDamageId } from './faceDamage';
@@ -106,10 +105,7 @@ export function PartnerFaceDecal({
       applied,
       damageImgsRef.current
     );
-    drawFaceDamageOverlays(ctx, CANVAS_SIZE, CANVAS_SIZE, [
-      ...proceduralDamagesOnly(applied),
-      ...proceduralReinforcements(applied),
-    ]);
+    drawFaceDamageOverlays(ctx, CANVAS_SIZE, CANVAS_SIZE, proceduralDamagesOnly(applied));
     tex.needsUpdate = true;
   }, []);
 
