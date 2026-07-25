@@ -5,6 +5,7 @@ import { assetUrl } from '../assetUrl';
 import { CeilingChain } from '../play/CeilingChain';
 import { BAG_CHAIN_LENGTH } from '../play/bagSwing';
 import { BOBO_FACE_CENTER, BOBO_FACE_SIZE } from '../play/face/boboFacePlacement';
+import { SpeedballFaceDecal } from '../play/face/SpeedballFaceDecal';
 import { SPEEDBALL_BALL_Y } from '../play/playCamera';
 
 const BOBO_CLOWN_CLEAN = assetUrl('/faces/bobo-clown-stages/00-clean.png');
@@ -55,6 +56,7 @@ export function Speedball({ highlighted, position = [0, 0, 0] }: EquipmentProps)
           <torusGeometry args={[0.3, 0.04, 8, 24]} />
           <meshStandardMaterial color="#EEE" transparent={!highlighted} opacity={highlighted ? 1 : DIM} />
         </mesh>
+        <SpeedballFaceDecal opacity={highlighted ? 1 : DIM} />
       </group>
 
       {highlighted && (

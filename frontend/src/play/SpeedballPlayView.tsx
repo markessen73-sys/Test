@@ -4,6 +4,9 @@ import { GlovesPlayShell } from './GlovesPlayShell';
 import { useElasticGloves } from './useElasticGloves';
 import { isKnuckleOnSpeedball } from './speedballZoneGrid';
 import { playPunchSfx, preloadPunchSfx } from './playPunchSfx';
+import { useFaceDamage } from './face/useFaceDamage';
+import { OpponentDamageHud } from './face/OpponentDamageHud';
+import { KnockoutBellOverlay } from './face/KnockoutBellOverlay';
 import type { PunchImpact } from './punchImpact';
 import type { GloveId, GlovePosition } from '../types/game';
 import type { HitZoneCorners } from './targetZone';
@@ -25,16 +28,33 @@ export function SpeedballPlayView({ onBack }: SpeedballPlayViewProps) {
   const impactIdRef = useRef(0);
   const targetZoneOffsetRef = useRef<GlovePosition>({ x: 0, y: 0 });
   const targetZoneCornersRef = useRef<HitZoneCorners>(FALLBACK_ZONE);
+  const {
+    stage: damageStage,
+    knockedOut,
+    registerHit: registerFaceHit,
+    resetDamages,
+  } = useFaceDamage();
 
-  const onPunch = useCallback((glove: GloveId, knuckle: GlovePosition) => {
-    playPunchSfx('speedball');
-    setPunchCount((c) => c + 1);
-    impactIdRef.current += 1;
-    setImpacts((prev) => [
-      ...prev,
-      { id: impactIdRef.current, glove, knuckle, time: performance.now() },
-    ]);
-  }, []);
+  const onPunch = useCallback(
+    (glove: GloveId, knuckle: GlovePosition) => {
+      playPunchSfx('speedball');
+      setPunchCount((c) => c + 1);
+      impactIdRef.current += 1;
+      setImpacts((prev) => [
+        ...prev,
+        { id: impactIdRef.current, glove, knuckle, time: performance.now() },
+      ]);
+      registerFaceHit();
+    },
+    [registerFaceHit]
+  );
+
+  const onRestart = useCallback(() => {
+    resetDamages();
+    setPunchCount(0);
+    setImpacts([]);
+    impactIdRef.current = 0;
+  }, [resetDamages]);
 
   useEffect(() => {
     preloadPunchSfx('speedball');
@@ -62,7 +82,19 @@ export function SpeedballPlayView({ onBack }: SpeedballPlayViewProps) {
           <strong>Upward</strong> drags leave a vapour trail; release on the speedball while still moving to score.
         </>
       }
-      canvas={<SpeedballPlayScene impacts={impacts} speedballZoneCornersRef={targetZoneCornersRef} />}
+      hudExtra={
+        <>
+          <KnockoutBellOverlay active={knockedOut} onRestart={onRestart} />
+          <OpponentDamageHud stage={damageStage} />
+        </>
+      }
+      canvas={
+        <SpeedballPlayScene
+          impacts={impacts}
+          speedballZoneCornersRef={targetZoneCornersRef}
+          knockedOut={knockedOut}
+        />
+      }
       {...gloves}
     />
   );

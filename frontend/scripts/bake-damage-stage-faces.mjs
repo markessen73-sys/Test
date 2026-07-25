@@ -59,4 +59,15 @@ for (const step of steps) {
   console.log(step.name, n);
 }
 
-console.log('Wrote', OUT);
+// 90% holds the last injury face (stage 9); 100% uses the authored KO face.
+liveCtx.putImageData(face, 0, 0);
+fs.writeFileSync(`${OUT}/09-hold.png`, liveCtx.canvas.toBuffer('image/png'));
+console.log('09-hold (same as 08)');
+
+const koImg = await loadImage(`${BASE}/test-template-face-knockout.png`);
+liveCtx.clearRect(0, 0, W, H);
+liveCtx.drawImage(koImg, 0, 0, W, H);
+fs.writeFileSync(`${OUT}/10-knockout.png`, liveCtx.canvas.toBuffer('image/png'));
+console.log('10-knockout');
+
+console.log('Wrote 11 stage faces →', OUT);

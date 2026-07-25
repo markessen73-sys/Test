@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { computeSpeedballHitZone } from './speedballImpact';
 import { applySpeedballHitImpulse, createSpeedballSwingState, stepSpeedballSwing } from './speedballSwing';
+import { SpeedballFaceDecal } from './face/SpeedballFaceDecal';
 import { SPEEDBALL_BALL_Y, SPEEDBALL_PLAY_CAMERA } from './playCamera';
 import { PlayEnvironment } from './PlayEnvironment';
 import type { PunchImpact } from './punchImpact';
@@ -11,13 +12,16 @@ import type { HitZoneCorners } from './targetZone';
 function PlaySpeedball({
   impacts,
   speedballZoneCornersRef,
+  knockedOut,
 }: {
   impacts: PunchImpact[];
   speedballZoneCornersRef: RefObject<HitZoneCorners>;
+  knockedOut: boolean;
 }) {
   const swingRef = useRef(createSpeedballSwingState());
   const ballRef = useRef<THREE.Group>(null);
   const [hitFlash, setHitFlash] = useState(0);
+  const [lastHitTime, setLastHitTime] = useState(0);
   const lastImpactIdRef = useRef(0);
   const { camera } = useThree();
 
@@ -29,6 +33,7 @@ function PlaySpeedball({
 
     applySpeedballHitImpulse(swingRef.current, latest.glove);
     setHitFlash(performance.now());
+    setLastHitTime(latest.time);
   }, [impacts]);
 
   useFrame((_, delta) => {
@@ -72,6 +77,7 @@ function PlaySpeedball({
           <torusGeometry args={[0.3, 0.04, 8, 24]} />
           <meshStandardMaterial color="#EEE" />
         </mesh>
+        <SpeedballFaceDecal lastHitTime={lastHitTime} knockedOut={knockedOut} />
       </group>
     </group>
   );
@@ -80,9 +86,14 @@ function PlaySpeedball({
 interface SpeedballPlaySceneProps {
   impacts: PunchImpact[];
   speedballZoneCornersRef: RefObject<HitZoneCorners>;
+  knockedOut: boolean;
 }
 
-export function SpeedballPlayScene({ impacts, speedballZoneCornersRef }: SpeedballPlaySceneProps) {
+export function SpeedballPlayScene({
+  impacts,
+  speedballZoneCornersRef,
+  knockedOut,
+}: SpeedballPlaySceneProps) {
   const cam = SPEEDBALL_PLAY_CAMERA;
   return (
     <Canvas
@@ -96,7 +107,11 @@ export function SpeedballPlayScene({ impacts, speedballZoneCornersRef }: Speedba
     >
       <color attach="background" args={['#1a1208']} />
       <PlayEnvironment />
-      <PlaySpeedball impacts={impacts} speedballZoneCornersRef={speedballZoneCornersRef} />
+      <PlaySpeedball
+        impacts={impacts}
+        speedballZoneCornersRef={speedballZoneCornersRef}
+        knockedOut={knockedOut}
+      />
     </Canvas>
   );
 }
