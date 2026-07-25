@@ -1,18 +1,27 @@
 import { useCallback, useRef, useState } from 'react';
 import {
-  ALL_FACE_DAMAGES,
-  type FaceDamageId,
-  pickRandomFaceDamage,
+  DAMAGE_METER_STEPS,
+  damagePercentForStage,
   randomDamageThreshold,
 } from './faceDamage';
 
+/** Optional `?damageStage=0..10` to preview a meter step without punching. */
+function initialStageFromUrl(): number {
+  if (typeof window === 'undefined') return 0;
+  const raw = new URLSearchParams(window.location.search).get('damageStage');
+  if (raw == null || raw === '') return 0;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(DAMAGE_METER_STEPS, Math.round(n)));
+}
+
 /**
- * Track ring hits and apply random bruises/cuts on the HUD damage meter.
- * Every 3–6 landed punches, apply one unused mark until the meter hits 100%.
+ * Track ring hits and advance the damage meter in 10% steps.
+ * Every 3–6 landed punches → +10%, up to 100% (KO).
  * Holds at full — no auto-reset.
  */
 export function useFaceDamage() {
-  const [damages, setDamages] = useState<FaceDamageId[]>([]);
+  const [stage, setStage] = useState(initialStageFromUrl);
   const hitsUntilDamageRef = useRef(0);
   const thresholdRef = useRef(randomDamageThreshold());
 
@@ -23,19 +32,23 @@ export function useFaceDamage() {
     hitsUntilDamageRef.current = 0;
     thresholdRef.current = randomDamageThreshold();
 
-    setDamages((prev) => {
-      if (prev.length >= ALL_FACE_DAMAGES.length) return prev;
-      const nextDamage = pickRandomFaceDamage(prev);
-      if (!nextDamage) return prev;
-      return [...prev, nextDamage];
+    setStage((prev) => {
+      if (prev >= DAMAGE_METER_STEPS) return prev;
+      return prev + 1;
     });
   }, []);
 
   const resetDamages = useCallback(() => {
     hitsUntilDamageRef.current = 0;
     thresholdRef.current = randomDamageThreshold();
-    setDamages([]);
+    setStage(0);
   }, []);
 
-  return { damages, registerHit, resetDamages };
+  return {
+    stage,
+    percent: damagePercentForStage(stage),
+    knockedOut: stage >= DAMAGE_METER_STEPS,
+    registerHit,
+    resetDamages,
+  };
 }

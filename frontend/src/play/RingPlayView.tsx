@@ -7,7 +7,6 @@ import { playPunchSfx, preloadPunchSfx } from './playPunchSfx';
 import { useFaceDamage } from './face/useFaceDamage';
 import { OpponentDamageHud } from './face/OpponentDamageHud';
 import { KnockoutBellOverlay } from './face/KnockoutBellOverlay';
-import { ALL_FACE_DAMAGES } from './face/faceDamage';
 import type { PunchImpact } from './punchImpact';
 import type { GloveId, GlovePosition } from '../types/game';
 
@@ -21,11 +20,11 @@ export function RingPlayView({ onBack }: RingPlayViewProps) {
   const impactIdRef = useRef(0);
   const targetZoneOffsetRef = useRef<GlovePosition>({ x: 0, y: 0 });
   const {
-    damages: faceDamages,
+    stage: damageStage,
+    knockedOut,
     registerHit: registerFaceHit,
     resetDamages,
   } = useFaceDamage();
-  const knockedOut = faceDamages.length >= ALL_FACE_DAMAGES.length;
 
   const onPunch = useCallback(
     (glove: GloveId, knuckle: GlovePosition) => {
@@ -71,7 +70,7 @@ export function RingPlayView({ onBack }: RingPlayViewProps) {
       hudExtra={
         <>
           <KnockoutBellOverlay active={knockedOut} onRestart={onRestart} />
-          <OpponentDamageHud damages={faceDamages} />
+          <OpponentDamageHud stage={damageStage} />
         </>
       }
       canvas={

@@ -33,8 +33,8 @@ export const MALE_DAMAGE_LANDMARKS: Record<DamageLandmarkId, readonly [number, n
 };
 
 /**
- * Landmarks on the current live template (`test-template-face.png` = flat 2D caricature).
- * Landmarks for the flat 2D playable face — procedural damage stamps use these anchors.
+ * Landmarks on the current live template (`test-template-face.png`).
+ * Cumulative damage faces are stamped using these anchors.
  */
 export const TARGET_DAMAGE_LANDMARKS: Record<DamageLandmarkId, readonly [number, number]> = {
   leftEye: [0.35, 0.36],
@@ -85,10 +85,124 @@ export type FaceDamageAsset = {
 };
 
 /**
- * Photo-ref injury patches (legacy). HUD damage now uses simple procedural
- * bruises/cuts — this map is intentionally empty.
+ * Photo-ref injury patches. Each is extracted vs the male baseline and stamped
+ * onto the live caricature when baking the 8 cumulative damage faces.
  */
-export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> = {};
+export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> = {
+  // Subject's left ear = image right after mirror.
+  cauliflowerLeftEar: {
+    src: assetUrl('/faces/damage/cauliflower-ear.png'),
+    anchor: 'rightEar',
+    nativeSide: 'right',
+    targetSide: 'left',
+    patchScale: 1.85,
+    keepFrac: 0.4,
+    absoluteBlend: 0.35,
+    region: {
+      cx: 0.13,
+      cy: 0.42,
+      rx: 0.2,
+      ry: 0.26,
+      preferRedder: true,
+      allowGrow: true,
+      diffThreshold: 14,
+    },
+  },
+  // Subject's right eye = image left (black-eye asset, native right, mirrored).
+  blackRightEye: {
+    src: assetUrl('/faces/damage/black-right-eye.png'),
+    anchor: 'leftEye',
+    nativeSide: 'right',
+    targetSide: 'right',
+    patchScale: 1.15,
+    keepFrac: 0.22,
+    region: { cx: 0.35, cy: 0.34, rx: 0.14, ry: 0.13, preferRedder: true, diffThreshold: 22 },
+  },
+  swollenBottomLip: {
+    src: assetUrl('/faces/damage/swollen-lip.png'),
+    anchor: 'bottomLip',
+    region: {
+      cx: 0.5,
+      cy: 0.66,
+      rx: 0.2,
+      ry: 0.1,
+      preferRedder: true,
+      allowGrow: true,
+      diffThreshold: 16,
+    },
+  },
+  cauliflowerRightEar: {
+    src: assetUrl('/faces/damage/cauliflower-ear.png'),
+    anchor: 'leftEar',
+    nativeSide: 'right',
+    targetSide: 'right',
+    patchScale: 1.85,
+    keepFrac: 0.4,
+    absoluteBlend: 0.35,
+    region: {
+      cx: 0.13,
+      cy: 0.42,
+      rx: 0.2,
+      ry: 0.26,
+      preferRedder: true,
+      allowGrow: true,
+      diffThreshold: 14,
+    },
+  },
+  missingTooth: {
+    src: assetUrl('/faces/damage/missing-tooth.png'),
+    anchor: 'mouth',
+    patchScale: 1.45,
+    strength: 2.2,
+    keepFrac: 0.7,
+    region: {
+      cx: 0.55,
+      cy: 0.58,
+      rx: 0.09,
+      ry: 0.06,
+      preferDarker: true,
+      diffThreshold: 14,
+    },
+  },
+  // Subject's left eye = image right; ref already shows injury on that side.
+  swollenLeftEye: {
+    src: assetUrl('/faces/damage/swollen-left-eye.png'),
+    anchor: 'rightEye',
+    nativeSide: 'left',
+    targetSide: 'left',
+    patchScale: 1.2,
+    keepFrac: 0.28,
+    region: {
+      cx: 0.65,
+      cy: 0.34,
+      rx: 0.15,
+      ry: 0.14,
+      preferRedder: true,
+      diffThreshold: 20,
+    },
+  },
+  foreheadBandage: {
+    src: assetUrl('/faces/damage/forehead-bandage.png'),
+    anchor: 'forehead',
+    patchScale: 1.35,
+    keepFrac: 0.7,
+    absoluteBlend: 1,
+    region: {
+      cx: 0.5,
+      cy: 0.2,
+      rx: 0.44,
+      ry: 0.15,
+      preferLighter: true,
+      allowGrow: true,
+      diffThreshold: 12,
+    },
+  },
+  brokenNose: {
+    src: assetUrl('/faces/damage/broken-nose.png'),
+    anchor: 'nose',
+    region: { cx: 0.5, cy: 0.45, rx: 0.12, ry: 0.14, preferRedder: true, diffThreshold: 28 },
+  },
+};
 
 /** Unique image URLs for damage refs + male baseline. */
 export function faceDamageAssetSrcs(): string[] {

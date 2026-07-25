@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { ALL_FACE_DAMAGES, type FaceDamageId } from './faceDamage';
 import {
   loadDamagedFaceAssets,
   renderDamagedFace,
@@ -9,22 +8,22 @@ import {
 const FACE_PX = 96;
 
 interface OpponentDamageHudProps {
-  damages: readonly FaceDamageId[];
+  /** Damage meter stage 0–10 (each step = 10%). */
+  stage: number;
 }
 
 /**
- * Top-right portrait that accumulates punch injuries + a fill meter to 100%.
- * At 100% the portrait swaps to the knockout face.
+ * Top-right portrait that swaps through the pre-baked cumulative injury
+ * caricatures every 10% damage, then the knockout face at 100%.
  */
-export function OpponentDamageHud({ damages }: OpponentDamageHudProps) {
+export function OpponentDamageHud({ stage }: OpponentDamageHudProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const assetsRef = useRef<DamagedFaceAssets | null>(null);
-  const damagesRef = useRef(damages);
-  damagesRef.current = damages;
+  const stageRef = useRef(stage);
+  stageRef.current = stage;
 
-  const pct = Math.round((damages.length / ALL_FACE_DAMAGES.length) * 100);
+  const pct = Math.max(0, Math.min(100, stage * 10));
   const knockedOut = pct >= 100;
-  const damagesKey = damages.join(',');
 
   const paint = () => {
     const canvas = canvasRef.current;
@@ -32,9 +31,7 @@ export function OpponentDamageHud({ damages }: OpponentDamageHudProps) {
     if (!canvas || !assets) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const full =
-      damagesRef.current.length >= ALL_FACE_DAMAGES.length;
-    renderDamagedFace(ctx, FACE_PX, FACE_PX, assets, damagesRef.current, full);
+    renderDamagedFace(ctx, FACE_PX, FACE_PX, assets, stageRef.current);
   };
 
   useEffect(() => {
@@ -51,7 +48,7 @@ export function OpponentDamageHud({ damages }: OpponentDamageHudProps) {
 
   useEffect(() => {
     paint();
-  }, [damagesKey]);
+  }, [stage]);
 
   return (
     <aside className="play-damage-hud" aria-label={`Damage meter ${pct} percent`}>

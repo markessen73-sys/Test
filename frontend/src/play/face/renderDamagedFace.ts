@@ -1,37 +1,43 @@
-import { drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture';
-import { drawFaceDamageOverlays } from './drawFaceDamageOverlays';
-import { FACE_KO_SRC, FACE_TEMPLATE_SRC } from './faceTemplate';
-import type { FaceDamageId } from './faceDamage';
+import { drawFullFaceOnCanvas } from './composeFaceTexture';
+import {
+  damageFaceIndexForStage,
+  DAMAGE_METER_STEPS,
+} from './faceDamage';
+import { createDamageFaceVariants } from './createDamageFaceVariants';
 
 export type DamagedFaceAssets = {
-  liveFace: HTMLImageElement;
+  cleanFace: HTMLImageElement;
+  /** Cumulative injury caricatures, baked at face-creation time. */
+  damageFaces: HTMLImageElement[];
   knockoutFace: HTMLImageElement;
 };
 
-/** Load normal + knockout caricatures for the damage HUD. */
+/** Load clean + knockout faces and bake the cumulative damage variants. */
 export async function loadDamagedFaceAssets(): Promise<DamagedFaceAssets> {
-  const [liveFace, knockoutFace] = await Promise.all([
-    loadFaceImage(FACE_TEMPLATE_SRC),
-    loadFaceImage(FACE_KO_SRC),
-  ]);
-  return { liveFace, knockoutFace };
+  return createDamageFaceVariants();
 }
 
 /**
- * Draw base face + bruise/cut stamps, or the knockout face at 100% damage.
+ * Draw the damage-box face for a meter stage (0–10).
+ * 0 = clean, 1–8 = cumulative injury faces, 9 = last injury face, 10 = KO.
  */
 export function renderDamagedFace(
   ctx: CanvasRenderingContext2D,
   canvasW: number,
   canvasH: number,
   assets: DamagedFaceAssets,
-  damages: readonly FaceDamageId[],
-  knockedOut = false
+  stage: number
 ) {
-  if (knockedOut) {
+  const clamped = Math.max(0, Math.min(DAMAGE_METER_STEPS, stage));
+  if (clamped >= DAMAGE_METER_STEPS) {
     drawFullFaceOnCanvas(ctx, assets.knockoutFace, canvasW, canvasH);
     return;
   }
-  drawFullFaceOnCanvas(ctx, assets.liveFace, canvasW, canvasH);
-  drawFaceDamageOverlays(ctx, canvasW, canvasH, damages);
+  const faceIndex = damageFaceIndexForStage(clamped);
+  if (faceIndex < 0) {
+    drawFullFaceOnCanvas(ctx, assets.cleanFace, canvasW, canvasH);
+    return;
+  }
+  const face = assets.damageFaces[faceIndex] ?? assets.cleanFace;
+  drawFullFaceOnCanvas(ctx, face, canvasW, canvasH);
 }
