@@ -12,8 +12,8 @@ export const BOBO_FACE_CENTER: [number, number, number] = [
   BOBO_HEAD_RADIUS + 0.04,
 ];
 
-/** Head diameter — clown face fills the ball. */
+/** Head diameter × 1.3 — clown face reads big on the ball. */
 export const BOBO_FACE_SIZE: [number, number] = [
-  BOBO_HEAD_RADIUS * 2,
-  BOBO_HEAD_RADIUS * 2,
+  BOBO_HEAD_RADIUS * 2 * 1.3,
+  BOBO_HEAD_RADIUS * 2 * 1.3,
 ];

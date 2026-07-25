@@ -71,5 +71,6 @@ node scripts/bake-bobo-clown-faces.mjs
 ```
 
 Writes 11 PNGs to `bobo-clown-stages/00-clean.png` … `10-knockout.png`.
-Preview: `/clown-preview.html`. In play (`?play=bobo-doll`) the face sits on
-the doll head and advances every 3–6 hits; `?damageStage=0..10` previews a step.
+Preview: `/clown-preview.html`. In play (`?play=bobo-doll`) the doll keeps the
+clean clown face; injuries advance only in the damage box. Preview a HUD step
+with `?play=bobo-doll&damageStage=0..10`.

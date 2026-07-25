@@ -75,11 +75,7 @@ export function BoboDollPlayView({ onBack }: BoboDollPlayViewProps) {
         </>
       }
       canvas={
-        <BoboDollPlayScene
-          impacts={impacts}
-          boboZoneOffsetRef={targetZoneOffsetRef}
-          damageStage={damageStage}
-        />
+        <BoboDollPlayScene impacts={impacts} boboZoneOffsetRef={targetZoneOffsetRef} />
       }
       {...gloves}
     />

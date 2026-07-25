@@ -67,11 +67,9 @@ function BoboDollBody({ material }: { material: THREE.MeshStandardMaterial }) {
 function PlayBoboDoll({
   impacts,
   boboZoneOffsetRef,
-  damageStage,
 }: {
   impacts: PunchImpact[];
   boboZoneOffsetRef: RefObject<GlovePosition>;
-  damageStage: number;
 }) {
   const swingRef = useRef(createBoboSwingState());
   const dollRef = useRef<THREE.Group>(null);
@@ -126,7 +124,7 @@ function PlayBoboDoll({
 
       <group ref={dollRef}>
         <BoboDollBody material={material} />
-        <BoboClownFaceDecal stage={damageStage} lastHitTime={lastHitTime} />
+        <BoboClownFaceDecal lastHitTime={lastHitTime} />
         {flashes.map((flash) => (
           <ImpactFlash
             key={flash.id}
@@ -145,13 +143,11 @@ function PlayBoboDoll({
 interface BoboDollPlaySceneProps {
   impacts: PunchImpact[];
   boboZoneOffsetRef: RefObject<GlovePosition>;
-  damageStage: number;
 }
 
 export function BoboDollPlayScene({
   impacts,
   boboZoneOffsetRef,
-  damageStage,
 }: BoboDollPlaySceneProps) {
   const cam = BOBO_PLAY_CAMERA;
   return (
@@ -166,11 +162,7 @@ export function BoboDollPlayScene({
     >
       <color attach="background" args={['#1a1208']} />
       <PlayEnvironment />
-      <PlayBoboDoll
-        impacts={impacts}
-        boboZoneOffsetRef={boboZoneOffsetRef}
-        damageStage={damageStage}
-      />
+      <PlayBoboDoll impacts={impacts} boboZoneOffsetRef={boboZoneOffsetRef} />
     </Canvas>
   );
 }
