@@ -264,12 +264,12 @@ function applyComedyClownMakeup(face, clean) {
         const nx = (x + 0.5) / W;
         const ny = (y + 0.5) / H;
         // Solid iris/pupil disk — covers green iris AND white specular glints.
-        const d = ellipseDist(nx, ny, eye.x, eye.y, 0.034, 0.032);
+        const d = ellipseDist(nx, ny, eye.x, eye.y, 0.038, 0.036);
         if (d >= 1) continue;
         const i = (y * W + x) * 4;
         // Only protect glasses frame near the disk rim — never leave holes/glints inside.
         if (
-          d > 0.75 &&
+          d > 0.8 &&
           isGlassesFrame(clean.data[i], clean.data[i + 1], clean.data[i + 2], clean.data[i + 3])
         ) {
           continue;
@@ -281,6 +281,31 @@ function applyComedyClownMakeup(face, clean) {
         face.data[i + 3] = 255;
         painted++;
         pupilN++;
+      }
+    }
+  }
+  // Cleanup: any leftover bright/green speck inside the pupil → black.
+  for (const eye of [LM.leftEye, LM.rightEye]) {
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const nx = (x + 0.5) / W;
+        const ny = (y + 0.5) / H;
+        if (ellipseDist(nx, ny, eye.x, eye.y, 0.036, 0.034) >= 1) continue;
+        const i = (y * W + x) * 4;
+        if (face.data[i + 3] < 200) {
+          face.data[i] = 0;
+          face.data[i + 1] = 0;
+          face.data[i + 2] = 0;
+          face.data[i + 3] = 255;
+          pupilN++;
+          continue;
+        }
+        if (face.data[i] > 4 || face.data[i + 1] > 4 || face.data[i + 2] > 4) {
+          face.data[i] = 0;
+          face.data[i + 1] = 0;
+          face.data[i + 2] = 0;
+          pupilN++;
+        }
       }
     }
   }
