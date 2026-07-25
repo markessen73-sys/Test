@@ -74,6 +74,83 @@ type FallingScrap = {
   mat: THREE.MeshBasicMaterial
 }
 
+function pointInPoly(x: number, y: number, poly: readonly [number, number][]) {
+  let inside = false
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i]
+    const [xj, yj] = poly[j]
+    const crosses = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi
+    if (crosses) inside = !inside
+  }
+  return inside
+}
+
+function removedAt(phase: BagPolaroidPhase, u: number, v: number) {
+  // u: 0..1 left-to-right, v: 0..1 bottom-to-top.
+  // These simple cut polygons intentionally overlap the alpha tear paths;
+  // the mesh itself is missing, so the bag is visible through the damage.
+  const canvasY = 1 - v
+  const cornerL: [number, number][] = [[0, 1], [0.58, 1], [0, 0.22]]
+  const cornerR: [number, number][] = [[1, 1], [0.42, 1], [1, 0.22]]
+  const half: [number, number][] = [[0, 0.08], [0.78, 1], [0, 1]]
+
+  if (phase === 'cornerTear' || phase === 'onePin' || phase === 'bothCorners' || phase === 'halfTear' || phase === 'fallen') {
+    if (pointInPoly(u, canvasY, cornerL)) return true
+  }
+  if (phase === 'bothCorners' || phase === 'halfTear' || phase === 'fallen') {
+    if (pointInPoly(u, canvasY, cornerR)) return true
+  }
+  if (phase === 'halfTear' || phase === 'fallen') {
+    if (pointInPoly(u, canvasY, half)) return true
+  }
+  return false
+}
+
+function createPolaroidGeometry(phase: BagPolaroidPhase) {
+  const cols = 56
+  const rows = 68
+  const positions: number[] = []
+  const uvs: number[] = []
+  const indices: number[] = []
+
+  const addVertex = (u: number, v: number) => {
+    const x = (u - 0.5) * BAG_POLAROID_WIDTH
+    const y = (v - 0.5) * BAG_POLAROID_HEIGHT
+    const index = positions.length / 3
+    positions.push(x, y, 0)
+    uvs.push(u, v)
+    return index
+  }
+
+  const addTri = (a: [number, number], b: [number, number], c: [number, number]) => {
+    const cu = (a[0] + b[0] + c[0]) / 3
+    const cv = (a[1] + b[1] + c[1]) / 3
+    if (removedAt(phase, cu, cv)) return
+    const ia = addVertex(a[0], a[1])
+    const ib = addVertex(b[0], b[1])
+    const ic = addVertex(c[0], c[1])
+    indices.push(ia, ib, ic)
+  }
+
+  for (let row = 0; row < rows; row++) {
+    const v0 = row / rows
+    const v1 = (row + 1) / rows
+    for (let col = 0; col < cols; col++) {
+      const u0 = col / cols
+      const u1 = (col + 1) / cols
+      addTri([u0, v0], [u1, v0], [u1, v1])
+      addTri([u0, v0], [u1, v1], [u0, v1])
+    }
+  }
+
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
+  geo.setIndex(indices)
+  geo.computeVertexNormals()
+  return geo
+}
+
 interface BagPolaroidProps {
   stage: number
   lastHitTime?: number
@@ -143,6 +220,9 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
     ],
     []
   )
+  const polaroidGeometry = useMemo(() => createPolaroidGeometry(phase), [phase])
+
+  useEffect(() => () => polaroidGeometry.dispose(), [polaroidGeometry])
 
   const clearScraps = () => {
     const group = scrapsGroupRef.current
@@ -490,7 +570,7 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
         <group position={childOffset}>
           {texture && (
             <mesh renderOrder={3}>
-              <planeGeometry args={[BAG_POLAROID_WIDTH, BAG_POLAROID_HEIGHT]} />
+              <primitive attach="geometry" object={polaroidGeometry} />
               <meshBasicMaterial
                 map={texture}
                 transparent
