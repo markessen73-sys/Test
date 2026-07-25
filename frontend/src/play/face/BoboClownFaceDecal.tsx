@@ -10,12 +10,9 @@ import {
   BOBO_CLOWN_KO_SRC,
   BOBO_CLOWN_STAGE_SRCS,
 } from './boboClownStageAssets';
+import { BOBO_FACE_CENTER, BOBO_FACE_SIZE } from './boboFacePlacement';
 
 const CANVAS_SIZE = 512;
-
-/** Face plane on the bobo sphere head (local space of the doll group). */
-const FACE_CENTER: [number, number, number] = [0, 2.28, 0.4];
-const FACE_SIZE: [number, number] = [0.72, 0.72];
 
 interface BoboClownFaceDecalProps {
   /** Damage meter stage 0–10. */
@@ -98,11 +95,17 @@ export function BoboClownFaceDecal({ stage, lastHitTime = 0 }: BoboClownFaceDeca
 
   if (!texture) return null;
 
-  const [fw, fh] = FACE_SIZE;
+  const [fw, fh] = BOBO_FACE_SIZE;
   return (
-    <mesh position={FACE_CENTER} renderOrder={2}>
+    <mesh position={BOBO_FACE_CENTER} renderOrder={2}>
       <planeGeometry args={[fw, fh]} />
-      <meshBasicMaterial map={texture} transparent depthWrite={false} />
+      <meshBasicMaterial
+        map={texture}
+        transparent
+        depthWrite={false}
+        depthTest={false}
+        side={THREE.DoubleSide}
+      />
     </mesh>
   );
 }

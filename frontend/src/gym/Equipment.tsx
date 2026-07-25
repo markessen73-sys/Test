@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { assetUrl } from '../assetUrl';
 import { CeilingChain } from '../play/CeilingChain';
 import { BAG_CHAIN_LENGTH } from '../play/bagSwing';
+import { BOBO_FACE_CENTER, BOBO_FACE_SIZE } from '../play/face/boboFacePlacement';
 import { SPEEDBALL_BALL_Y } from '../play/playCamera';
 
 const BOBO_CLOWN_CLEAN = assetUrl('/faces/bobo-clown-stages/00-clean.png');
@@ -127,10 +128,18 @@ function BoboBrowseClownFace({ opacity }: { opacity: number }) {
     };
   }, []);
   if (!map) return null;
+  const [fw, fh] = BOBO_FACE_SIZE;
   return (
-    <mesh position={[0, 2.28, 0.4]} renderOrder={2}>
-      <planeGeometry args={[0.72, 0.72]} />
-      <meshBasicMaterial map={map} transparent opacity={opacity} depthWrite={false} />
+    <mesh position={BOBO_FACE_CENTER} renderOrder={2}>
+      <planeGeometry args={[fw, fh]} />
+      <meshBasicMaterial
+        map={map}
+        transparent
+        opacity={opacity}
+        depthWrite={false}
+        depthTest={false}
+        side={THREE.DoubleSide}
+      />
     </mesh>
   );
 }
