@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { FACE_CONTAIN_PAD, drawFullFaceOnCanvas, loadFaceImage, warpForPunch } from './composeFaceTexture';
-import { drawHitOohExpression } from './drawHitOohExpression';
-import { FACE_NOSE_LANDMARK, FACE_SOURCE_SIZE, FACE_TEMPLATE_SRC, RING_PARTNER_FACE } from './faceTemplate';
+import { FACE_CONTAIN_PAD, drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture';
+import {
+  FACE_NOSE_LANDMARK,
+  FACE_OOH_SRC,
+  FACE_SOURCE_SIZE,
+  FACE_TEMPLATE_SRC,
+  RING_PARTNER_FACE,
+} from './faceTemplate';
 import {
   landmarkOffsetInDecal,
   scalePlacement,
@@ -18,8 +23,8 @@ const PARTNER_FACE_SCALE_BOTTOM_LEFT = 1.1;
 /** Nose pinned, +10% every direction (applied per user calibration step). */
 const PARTNER_FACE_SCALE_NOSE = 1.1;
 const PARTNER_FACE_NOSE_SCALE_STEPS = 2;
-/** How long the "ooh!" punch face lasts (ms). */
-const OOH_MS = 320;
+/** How long the pre-authored "ooh!" face stays up (ms). */
+const OOH_MS = 380;
 
 function scaleFromNose(
   placement: ReturnType<typeof spriteNormRectToLocal>,
@@ -45,13 +50,13 @@ interface PartnerFaceDecalProps {
   spriteWidth: number;
   /** Sprite plane height in metres. */
   spriteHeight: number;
-  /** Latest landed punch time — triggers brief "ooh!" expression. */
+  /** Latest landed punch time — swaps to the authored ooh face. */
   lastHitTime?: number;
 }
 
 /**
- * Clean caricature on the moving sparring partner.
- * Injuries live on the HUD damage meter; this face only reacts with "ooh!" on hit.
+ * Clean 2D caricature on the moving sparring partner.
+ * Injuries live on the HUD damage meter. On hit, swap to the matching ooh face.
  */
 export function PartnerFaceDecal({
   spriteWidth,
@@ -59,7 +64,8 @@ export function PartnerFaceDecal({
   lastHitTime = 0,
 }: PartnerFaceDecalProps) {
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
+  const normalRef = useRef<HTMLImageElement | null>(null);
+  const oohRef = useRef<HTMLImageElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const texRef = useRef<THREE.CanvasTexture | null>(null);
 
@@ -87,14 +93,17 @@ export function PartnerFaceDecal({
     texRef.current = tex;
     setTexture(tex);
 
-    loadFaceImage(FACE_TEMPLATE_SRC).then((img) => {
-      if (cancelled) return;
-      imgRef.current = img;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE);
-      tex.needsUpdate = true;
-    });
+    Promise.all([loadFaceImage(FACE_TEMPLATE_SRC), loadFaceImage(FACE_OOH_SRC)]).then(
+      ([normal, ooh]) => {
+        if (cancelled) return;
+        normalRef.current = normal;
+        oohRef.current = ooh;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        drawFullFaceOnCanvas(ctx, normal, CANVAS_SIZE, CANVAS_SIZE);
+        tex.needsUpdate = true;
+      }
+    );
 
     return () => {
       cancelled = true;
@@ -102,30 +111,26 @@ export function PartnerFaceDecal({
     };
   }, []);
 
-  // Animate punch "ooh!" while the reaction window is open.
+  // Swap to authored ooh face for a short window on each hit.
   useEffect(() => {
     if (!lastHitTime) return;
     let frame = 0;
     const tick = () => {
       frame = requestAnimationFrame(tick);
-      const img = imgRef.current;
+      const normal = normalRef.current;
+      const ooh = oohRef.current;
       const canvas = canvasRef.current;
       const tex = texRef.current;
-      if (!img || !canvas || !tex) return;
+      if (!normal || !ooh || !canvas || !tex) return;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
       const age = performance.now() - lastHitTime;
-      const active = age >= 0 && age < OOH_MS;
-      const intensity = active ? 1 - age / OOH_MS : 0;
-      const warp = active ? warpForPunch() : undefined;
-      drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE, warp);
-      if (active) {
-        drawHitOohExpression(ctx, CANVAS_SIZE, CANVAS_SIZE, Math.min(1, intensity * 1.4));
-      }
+      const showOoh = age >= 0 && age < OOH_MS;
+      drawFullFaceOnCanvas(ctx, showOoh ? ooh : normal, CANVAS_SIZE, CANVAS_SIZE);
       tex.needsUpdate = true;
 
-      if (!active && age >= OOH_MS) {
+      if (!showOoh && age >= OOH_MS) {
         cancelAnimationFrame(frame);
       }
     };

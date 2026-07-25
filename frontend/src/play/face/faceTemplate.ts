@@ -6,6 +6,9 @@ export const FACE_TEMPLATE_MAP: FaceTemplateMap = mapData;
 
 export const FACE_TEMPLATE_SRC = assetUrl(FACE_TEMPLATE_MAP.template);
 
+/** Matching punched/"ooh!" expression of the live caricature (same layout). */
+export const FACE_OOH_SRC = assetUrl('/faces/test-template-face-ooh.png');
+
 /** Crop rect from template image (faceOval). */
 export const FACE_SOURCE_OVAL = FACE_TEMPLATE_MAP.faceOval;
 

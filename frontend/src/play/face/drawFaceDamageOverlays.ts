@@ -337,35 +337,37 @@ function drawEarSuture(
   }
 }
 
-/** Ringside cut dressing — horizontal gauze pad taped across the forehead. */
+/** Ringside cut dressing — solid opaque gauze pad taped across the forehead. */
 function drawForeheadBandage(ctx: CanvasRenderingContext2D, x: number, y: number, u: number) {
   ctx.save();
   ctx.translate(x, y);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
 
-  // Skin shadow beneath pad
-  ctx.fillStyle = 'rgba(60, 35, 30, 0.25)';
+  // Soft contact shadow (opaque-ish so pad sits on skin)
+  ctx.fillStyle = 'rgba(70, 45, 35, 0.45)';
   ctx.beginPath();
-  ctx.ellipse(0, u * 0.1, u * 2.15, u * 0.42, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, u * 0.12, u * 2.2, u * 0.48, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Main horizontal gauze pad
-  drawGauzePad(ctx, 0, u * 0.02, u * 2.05, u * 0.42);
+  // Main solid horizontal gauze pad
+  drawGauzePad(ctx, 0, u * 0.02, u * 2.15, u * 0.48);
 
   // Cross strips of adhesive tape at temples
-  drawMedicalTape(ctx, -u * 1.12, u * 0.02, u * 0.38, u * 0.48, -0.35);
-  drawMedicalTape(ctx, u * 1.12, u * 0.02, u * 0.38, u * 0.48, 0.35);
+  drawMedicalTape(ctx, -u * 1.15, u * 0.02, u * 0.42, u * 0.52, -0.35);
+  drawMedicalTape(ctx, u * 1.15, u * 0.02, u * 0.42, u * 0.52, 0.35);
 
   // Vertical hold-down tape over center
-  drawMedicalTape(ctx, 0, u * 0.02, u * 0.22, u * 0.52, 0);
+  drawMedicalTape(ctx, 0, u * 0.02, u * 0.26, u * 0.56, 0);
 
-  // Blood seepage through gauze
-  ctx.fillStyle = 'rgba(145, 28, 28, 0.55)';
+  // Small solid blood spot ON TOP of gauze (not see-through)
+  ctx.fillStyle = '#9a2222';
   ctx.beginPath();
-  ctx.ellipse(-u * 0.15, u * 0.04, u * 0.16, u * 0.12, -0.15, 0, Math.PI * 2);
+  ctx.ellipse(-u * 0.18, u * 0.04, u * 0.14, u * 0.1, -0.15, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = 'rgba(100, 18, 18, 0.35)';
+  ctx.fillStyle = '#6e1414';
   ctx.beginPath();
-  ctx.ellipse(-u * 0.12, u * 0.08, u * 0.28, u * 0.08, -0.1, 0, Math.PI * 2);
+  ctx.ellipse(-u * 0.14, u * 0.06, u * 0.08, u * 0.06, -0.1, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.restore();
@@ -382,21 +384,21 @@ function drawGauzePad(
   const y0 = cy - h / 2;
   const r = h * 0.28;
 
-  // Padded body with slight puff
+  // Fully opaque padded body
   const body = ctx.createLinearGradient(x0, y0, x0, y0 + h);
-  body.addColorStop(0, '#faf6ee');
-  body.addColorStop(0.4, '#f0ebe2');
-  body.addColorStop(1, '#d8d0c4');
+  body.addColorStop(0, '#fffcf5');
+  body.addColorStop(0.45, '#f4efe6');
+  body.addColorStop(1, '#ddd4c6');
   ctx.fillStyle = body;
-  ctx.strokeStyle = '#b8b0a0';
-  ctx.lineWidth = h * 0.06;
+  ctx.strokeStyle = '#a89f90';
+  ctx.lineWidth = h * 0.07;
   roundRect(ctx, x0, y0, w, h, r);
   ctx.fill();
   ctx.stroke();
 
-  // Gauze cross-weave texture
-  ctx.strokeStyle = 'rgba(160, 150, 135, 0.5)';
-  ctx.lineWidth = h * 0.035;
+  // Gauze cross-weave texture (opaque strokes)
+  ctx.strokeStyle = 'rgba(150, 140, 125, 0.85)';
+  ctx.lineWidth = h * 0.04;
   for (let i = -4; i <= 4; i++) {
     ctx.beginPath();
     ctx.moveTo(x0 + w * 0.06, cy + i * h * 0.11);
@@ -411,8 +413,8 @@ function drawGauzePad(
   }
 
   // Top highlight — cotton pad sheen
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-  ctx.lineWidth = h * 0.05;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.lineWidth = h * 0.06;
   ctx.beginPath();
   ctx.moveTo(x0 + r, y0 + h * 0.14);
   ctx.lineTo(x0 + w - r, y0 + h * 0.14);
@@ -433,16 +435,16 @@ function drawMedicalTape(
   const x0 = -w / 2;
   const y0 = -h / 2;
 
-  ctx.fillStyle = '#e8dcc8';
-  ctx.strokeStyle = '#c8bca8';
-  ctx.lineWidth = h * 0.08;
+  ctx.fillStyle = '#efe6d4';
+  ctx.strokeStyle = '#b8ab96';
+  ctx.lineWidth = h * 0.1;
   roundRect(ctx, x0, y0, w, h, h * 0.15);
   ctx.fill();
   ctx.stroke();
 
   // Tape fiber lines
-  ctx.strokeStyle = 'rgba(180, 165, 140, 0.45)';
-  ctx.lineWidth = h * 0.04;
+  ctx.strokeStyle = 'rgba(160, 145, 120, 0.75)';
+  ctx.lineWidth = h * 0.05;
   for (let i = -1; i <= 1; i++) {
     ctx.beginPath();
     ctx.moveTo(x0 + w * 0.15, cy + i * h * 0.22 - cy);

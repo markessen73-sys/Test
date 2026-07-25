@@ -4,8 +4,10 @@ Test portrait used to prototype how caricature faces attach to boxing targets be
 
 | File | Purpose |
 |------|---------|
-| `test-template-face.png` | Active playable face (cartoon man from photo `file_00000000909c…`) |
-| `test-template-face-cartoon-man.png` | Backup of the cartoon playable face |
+| `test-template-face.png` | Active playable face (flat 2D caricature of photo man) |
+| `test-template-face-2d.png` | Backup of the flat 2D normal expression |
+| `test-template-face-ooh.png` | Matching punched/"ooh!" expression (same layout) |
+| `test-template-face-cartoon-man.png` | Earlier 3D-style cartoon (kept for reference) |
 | `test-template-face-photo-man.png` | Photo-aligned cutout (pre-cartoon) |
 | `test-template-face-male.png` | Male caricature template (damage baseline + layout canon) |
 | `test-template-face-female.png` | Female caricature (same head/feature layout as male) |
@@ -19,10 +21,10 @@ Test portrait used to prototype how caricature faces attach to boxing targets be
 | `damage/swollen-lip.png` | Swollen lip reference (`file_00000000c51081…`) |
 | `face-template-map.json` | Generated regions + engine targets |
 
-Punch damage: every 3–6 landed hits applies one unused injury on the
-**top-right damage HUD face** (not the live sparring model). The meter fills
-to 100% when all injuries are applied. The moving partner face stays clean and
-flashes an "ooh!" expression on each hit.
+Punch damage: every 3–6 landed hits applies one unused **procedural** injury on the
+**top-right damage HUD face** (flat 2D stamps — solid bandage, black eyes, etc.).
+The meter fills to 100% when all injuries are applied. The moving partner face stays
+clean and briefly swaps to the authored `test-template-face-ooh.png` on each hit.
 
 ## Fit a photo into the caricature layout
 

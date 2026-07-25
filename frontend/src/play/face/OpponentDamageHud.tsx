@@ -6,7 +6,7 @@ import {
   type DamagedFaceAssets,
 } from './renderDamagedFace';
 
-const FACE_PX = 148;
+const FACE_PX = 96;
 
 interface OpponentDamageHudProps {
   damages: readonly FaceDamageId[];
