@@ -14,8 +14,7 @@ export async function loadDamagedFaceAssets(): Promise<DamagedFaceAssets> {
 }
 
 /**
- * Draw base 2D face + procedural injury stamps.
- * Photo-ref delta compositing is skipped — flat 2D stamps read clearly on this style.
+ * Draw base face + simple bruise/cut stamps (works on any caricature).
  */
 export function renderDamagedFace(
   ctx: CanvasRenderingContext2D,

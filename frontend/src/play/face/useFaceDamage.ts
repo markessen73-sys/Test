@@ -7,9 +7,9 @@ import {
 } from './faceDamage';
 
 /**
- * Track ring hits and apply random face injuries on the HUD damage meter.
- * Every 3–6 landed punches, apply one unused injury until the meter hits 100%
- * (all injuries applied). Holds at full — no auto-reset.
+ * Track ring hits and apply random bruises/cuts on the HUD damage meter.
+ * Every 3–6 landed punches, apply one unused mark until the meter hits 100%.
+ * Holds at full — no auto-reset.
  */
 export function useFaceDamage() {
   const [damages, setDamages] = useState<FaceDamageId[]>([]);

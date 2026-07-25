@@ -1,23 +1,23 @@
 /** Accumulated sparring-partner face injuries (canvas overlays). */
 export type FaceDamageId =
-  | 'cauliflowerLeftEar'
-  | 'cauliflowerRightEar'
-  | 'blackLeftEye'
-  | 'blackRightEye'
-  | 'foreheadBandage'
-  | 'brokenNose'
-  | 'swollenBottomLip'
-  | 'missingTooth';
+  | 'bruiseCheekLeft'
+  | 'bruiseCheekRight'
+  | 'bruiseForehead'
+  | 'bruiseEyeLeft'
+  | 'bruiseEyeRight'
+  | 'cutBrow'
+  | 'cutCheek'
+  | 'cutChin';
 
 export const ALL_FACE_DAMAGES: readonly FaceDamageId[] = [
-  'cauliflowerLeftEar',
-  'cauliflowerRightEar',
-  'blackLeftEye',
-  'blackRightEye',
-  'foreheadBandage',
-  'brokenNose',
-  'swollenBottomLip',
-  'missingTooth',
+  'bruiseCheekLeft',
+  'bruiseCheekRight',
+  'bruiseForehead',
+  'bruiseEyeLeft',
+  'bruiseEyeRight',
+  'cutBrow',
+  'cutCheek',
+  'cutChin',
 ] as const;
 
 /** Random hits required before the next face injury (3–6 inclusive). */

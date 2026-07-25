@@ -21,9 +21,9 @@ Test portrait used to prototype how caricature faces attach to boxing targets be
 | `damage/swollen-lip.png` | Swollen lip reference (`file_00000000c51081…`) |
 | `face-template-map.json` | Generated regions + engine targets |
 
-Punch damage: every 3–6 landed hits applies one unused **procedural** injury on the
-**top-right damage HUD face** (flat 2D stamps — solid bandage, black eyes, etc.).
-The meter fills to 100% when all injuries are applied. The moving partner face stays
+Punch damage: every 3–6 landed hits adds one unused **bruise or small cut** on the
+**top-right damage HUD face**. Marks are landmark-anchored so they work on any face.
+The meter fills to 100% when all marks are applied. The moving partner face stays
 clean and briefly swaps to the authored `test-template-face-ooh.png` on each hit.
 
 ## Fit a photo into the caricature layout
