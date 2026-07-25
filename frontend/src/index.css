@@ -1460,6 +1460,25 @@ html, body, #root, .app {
   transition: width 0.35s ease-out;
 }
 
+/* Heavy-bag: meter only (no face portrait). */
+.play-damage-bar-frame {
+  width: 8.25rem;
+  padding: 0.4rem 0.45rem 0.45rem;
+}
+
+.play-damage-bar .play-damage-hud-meter {
+  margin-top: 0;
+}
+
+.play-damage-bar .play-damage-hud-meter-label {
+  font-size: 0.62rem;
+  margin-bottom: 0.2rem;
+}
+
+.play-damage-bar-track {
+  height: 0.45rem;
+}
+
 .play-bottom {
   padding: 0.5rem 1rem max(1rem, env(safe-area-inset-bottom));
   background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);

@@ -21,6 +21,7 @@ import {
   createBagSwingState,
   stepBagSwing,
 } from './bagSwing';
+import { BagPolaroid } from './face/BagPolaroid';
 
 export const BAG_WORLD_Z = -3.8;
 const BAG_Z = BAG_WORLD_Z;
@@ -80,9 +81,11 @@ function ImpactRing3D({
 function PlayHeavyBag({
   impacts,
   bagZoneOffsetRef,
+  damageStage,
 }: {
   impacts: BagPunchImpact[];
   bagZoneOffsetRef: RefObject<GlovePosition>;
+  damageStage: number;
 }) {
   const leather = useMemo(() => getNutBrownLeatherMaps(), []);
   const swingRef = useRef(createBagSwingState());
@@ -97,6 +100,7 @@ function PlayHeavyBag({
   const [activeRings, setActiveRings] = useState<
     { id: number; point: THREE.Vector3; normal: THREE.Vector3; time: number }[]
   >([]);
+  const [lastHitTime, setLastHitTime] = useState(0);
   const lastImpactIdRef = useRef(0);
   const { camera } = useThree();
 
@@ -107,6 +111,7 @@ function PlayHeavyBag({
     lastImpactIdRef.current = latest.id;
 
     applyBagHitImpulse(swingRef.current, latest.glove);
+    setLastHitTime(latest.time);
 
     const body = bodyRef.current;
     if (!body) return;
@@ -206,6 +211,7 @@ function PlayHeavyBag({
               onDone={() => setActiveRings((prev) => prev.filter((r) => r.id !== ring.id))}
             />
           ))}
+          <BagPolaroid stage={damageStage} lastHitTime={lastHitTime} />
           <pointLight position={[0, 1.5, 0.6]} intensity={12} color="#ffdcb0" distance={5} />
         </group>
       </group>
@@ -216,14 +222,20 @@ function PlayHeavyBag({
 function PlayScene({
   impacts,
   bagZoneOffsetRef,
+  damageStage,
 }: {
   impacts: BagPunchImpact[];
   bagZoneOffsetRef: RefObject<GlovePosition>;
+  damageStage: number;
 }) {
   return (
     <>
       <PlayEnvironment />
-      <PlayHeavyBag impacts={impacts} bagZoneOffsetRef={bagZoneOffsetRef} />
+      <PlayHeavyBag
+        impacts={impacts}
+        bagZoneOffsetRef={bagZoneOffsetRef}
+        damageStage={damageStage}
+      />
     </>
   );
 }
@@ -231,9 +243,14 @@ function PlayScene({
 interface HeavyBagPlaySceneProps {
   impacts: BagPunchImpact[];
   bagZoneOffsetRef: RefObject<GlovePosition>;
+  damageStage: number;
 }
 
-export function HeavyBagPlayScene({ impacts, bagZoneOffsetRef }: HeavyBagPlaySceneProps) {
+export function HeavyBagPlayScene({
+  impacts,
+  bagZoneOffsetRef,
+  damageStage,
+}: HeavyBagPlaySceneProps) {
   const cam = HEAVY_BAG_PLAY_CAMERA;
   return (
     <Canvas
@@ -246,7 +263,11 @@ export function HeavyBagPlayScene({ impacts, bagZoneOffsetRef }: HeavyBagPlaySce
       gl={{ antialias: true, alpha: false }}
     >
       <color attach="background" args={['#1a1208']} />
-      <PlayScene impacts={impacts} bagZoneOffsetRef={bagZoneOffsetRef} />
+      <PlayScene
+        impacts={impacts}
+        bagZoneOffsetRef={bagZoneOffsetRef}
+        damageStage={damageStage}
+      />
     </Canvas>
   );
 }

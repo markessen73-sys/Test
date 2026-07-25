@@ -6,6 +6,7 @@ import { CeilingChain } from '../play/CeilingChain';
 import { BAG_CHAIN_LENGTH } from '../play/bagSwing';
 import { BOBO_FACE_CENTER, BOBO_FACE_SIZE } from '../play/face/boboFacePlacement';
 import { SpeedballFaceDecal } from '../play/face/SpeedballFaceDecal';
+import { BagPolaroid } from '../play/face/BagPolaroid';
 import { SPEEDBALL_BALL_Y } from '../play/playCamera';
 
 const BOBO_CLOWN_CLEAN = assetUrl('/faces/bobo-clown-stages/00-clean.png');
@@ -103,6 +104,9 @@ export function HeavyBag({ highlighted, position = [0, 0, 0] }: EquipmentProps) 
           <cylinderGeometry args={[0.39, 0.39, 0.12, 20]} />
           <meshStandardMaterial color="#2a2a3a" />
         </mesh>
+        <group scale={0.9}>
+          <BagPolaroid stage={0} opacity={highlighted ? 1 : DIM} />
+        </group>
       </group>
 
       {highlighted && (
