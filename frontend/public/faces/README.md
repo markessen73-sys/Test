@@ -4,9 +4,11 @@ Test portrait used to prototype how caricature faces attach to boxing targets be
 
 | File | Purpose |
 |------|---------|
-| `test-template-face.png` | Active test face (currently female: `file_000000002b048246…`) |
-| `test-template-face-male.png` | Previous male test face backup |
-| `test-template-face-female.png` | Female test face (same 1024 slot as male) |
+| `test-template-face.png` | Active playable face (photo man from `file_00000000909c…`, right face) |
+| `test-template-face-photo-man.png` | Backup of the photo-aligned playable face |
+| `test-template-face-male.png` | Male caricature template (damage baseline + layout canon) |
+| `test-template-face-female.png` | Female caricature (same head/feature layout as male) |
+| `source-photo-909c.png` | Source dual portrait used for the photo playable face |
 | `damage/cauliflower-ear.png` | Ear damage reference — mirrored for L/R (`file_00000000174071…`) |
 | `damage/black-right-eye.png` | Black-eye reference — mirrored for left (`file_00000000878871…`) |
 | `damage/swollen-left-eye.png` | Swollen-eye reference — mirrored for right (`file_000000005a5c71…`) |
@@ -21,11 +23,24 @@ composites only a **localized feature delta** from the reference PNG (tooth gap,
 lip swell, ear, eye, etc.) onto the live face so the original face structure is
 preserved and effects can transfer to other caricatures.
 
+## Fit a photo into the caricature layout
+
+Male + female caricatures share head shape and feature positions. To bring a
+photograph into that same layout (so punch damage transfers):
+
+```bash
+cd frontend
+python3 scripts/fit-photo-to-caricature-template.py ../file_00000000909c720cbc344633f22a1b2f.png --side right --install
+python3 scripts/map-face-template.py public/faces/test-template-face.png
+```
+
+Writes a transparent 1024×1024 face aligned to the canonical landmarks.
+
 ## Regenerate map
 
 ```bash
 cd frontend
-python3 scripts/map-face-template.py ../file_00000000ffb871f4ac76239e6911f3b9.png
+python3 scripts/map-face-template.py public/faces/test-template-face.png
 ```
 
 Writes `face-template-map.json` and `src/play/face/faceTemplateMap.ts`.

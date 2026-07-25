@@ -33,21 +33,21 @@ export const MALE_DAMAGE_LANDMARKS: Record<DamageLandmarkId, readonly [number, n
 };
 
 /**
- * Landmarks on the current live template (`test-template-face.png` = female).
- * Measured on the actual asset — not the older male-era template map.
+ * Landmarks on the current live template (`test-template-face.png` = photo man).
+ * Aligned to the shared caricature layout so punch damage transfers.
  */
 export const TARGET_DAMAGE_LANDMARKS: Record<DamageLandmarkId, readonly [number, number]> = {
-  leftEye: [0.375, 0.449],
-  rightEye: [0.625, 0.449],
-  nose: [0.5, 0.563],
+  leftEye: [0.35, 0.34],
+  rightEye: [0.65, 0.34],
+  nose: [0.5, 0.47],
   /** Upper teeth / gap — slightly above mouth mid for missing-tooth stamp. */
-  mouth: [0.52, 0.68],
-  chin: [0.5, 0.94],
-  leftEar: [0.175, 0.52],
-  rightEar: [0.825, 0.52],
+  mouth: [0.5, 0.61],
+  chin: [0.5, 0.8],
+  leftEar: [0.18, 0.42],
+  rightEar: [0.82, 0.42],
   /** Mid forehead below hairline — where the bandage wrap sits. */
-  forehead: [0.5, 0.26],
-  bottomLip: [0.5, 0.81],
+  forehead: [0.5, 0.18],
+  bottomLip: [0.5, 0.67],
 };
 
 /** Anatomical side: subject's left = image right, subject's right = image left. */
