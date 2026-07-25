@@ -109,25 +109,24 @@ function copyImageData(src) {
 }
 
 /**
- * Inflamed skin: a slightly redder shade of the caricature's peach skin
- * (warm orange-red, not purple). `shade` 0 = darker fold, 1 = highlight.
+ * Inflamed skin: a redder shade of the caricature's peach skin
+ * (warm red, not purple). `shade` 0 = darker fold, 1 = highlight.
  */
 function inflamedFromSkin(skinR, skinG, skinB, shade = 0.55, strength = 0.45) {
-  // Nudge toward warm red while staying close to peach skin.
-  const targetR = Math.min(255, skinR + 12);
-  const targetG = skinG * 0.88;
-  const targetB = skinB * 0.72;
+  // Push toward red while keeping peach character.
+  const targetR = Math.min(255, skinR + 28);
+  const targetG = skinG * 0.72;
+  const targetB = skinB * 0.52;
   let r = mix(skinR, targetR, strength);
   let g = mix(skinG, targetG, strength);
   let b = mix(skinB, targetB, strength);
-  // Keep it bright enough to read as skin, not a dark bruise blob.
-  const lit = 0.88 + shade * 0.18;
+  const lit = 0.86 + shade * 0.2;
   r *= lit;
   g *= lit;
   b *= lit;
-  // Ensure orange-red (R > G > B), never magenta/purple.
-  if (b > g * 0.85) b = g * 0.75;
-  if (g > r * 0.92) g = r * 0.9;
+  // Ensure warm red (R > G > B), never magenta/purple.
+  if (b > g * 0.8) b = g * 0.7;
+  if (g > r * 0.88) g = r * 0.85;
   return [clamp(r), clamp(g), clamp(b)];
 }
 
@@ -191,15 +190,18 @@ function applyCauliflowerEar(face, clean, side, skin) {
     }
   }
 
-  // 2) Modest dilate outward (~10%) + add helix/concha knobs.
-  const dilateR = Math.max(3, Math.round(ear.rx * W * 0.09));
+  // 2) Curl inward: little outward growth; knobs fold toward the head/concha
+  //    (real cauliflower ear rim curls in on itself).
+  const dilateR = Math.max(2, Math.round(ear.rx * W * 0.05));
   const lumps = [
-    // Fill the hollow (concha) — main cauliflower fill.
-    { x: ear.x + outSign * ear.rx * 0.12, y: ear.y - ear.ry * 0.02, rx: ear.rx * 0.5, ry: ear.ry * 0.42 },
-    // Upper helix thickening.
-    { x: ear.x + outSign * ear.rx * 0.7, y: ear.y - ear.ry * 0.42, rx: ear.rx * 0.28, ry: ear.ry * 0.2 },
-    // Mid outer rim knob.
-    { x: ear.x + outSign * ear.rx * 0.78, y: ear.y + ear.ry * 0.08, rx: ear.rx * 0.28, ry: ear.ry * 0.22 },
+    // Fill the hollow (concha).
+    { x: ear.x + outSign * ear.rx * 0.05, y: ear.y - ear.ry * 0.02, rx: ear.rx * 0.52, ry: ear.ry * 0.44 },
+    // Upper helix curled in toward head.
+    { x: ear.x + outSign * ear.rx * 0.35, y: ear.y - ear.ry * 0.4, rx: ear.rx * 0.34, ry: ear.ry * 0.24 },
+    // Mid rim curled in.
+    { x: ear.x + outSign * ear.rx * 0.4, y: ear.y + ear.ry * 0.08, rx: ear.rx * 0.36, ry: ear.ry * 0.26 },
+    // Rolled rim ridge (folded helix).
+    { x: ear.x + outSign * ear.rx * 0.55, y: ear.y - ear.ry * 0.12, rx: ear.rx * 0.22, ry: ear.ry * 0.38 },
   ];
 
   const solid = new Uint8Array(W * H);
@@ -210,7 +212,6 @@ function applyCauliflowerEar(face, clean, side, skin) {
       const nx = (x + 0.5) / W;
       const ny = (y + 0.5) / H;
       let hit = false;
-      // Dilated seed.
       for (let dy = -dilateR; dy <= dilateR && !hit; dy += 2) {
         for (let dx = -dilateR; dx <= dilateR && !hit; dx += 2) {
           const xx = x + dx;
@@ -220,11 +221,36 @@ function applyCauliflowerEar(face, clean, side, skin) {
           if (dx * dx + dy * dy <= dilateR * dilateR) hit = true;
         }
       }
-      // Knobs (small outward thickenings only).
       for (const L of lumps) {
         if (ellipseDist(nx, ny, L.x, L.y, L.rx, L.ry) <= 1) hit = true;
       }
-      if (hit) solid[y * W + x] = 1;
+      if (!hit) continue;
+      // Trim the far-outer tip so the ear reads curled in, not flared out.
+      const outward = outSign * (nx - ear.x);
+      if (outward > ear.rx * 0.92 && !seed[y * W + x]) continue;
+      solid[y * W + x] = 1;
+    }
+  }
+
+  // Carve a shallow notch on the outer rim (folded-over curl).
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (!solid[y * W + x]) continue;
+      const nx = (x + 0.5) / W;
+      const ny = (y + 0.5) / H;
+      const outward = outSign * (nx - ear.x);
+      // Scoop the outer mid-rim inward.
+      if (outward > ear.rx * 0.55 && outward < ear.rx * 1.05) {
+        const along = Math.abs(ny - ear.y) / ear.ry;
+        if (along < 0.55) {
+          // Keep only if near a curled lump; else clear flare.
+          let nearCurl = false;
+          for (const L of lumps.slice(1)) {
+            if (ellipseDist(nx, ny, L.x, L.y, L.rx * 1.05, L.ry * 1.05) <= 1) nearCurl = true;
+          }
+          if (!nearCurl && !seed[y * W + x]) solid[y * W + x] = 0;
+        }
+      }
     }
   }
 
@@ -244,30 +270,44 @@ function applyCauliflowerEar(face, clean, side, skin) {
       if (faGlasses(face, i)) continue;
       if (isBlondeHair(face.data[i], face.data[i + 1], face.data[i + 2], face.data[i + 3])) continue;
 
-      // Distance cues for shading.
       let dLump = 99;
       for (const L of lumps) dLump = Math.min(dLump, ellipseDist(nx, ny, L.x, L.y, L.rx, L.ry));
       const dEar = ellipseDist(nx, ny, ear.x, ear.y, ear.rx, ear.ry);
       const shade = Math.max(0, 1 - Math.min(dEar, dLump));
 
-      // Fill hollow + rim with inflamed skin (erase clean ear folds).
-      let strength = seed[y * W + x] ? 0.42 : 0.48;
-      if (dLump < 1) strength = 0.55;
-      // Inner bowl a touch redder (hematoma).
-      if (ellipseDist(nx, ny, ear.x + outSign * ear.rx * 0.1, ear.y, ear.rx * 0.5, ear.ry * 0.45) < 0.9) {
-        strength = 0.6;
+      // Redder inflamed skin.
+      let strength = seed[y * W + x] ? 0.58 : 0.64;
+      if (dLump < 1) strength = 0.72;
+      if (ellipseDist(nx, ny, ear.x + outSign * ear.rx * 0.05, ear.y, ear.rx * 0.48, ear.ry * 0.42) < 0.9) {
+        strength = 0.78;
       }
-      let [rr, gg, bb] = inflamedFromSkin(skinR, skinG, skinB, 0.45 + shade * 0.4, strength);
+      let [rr, gg, bb] = inflamedFromSkin(skinR, skinG, skinB, 0.4 + shade * 0.4, strength);
+
+      // Curl crease: darker fold where rim rolls in.
+      const curlFold = ellipseDist(
+        nx,
+        ny,
+        ear.x + outSign * ear.rx * 0.42,
+        ear.y - ear.ry * 0.05,
+        ear.rx * 0.18,
+        ear.ry * 0.42,
+      );
+      if (curlFold < 1) {
+        const [fr, fg, fb] = inflamedFromSkin(skinR, skinG, skinB, 0.2, 0.88);
+        const ft = (1 - curlFold) * 0.65;
+        rr = clamp(mix(rr, fr, ft));
+        gg = clamp(mix(gg, fg, ft));
+        bb = clamp(mix(bb, fb, ft));
+      }
 
       // Shiny taut highlight on lump crowns.
       if (dLump < 0.4) {
         const hi = 1 - dLump / 0.4;
-        rr = clamp(mix(rr, 255, hi * 0.32));
-        gg = clamp(mix(gg, 205, hi * 0.22));
-        bb = clamp(mix(bb, 170, hi * 0.15));
+        rr = clamp(mix(rr, 255, hi * 0.28));
+        gg = clamp(mix(gg, 175, hi * 0.18));
+        bb = clamp(mix(bb, 145, hi * 0.12));
       } else if (dLump > 0.72 && dLump < 1) {
-        // Valley between knobs.
-        [rr, gg, bb] = inflamedFromSkin(skinR, skinG, skinB, 0.28, 0.7);
+        [rr, gg, bb] = inflamedFromSkin(skinR, skinG, skinB, 0.25, 0.8);
       }
 
       face.data[i] = rr;
