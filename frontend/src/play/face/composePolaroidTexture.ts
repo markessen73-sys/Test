@@ -242,6 +242,9 @@ export function renderPolaroidScrap(img: HTMLImageElement, kind: PolaroidScrapKi
   canvas.width = Math.max(1, sw)
   canvas.height = Math.max(1, sh)
   const ctx = canvas.getContext('2d')!
+  // Opaque paper backing so the scrap reads on the gym floor.
+  ctx.fillStyle = '#efe8d8'
+  ctx.fillRect(0, 0, sw, sh)
   ctx.drawImage(full, sx, sy, sw, sh, 0, 0, sw, sh)
 
   // Polaroid local: x right, y up (Three plane). Canvas y is down.

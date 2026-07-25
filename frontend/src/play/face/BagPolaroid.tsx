@@ -194,19 +194,23 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
     scrapTex.colorSpace = THREE.SRGBColorSpace
     scrapTex.needsUpdate = true
 
-    const w = rendered.planeW * BAG_POLAROID_WIDTH
-    const h = rendered.planeH * BAG_POLAROID_HEIGHT
+    // Slightly oversized so the falling piece reads clearly.
+    const w = rendered.planeW * BAG_POLAROID_WIDTH * 1.15
+    const h = rendered.planeH * BAG_POLAROID_HEIGHT * 1.15
     const geo = new THREE.PlaneGeometry(w, h)
+    scrapTex.premultiplyAlpha = false
+    scrapTex.needsUpdate = true
     const mat = new THREE.MeshBasicMaterial({
       map: scrapTex,
       transparent: true,
       opacity: opacityRef.current,
-      depthWrite: false,
-      depthTest: false,
+      depthWrite: true,
+      depthTest: true,
       side: THREE.DoubleSide,
     })
     const mesh = new THREE.Mesh(geo, mat)
-    mesh.renderOrder = 6
+    mesh.renderOrder = 10
+    mesh.frustumCulled = false
 
     const pose = photoPose()
     const ox = rendered.localX * BAG_POLAROID_WIDTH
@@ -215,15 +219,17 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
     const s = Math.sin(pose.rotZ)
     const x = pose.x + c * ox - s * oy
     const y = pose.y + s * ox + c * oy
-    const z = pose.z + 0.05
+    // Sit clearly in front of the Polaroid plane.
+    const z = pose.z + 0.08
     mesh.position.set(x, y, z)
     mesh.rotation.z = pose.rotZ
     group.add(mesh)
 
+    // Mild peel toward camera — keep scraps in front of the bag, not past the lens.
     const outward =
-      kind === 'cornerL' ? { vx: -0.6, vz: 1.35, wr: -3.8 } :
-      kind === 'cornerR' ? { vx: 0.65, vz: 1.3, wr: 3.8 } :
-      { vx: -0.45, vz: 1.5, wr: -4.2 }
+      kind === 'cornerL' ? { vx: -0.35, vz: 0.55, wr: -2.5 } :
+      kind === 'cornerR' ? { vx: 0.4, vz: 0.55, wr: 2.5 } :
+      { vx: -0.25, vz: 0.65, wr: -2.8 }
 
     scrapsRef.current.push({
       id: kind,
@@ -233,10 +239,10 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
       rotZ: pose.rotZ,
       rotX: 0,
       vx: outward.vx,
-      vy: 0.25,
+      vy: 0.35,
       vz: outward.vz,
       wr: outward.wr,
-      stick: 0.15,
+      stick: 0.28,
       mesh,
       texture: scrapTex,
       geo,
@@ -417,21 +423,24 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
       scrap.y += scrap.vy * dt
       scrap.z += scrap.vz * dt
       scrap.rotZ += scrap.wr * dt
-      scrap.rotX += 1.6 * dt
+      // Gentle tumble — stay mostly camera-facing so the scrap stays readable.
+      scrap.rotX = Math.min(0.85, scrap.rotX + 0.7 * dt)
       scrap.vx *= 0.99
-      scrap.vz = scrap.vz * 0.98 + 0.25 * dt
-      if (scrap.y < FLOOR_LOCAL_Y + 0.025) {
-        scrap.y = FLOOR_LOCAL_Y + 0.025
+      scrap.vz *= 0.98
+      scrap.z = THREE.MathUtils.clamp(scrap.z, 0.2, 1.35)
+      if (scrap.y < FLOOR_LOCAL_Y + 0.04) {
+        scrap.y = FLOOR_LOCAL_Y + 0.04
         scrap.vy *= -0.08
         scrap.vx *= 0.35
-        scrap.vz *= 0.15
-        scrap.wr *= 0.2
-        scrap.rotX = Math.min(Math.max(scrap.rotX, 1.1), 1.5)
-        scrap.z = Math.max(scrap.z, 0.75)
+        scrap.vz *= 0.1
+        scrap.wr *= 0.15
+        // Lean toward camera on the floor (not flat / edge-on).
+        scrap.rotX = 0.55
+        scrap.z = THREE.MathUtils.clamp(Math.max(scrap.z, 0.7), 0.55, 1.25)
         if (Math.abs(scrap.vy) < 0.04) scrap.vy = 0
       }
-      scrap.mesh.position.set(scrap.x, scrap.y, Math.max(0.1, scrap.z))
-      scrap.mesh.rotation.set(Math.min(1.4, scrap.rotX), 0, scrap.rotZ)
+      scrap.mesh.position.set(scrap.x, scrap.y, scrap.z)
+      scrap.mesh.rotation.set(Math.min(1.35, scrap.rotX), 0, scrap.rotZ)
     }
 
     if (!g) return
