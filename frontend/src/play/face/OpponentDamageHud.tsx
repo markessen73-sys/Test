@@ -14,7 +14,7 @@ interface OpponentDamageHudProps {
 
 /**
  * Top-right portrait that accumulates punch injuries + a fill meter to 100%.
- * The live 3D partner face stays clean; this HUD owns the damage stamps.
+ * At 100% the portrait swaps to the knockout face.
  */
 export function OpponentDamageHud({ damages }: OpponentDamageHudProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -23,6 +23,7 @@ export function OpponentDamageHud({ damages }: OpponentDamageHudProps) {
   damagesRef.current = damages;
 
   const pct = Math.round((damages.length / ALL_FACE_DAMAGES.length) * 100);
+  const knockedOut = pct >= 100;
   const damagesKey = damages.join(',');
 
   const paint = () => {
@@ -31,7 +32,9 @@ export function OpponentDamageHud({ damages }: OpponentDamageHudProps) {
     if (!canvas || !assets) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    renderDamagedFace(ctx, FACE_PX, FACE_PX, assets, damagesRef.current);
+    const full =
+      damagesRef.current.length >= ALL_FACE_DAMAGES.length;
+    renderDamagedFace(ctx, FACE_PX, FACE_PX, assets, damagesRef.current, full);
   };
 
   useEffect(() => {
@@ -61,7 +64,7 @@ export function OpponentDamageHud({ damages }: OpponentDamageHudProps) {
         />
         <div className="play-damage-hud-meter">
           <div className="play-damage-hud-meter-label">
-            <span>DAMAGE</span>
+            <span>{knockedOut ? 'K.O.' : 'DAMAGE'}</span>
             <span>{pct}%</span>
           </div>
           <div className="play-damage-hud-meter-track">

@@ -6,6 +6,7 @@ import { isKnuckleOnSparringPartner } from './ringZoneGrid';
 import { playPunchSfx, preloadPunchSfx } from './playPunchSfx';
 import { useFaceDamage } from './face/useFaceDamage';
 import { OpponentDamageHud } from './face/OpponentDamageHud';
+import { ALL_FACE_DAMAGES } from './face/faceDamage';
 import type { PunchImpact } from './punchImpact';
 import type { GloveId, GlovePosition } from '../types/game';
 
@@ -19,6 +20,7 @@ export function RingPlayView({ onBack }: RingPlayViewProps) {
   const impactIdRef = useRef(0);
   const targetZoneOffsetRef = useRef<GlovePosition>({ x: 0, y: 0 });
   const { damages: faceDamages, registerHit: registerFaceHit } = useFaceDamage();
+  const knockedOut = faceDamages.length >= ALL_FACE_DAMAGES.length;
 
   const onPunch = useCallback(
     (glove: GloveId, knuckle: GlovePosition) => {
@@ -59,6 +61,7 @@ export function RingPlayView({ onBack }: RingPlayViewProps) {
         <RingPlayScene
           impacts={impacts}
           ringZoneOffsetRef={targetZoneOffsetRef}
+          knockedOut={knockedOut}
         />
       }
       {...gloves}

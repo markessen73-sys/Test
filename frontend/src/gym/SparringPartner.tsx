@@ -54,6 +54,8 @@ interface SparringPartnerProps {
   showFace?: boolean;
   /** Latest landed punch time — drives face "ooh!" reaction. */
   lastHitTime?: number;
+  /** Damage meter at 100% — show knockout face. */
+  knockedOut?: boolean;
   innerRef?: RefObject<Group | null>;
 }
 
@@ -64,6 +66,7 @@ function SparringPartnerSprite({
   scale = 1,
   showFace = false,
   lastHitTime = 0,
+  knockedOut = false,
   innerRef,
 }: SparringPartnerProps) {
   const animRef = useRef<Group>(null);
@@ -107,6 +110,7 @@ function SparringPartnerSprite({
             spriteWidth={width}
             spriteHeight={height}
             lastHitTime={lastHitTime}
+            knockedOut={knockedOut}
           />
         )}
       </group>

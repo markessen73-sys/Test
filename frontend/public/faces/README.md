@@ -7,6 +7,7 @@ Test portrait used to prototype how caricature faces attach to boxing targets be
 | `test-template-face.png` | Active playable face (flat 2D caricature of photo man) |
 | `test-template-face-2d.png` | Backup of the flat 2D normal expression |
 | `test-template-face-ooh.png` | Matching punched/"ooh!" expression (same layout) |
+| `test-template-face-knockout.png` | Knockout face — eyes closed, frown, stars (100% damage) |
 | `test-template-face-cartoon-man.png` | Earlier 3D-style cartoon (kept for reference) |
 | `test-template-face-photo-man.png` | Photo-aligned cutout (pre-cartoon) |
 | `test-template-face-male.png` | Male caricature template (damage baseline + layout canon) |
@@ -23,8 +24,9 @@ Test portrait used to prototype how caricature faces attach to boxing targets be
 
 Punch damage: every 3–6 landed hits adds one unused **bruise or small cut** on the
 **top-right damage HUD face**. Marks are landmark-anchored so they work on any face.
-The meter fills to 100% when all marks are applied. The moving partner face stays
-clean and briefly swaps to the authored `test-template-face-ooh.png` on each hit.
+The meter fills to 100% when all marks are applied — then both the HUD and the live
+partner swap to `test-template-face-knockout.png` (closed eyes, frown, stars).
+Before KO, the live face briefly swaps to `test-template-face-ooh.png` on each hit.
 
 ## Fit a photo into the caricature layout
 
