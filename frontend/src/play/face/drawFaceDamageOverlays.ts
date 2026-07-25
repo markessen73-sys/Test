@@ -32,20 +32,22 @@ function hash01(n: number): number {
   return x - Math.floor(x);
 }
 
-/** Soft irregular blotch — builds mottled hematoma edges. */
-function blotch(
+/** Soft-edged color cloud (fully feathered — no hard oval outline). */
+function softCloud(
   ctx: CanvasRenderingContext2D,
   ox: number,
   oy: number,
   rx: number,
   ry: number,
   rot: number,
-  color: string
+  stops: Array<[number, string]>
 ) {
   ctx.save();
   ctx.translate(ox, oy);
   ctx.rotate(rot);
-  ctx.fillStyle = color;
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(rx, ry));
+  for (const [t, c] of stops) g.addColorStop(t, c);
+  ctx.fillStyle = g;
   ctx.beginPath();
   ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -53,8 +55,8 @@ function blotch(
 }
 
 /**
- * Realistic contusion: irregular mottled layers (deep purple core → blue-red mid →
- * olive/yellow fringe), soft capillary flecks, multiply blend into skin.
+ * Realistic contusion: feathered, mottled hematoma (yellow-green fringe →
+ * blue-violet body → dark purple core + red flush), no hard stamp edges.
  */
 function drawBruise(
   ctx: CanvasRenderingContext2D,
@@ -68,88 +70,92 @@ function drawBruise(
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
+
+  // Hue stains first (source-over) so yellow/green/red read on pale skin
+  ctx.globalCompositeOperation = 'source-over';
+  softCloud(ctx, rx * 0.08, -ry * 0.06, rx * 1.3, ry * 1.22, 0.12, [
+    [0, 'rgba(190, 160, 55, 0.22)'],
+    [0.4, 'rgba(120, 150, 55, 0.28)'],
+    [0.7, 'rgba(90, 130, 70, 0.14)'],
+    [1, 'rgba(100, 130, 80, 0)'],
+  ]);
+  softCloud(ctx, -rx * 0.2, ry * 0.22, rx * 0.7, ry * 0.55, -0.5, [
+    [0, 'rgba(70, 140, 90, 0.2)'],
+    [0.55, 'rgba(100, 130, 70, 0.1)'],
+    [1, 'rgba(100, 130, 70, 0)'],
+  ]);
+
+  // Depth via multiply — blue-violet body + pooling
   ctx.globalCompositeOperation = 'multiply';
+  softCloud(ctx, -rx * 0.05, ry * 0.02, rx * 1.02, ry * 0.98, -0.08, [
+    [0, 'rgba(75, 40, 105, 0.42)'],
+    [0.35, 'rgba(95, 45, 95, 0.34)'],
+    [0.65, 'rgba(120, 50, 75, 0.2)'],
+    [1, 'rgba(140, 70, 60, 0)'],
+  ]);
+  softCloud(ctx, rx * 0.18, -ry * 0.12, rx * 0.72, ry * 0.7, 0.35, [
+    [0, 'rgba(60, 30, 90, 0.3)'],
+    [0.55, 'rgba(100, 45, 80, 0.16)'],
+    [1, 'rgba(120, 60, 70, 0)'],
+  ]);
+  softCloud(ctx, -rx * 0.22, ry * 0.18, rx * 0.65, ry * 0.58, -0.4, [
+    [0, 'rgba(90, 35, 70, 0.28)'],
+    [0.5, 'rgba(120, 50, 65, 0.14)'],
+    [1, 'rgba(130, 70, 55, 0)'],
+  ]);
 
-  // Outer yellowish-olive fringe (healing edge / serum)
-  const outer = ctx.createRadialGradient(0, 0, Math.max(rx, ry) * 0.35, 0, 0, Math.max(rx, ry) * 1.05);
-  outer.addColorStop(0, 'rgba(120, 70, 55, 0)');
-  outer.addColorStop(0.55, 'rgba(130, 95, 45, 0.22)');
-  outer.addColorStop(0.82, 'rgba(90, 110, 55, 0.28)');
-  outer.addColorStop(1, 'rgba(100, 120, 70, 0)');
-  ctx.fillStyle = outer;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, rx * 1.08, ry * 1.08, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Mid blue-violet body
-  const mid = ctx.createRadialGradient(-rx * 0.1, ry * 0.05, rx * 0.08, 0, 0, Math.max(rx, ry));
-  mid.addColorStop(0, 'rgba(70, 35, 95, 0.55)');
-  mid.addColorStop(0.4, 'rgba(85, 40, 100, 0.42)');
-  mid.addColorStop(0.72, 'rgba(110, 45, 75, 0.28)');
-  mid.addColorStop(1, 'rgba(140, 70, 60, 0)');
-  ctx.fillStyle = mid;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Irregular mottled satellite blotches (broken vessels / uneven pooling)
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 6; i++) {
     const t = hash01(seed * 17 + i * 3.1);
     const t2 = hash01(seed * 29 + i * 5.7);
     const t3 = hash01(seed * 41 + i * 2.3);
-    const ox = (t - 0.5) * rx * 1.15;
-    const oy = (t2 - 0.5) * ry * 1.15;
-    const srx = rx * (0.18 + t3 * 0.28);
-    const sry = ry * (0.16 + hash01(seed + i) * 0.26);
-    const rot = (t - 0.5) * 1.4;
-    const deep = t3 > 0.55;
-    blotch(
-      ctx,
-      ox,
-      oy,
-      srx,
-      sry,
-      rot,
-      deep
-        ? `rgba(45, 15, 55, ${0.22 + t * 0.28})`
-        : `rgba(95, 40, 80, ${0.16 + t2 * 0.22})`
-    );
+    const ox = (t - 0.5) * rx * 0.95;
+    const oy = (t2 - 0.5) * ry * 0.95;
+    const srx = rx * (0.28 + t3 * 0.32);
+    const sry = ry * (0.24 + hash01(seed + i) * 0.3);
+    const deep = t3 > 0.5;
+    softCloud(ctx, ox, oy, srx, sry, (t - 0.5) * 1.2, [
+      [
+        0,
+        deep
+          ? `rgba(40, 12, 50, ${0.3 + t * 0.22})`
+          : `rgba(100, 40, 75, ${0.2 + t2 * 0.16})`,
+      ],
+      [0.55, deep ? 'rgba(55, 20, 55, 0.12)' : 'rgba(120, 50, 70, 0.08)'],
+      [1, 'rgba(80, 40, 60, 0)'],
+    ]);
   }
 
-  // Dark hematoma core (slightly off-center)
-  const coreX = -rx * (0.08 + hash01(seed) * 0.12);
-  const coreY = ry * (0.04 + hash01(seed + 2) * 0.1);
-  const core = ctx.createRadialGradient(coreX, coreY, 0, coreX, coreY, Math.max(rx, ry) * 0.42);
-  core.addColorStop(0, 'rgba(35, 8, 40, 0.62)');
-  core.addColorStop(0.45, 'rgba(55, 18, 50, 0.38)');
-  core.addColorStop(1, 'rgba(70, 30, 55, 0)');
-  ctx.fillStyle = core;
-  ctx.beginPath();
-  ctx.ellipse(coreX, coreY, rx * 0.48, ry * 0.42, 0.25, 0, Math.PI * 2);
-  ctx.fill();
+  const coreX = -rx * (0.06 + hash01(seed) * 0.14);
+  const coreY = ry * (0.02 + hash01(seed + 2) * 0.12);
+  softCloud(ctx, coreX, coreY, rx * 0.48, ry * 0.42, 0.2, [
+    [0, 'rgba(30, 6, 38, 0.58)'],
+    [0.4, 'rgba(50, 15, 48, 0.34)'],
+    [1, 'rgba(70, 30, 55, 0)'],
+  ]);
 
-  // Reddish inflammatory flush near core
-  blotch(
-    ctx,
-    coreX + rx * 0.15,
-    coreY - ry * 0.08,
-    rx * 0.32,
-    ry * 0.28,
-    -0.3,
-    'rgba(140, 35, 45, 0.28)'
-  );
-
-  // Tiny capillary flecks
+  // Fresh red flush on top so inflammation stays vivid
   ctx.globalCompositeOperation = 'source-over';
-  for (let i = 0; i < 5; i++) {
+  softCloud(ctx, coreX + rx * 0.18, coreY - ry * 0.1, rx * 0.4, ry * 0.34, -0.25, [
+    [0, 'rgba(180, 35, 45, 0.34)'],
+    [0.45, 'rgba(150, 50, 55, 0.16)'],
+    [1, 'rgba(150, 70, 55, 0)'],
+  ]);
+
+  for (let i = 0; i < 10; i++) {
     const t = hash01(seed * 7 + i * 11);
     const t2 = hash01(seed * 13 + i * 9);
-    const fx = (t - 0.5) * rx * 0.9;
-    const fy = (t2 - 0.5) * ry * 0.85;
-    ctx.fillStyle = `rgba(90, 20, 35, ${0.18 + t * 0.2})`;
-    ctx.beginPath();
-    ctx.ellipse(fx, fy, rx * (0.02 + t * 0.03), ry * (0.015 + t2 * 0.025), t * Math.PI, 0, Math.PI * 2);
-    ctx.fill();
+    softCloud(
+      ctx,
+      (t - 0.5) * rx * 0.85,
+      (t2 - 0.5) * ry * 0.8,
+      rx * (0.04 + t * 0.05),
+      ry * (0.03 + t2 * 0.04),
+      0,
+      [
+        [0, `rgba(110, 20, 35, ${0.22 + t * 0.2})`],
+        [1, 'rgba(110, 20, 35, 0)'],
+      ]
+    );
   }
 
   ctx.restore();
