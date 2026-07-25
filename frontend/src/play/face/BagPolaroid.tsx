@@ -179,20 +179,21 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
     scrapTex.colorSpace = THREE.SRGBColorSpace
 
     const pose = photoPose()
+    // Peel toward the camera (+Z) and slightly sideways so scraps stay visible.
     const outward =
-      kind === 'cornerL' ? { vx: -0.55, vz: 0.55, wr: -4 } :
-      kind === 'cornerR' ? { vx: 0.6, vz: 0.5, wr: 4 } :
-      { vx: -0.7, vz: 0.65, wr: -5 }
+      kind === 'cornerL' ? { vx: -0.45, vz: 1.1, wr: -3.2 } :
+      kind === 'cornerR' ? { vx: 0.5, vz: 1.05, wr: 3.2 } :
+      { vx: -0.35, vz: 1.25, wr: -3.8 }
 
     scrapsRef.current.push({
       id: kind,
       x: pose.x,
       y: pose.y,
-      z: pose.z + 0.02,
+      z: pose.z + 0.03,
       rotZ: pose.rotZ,
       rotX: 0,
       vx: outward.vx,
-      vy: 0.35,
+      vy: 0.15,
       vz: outward.vz,
       wr: outward.wr,
       texture: scrapTex,
@@ -361,16 +362,18 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
       scrap.y += scrap.vy * dt
       scrap.z += scrap.vz * dt
       scrap.rotZ += scrap.wr * dt
-      scrap.rotX += 1.2 * dt
-      scrap.vx *= 0.995
-      scrap.vz *= 0.995
-      if (scrap.y < FLOOR_LOCAL_Y + 0.01) {
-        scrap.y = FLOOR_LOCAL_Y + 0.01
-        scrap.vy *= -0.12
-        scrap.vx *= 0.45
-        scrap.vz *= 0.45
-        scrap.wr *= 0.3
-        scrap.rotX = Math.min(scrap.rotX, 1.2)
+      scrap.rotX += 1.4 * dt
+      scrap.vx *= 0.99
+      // Keep drifting forward a bit so pieces don't settle under the bag.
+      scrap.vz = scrap.vz * 0.985 + 0.15 * dt
+      if (scrap.y < FLOOR_LOCAL_Y + 0.015) {
+        scrap.y = FLOOR_LOCAL_Y + 0.015
+        scrap.vy *= -0.1
+        scrap.vx *= 0.4
+        scrap.vz *= 0.25
+        scrap.wr *= 0.25
+        scrap.rotX = Math.min(Math.max(scrap.rotX, 1.05), 1.45)
+        scrap.z = Math.max(scrap.z, 0.55)
         if (Math.abs(scrap.vy) < 0.04) scrap.vy = 0
       }
     }
@@ -473,6 +476,7 @@ function FallingScrapMesh({ scrap, opacity }: { scrap: FallingScrap; opacity: nu
         transparent
         opacity={opacity}
         depthWrite={false}
+        depthTest={false}
         side={THREE.DoubleSide}
       />
     </mesh>
