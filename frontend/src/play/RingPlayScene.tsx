@@ -7,7 +7,6 @@ import { ringZoneScreenOffset } from './ringImpact';
 import { applyRingHitImpulse, createRingSwingState, stepRingSwing } from './ringSwing';
 import { RING_PARTNER_FORWARD, RING_PARTNER_LIFT, RING_PARTNER_YAW, RING_PLAY_CAMERA } from './playCamera';
 import type { PunchImpact } from './punchImpact';
-import type { FaceDamageId } from './face/faceDamage';
 
 function RingPlayEnvironment() {
   return (
@@ -23,11 +22,9 @@ function RingPlayEnvironment() {
 function PlayRing({
   impacts,
   ringZoneOffsetRef,
-  faceDamages,
 }: {
   impacts: PunchImpact[];
   ringZoneOffsetRef: RefObject<GlovePosition>;
-  faceDamages: readonly FaceDamageId[];
 }) {
   const swingRef = useRef(createRingSwingState());
   const partnerRef = useRef<THREE.Group>(null);
@@ -114,7 +111,7 @@ function PlayRing({
           animate
           scale={RING_SPRITE_SCALE}
           showFace
-          faceDamages={faceDamages}
+          lastHitTime={hitFlash}
         />
       </group>
     </group>
@@ -124,10 +121,9 @@ function PlayRing({
 interface RingPlaySceneProps {
   impacts: PunchImpact[];
   ringZoneOffsetRef: RefObject<GlovePosition>;
-  faceDamages: readonly FaceDamageId[];
 }
 
-export function RingPlayScene({ impacts, ringZoneOffsetRef, faceDamages }: RingPlaySceneProps) {
+export function RingPlayScene({ impacts, ringZoneOffsetRef }: RingPlaySceneProps) {
   const cam = RING_PLAY_CAMERA;
   return (
     <Canvas
@@ -142,7 +138,7 @@ export function RingPlayScene({ impacts, ringZoneOffsetRef, faceDamages }: RingP
       <color attach="background" args={['#1a1208']} />
       <RingPlayEnvironment />
       <Suspense fallback={null}>
-        <PlayRing impacts={impacts} ringZoneOffsetRef={ringZoneOffsetRef} faceDamages={faceDamages} />
+        <PlayRing impacts={impacts} ringZoneOffsetRef={ringZoneOffsetRef} />
       </Suspense>
     </Canvas>
   );

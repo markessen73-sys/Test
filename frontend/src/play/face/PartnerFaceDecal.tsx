@@ -1,16 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { FACE_CONTAIN_PAD } from './composeFaceTexture';
+import { FACE_CONTAIN_PAD, drawFullFaceOnCanvas, loadFaceImage, warpForPunch } from './composeFaceTexture';
+import { drawHitOohExpression } from './drawHitOohExpression';
 import { FACE_NOSE_LANDMARK, FACE_SOURCE_SIZE, FACE_TEMPLATE_SRC, RING_PARTNER_FACE } from './faceTemplate';
-import { drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture';
-import { drawFaceDamageOverlays } from './drawFaceDamageOverlays';
-import {
-  compositeReferenceDamages,
-  FACE_DAMAGE_BASELINE_SRC,
-  proceduralDamagesOnly,
-} from './compositeFaceDamage';
-import { faceDamageAssetSrcs } from './faceDamageAssets';
-import type { FaceDamageId } from './faceDamage';
 import {
   landmarkOffsetInDecal,
   scalePlacement,
@@ -26,6 +18,8 @@ const PARTNER_FACE_SCALE_BOTTOM_LEFT = 1.1;
 /** Nose pinned, +10% every direction (applied per user calibration step). */
 const PARTNER_FACE_SCALE_NOSE = 1.1;
 const PARTNER_FACE_NOSE_SCALE_STEPS = 2;
+/** How long the "ooh!" punch face lasts (ms). */
+const OOH_MS = 320;
 
 function scaleFromNose(
   placement: ReturnType<typeof spriteNormRectToLocal>,
@@ -51,26 +45,23 @@ interface PartnerFaceDecalProps {
   spriteWidth: number;
   /** Sprite plane height in metres. */
   spriteHeight: number;
-  /** Accumulated face injuries from landed punches. */
-  damages?: readonly FaceDamageId[];
+  /** Latest landed punch time — triggers brief "ooh!" expression. */
+  lastHitTime?: number;
 }
 
-/** Template face decal mapped onto the sparring partner head (ring play only). */
+/**
+ * Clean caricature on the moving sparring partner.
+ * Injuries live on the HUD damage meter; this face only reacts with "ooh!" on hit.
+ */
 export function PartnerFaceDecal({
   spriteWidth,
   spriteHeight,
-  damages = [],
+  lastHitTime = 0,
 }: PartnerFaceDecalProps) {
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
-  const [imageReady, setImageReady] = useState(false);
   const imgRef = useRef<HTMLImageElement | null>(null);
-  /** Undamaged male face the damage PNGs were authored against. */
-  const maleBaselineRef = useRef<HTMLImageElement | null>(null);
-  const damageImgsRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const texRef = useRef<THREE.CanvasTexture | null>(null);
-  const damagesRef = useRef(damages);
-  damagesRef.current = damages;
 
   const placement = useMemo(() => {
     const base = spriteNormRectToLocal(RING_PARTNER_FACE, spriteWidth, spriteHeight, {
@@ -85,30 +76,6 @@ export function PartnerFaceDecal({
   }, [spriteWidth, spriteHeight]);
   const [fw, fh] = placement.size;
 
-  const redraw = useCallback(() => {
-    const img = imgRef.current;
-    const maleBaseline = maleBaselineRef.current;
-    const canvas = canvasRef.current;
-    const tex = texRef.current;
-    if (!img || !maleBaseline || !canvas || !tex) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const applied = damagesRef.current;
-    drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE);
-    // Diff damage refs against the male baseline, then map those changes onto this face.
-    compositeReferenceDamages(
-      ctx,
-      CANVAS_SIZE,
-      CANVAS_SIZE,
-      maleBaseline,
-      applied,
-      damageImgsRef.current
-    );
-    drawFaceDamageOverlays(ctx, CANVAS_SIZE, CANVAS_SIZE, proceduralDamagesOnly(applied));
-    tex.needsUpdate = true;
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
     const canvas = document.createElement('canvas');
@@ -120,24 +87,13 @@ export function PartnerFaceDecal({
     texRef.current = tex;
     setTexture(tex);
 
-    const srcs = faceDamageAssetSrcs();
-
-    Promise.all([
-      loadFaceImage(FACE_TEMPLATE_SRC),
-      loadFaceImage(FACE_DAMAGE_BASELINE_SRC),
-      ...srcs.map(async (src) => {
-        const loaded = await loadFaceImage(src);
-        return [src, loaded] as const;
-      }),
-    ]).then(([liveFace, maleBaseline, ...pairs]) => {
+    loadFaceImage(FACE_TEMPLATE_SRC).then((img) => {
       if (cancelled) return;
-      imgRef.current = liveFace;
-      maleBaselineRef.current = maleBaseline;
-      const map = new Map<string, HTMLImageElement>();
-      for (const [src, loaded] of pairs) map.set(src, loaded);
-      // Baseline is also in srcs — keep it available but injury lookups use asset.src.
-      damageImgsRef.current = map;
-      setImageReady(true);
+      imgRef.current = img;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE);
+      tex.needsUpdate = true;
     });
 
     return () => {
@@ -146,12 +102,36 @@ export function PartnerFaceDecal({
     };
   }, []);
 
-  const damagesKey = damages.join(',');
-
+  // Animate punch "ooh!" while the reaction window is open.
   useEffect(() => {
-    if (!imageReady) return;
-    redraw();
-  }, [damagesKey, imageReady, redraw]);
+    if (!lastHitTime) return;
+    let frame = 0;
+    const tick = () => {
+      frame = requestAnimationFrame(tick);
+      const img = imgRef.current;
+      const canvas = canvasRef.current;
+      const tex = texRef.current;
+      if (!img || !canvas || !tex) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const age = performance.now() - lastHitTime;
+      const active = age >= 0 && age < OOH_MS;
+      const intensity = active ? 1 - age / OOH_MS : 0;
+      const warp = active ? warpForPunch() : undefined;
+      drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE, warp);
+      if (active) {
+        drawHitOohExpression(ctx, CANVAS_SIZE, CANVAS_SIZE, Math.min(1, intensity * 1.4));
+      }
+      tex.needsUpdate = true;
+
+      if (!active && age >= OOH_MS) {
+        cancelAnimationFrame(frame);
+      }
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [lastHitTime]);
 
   if (!texture) return null;
 

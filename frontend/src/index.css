@@ -1324,6 +1324,62 @@ html, body, #root, .app {
   margin-left: 0.75rem;
 }
 
+/* Ring opponent damage portrait + meter (top-right). */
+.play-damage-hud {
+  position: absolute;
+  top: max(3.6rem, calc(env(safe-area-inset-top) + 3.1rem));
+  right: max(0.75rem, env(safe-area-inset-right));
+  pointer-events: none;
+  z-index: 7;
+}
+
+.play-damage-hud-frame {
+  width: 9.5rem;
+  padding: 0.4rem;
+  border-radius: 0.55rem;
+  background: linear-gradient(160deg, rgba(28, 18, 10, 0.88), rgba(10, 8, 6, 0.92));
+  border: 1px solid rgba(232, 200, 100, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.play-damage-hud-face {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0.35rem;
+  background: #0a0a0a;
+}
+
+.play-damage-hud-meter {
+  margin-top: 0.4rem;
+}
+
+.play-damage-hud-meter-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #e8c840;
+  margin-bottom: 0.22rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.play-damage-hud-meter-track {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.play-damage-hud-meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c9442a, #e8c840 70%, #ffe566);
+  transition: width 0.35s ease-out;
+}
+
 .play-bottom {
   padding: 0.5rem 1rem max(1rem, env(safe-area-inset-bottom));
   background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);

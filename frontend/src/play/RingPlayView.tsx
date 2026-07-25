@@ -5,6 +5,7 @@ import { useElasticGloves } from './useElasticGloves';
 import { isKnuckleOnSparringPartner } from './ringZoneGrid';
 import { playPunchSfx, preloadPunchSfx } from './playPunchSfx';
 import { useFaceDamage } from './face/useFaceDamage';
+import { OpponentDamageHud } from './face/OpponentDamageHud';
 import type { PunchImpact } from './punchImpact';
 import type { GloveId, GlovePosition } from '../types/game';
 
@@ -53,11 +54,11 @@ export function RingPlayView({ onBack }: RingPlayViewProps) {
           <strong>Upward</strong> drags leave a vapour trail; release on your opponent while still moving to land shots.
         </>
       }
+      hudExtra={<OpponentDamageHud damages={faceDamages} />}
       canvas={
         <RingPlayScene
           impacts={impacts}
           ringZoneOffsetRef={targetZoneOffsetRef}
-          faceDamages={faceDamages}
         />
       }
       {...gloves}

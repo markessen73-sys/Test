@@ -5,7 +5,6 @@ import type { Group } from 'three';
 import * as THREE from 'three';
 import { assetUrl } from '../assetUrl';
 import { PartnerFaceDecal } from '../play/face/PartnerFaceDecal';
-import type { FaceDamageId } from '../play/face/faceDamage';
 
 const SPARRING_BOXER_TEXTURE = assetUrl('/boxer/sparring-boxer.png');
 
@@ -53,8 +52,8 @@ interface SparringPartnerProps {
   scale?: number;
   /** Show caricature face on head (ring play only). */
   showFace?: boolean;
-  /** Accumulated face injuries (ring play). */
-  faceDamages?: readonly FaceDamageId[];
+  /** Latest landed punch time — drives face "ooh!" reaction. */
+  lastHitTime?: number;
   innerRef?: RefObject<Group | null>;
 }
 
@@ -64,7 +63,7 @@ function SparringPartnerSprite({
   animate = false,
   scale = 1,
   showFace = false,
-  faceDamages = [],
+  lastHitTime = 0,
   innerRef,
 }: SparringPartnerProps) {
   const animRef = useRef<Group>(null);
@@ -104,7 +103,11 @@ function SparringPartnerSprite({
           />
         </mesh>
         {showFace && (
-          <PartnerFaceDecal spriteWidth={width} spriteHeight={height} damages={faceDamages} />
+          <PartnerFaceDecal
+            spriteWidth={width}
+            spriteHeight={height}
+            lastHitTime={lastHitTime}
+          />
         )}
       </group>
     </group>

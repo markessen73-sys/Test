@@ -12,6 +12,8 @@ export interface GlovesPlayShellProps {
   punchCount: number;
   hint: ReactNode;
   canvas: ReactNode;
+  /** Optional overlay (e.g. ring damage meter) — rendered inside `.play-ui`. */
+  hudExtra?: ReactNode;
   left: GloveState;
   right: GloveState;
   leftTransform: GloveTransform;
@@ -30,6 +32,7 @@ export function GlovesPlayShell({
   punchCount,
   hint,
   canvas,
+  hudExtra,
   left,
   right,
   leftTransform,
@@ -89,6 +92,8 @@ export function GlovesPlayShell({
             build {buildSha}
           </span>
         </header>
+
+        {hudExtra}
 
         <footer className="play-bottom">
           <p className="play-hint">{hint}</p>
