@@ -44,17 +44,17 @@ export function scrapPath(
 ) {
   ctx.beginPath()
   if (kind === 'cornerL') {
-    // Large bottom-left bite through footer + into the face.
+    // Big bite through the white footer AND into the portrait so the hole reads.
     ctx.moveTo(0, h)
-    appendJagged(ctx, 0, h, w * 0.55, h, 10, 10)
-    appendJagged(ctx, w * 0.55, h, 0, h * 0.38, 18, 18)
+    appendJagged(ctx, 0, h, w * 0.58, h, 10, 10)
+    appendJagged(ctx, w * 0.58, h, 0, h * 0.22, 20, 20)
     ctx.closePath()
     return
   }
   if (kind === 'cornerR') {
     ctx.moveTo(w, h)
-    appendJagged(ctx, w, h, w * 0.45, h, 10, 10)
-    appendJagged(ctx, w * 0.45, h, w, h * 0.38, 18, 18)
+    appendJagged(ctx, w, h, w * 0.42, h, 10, 10)
+    appendJagged(ctx, w * 0.42, h, w, h * 0.22, 20, 20)
     ctx.closePath()
     return
   }
@@ -77,11 +77,11 @@ function strokeTearEdge(
   ctx.lineJoin = 'round'
   ctx.beginPath()
   if (kind === 'cornerL') {
-    ctx.moveTo(w * 0.55, h)
-    appendJagged(ctx, w * 0.55, h, 0, h * 0.38, 18, 18)
+    ctx.moveTo(w * 0.58, h)
+    appendJagged(ctx, w * 0.58, h, 0, h * 0.22, 20, 20)
   } else if (kind === 'cornerR') {
-    ctx.moveTo(w * 0.45, h)
-    appendJagged(ctx, w * 0.45, h, w, h * 0.38, 18, 18)
+    ctx.moveTo(w * 0.42, h)
+    appendJagged(ctx, w * 0.42, h, w, h * 0.22, 20, 20)
   } else {
     ctx.moveTo(0, h * 0.08)
     appendJagged(ctx, 0, h * 0.08, w * 0.78, h, 24, 20)
