@@ -2,8 +2,8 @@
  * Bake cumulative damage-stage faces for the ring HUD.
  *
  * Replicates each original-boxer injury change on the photo caricature:
- * grow/recolor cauliflower ears, purple black-eye + lid droop, puffed lip,
- * missing tooth, swollen-shut eye, broken-nose cut, forehead bandage.
+ * grow/recolor cauliflower ears, purple black-eye + lid droop, chin cross
+ * plaster, missing tooth, swollen-shut eye, broken-nose cut, forehead bandage.
  *
  * Usage: node scripts/bake-damage-stage-faces.mjs
  */
@@ -24,6 +24,7 @@ const LM = {
   nose: { x: 0.5, y: 0.52 },
   mouth: { x: 0.504, y: 0.665 },
   bottomLip: { x: 0.504, y: 0.715 },
+  chin: { x: 0.51, y: 0.8 },
   rightEar: { x: 0.162, y: 0.544, rx: 0.065, ry: 0.125 },
   leftEar: { x: 0.836, y: 0.536, rx: 0.065, ry: 0.125 },
   forehead: { x: 0.5, y: 0.295 },
@@ -441,74 +442,122 @@ function applyBlackEye(face, which) {
   return painted;
 }
 
-/** Swollen lip — modest puff, redder skin tone (not purple). */
-function applySwollenLip(face, clean, skin) {
-  const lip = LM.bottomLip;
-  const [skinR, skinG, skinB] = skin;
-  let painted = 0;
+/**
+ * Cross-shaped plaster (Band-Aid) on the chin — two overlapping strips
+ * forming a +, cream cloth like a first-aid plaster.
+ */
+function applyChinCrossPlaster(face, clean) {
+  const chin = LM.chin;
+  // Strip half-sizes in normalized coords.
+  const hLen = 0.07; // horizontal strip half-length
+  const hWid = 0.018; // horizontal strip half-width
+  const vLen = 0.065;
+  const vWid = 0.017;
+  const pad = 0.004; // rounded ends
 
+  let painted = 0;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const nx = (x + 0.5) / W;
       const ny = (y + 0.5) / H;
-      // Modest swell — smaller oval, warm red skin.
-      const dOut = ellipseDist(nx, ny, lip.x, lip.y + 0.008, 0.108, 0.048);
-      if (dOut > 1.02) continue;
+      const dx = nx - chin.x;
+      const dy = ny - chin.y;
+
+      const inH =
+        Math.abs(dx) <= hLen + pad &&
+        Math.abs(dy) <= hWid + pad &&
+        (Math.abs(dx) <= hLen || Math.hypot(Math.abs(dx) - hLen, dy) <= hWid);
+      const inV =
+        Math.abs(dy) <= vLen + pad &&
+        Math.abs(dx) <= vWid + pad &&
+        (Math.abs(dy) <= vLen || Math.hypot(dx, Math.abs(dy) - vLen) <= vWid);
+      if (!inH && !inV) continue;
 
       const i = (y * W + x) * 4;
+      const cr0 = clean.data[i];
+      const cg0 = clean.data[i + 1];
+      const cb0 = clean.data[i + 2];
+      const ca0 = clean.data[i + 3];
+      // Only on chin skin (don't paint into void / teeth / mouth).
+      if (ca0 < 20 || isBackdrop(cr0, cg0, cb0, ca0)) continue;
+      if (!isSkinTone(cr0, cg0, cb0, ca0) && !isLineArt(cr0, cg0, cb0)) continue;
+      if (isTooth(cr0, cg0, cb0) || isIris(cr0, cg0, cb0)) continue;
+
+      // Edge falloff for soft plaster ends.
+      let edge = 1;
+      if (inH) {
+        const ex = Math.abs(dx) > hLen ? 1 - (Math.abs(dx) - hLen) / pad : 1;
+        const ey = Math.abs(dy) > hWid * 0.85 ? 1 - (Math.abs(dy) - hWid * 0.85) / (hWid * 0.15 + pad) : 1;
+        edge = Math.min(edge, Math.max(0, ex), Math.max(0, ey));
+      }
+      if (inV) {
+        const ey = Math.abs(dy) > vLen ? 1 - (Math.abs(dy) - vLen) / pad : 1;
+        const ex = Math.abs(dx) > vWid * 0.85 ? 1 - (Math.abs(dx) - vWid * 0.85) / (vWid * 0.15 + pad) : 1;
+        edge = Math.max(edge, Math.min(Math.max(0, ex), Math.max(0, ey)));
+        if (!inH) edge = Math.min(Math.max(0, ex), Math.max(0, ey));
+      }
+      if (edge < 0.08) continue;
+
+      // Cream plaster cloth.
+      let cr = 242;
+      let cg = 228;
+      let cb = 198;
+      // Soft center pad (slightly thicker look at crossing).
+      if (Math.abs(dx) < vWid * 1.1 && Math.abs(dy) < hWid * 1.1) {
+        cr = 248;
+        cg = 236;
+        cb = 210;
+      }
+      // Tiny fabric fold lines.
+      if (inH && Math.abs((dy / hWid) % 1) < 0.12) {
+        cr = mix(cr, 220, 0.25);
+        cg = mix(cg, 205, 0.25);
+        cb = mix(cb, 175, 0.25);
+      }
+      if (inV && Math.abs((dx / vWid) % 1) < 0.12) {
+        cr = mix(cr, 220, 0.2);
+        cg = mix(cg, 205, 0.2);
+        cb = mix(cb, 175, 0.2);
+      }
+      // Small blood speck under the cross center.
+      if (Math.hypot(dx, dy) < 0.012) {
+        const bt = 1 - Math.hypot(dx, dy) / 0.012;
+        cr = mix(cr, 170, bt * 0.45);
+        cg = mix(cg, 70, bt * 0.45);
+        cb = mix(cb, 55, bt * 0.45);
+      }
+
+      const t = Math.min(1, edge);
       const fr = face.data[i];
       const fg = face.data[i + 1];
       const fb = face.data[i + 2];
-      const fa = face.data[i + 3];
-      if (fa > 20 && (isGlassesFrame(fr, fg, fb, fa) || isTooth(fr, fg, fb) || isIris(fr, fg, fb))) continue;
-      if (ny < lip.y - 0.028 && fa > 20 && isTooth(fr, fg, fb)) continue;
-
-      const canPaint =
-        fa < 20 ||
-        isBackdrop(fr, fg, fb, fa) ||
-        isSkinTone(fr, fg, fb, fa) ||
-        (fr > 140 && fg < 150 && fb < 140);
-      if (!canPaint) continue;
-
-      const shade = 1 - Math.min(1, dOut);
-      let [cr, cg, cb] = inflamedFromSkin(skinR, skinG, skinB, shade, 0.62);
-      const center = ellipseDist(nx, ny, lip.x, lip.y + 0.006, 0.038, 0.028);
-      if (center < 1) {
-        [cr, cg, cb] = inflamedFromSkin(skinR, skinG, skinB, 0.5, 0.72);
-      }
-
-      const edge = softEdge(dOut, 0.86);
-      const t = Math.min(1, edge * 0.95);
-      if (t < 0.05) continue;
-      if (t >= 0.85 || fa < 20 || isBackdrop(fr, fg, fb, fa)) {
-        face.data[i] = cr;
-        face.data[i + 1] = cg;
-        face.data[i + 2] = cb;
-        face.data[i + 3] = 255;
-      } else {
-        face.data[i] = clamp(mix(fr, cr, t));
-        face.data[i + 1] = clamp(mix(fg, cg, t));
-        face.data[i + 2] = clamp(mix(fb, cb, t));
-        face.data[i + 3] = 255;
-      }
+      face.data[i] = clamp(mix(fr, cr, t));
+      face.data[i + 1] = clamp(mix(fg, cg, t));
+      face.data[i + 2] = clamp(mix(fb, cb, t));
+      face.data[i + 3] = 255;
       painted++;
     }
   }
 
-  // Thin center cut — warm dark red, short.
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
+  // Thin outline around plaster for cartoon cohesion.
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 1; x < W - 1; x++) {
       const nx = (x + 0.5) / W;
       const ny = (y + 0.5) / H;
-      if (Math.abs(nx - lip.x) > 0.0035) continue;
-      if (ny < lip.y - 0.005 || ny > lip.y + 0.028) continue;
+      const dx = nx - chin.x;
+      const dy = ny - chin.y;
+      const inH = Math.abs(dx) <= hLen && Math.abs(dy) <= hWid;
+      const inV = Math.abs(dy) <= vLen && Math.abs(dx) <= vWid;
+      if (!inH && !inV) continue;
+      // Perimeter ring only.
+      const onEdgeH = inH && (Math.abs(dx) > hLen - 0.003 || Math.abs(dy) > hWid - 0.0025);
+      const onEdgeV = inV && (Math.abs(dy) > vLen - 0.003 || Math.abs(dx) > vWid - 0.0025);
+      if (!onEdgeH && !onEdgeV) continue;
       const i = (y * W + x) * 4;
-      if (face.data[i + 3] < 40 || isTooth(face.data[i], face.data[i + 1], face.data[i + 2])) continue;
-      const t = 0.7;
-      face.data[i] = clamp(mix(face.data[i], skinR * 0.7, t));
-      face.data[i + 1] = clamp(mix(face.data[i + 1], skinG * 0.38, t));
-      face.data[i + 2] = clamp(mix(face.data[i + 2], skinB * 0.28, t));
-      painted++;
+      if (face.data[i + 3] < 40) continue;
+      face.data[i] = clamp(mix(face.data[i], 170, 0.35));
+      face.data[i + 1] = clamp(mix(face.data[i + 1], 150, 0.35));
+      face.data[i + 2] = clamp(mix(face.data[i + 2], 120, 0.35));
     }
   }
   return painted;
@@ -749,7 +798,7 @@ fs.writeFileSync(`${OUT}/00-clean.png`, liveCtx.canvas.toBuffer('image/png'));
 const steps = [
   { name: '01-cauliflowerLeftEar', run: () => applyCauliflowerEar(face, clean, 'left', skin) },
   { name: '02-blackRightEye', run: () => applyBlackEye(face, 'right') },
-  { name: '03-swollenBottomLip', run: () => applySwollenLip(face, clean, skin) },
+  { name: '03-chinCrossPlaster', run: () => applyChinCrossPlaster(face, clean) },
   { name: '04-cauliflowerRightEar', run: () => applyCauliflowerEar(face, clean, 'right', skin) },
   { name: '05-missingTooth', run: () => applyMissingTooth(face) },
   { name: '06-swollenLeftEye', run: () => applySwollenEye(face, 'left') },

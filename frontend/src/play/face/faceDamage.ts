@@ -5,7 +5,7 @@
 export type FaceDamageId =
   | 'cauliflowerLeftEar'
   | 'blackRightEye'
-  | 'swollenBottomLip'
+  | 'chinCrossPlaster'
   | 'cauliflowerRightEar'
   | 'missingTooth'
   | 'swollenLeftEye'
@@ -18,7 +18,7 @@ export type FaceDamageId =
  *
  * 1 left cauliflower ear
  * 2 + right black eye
- * 3 + swollen bottom lip
+ * 3 + cross plaster on chin
  * 4 + cauliflower right ear
  * 5 + missing tooth
  * 6 + swollen left eye
@@ -28,7 +28,7 @@ export type FaceDamageId =
 export const DAMAGE_FACE_SEQUENCE: readonly FaceDamageId[] = [
   'cauliflowerLeftEar',
   'blackRightEye',
-  'swollenBottomLip',
+  'chinCrossPlaster',
   'cauliflowerRightEar',
   'missingTooth',
   'swollenLeftEye',

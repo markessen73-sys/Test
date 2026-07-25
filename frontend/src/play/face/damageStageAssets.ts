@@ -11,7 +11,7 @@ export const DAMAGE_STAGE_CLEAN_SRC = assetUrl('/faces/damage-stages/00-clean.pn
 export const DAMAGE_STAGE_SRCS: readonly string[] = [
   assetUrl('/faces/damage-stages/01-cauliflowerLeftEar.png'),
   assetUrl('/faces/damage-stages/02-blackRightEye.png'),
-  assetUrl('/faces/damage-stages/03-swollenBottomLip.png'),
+  assetUrl('/faces/damage-stages/03-chinCrossPlaster.png'),
   assetUrl('/faces/damage-stages/04-cauliflowerRightEar.png'),
   assetUrl('/faces/damage-stages/05-missingTooth.png'),
   assetUrl('/faces/damage-stages/06-swollenLeftEye.png'),

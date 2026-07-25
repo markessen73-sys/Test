@@ -118,19 +118,7 @@ export const FACE_DAMAGE_ASSETS: Partial<Record<FaceDamageId, FaceDamageAsset>> 
     keepFrac: 0.22,
     region: { cx: 0.35, cy: 0.34, rx: 0.14, ry: 0.13, preferRedder: true, diffThreshold: 22 },
   },
-  swollenBottomLip: {
-    src: assetUrl('/faces/damage/swollen-lip.png'),
-    anchor: 'bottomLip',
-    region: {
-      cx: 0.5,
-      cy: 0.66,
-      rx: 0.2,
-      ry: 0.1,
-      preferRedder: true,
-      allowGrow: true,
-      diffThreshold: 16,
-    },
-  },
+  // chinCrossPlaster is bake-only (drawn in bake-damage-stage-faces.mjs).
   cauliflowerRightEar: {
     src: assetUrl('/faces/damage/cauliflower-ear.png'),
     anchor: 'leftEar',
