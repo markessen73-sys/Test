@@ -38,7 +38,6 @@ import {
   setAllowClownSkin,
   applyCauliflowerEar,
   applyBlackEye,
-  applyChinCrossPlaster,
   applyMissingTooth,
   applySwollenEye,
   applyBrokenNose,
@@ -426,7 +425,60 @@ put(liveCtx, face, '00-clean.png');
 const steps = [
   { name: '01-cauliflowerLeftEar', run: () => applyCauliflowerEar(face, clownClean, 'left', peachSkin) },
   { name: '02-blackRightEye', run: () => applyBlackEye(face, 'right') },
-  { name: '03-chinCrossPlaster', run: () => applyChinCrossPlaster(face, clownClean) },
+  {
+    name: '03-chinCrossPlaster',
+    run: () => {
+      // Shared painter only stamps on peach skin; clown chin is white/red smile paint.
+      let n = 0;
+      const chin = LM.chin;
+      const hLen = 0.07;
+      const hWid = 0.018;
+      const vLen = 0.065;
+      const vWid = 0.017;
+      const pad = 0.004;
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const nx = (x + 0.5) / W;
+          const ny = (y + 0.5) / H;
+          const dx = nx - chin.x;
+          const dy = ny - chin.y;
+          const inH =
+            Math.abs(dx) <= hLen + pad &&
+            Math.abs(dy) <= hWid + pad &&
+            (Math.abs(dx) <= hLen || Math.hypot(Math.abs(dx) - hLen, dy) <= hWid);
+          const inV =
+            Math.abs(dy) <= vLen + pad &&
+            Math.abs(dx) <= vWid + pad &&
+            (Math.abs(dy) <= vLen || Math.hypot(dx, Math.abs(dy) - vLen) <= vWid);
+          if (!inH && !inV) continue;
+          const i = (y * W + x) * 4;
+          if (face.data[i + 3] < 20) continue;
+          if (isTooth(face.data[i], face.data[i + 1], face.data[i + 2])) continue;
+          if (isIris(face.data[i], face.data[i + 1], face.data[i + 2])) continue;
+          let cr = 242;
+          let cg = 228;
+          let cb = 198;
+          if (Math.abs(dx) < vWid * 1.1 && Math.abs(dy) < hWid * 1.1) {
+            cr = 248;
+            cg = 236;
+            cb = 210;
+          }
+          if (Math.hypot(dx, dy) < 0.012) {
+            const bt = 1 - Math.hypot(dx, dy) / 0.012;
+            cr = mix(cr, 170, bt * 0.45);
+            cg = mix(cg, 70, bt * 0.45);
+            cb = mix(cb, 55, bt * 0.45);
+          }
+          face.data[i] = cr;
+          face.data[i + 1] = cg;
+          face.data[i + 2] = cb;
+          face.data[i + 3] = 255;
+          n++;
+        }
+      }
+      return n;
+    },
+  },
   { name: '04-cauliflowerRightEar', run: () => applyCauliflowerEar(face, clownClean, 'right', peachSkin) },
   { name: '05-missingTooth', run: () => applyMissingTooth(face) },
   { name: '06-swollenLeftEye', run: () => applySwollenEye(face, 'left') },
