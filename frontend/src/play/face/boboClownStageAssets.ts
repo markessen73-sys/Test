@@ -4,6 +4,12 @@ import { DAMAGE_FACE_SEQUENCE } from './faceDamage';
 /** Clean comedy-clown caricature for the bobo doll. */
 export const BOBO_CLOWN_CLEAN_SRC = assetUrl('/faces/bobo-clown-stages/00-clean.png');
 
+/** Hit reaction ("ooh!") — clean clown, no injury stamps. */
+export const BOBO_CLOWN_OOH_SRC = assetUrl('/faces/bobo-clown-stages/ooh.png');
+
+/** Live-doll knockout face — clean clown KO expression (HUD uses 10-knockout). */
+export const BOBO_CLOWN_LIVE_KO_SRC = assetUrl('/faces/bobo-clown-stages/knockout-clean.png');
+
 /**
  * Pre-baked cumulative clown injury faces (same ladder as the ring HUD).
  * Index 0 = 10% … index 7 = 80%.

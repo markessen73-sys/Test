@@ -1,34 +1,48 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { drawFullFaceOnCanvas, loadFaceImage, warpForPunch } from './composeFaceTexture';
-import { BOBO_CLOWN_CLEAN_SRC } from './boboClownStageAssets';
+import { drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture';
+import {
+  BOBO_CLOWN_CLEAN_SRC,
+  BOBO_CLOWN_LIVE_KO_SRC,
+  BOBO_CLOWN_OOH_SRC,
+} from './boboClownStageAssets';
 import { BOBO_FACE_CENTER, BOBO_FACE_SIZE } from './boboFacePlacement';
 
 const CANVAS_SIZE = 512;
+/** Match ring partner hit-face window. */
+const OOH_MS = 380;
 
 interface BoboClownFaceDecalProps {
-  /** Latest landed punch — brief squash. Injuries stay on the damage HUD only. */
+  /** Latest landed punch — swaps to the clown ooh face. */
   lastHitTime?: number;
+  /** Damage meter at 100% — hold the clown knockout face. */
+  knockedOut?: boolean;
 }
 
 /**
- * Clean comedy-clown caricature on the bobo doll head.
- * Damage progression lives only in the top-right damage box.
+ * Clean comedy-clown on the bobo doll head.
+ * Injuries stay in the damage HUD. On hit → ooh; at 100% → KO.
  */
-export function BoboClownFaceDecal({ lastHitTime = 0 }: BoboClownFaceDecalProps) {
+export function BoboClownFaceDecal({
+  lastHitTime = 0,
+  knockedOut = false,
+}: BoboClownFaceDecalProps) {
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
+  const normalRef = useRef<HTMLImageElement | null>(null);
+  const oohRef = useRef<HTMLImageElement | null>(null);
+  const koRef = useRef<HTMLImageElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const texRef = useRef<THREE.CanvasTexture | null>(null);
+  const knockedOutRef = useRef(knockedOut);
+  knockedOutRef.current = knockedOut;
 
-  const paint = (warp?: Parameters<typeof drawFullFaceOnCanvas>[4]) => {
-    const img = imgRef.current;
+  const paint = (img: HTMLImageElement) => {
     const canvas = canvasRef.current;
     const tex = texRef.current;
-    if (!img || !canvas || !tex) return;
+    if (!canvas || !tex) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE, warp);
+    drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE);
     tex.needsUpdate = true;
   };
 
@@ -43,10 +57,16 @@ export function BoboClownFaceDecal({ lastHitTime = 0 }: BoboClownFaceDecalProps)
     texRef.current = tex;
     setTexture(tex);
 
-    loadFaceImage(BOBO_CLOWN_CLEAN_SRC).then((img) => {
+    Promise.all([
+      loadFaceImage(BOBO_CLOWN_CLEAN_SRC),
+      loadFaceImage(BOBO_CLOWN_OOH_SRC),
+      loadFaceImage(BOBO_CLOWN_LIVE_KO_SRC),
+    ]).then(([normal, ooh, ko]) => {
       if (cancelled) return;
-      imgRef.current = img;
-      paint();
+      normalRef.current = normal;
+      oohRef.current = ooh;
+      koRef.current = ko;
+      paint(knockedOutRef.current ? ko : normal);
     });
 
     return () => {
@@ -56,17 +76,37 @@ export function BoboClownFaceDecal({ lastHitTime = 0 }: BoboClownFaceDecalProps)
   }, []);
 
   useEffect(() => {
-    if (!lastHitTime) return;
+    const ko = koRef.current;
+    const normal = normalRef.current;
+    if (knockedOut) {
+      if (ko) paint(ko);
+      return;
+    }
+    if (normal) paint(normal);
+  }, [knockedOut]);
+
+  useEffect(() => {
+    if (!lastHitTime || knockedOutRef.current) return;
     let frame = 0;
     const tick = () => {
       frame = requestAnimationFrame(tick);
-      const age = performance.now() - lastHitTime;
-      if (age < 280) {
-        paint(warpForPunch());
+      if (knockedOutRef.current) {
+        const ko = koRef.current;
+        if (ko) paint(ko);
+        cancelAnimationFrame(frame);
         return;
       }
-      paint();
-      cancelAnimationFrame(frame);
+      const normal = normalRef.current;
+      const ooh = oohRef.current;
+      if (!normal || !ooh) return;
+
+      const age = performance.now() - lastHitTime;
+      const showOoh = age >= 0 && age < OOH_MS;
+      paint(showOoh ? ooh : normal);
+
+      if (!showOoh && age >= OOH_MS) {
+        cancelAnimationFrame(frame);
+      }
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);

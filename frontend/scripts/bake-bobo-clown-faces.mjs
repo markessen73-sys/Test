@@ -438,9 +438,24 @@ for (const step of steps) {
 put(liveCtx, face, '09-hold.png');
 console.log('09-hold (copy of 08)');
 
-// 10 = clown KO from the fully damaged clown face.
+// 10 = clown KO from the fully damaged clown face (damage HUD at 100%).
 applyClownKnockout(face, clownClean);
 put(liveCtx, face, '10-knockout.png');
 console.log('10-knockout');
 
-console.log('Wrote 11 stages to', OUT);
+// Live doll expressions (no injury stamps) — same pattern as the ring partner.
+async function bakeClownExpression(srcName, outName) {
+  const img = await loadImage(`${BASE}/${srcName}`);
+  const ctx = createCanvas(W, H).getContext('2d');
+  ctx.drawImage(img, 0, 0, W, H);
+  const src = ctx.getImageData(0, 0, W, H);
+  const out = copyImageData(src);
+  const n = applyComedyClownMakeup(out, src);
+  put(ctx, out, outName);
+  console.log(outName, 'makeup', n);
+}
+
+await bakeClownExpression('test-template-face-ooh.png', 'ooh.png');
+await bakeClownExpression('test-template-face-knockout.png', 'knockout-clean.png');
+
+console.log('Wrote 11 stages + ooh + knockout-clean to', OUT);

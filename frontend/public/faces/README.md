@@ -70,7 +70,8 @@ cd frontend
 node scripts/bake-bobo-clown-faces.mjs
 ```
 
-Writes 11 PNGs to `bobo-clown-stages/00-clean.png` … `10-knockout.png`.
-Preview: `/clown-preview.html`. In play (`?play=bobo-doll`) the doll keeps the
-clean clown face; injuries advance only in the damage box. Preview a HUD step
-with `?play=bobo-doll&damageStage=0..10`.
+Writes 11 PNGs to `bobo-clown-stages/00-clean.png` … `10-knockout.png`, plus
+`ooh.png` and `knockout-clean.png` for the live doll. Preview: `/clown-preview.html`.
+In play (`?play=bobo-doll`) the doll stays undamaged, swaps to ooh on hit and
+KO at 100%; injuries advance only in the damage box. Preview a HUD step with
+`?play=bobo-doll&damageStage=0..10`.
