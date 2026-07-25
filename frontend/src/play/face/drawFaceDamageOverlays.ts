@@ -524,6 +524,25 @@ function drawSwollenLip(ctx: CanvasRenderingContext2D, x: number, y: number, u: 
   ctx.restore();
 }
 
+/** Dark gap punched through an upper front tooth. */
+function drawMissingTooth(ctx: CanvasRenderingContext2D, x: number, y: number, u: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = '#1a0c08';
+  ctx.beginPath();
+  ctx.moveTo(-u * 0.16, -u * 0.42);
+  ctx.lineTo(u * 0.16, -u * 0.42);
+  ctx.lineTo(u * 0.12, u * 0.38);
+  ctx.lineTo(-u * 0.12, u * 0.38);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#0a0504';
+  ctx.beginPath();
+  ctx.ellipse(0, u * 0.08, u * 0.1, u * 0.28, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 /** Paint accumulated injuries on top of the base face texture. */
 export function drawFaceDamageOverlays(
   ctx: CanvasRenderingContext2D,
@@ -556,6 +575,12 @@ export function drawFaceDamageOverlays(
   const [mx, my] = toCanvas(
     TARGET_DAMAGE_LANDMARKS.bottomLip[0],
     TARGET_DAMAGE_LANDMARKS.bottomLip[1],
+    canvasW,
+    canvasH
+  );
+  const [toothX, toothY] = toCanvas(
+    TARGET_DAMAGE_LANDMARKS.mouth[0],
+    TARGET_DAMAGE_LANDMARKS.mouth[1],
     canvasW,
     canvasH
   );
@@ -603,6 +628,9 @@ export function drawFaceDamageOverlays(
         break;
       case 'swollenBottomLip':
         drawSwollenLip(ctx, mx, my, u);
+        break;
+      case 'missingTooth':
+        drawMissingTooth(ctx, toothX, toothY, u * 1.15);
         break;
     }
   }
