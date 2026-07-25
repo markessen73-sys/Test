@@ -283,28 +283,18 @@ function applyComedyClownMakeup(face, clean) {
         pupilN++;
       }
     }
-  }
-  // Cleanup: any leftover bright/green speck inside the pupil → black.
-  for (const eye of [LM.leftEye, LM.rightEye]) {
+    // Scrub leftover bright/green specks inside the disk (open eyes only).
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const nx = (x + 0.5) / W;
         const ny = (y + 0.5) / H;
         if (ellipseDist(nx, ny, eye.x, eye.y, 0.036, 0.034) >= 1) continue;
         const i = (y * W + x) * 4;
-        if (face.data[i + 3] < 200) {
+        if (face.data[i + 3] < 200 || face.data[i] > 4 || face.data[i + 1] > 4 || face.data[i + 2] > 4) {
           face.data[i] = 0;
           face.data[i + 1] = 0;
           face.data[i + 2] = 0;
           face.data[i + 3] = 255;
-          pupilN++;
-          continue;
-        }
-        if (face.data[i] > 4 || face.data[i + 1] > 4 || face.data[i + 2] > 4) {
-          face.data[i] = 0;
-          face.data[i + 1] = 0;
-          face.data[i + 2] = 0;
-          pupilN++;
         }
       }
     }
