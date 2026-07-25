@@ -497,8 +497,8 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
                 opacity={opacity}
                 depthWrite={false}
                 depthTest
-                side={THREE.DoubleSide}
-                // Cut transparent tear holes cleanly so bag leather shows through.
+                // Front only — DoubleSide fills tear holes with the back face.
+                side={THREE.FrontSide}
                 alphaTest={0.12}
               />
             </mesh>
