@@ -11,13 +11,18 @@ const FACE_PX = 104;
 interface OpponentDamageHudProps {
   /** Damage meter stage 0–10 (each step = 10%). */
   stage: number;
+  /** Asset loader — defaults to ring damage faces; bobo passes clown faces. */
+  loadAssets?: () => Promise<DamagedFaceAssets>;
 }
 
 /**
  * Top-right portrait that swaps through the pre-baked cumulative injury
  * caricatures every 10% damage, then the knockout face at 100%.
  */
-export function OpponentDamageHud({ stage }: OpponentDamageHudProps) {
+export function OpponentDamageHud({
+  stage,
+  loadAssets = loadDamagedFaceAssets,
+}: OpponentDamageHudProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const assetsRef = useRef<DamagedFaceAssets | null>(null);
   const stageRef = useRef(stage);
@@ -37,7 +42,7 @@ export function OpponentDamageHud({ stage }: OpponentDamageHudProps) {
 
   useEffect(() => {
     let cancelled = false;
-    loadDamagedFaceAssets().then((assets) => {
+    loadAssets().then((assets) => {
       if (cancelled) return;
       assetsRef.current = assets;
       paint();
@@ -45,7 +50,7 @@ export function OpponentDamageHud({ stage }: OpponentDamageHudProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadAssets]);
 
   useEffect(() => {
     paint();

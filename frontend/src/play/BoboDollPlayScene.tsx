@@ -4,6 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { boboZoneScreenOffset } from './boboImpact';
 import { applyBoboHitImpulse, createBoboSwingState, stepBoboSwing } from './boboSwing';
+import { BoboClownFaceDecal } from './face/BoboClownFaceDecal';
 import { BOBO_PLAY_CAMERA } from './playCamera';
 import { PlayEnvironment } from './PlayEnvironment';
 import type { PunchImpact } from './punchImpact';
@@ -66,13 +67,16 @@ function BoboDollBody({ material }: { material: THREE.MeshStandardMaterial }) {
 function PlayBoboDoll({
   impacts,
   boboZoneOffsetRef,
+  damageStage,
 }: {
   impacts: PunchImpact[];
   boboZoneOffsetRef: RefObject<GlovePosition>;
+  damageStage: number;
 }) {
   const swingRef = useRef(createBoboSwingState());
   const dollRef = useRef<THREE.Group>(null);
   const [flashes, setFlashes] = useState<{ id: number; pos: [number, number, number]; time: number }[]>([]);
+  const [lastHitTime, setLastHitTime] = useState(0);
   const lastImpactIdRef = useRef(0);
   const { camera } = useThree();
 
@@ -94,6 +98,7 @@ function PlayBoboDoll({
     lastImpactIdRef.current = latest.id;
 
     applyBoboHitImpulse(swingRef.current, latest.glove);
+    setLastHitTime(latest.time);
     setFlashes((prev) => [
       ...prev,
       { id: latest.id, pos: [0, 1.35, 0.46], time: latest.time },
@@ -121,6 +126,7 @@ function PlayBoboDoll({
 
       <group ref={dollRef}>
         <BoboDollBody material={material} />
+        <BoboClownFaceDecal stage={damageStage} lastHitTime={lastHitTime} />
         {flashes.map((flash) => (
           <ImpactFlash
             key={flash.id}
@@ -139,9 +145,14 @@ function PlayBoboDoll({
 interface BoboDollPlaySceneProps {
   impacts: PunchImpact[];
   boboZoneOffsetRef: RefObject<GlovePosition>;
+  damageStage: number;
 }
 
-export function BoboDollPlayScene({ impacts, boboZoneOffsetRef }: BoboDollPlaySceneProps) {
+export function BoboDollPlayScene({
+  impacts,
+  boboZoneOffsetRef,
+  damageStage,
+}: BoboDollPlaySceneProps) {
   const cam = BOBO_PLAY_CAMERA;
   return (
     <Canvas
@@ -155,7 +166,11 @@ export function BoboDollPlayScene({ impacts, boboZoneOffsetRef }: BoboDollPlaySc
     >
       <color attach="background" args={['#1a1208']} />
       <PlayEnvironment />
-      <PlayBoboDoll impacts={impacts} boboZoneOffsetRef={boboZoneOffsetRef} />
+      <PlayBoboDoll
+        impacts={impacts}
+        boboZoneOffsetRef={boboZoneOffsetRef}
+        damageStage={damageStage}
+      />
     </Canvas>
   );
 }

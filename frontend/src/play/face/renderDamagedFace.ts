@@ -4,6 +4,7 @@ import {
   DAMAGE_METER_STEPS,
 } from './faceDamage';
 import { createDamageFaceVariants } from './createDamageFaceVariants';
+import { createBoboClownFaceVariants } from './createBoboClownFaceVariants';
 
 export type DamagedFaceAssets = {
   cleanFace: HTMLImageElement;
@@ -15,6 +16,11 @@ export type DamagedFaceAssets = {
 /** Load clean + knockout faces and bake the cumulative damage variants. */
 export async function loadDamagedFaceAssets(): Promise<DamagedFaceAssets> {
   return createDamageFaceVariants();
+}
+
+/** Load the 11 comedy-clown faces for the bobo doll. */
+export async function loadBoboClownFaceAssets(): Promise<DamagedFaceAssets> {
+  return createBoboClownFaceVariants();
 }
 
 /**

@@ -4,6 +4,10 @@ import { GlovesPlayShell } from './GlovesPlayShell';
 import { useElasticGloves } from './useElasticGloves';
 import { isKnuckleOnBoboDoll } from './boboZoneGrid';
 import { playPunchSfx, preloadPunchSfx } from './playPunchSfx';
+import { useFaceDamage } from './face/useFaceDamage';
+import { OpponentDamageHud } from './face/OpponentDamageHud';
+import { KnockoutBellOverlay } from './face/KnockoutBellOverlay';
+import { loadBoboClownFaceAssets } from './face/renderDamagedFace';
 import type { PunchImpact } from './punchImpact';
 import type { GloveId, GlovePosition } from '../types/game';
 
@@ -16,16 +20,33 @@ export function BoboDollPlayView({ onBack }: BoboDollPlayViewProps) {
   const [impacts, setImpacts] = useState<PunchImpact[]>([]);
   const impactIdRef = useRef(0);
   const targetZoneOffsetRef = useRef<GlovePosition>({ x: 0, y: 0 });
+  const {
+    stage: damageStage,
+    knockedOut,
+    registerHit: registerFaceHit,
+    resetDamages,
+  } = useFaceDamage();
 
-  const onPunch = useCallback((glove: GloveId, knuckle: GlovePosition) => {
-    playPunchSfx('bobo-doll');
-    setPunchCount((c) => c + 1);
-    impactIdRef.current += 1;
-    setImpacts((prev) => [
-      ...prev,
-      { id: impactIdRef.current, glove, knuckle, time: performance.now() },
-    ]);
-  }, []);
+  const onPunch = useCallback(
+    (glove: GloveId, knuckle: GlovePosition) => {
+      playPunchSfx('bobo-doll');
+      setPunchCount((c) => c + 1);
+      impactIdRef.current += 1;
+      setImpacts((prev) => [
+        ...prev,
+        { id: impactIdRef.current, glove, knuckle, time: performance.now() },
+      ]);
+      registerFaceHit();
+    },
+    [registerFaceHit]
+  );
+
+  const onRestart = useCallback(() => {
+    resetDamages();
+    setPunchCount(0);
+    setImpacts([]);
+    impactIdRef.current = 0;
+  }, [resetDamages]);
 
   useEffect(() => {
     preloadPunchSfx('bobo-doll');
@@ -47,7 +68,19 @@ export function BoboDollPlayView({ onBack }: BoboDollPlayViewProps) {
           <strong>Upward</strong> drags leave a vapour trail; release on the bobo while still moving to rock it.
         </>
       }
-      canvas={<BoboDollPlayScene impacts={impacts} boboZoneOffsetRef={targetZoneOffsetRef} />}
+      hudExtra={
+        <>
+          <KnockoutBellOverlay active={knockedOut} onRestart={onRestart} />
+          <OpponentDamageHud stage={damageStage} loadAssets={loadBoboClownFaceAssets} />
+        </>
+      }
+      canvas={
+        <BoboDollPlayScene
+          impacts={impacts}
+          boboZoneOffsetRef={targetZoneOffsetRef}
+          damageStage={damageStage}
+        />
+      }
       {...gloves}
     />
   );
