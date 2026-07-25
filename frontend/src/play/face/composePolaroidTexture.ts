@@ -83,24 +83,22 @@ function drawBlackAndWhitePhoto(
 }
 
 function eraseBottomLeftCorner(ctx: CanvasRenderingContext2D, w: number, h: number) {
-  const cx = w * 0.02
-  const cy = h * 0.98
+  // Big bite out of the footer + into the photo well so it reads at bag scale.
   ctx.save()
   ctx.globalCompositeOperation = 'destination-out'
   ctx.beginPath()
-  ctx.moveTo(cx, cy)
-  drawJaggedLine(ctx, cx, cy, w * 0.34, h * 0.99, 10, 10)
-  drawJaggedLine(ctx, w * 0.34, h * 0.99, w * 0.02, h * 0.66, 12, 12)
+  ctx.moveTo(0, h)
+  drawJaggedLine(ctx, 0, h, w * 0.48, h, 8, 8)
+  drawJaggedLine(ctx, w * 0.48, h, 0, h * 0.48, 16, 16)
   ctx.closePath()
   ctx.fill()
   ctx.restore()
 
-  // Torn paper edge tint.
   ctx.save()
-  ctx.strokeStyle = 'rgba(210, 200, 185, 0.85)'
-  ctx.lineWidth = 3
+  ctx.strokeStyle = 'rgba(230, 220, 200, 0.95)'
+  ctx.lineWidth = 4
   ctx.beginPath()
-  drawJaggedLine(ctx, w * 0.34, h * 0.99, w * 0.02, h * 0.66, 12, 12)
+  drawJaggedLine(ctx, w * 0.48, h, 0, h * 0.48, 16, 16)
   ctx.stroke()
   ctx.restore()
 }
@@ -109,39 +107,39 @@ function eraseBottomRightCorner(ctx: CanvasRenderingContext2D, w: number, h: num
   ctx.save()
   ctx.globalCompositeOperation = 'destination-out'
   ctx.beginPath()
-  ctx.moveTo(w * 0.98, h * 0.98)
-  drawJaggedLine(ctx, w * 0.98, h * 0.98, w * 0.66, h * 0.99, 10, 10)
-  drawJaggedLine(ctx, w * 0.66, h * 0.99, w * 0.98, h * 0.66, 12, 12)
+  ctx.moveTo(w, h)
+  drawJaggedLine(ctx, w, h, w * 0.52, h, 8, 8)
+  drawJaggedLine(ctx, w * 0.52, h, w, h * 0.48, 16, 16)
   ctx.closePath()
   ctx.fill()
   ctx.restore()
 
   ctx.save()
-  ctx.strokeStyle = 'rgba(210, 200, 185, 0.85)'
-  ctx.lineWidth = 3
+  ctx.strokeStyle = 'rgba(230, 220, 200, 0.95)'
+  ctx.lineWidth = 4
   ctx.beginPath()
-  drawJaggedLine(ctx, w * 0.66, h * 0.99, w * 0.98, h * 0.66, 12, 12)
+  drawJaggedLine(ctx, w * 0.52, h, w, h * 0.48, 16, 16)
   ctx.stroke()
   ctx.restore()
 }
 
-/** Tear away roughly the lower-left half along a jagged diagonal. */
+/** Tear away the lower-left ~half through the faces (jagged diagonal). */
 function eraseHalf(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.save()
   ctx.globalCompositeOperation = 'destination-out'
   ctx.beginPath()
-  ctx.moveTo(0, h * 0.28)
-  drawJaggedLine(ctx, 0, h * 0.28, w * 0.55, h, 18, 14)
+  ctx.moveTo(0, h * 0.12)
+  drawJaggedLine(ctx, 0, h * 0.12, w * 0.72, h, 22, 18)
   ctx.lineTo(0, h)
   ctx.closePath()
   ctx.fill()
   ctx.restore()
 
   ctx.save()
-  ctx.strokeStyle = 'rgba(215, 205, 190, 0.9)'
-  ctx.lineWidth = 3.5
+  ctx.strokeStyle = 'rgba(235, 225, 205, 0.98)'
+  ctx.lineWidth = 5
   ctx.beginPath()
-  drawJaggedLine(ctx, 0, h * 0.28, w * 0.55, h, 18, 14)
+  drawJaggedLine(ctx, 0, h * 0.12, w * 0.72, h, 22, 18)
   ctx.stroke()
   ctx.restore()
 }

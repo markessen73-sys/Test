@@ -53,6 +53,69 @@ function PinHead({
   )
 }
 
+type ScrapKind = 'cornerL' | 'cornerR' | 'half'
+
+type FallingScrap = {
+  id: ScrapKind
+  x: number
+  y: number
+  z: number
+  rot: number
+  vx: number
+  vy: number
+  vz: number
+  wr: number
+  w: number
+  h: number
+}
+
+function makeScrap(kind: ScrapKind): FallingScrap {
+  const [cx, cy, cz] = BAG_POLAROID_CENTER
+  if (kind === 'cornerL') {
+    return {
+      id: kind,
+      x: cx - BAG_POLAROID_WIDTH * 0.32,
+      y: cy - BAG_POLAROID_HEIGHT * 0.38,
+      z: cz + 0.04,
+      rot: -0.2,
+      vx: -0.35,
+      vy: 0.25,
+      vz: 0.45,
+      wr: -3,
+      w: BAG_POLAROID_WIDTH * 0.38,
+      h: BAG_POLAROID_HEIGHT * 0.32,
+    }
+  }
+  if (kind === 'cornerR') {
+    return {
+      id: kind,
+      x: cx + BAG_POLAROID_WIDTH * 0.32,
+      y: cy - BAG_POLAROID_HEIGHT * 0.38,
+      z: cz + 0.04,
+      rot: 0.2,
+      vx: 0.4,
+      vy: 0.3,
+      vz: 0.4,
+      wr: 3.5,
+      w: BAG_POLAROID_WIDTH * 0.38,
+      h: BAG_POLAROID_HEIGHT * 0.32,
+    }
+  }
+  return {
+    id: kind,
+    x: cx - BAG_POLAROID_WIDTH * 0.12,
+    y: cy - BAG_POLAROID_HEIGHT * 0.1,
+    z: cz + 0.06,
+    rot: -0.35,
+    vx: -0.55,
+    vy: 0.35,
+    vz: 0.55,
+    wr: -4,
+    w: BAG_POLAROID_WIDTH * 0.55,
+    h: BAG_POLAROID_HEIGHT * 0.55,
+  }
+}
+
 interface BagPolaroidProps {
   /** Damage meter stage 0–10. */
   stage: number
@@ -89,6 +152,10 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
   const rightPinVel = useRef({ x: 0.15, y: 0.4, z: 0.2, rot: 2.5 })
   const rightPinPos = useRef({ x: 0, y: 0, z: 0, rot: 0 })
 
+  const scrapsRef = useRef<FallingScrap[]>([])
+  const [scrapIds, setScrapIds] = useState<ScrapKind[]>([])
+  const spawnedScrapsRef = useRef<Set<ScrapKind>>(new Set())
+
   const fallRef = useRef({
     active: false,
     x: 0,
@@ -101,6 +168,13 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
     vz: 0,
     wr: 0,
   })
+
+  const spawnScrap = (kind: ScrapKind) => {
+    if (spawnedScrapsRef.current.has(kind)) return
+    spawnedScrapsRef.current.add(kind)
+    scrapsRef.current.push(makeScrap(kind))
+    setScrapIds(scrapsRef.current.map((s) => s.id))
+  }
 
   const leftPinLocal: [number, number, number] = useMemo(
     () => [
@@ -158,6 +232,16 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
 
     if (hangOne) setPivotFromLeft(true)
 
+    if (phase === 'cornerTear' || phase === 'onePin' || phase === 'bothCorners' || phase === 'halfTear' || phase === 'fallen') {
+      spawnScrap('cornerL')
+    }
+    if (phase === 'bothCorners' || phase === 'halfTear' || phase === 'fallen') {
+      spawnScrap('cornerR')
+    }
+    if (phase === 'halfTear' || phase === 'fallen') {
+      spawnScrap('half')
+    }
+
     if (
       (phase === 'onePin' ||
         phase === 'bothCorners' ||
@@ -202,6 +286,9 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
       hangAngleRef.current = 0
       hangVelRef.current = 0
       fallRef.current.active = false
+      scrapsRef.current = []
+      spawnedScrapsRef.current.clear()
+      setScrapIds([])
       if (photoGroupRef.current) {
         photoGroupRef.current.position.set(...BAG_POLAROID_CENTER)
         photoGroupRef.current.rotation.set(0, 0, 0)
@@ -245,6 +332,24 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
       }
     } else if (rightPinFallRef.current) {
       rightPinFallRef.current.visible = false
+    }
+
+    for (const scrap of scrapsRef.current) {
+      scrap.vy -= 9.5 * dt
+      scrap.x += scrap.vx * dt
+      scrap.y += scrap.vy * dt
+      scrap.z += scrap.vz * dt
+      scrap.rot += scrap.wr * dt
+      scrap.vx *= 0.995
+      scrap.vz *= 0.995
+      if (scrap.y < FLOOR_LOCAL_Y + 0.01) {
+        scrap.y = FLOOR_LOCAL_Y + 0.01
+        scrap.vy *= -0.12
+        scrap.vx *= 0.45
+        scrap.vz *= 0.45
+        scrap.wr *= 0.3
+        if (Math.abs(scrap.vy) < 0.04) scrap.vy = 0
+      }
     }
 
     if (!g) return
@@ -320,6 +425,36 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
       <group ref={rightPinFallRef} visible={false}>
         <PinHead position={[0, 0, 0]} opacity={opacity} />
       </group>
+
+      {scrapIds.map((id) => {
+        const scrap = scrapsRef.current.find((s) => s.id === id)
+        if (!scrap) return null
+        return (
+          <FallingScrapMesh key={id} scrap={scrap} opacity={opacity} />
+        )
+      })}
     </>
+  )
+}
+
+/** Cream paper scrap that tracks a FallingScrap sim state each frame. */
+function FallingScrapMesh({ scrap, opacity }: { scrap: FallingScrap; opacity: number }) {
+  const ref = useRef<THREE.Mesh>(null)
+  useFrame(() => {
+    if (!ref.current) return
+    ref.current.position.set(scrap.x, scrap.y, Math.max(0.06, scrap.z))
+    ref.current.rotation.set(0.9, 0, scrap.rot)
+  })
+  return (
+    <mesh ref={ref} renderOrder={4}>
+      <planeGeometry args={[scrap.w, scrap.h]} />
+      <meshBasicMaterial
+        color="#efe8d8"
+        transparent
+        opacity={opacity * 0.95}
+        side={THREE.DoubleSide}
+        depthWrite={false}
+      />
+    </mesh>
   )
 }
