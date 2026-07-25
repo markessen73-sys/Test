@@ -108,37 +108,64 @@ function copyImageData(src) {
   return out;
 }
 
-/** Recolor a sample toward cauliflower tones, preserving shading structure. */
-function toCauliflower(r, g, b) {
-  const L = lum(r, g, b) / 255;
-  // Continuous ramp (no banding): highlight → inflamed → bruise
-  const cr = mix(145, 245, Math.pow(L, 0.85));
-  const cg = mix(45, 165, Math.pow(L, 1.1));
-  const cb = mix(70, 155, Math.pow(L, 1.05));
-  // Push midtones toward male-like red/pink
-  const mid = 1 - Math.abs(L - 0.55) * 1.6;
-  return [
-    mix(cr, 205, Math.max(0, mid) * 0.35),
-    mix(cg, 90, Math.max(0, mid) * 0.35),
-    mix(cb, 95, Math.max(0, mid) * 0.35),
-  ];
+/**
+ * Inflamed skin: a slightly redder shade of the caricature's peach skin
+ * (warm orange-red, not purple). `shade` 0 = darker fold, 1 = highlight.
+ */
+function inflamedFromSkin(skinR, skinG, skinB, shade = 0.55, strength = 0.45) {
+  // Nudge toward warm red while staying close to peach skin.
+  const targetR = Math.min(255, skinR + 12);
+  const targetG = skinG * 0.88;
+  const targetB = skinB * 0.72;
+  let r = mix(skinR, targetR, strength);
+  let g = mix(skinG, targetG, strength);
+  let b = mix(skinB, targetB, strength);
+  // Keep it bright enough to read as skin, not a dark bruise blob.
+  const lit = 0.88 + shade * 0.18;
+  r *= lit;
+  g *= lit;
+  b *= lit;
+  // Ensure orange-red (R > G > B), never magenta/purple.
+  if (b > g * 0.85) b = g * 0.75;
+  if (g > r * 0.92) g = r * 0.9;
+  return [clamp(r), clamp(g), clamp(b)];
+}
+
+function sampleFaceSkin(clean) {
+  // Cheek sample on the photo caricature.
+  let sr = 0;
+  let sg = 0;
+  let sb = 0;
+  let n = 0;
+  for (let y = Math.floor(H * 0.48); y < Math.floor(H * 0.62); y += 2) {
+    for (let x = Math.floor(W * 0.42); x < Math.floor(W * 0.58); x += 2) {
+      const i = (y * W + x) * 4;
+      const r = clean.data[i];
+      const g = clean.data[i + 1];
+      const b = clean.data[i + 2];
+      const a = clean.data[i + 3];
+      if (!isSkinTone(r, g, b, a)) continue;
+      sr += r;
+      sg += g;
+      sb += b;
+      n++;
+    }
+  }
+  return n ? [sr / n, sg / n, sb / n] : [250, 170, 120];
 }
 
 /**
- * Cauliflower ear — same change as male: ear becomes a larger bulbous
- * inflamed mass (silhouette grows), not just a color tint.
- * Grow ~1.7× (male is ~2.5–3×; kept a bit smaller per request).
+ * Cauliflower ear — modest swell + redder skin (not purple).
+ * Grow ~1.28× so it reads swollen but stays smaller.
  */
-function applyCauliflowerEar(face, clean, side) {
+function applyCauliflowerEar(face, clean, side, skin) {
   const ear = side === 'left' ? LM.leftEar : LM.rightEar;
-  const ax = side === 'left' ? ear.x - 0.05 : ear.x + 0.05;
-  const ay = ear.y;
-  const scale = 1.55;
-  // Rounder bulb than the clean ear (male loses ear anatomy → lump).
-  const rx = ear.rx * scale * 1.02;
-  const ry = ear.ry * scale * 0.95;
-  const cx = ear.x + (side === 'left' ? 0.018 : -0.018);
-  const cy = ear.y - 0.015;
+  const scale = 1.18;
+  const rx = ear.rx * scale;
+  const ry = ear.ry * scale;
+  const cx = ear.x + (side === 'left' ? 0.01 : -0.01);
+  const cy = ear.y - 0.008;
+  const [skinR, skinG, skinB] = skin;
   let painted = 0;
   const solid = new Uint8Array(W * H);
 
@@ -146,16 +173,14 @@ function applyCauliflowerEar(face, clean, side) {
     for (let x = 0; x < W; x++) {
       const nx = (x + 0.5) / W;
       const ny = (y + 0.5) / H;
-      // Main bulb + secondary lump (male cauliflower is irregular).
       const dMain = ellipseDist(nx, ny, cx, cy, rx, ry);
-      const lumpX = cx + (side === 'left' ? 0.03 : -0.03);
-      const lumpY = cy - 0.05;
-      const dLump = ellipseDist(nx, ny, lumpX, lumpY, rx * 0.55, ry * 0.48);
+      const lumpX = cx + (side === 'left' ? 0.016 : -0.016);
+      const lumpY = cy - 0.028;
+      const dLump = ellipseDist(nx, ny, lumpX, lumpY, rx * 0.42, ry * 0.38);
       const dOut = Math.min(dMain, dLump);
       if (dOut > 1.02) continue;
 
       const i = (y * W + x) * 4;
-      // Protect glasses temple/frame (incl. anti-aliased dark edges).
       const cr0 = clean.data[i];
       const cg0 = clean.data[i + 1];
       const cb0 = clean.data[i + 2];
@@ -167,47 +192,24 @@ function applyCauliflowerEar(face, clean, side) {
       const fb = face.data[i + 2];
       const fa = face.data[i + 3];
       if (fa > 20 && isGlassesFrame(fr, fg, fb, fa)) continue;
-      // Don't paint over blonde hair above the ear bulb.
       if (fa > 20 && ny < cy - ry * 0.95 && fr > 170 && fg > 140 && fb < 130 && fr + fg > 340) continue;
 
-      const edge = softEdge(dOut, 0.92);
+      const edge = softEdge(dOut, 0.9);
       if (edge < 0.08) continue;
 
-      // Cel-shaded cauliflower (flat bands matching 2D face language).
       const shade = 1 - Math.min(1, dOut);
-      let rr;
-      let gg;
-      let bb;
-      if (shade > 0.78) {
-        rr = 235;
-        gg = 155;
-        bb = 145; // highlight
-      } else if (shade > 0.45) {
-        rr = 210;
-        gg = 105;
-        bb = 110; // mid inflamed
-      } else {
-        rr = 165;
-        gg = 60;
-        bb = 80; // bruise rim
-      }
-      // Darker attachment fold.
-      const foldX = cx + (side === 'left' ? -0.032 : 0.032);
-      const fold = ellipseDist(nx, ny, foldX, cy + 0.03, rx * 0.38, ry * 0.45);
+      let [rr, gg, bb] = inflamedFromSkin(skinR, skinG, skinB, shade, 0.5);
+      // Slightly deeper fold toward head (still warm red skin).
+      const foldX = cx + (side === 'left' ? -0.024 : 0.024);
+      const fold = ellipseDist(nx, ny, foldX, cy + 0.02, rx * 0.32, ry * 0.38);
       if (fold < 0.85) {
-        rr = 145;
-        gg = 50;
-        bb = 70;
+        [rr, gg, bb] = inflamedFromSkin(skinR, skinG, skinB, 0.4, 0.62);
       }
-      // Upper highlight disk (shiny stretched).
-      const hi = ellipseDist(nx, ny, cx + (side === 'left' ? -0.01 : 0.01), cy - 0.05, rx * 0.26, ry * 0.2);
+      const hi = ellipseDist(nx, ny, cx + (side === 'left' ? -0.006 : 0.006), cy - 0.032, rx * 0.22, ry * 0.16);
       if (hi < 0.7) {
-        rr = 245;
-        gg = 185;
-        bb = 175;
+        [rr, gg, bb] = inflamedFromSkin(skinR, skinG, skinB, 1.0, 0.35);
       }
 
-      // Opaque replace.
       face.data[i] = rr;
       face.data[i + 1] = gg;
       face.data[i + 2] = bb;
@@ -221,7 +223,7 @@ function applyCauliflowerEar(face, clean, side) {
   const stroke = createCanvas(W, H);
   const sctx = stroke.getContext('2d');
   sctx.strokeStyle = '#1a1014';
-  sctx.lineWidth = 7;
+  sctx.lineWidth = 5;
   sctx.lineJoin = 'round';
   sctx.lineCap = 'round';
   sctx.beginPath();
@@ -353,26 +355,19 @@ function applyBlackEye(face, which) {
   return painted;
 }
 
-/** Swollen lip — grow + recolor bottom lip like male puffed lip. */
-function applySwollenLip(face, clean) {
+/** Swollen lip — modest puff, redder skin tone (not purple). */
+function applySwollenLip(face, clean, skin) {
   const lip = LM.bottomLip;
-  const ax = lip.x;
-  const ay = lip.y - 0.03; // grow downward from mouth
-  const scaleX = 1.15;
-  const scaleY = 1.55;
+  const [skinR, skinG, skinB] = skin;
   let painted = 0;
 
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const nx = (x + 0.5) / W;
       const ny = (y + 0.5) / H;
-      const dOut = ellipseDist(nx, ny, lip.x, lip.y + 0.02, 0.155, 0.08);
+      // Modest swell — smaller oval, warm red skin.
+      const dOut = ellipseDist(nx, ny, lip.x, lip.y + 0.008, 0.108, 0.048);
       if (dOut > 1.02) continue;
-
-      const ox = ax + (nx - ax) / scaleX;
-      const oy = ay + (ny - ay) / scaleY;
-      let [sr, sg, sb, sa] = sampleBilinear(clean.data, ox * W - 0.5, oy * H - 0.5);
-      const srcClear = sa < 20 || isBackdrop(sr, sg, sb, sa);
 
       const i = (y * W + x) * 4;
       const fr = face.data[i];
@@ -380,41 +375,29 @@ function applySwollenLip(face, clean) {
       const fb = face.data[i + 2];
       const fa = face.data[i + 3];
       if (fa > 20 && (isGlassesFrame(fr, fg, fb, fa) || isTooth(fr, fg, fb) || isIris(fr, fg, fb))) continue;
-      if (ny < lip.y - 0.035 && fa > 20 && isTooth(fr, fg, fb)) continue;
+      if (ny < lip.y - 0.028 && fa > 20 && isTooth(fr, fg, fb)) continue;
 
-      // Prefer lip-ish / chin skin; synthesize when growing past clean lip.
-      const lipish =
-        !srcClear &&
-        ((sr > 140 && sg < 140 && sb < 140) || isSkinTone(sr, sg, sb, sa) || (sr > 160 && sg > 90 && sb > 70));
-      if (!lipish && dOut > 0.7 && srcClear) {
-        sr = 200;
-        sg = 120;
-        sb = 110;
-        sa = 255;
-      } else if (!lipish && srcClear) {
-        continue;
-      }
+      const canPaint =
+        fa < 20 ||
+        isBackdrop(fr, fg, fb, fa) ||
+        isSkinTone(fr, fg, fb, fa) ||
+        (fr > 140 && fg < 150 && fb < 140);
+      if (!canPaint) continue;
 
-      const L = lum(sr, sg, sb) / 255;
-      let cr = mix(150, 230, L);
-      let cg = mix(40, 120, L * L);
-      let cb = mix(50, 120, L * L);
-      // Center redder (male split lip zone).
-      const center = ellipseDist(nx, ny, lip.x, lip.y + 0.01, 0.05, 0.04);
+      const shade = 1 - Math.min(1, dOut);
+      let [cr, cg, cb] = inflamedFromSkin(skinR, skinG, skinB, shade, 0.62);
+      const center = ellipseDist(nx, ny, lip.x, lip.y + 0.006, 0.038, 0.028);
       if (center < 1) {
-        const ct = (1 - center) * 0.35;
-        cr = mix(cr, 175, ct);
-        cg = mix(cg, 45, ct);
-        cb = mix(cb, 55, ct);
+        [cr, cg, cb] = inflamedFromSkin(skinR, skinG, skinB, 0.5, 0.72);
       }
 
       const edge = softEdge(dOut, 0.86);
       const t = Math.min(1, edge * 0.95);
       if (t < 0.05) continue;
       if (t >= 0.85 || fa < 20 || isBackdrop(fr, fg, fb, fa)) {
-        face.data[i] = clamp(cr);
-        face.data[i + 1] = clamp(cg);
-        face.data[i + 2] = clamp(cb);
+        face.data[i] = cr;
+        face.data[i + 1] = cg;
+        face.data[i + 2] = cb;
         face.data[i + 3] = 255;
       } else {
         face.data[i] = clamp(mix(fr, cr, t));
@@ -426,18 +409,19 @@ function applySwollenLip(face, clean) {
     }
   }
 
-  // Center vertical cut.
+  // Thin center cut — warm dark red, short.
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const nx = (x + 0.5) / W;
       const ny = (y + 0.5) / H;
-      if (Math.abs(nx - lip.x) > 0.0055) continue;
-      if (ny < lip.y - 0.015 || ny > lip.y + 0.05) continue;
+      if (Math.abs(nx - lip.x) > 0.0035) continue;
+      if (ny < lip.y - 0.005 || ny > lip.y + 0.028) continue;
       const i = (y * W + x) * 4;
       if (face.data[i + 3] < 40 || isTooth(face.data[i], face.data[i + 1], face.data[i + 2])) continue;
-      face.data[i] = 145;
-      face.data[i + 1] = 28;
-      face.data[i + 2] = 38;
+      const t = 0.7;
+      face.data[i] = clamp(mix(face.data[i], skinR * 0.7, t));
+      face.data[i + 1] = clamp(mix(face.data[i + 1], skinG * 0.38, t));
+      face.data[i + 2] = clamp(mix(face.data[i + 2], skinB * 0.28, t));
       painted++;
     }
   }
@@ -575,23 +559,64 @@ function applyBrokenNose(face) {
   return painted;
 }
 
-function applyForeheadBandage(face) {
+/** True if pixel is solid head content with a margin from the void edge. */
+function isInteriorHead(clean, x, y, margin = 4) {
+  for (let dy = -margin; dy <= margin; dy++) {
+    for (let dx = -margin; dx <= margin; dx++) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) return false;
+      const i = (yy * W + xx) * 4;
+      const r = clean.data[i];
+      const g = clean.data[i + 1];
+      const b = clean.data[i + 2];
+      const a = clean.data[i + 3];
+      if (a < 20 || isBackdrop(r, g, b, a)) return false;
+    }
+  }
+  return true;
+}
+
+function isBlondeHair(r, g, b, a) {
+  if (a < 20) return false;
+  // Spiky blonde hair: high R+G, lower B, not peach skin.
+  return r > 150 && g > 120 && b < 130 && r + g > 300 && g > b + 25 && Math.abs(r - g) < 80;
+}
+
+/** Forehead bandage — clipped inside the head silhouette (no edge overflow). */
+function applyForeheadBandage(face, clean) {
   const fh = LM.forehead;
   let painted = 0;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const nx = (x + 0.5) / W;
       const ny = (y + 0.5) / H;
-      const d = ellipseDist(nx, ny, fh.x, fh.y, 0.36, 0.08);
+      const d = ellipseDist(nx, ny, fh.x, fh.y, 0.22, 0.06);
       if (d >= 1) continue;
+      // Keep bandage on the forehead band (not floating into side hair).
+      if (ny < 0.22 || ny > 0.36) continue;
       const i = (y * W + x) * 4;
+
+      // Stay well inside the head — never paint into/near the black void.
+      if (!isInteriorHead(clean, x, y, 7)) continue;
+
+      const cr0 = clean.data[i];
+      const cg0 = clean.data[i + 1];
+      const cb0 = clean.data[i + 2];
+      const ca0 = clean.data[i + 3];
+      // Prefer forehead skin / soft hair fringe only near center.
+      if (isBlondeHair(cr0, cg0, cb0, ca0) && Math.abs(nx - fh.x) > 0.12) continue;
+      if (!isSkinTone(cr0, cg0, cb0, ca0) && !isBlondeHair(cr0, cg0, cb0, ca0) && !isLineArt(cr0, cg0, cb0)) {
+        continue;
+      }
+
       const r = face.data[i];
       const g = face.data[i + 1];
       const b = face.data[i + 2];
       const a = face.data[i + 3];
       if (a > 20 && (isGlassesFrame(r, g, b, a) || isIris(r, g, b))) continue;
 
-      const v = (ny - (fh.y - 0.08)) / 0.16;
+      const v = (ny - (fh.y - 0.065)) / 0.13;
       let cr = mix(242, 228, Math.abs(v - 0.5) * 2);
       let cg = mix(230, 212, Math.abs(v - 0.5) * 2);
       let cb = mix(198, 175, Math.abs(v - 0.5) * 2);
@@ -601,30 +626,22 @@ function applyForeheadBandage(face) {
         cg = mix(cg, 185, 0.28);
         cb = mix(cb, 150, 0.28);
       }
-      const blood = ellipseDist(nx, ny, fh.x - 0.05, fh.y + 0.008, 0.018, 0.012);
+      const blood = ellipseDist(nx, ny, fh.x - 0.04, fh.y + 0.006, 0.014, 0.01);
       if (blood < 1) {
-        const bt = (1 - blood) * 0.6;
-        cr = mix(cr, 165, bt);
-        cg = mix(cg, 48, bt);
-        cb = mix(cb, 52, bt);
+        const bt = (1 - blood) * 0.5;
+        cr = mix(cr, 170, bt);
+        cg = mix(cg, 70, bt);
+        cb = mix(cb, 55, bt);
       }
-      const edge = softEdge(d, 0.86);
+      // Harder edge so it doesn't glow past the head.
+      const edge = softEdge(d, 0.9);
       const t = Math.min(1, edge);
-      if (t < 0.05) continue;
-      if (t >= 0.8 || a < 20 || isBackdrop(r, g, b, a) || isSkinTone(r, g, b, a) || (r > 160 && g > 130 && b < 140)) {
-        if (t >= 0.85 || a < 20 || isBackdrop(r, g, b, a)) {
-          face.data[i] = clamp(cr);
-          face.data[i + 1] = clamp(cg);
-          face.data[i + 2] = clamp(cb);
-          face.data[i + 3] = 255;
-        } else {
-          face.data[i] = clamp(mix(r, cr, t));
-          face.data[i + 1] = clamp(mix(g, cg, t));
-          face.data[i + 2] = clamp(mix(b, cb, t));
-          face.data[i + 3] = 255;
-        }
-        painted++;
-      }
+      if (t < 0.08) continue;
+      face.data[i] = clamp(mix(r, cr, t));
+      face.data[i + 1] = clamp(mix(g, cg, t));
+      face.data[i + 2] = clamp(mix(b, cb, t));
+      face.data[i + 3] = 255;
+      painted++;
     }
   }
   return painted;
@@ -636,20 +653,22 @@ const liveCtx = createCanvas(W, H).getContext('2d');
 liveCtx.drawImage(liveImg, 0, 0, W, H);
 const clean = liveCtx.getImageData(0, 0, W, H);
 let face = copyImageData(clean);
+const skin = sampleFaceSkin(clean);
+console.log('skin sample', skin.map((v) => Math.round(v)));
 
 fs.mkdirSync(OUT, { recursive: true });
 liveCtx.putImageData(face, 0, 0);
 fs.writeFileSync(`${OUT}/00-clean.png`, liveCtx.canvas.toBuffer('image/png'));
 
 const steps = [
-  { name: '01-cauliflowerLeftEar', run: () => applyCauliflowerEar(face, clean, 'left') },
+  { name: '01-cauliflowerLeftEar', run: () => applyCauliflowerEar(face, clean, 'left', skin) },
   { name: '02-blackRightEye', run: () => applyBlackEye(face, 'right') },
-  { name: '03-swollenBottomLip', run: () => applySwollenLip(face, clean) },
-  { name: '04-cauliflowerRightEar', run: () => applyCauliflowerEar(face, clean, 'right') },
+  { name: '03-swollenBottomLip', run: () => applySwollenLip(face, clean, skin) },
+  { name: '04-cauliflowerRightEar', run: () => applyCauliflowerEar(face, clean, 'right', skin) },
   { name: '05-missingTooth', run: () => applyMissingTooth(face) },
   { name: '06-swollenLeftEye', run: () => applySwollenEye(face, 'left') },
   { name: '07-brokenNose', run: () => applyBrokenNose(face) },
-  { name: '08-foreheadBandage', run: () => applyForeheadBandage(face) },
+  { name: '08-foreheadBandage', run: () => applyForeheadBandage(face, clean) },
 ];
 
 for (const step of steps) {
