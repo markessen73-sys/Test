@@ -239,29 +239,41 @@ function applyComedyClownMakeup(face, clean) {
     }
   }
 
-  // 6) Black pupils — recolor green iris to black (skip closed-eye KO faces).
+  // 6) Solid black pupils — fill the whole iris disk (kills white specular glints).
   let pupilN = 0;
   for (const eye of [LM.leftEye, LM.rightEye]) {
+    // Only open eyes (source still has green iris) — skip closed KO lids.
+    let open = false;
+    for (let y = Math.floor((eye.y - 0.04) * H); y < Math.ceil((eye.y + 0.04) * H) && !open; y++) {
+      for (let x = Math.floor((eye.x - 0.04) * W); x < Math.ceil((eye.x + 0.04) * W); x++) {
+        if (x < 0 || y < 0 || x >= W || y >= H) continue;
+        const i = (y * W + x) * 4;
+        const r = clean.data[i];
+        const g = clean.data[i + 1];
+        const b = clean.data[i + 2];
+        if (clean.data[i + 3] > 200 && g > 85 && g > r + 5 && g > b + 5 && r < 180) {
+          open = true;
+          break;
+        }
+      }
+    }
+    if (!open) continue;
+
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const nx = (x + 0.5) / W;
         const ny = (y + 0.5) / H;
-        if (ellipseDist(nx, ny, eye.x, eye.y, 0.05, 0.045) >= 1) continue;
+        // Solid iris/pupil disk — covers green iris AND white specular glints.
+        if (ellipseDist(nx, ny, eye.x, eye.y, 0.034, 0.032) >= 1) continue;
         const i = (y * W + x) * 4;
         if (face.data[i + 3] < 40) continue;
         if (isGlassesFrame(clean.data[i], clean.data[i + 1], clean.data[i + 2], clean.data[i + 3])) {
           continue;
         }
-        const r = face.data[i];
-        const g = face.data[i + 1];
-        const b = face.data[i + 2];
-        // True green iris only — don't stamp dots onto closed lids.
-        if (!(g > 85 && g > r + 5 && g > b + 5 && r < 180 && g < 210)) continue;
-        const dPupil = ellipseDist(nx, ny, eye.x, eye.y, 0.02, 0.018);
-        const ink = dPupil < 1 ? 8 : 16;
-        face.data[i] = ink;
-        face.data[i + 1] = ink;
-        face.data[i + 2] = ink;
+        // Pure solid black — no soft edge, no leftover highlight.
+        face.data[i] = 0;
+        face.data[i + 1] = 0;
+        face.data[i + 2] = 0;
         face.data[i + 3] = 255;
         painted++;
         pupilN++;
