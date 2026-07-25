@@ -5,7 +5,7 @@ import { loadFaceImage } from './composeFaceTexture'
 import {
   drawPolaroidOnCanvas,
   POLAROID_CANVAS_SIZE,
-  renderPolaroidScrap,
+  renderPolaroidScrapCanvas,
 } from './composePolaroidTexture'
 import { FACE_TEMPLATE_SRC } from './faceTemplate'
 import {
@@ -189,47 +189,39 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
     if (!img || !group) return
     spawnedScrapsRef.current.add(kind)
 
-    const rendered = renderPolaroidScrap(img, kind)
-    const scrapTex = new THREE.CanvasTexture(rendered.canvas)
+    // Full-size scrap texture (only the torn region opaque) — same plane as the photo.
+    const scrapCanvas = renderPolaroidScrapCanvas(img, kind)
+    const scrapTex = new THREE.CanvasTexture(scrapCanvas)
     scrapTex.colorSpace = THREE.SRGBColorSpace
     scrapTex.needsUpdate = true
 
-    // Slightly oversized so the falling piece reads clearly.
-    const w = rendered.planeW * BAG_POLAROID_WIDTH * 1.15
-    const h = rendered.planeH * BAG_POLAROID_HEIGHT * 1.15
-    const geo = new THREE.PlaneGeometry(w, h)
-    scrapTex.premultiplyAlpha = false
-    scrapTex.needsUpdate = true
+    const geo = new THREE.PlaneGeometry(BAG_POLAROID_WIDTH, BAG_POLAROID_HEIGHT)
     const mat = new THREE.MeshBasicMaterial({
       map: scrapTex,
       transparent: true,
       opacity: opacityRef.current,
-      depthWrite: true,
+      depthWrite: false,
       depthTest: true,
       side: THREE.DoubleSide,
+      alphaTest: 0.08,
     })
     const mesh = new THREE.Mesh(geo, mat)
     mesh.renderOrder = 10
     mesh.frustumCulled = false
 
+    // Sit exactly on the hanging Polaroid so the piece reads as detaching from it.
     const pose = photoPose()
-    const ox = rendered.localX * BAG_POLAROID_WIDTH
-    const oy = rendered.localY * BAG_POLAROID_HEIGHT
-    const c = Math.cos(pose.rotZ)
-    const s = Math.sin(pose.rotZ)
-    const x = pose.x + c * ox - s * oy
-    const y = pose.y + s * ox + c * oy
-    // Sit clearly in front of the Polaroid plane.
-    const z = pose.z + 0.08
+    const x = pose.x
+    const y = pose.y
+    const z = pose.z + 0.015
     mesh.position.set(x, y, z)
     mesh.rotation.z = pose.rotZ
     group.add(mesh)
 
-    // Mild peel toward camera — keep scraps in front of the bag, not past the lens.
     const outward =
-      kind === 'cornerL' ? { vx: -0.35, vz: 0.55, wr: -2.5 } :
-      kind === 'cornerR' ? { vx: 0.4, vz: 0.55, wr: 2.5 } :
-      { vx: -0.25, vz: 0.65, wr: -2.8 }
+      kind === 'cornerL' ? { vx: -0.4, vz: 0.7, wr: -2.8 } :
+      kind === 'cornerR' ? { vx: 0.45, vz: 0.7, wr: 2.8 } :
+      { vx: -0.3, vz: 0.8, wr: -3.2 }
 
     scrapsRef.current.push({
       id: kind,
@@ -239,10 +231,11 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
       rotZ: pose.rotZ,
       rotX: 0,
       vx: outward.vx,
-      vy: 0.35,
+      vy: 0.4,
       vz: outward.vz,
       wr: outward.wr,
-      stick: 0.28,
+      // Brief overlap, then peel — hole is already punched in the main print.
+      stick: 0.08,
       mesh,
       texture: scrapTex,
       geo,
@@ -503,7 +496,10 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
                 transparent
                 opacity={opacity}
                 depthWrite={false}
+                depthTest
                 side={THREE.DoubleSide}
+                // Cut transparent tear holes cleanly so bag leather shows through.
+                alphaTest={0.12}
               />
             </mesh>
           )}

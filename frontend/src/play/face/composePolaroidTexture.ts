@@ -9,7 +9,7 @@ const MARGIN_X = 0.07
 const MARGIN_TOP = 0.07
 const MARGIN_BOTTOM = 0.2
 
-/** Append a jagged segment (does not moveTo — continues the current path). */
+/** Deterministic jagged segment (continues the current path). */
 function appendJagged(
   ctx: CanvasRenderingContext2D,
   x0: number,
@@ -32,43 +32,59 @@ function appendJagged(
   }
 }
 
-/** Closed scrap region path. */
-function scrapPath(ctx: CanvasRenderingContext2D, kind: PolaroidScrapKind, w: number, h: number) {
+/**
+ * Closed scrap region — identical path used to punch the hole in the
+ * hanging Polaroid and to cut the falling scrap, so they match 1:1.
+ */
+export function scrapPath(
+  ctx: CanvasRenderingContext2D,
+  kind: PolaroidScrapKind,
+  w: number,
+  h: number
+) {
   ctx.beginPath()
   if (kind === 'cornerL') {
+    // Large bottom-left bite through footer + into the face.
     ctx.moveTo(0, h)
-    appendJagged(ctx, 0, h, w * 0.5, h, 8, 8)
-    appendJagged(ctx, w * 0.5, h, 0, h * 0.45, 16, 16)
+    appendJagged(ctx, 0, h, w * 0.55, h, 10, 10)
+    appendJagged(ctx, w * 0.55, h, 0, h * 0.38, 18, 18)
     ctx.closePath()
     return
   }
   if (kind === 'cornerR') {
     ctx.moveTo(w, h)
-    appendJagged(ctx, w, h, w * 0.5, h, 8, 8)
-    appendJagged(ctx, w * 0.5, h, w, h * 0.45, 16, 16)
+    appendJagged(ctx, w, h, w * 0.45, h, 10, 10)
+    appendJagged(ctx, w * 0.45, h, w, h * 0.38, 18, 18)
     ctx.closePath()
     return
   }
-  ctx.moveTo(0, h * 0.1)
-  appendJagged(ctx, 0, h * 0.1, w * 0.75, h, 22, 18)
+  // Half: diagonal through the portrait.
+  ctx.moveTo(0, h * 0.08)
+  appendJagged(ctx, 0, h * 0.08, w * 0.78, h, 24, 20)
   ctx.lineTo(0, h)
   ctx.closePath()
 }
 
-function strokeTearEdge(ctx: CanvasRenderingContext2D, kind: PolaroidScrapKind, w: number, h: number) {
+function strokeTearEdge(
+  ctx: CanvasRenderingContext2D,
+  kind: PolaroidScrapKind,
+  w: number,
+  h: number
+) {
   ctx.save()
-  ctx.strokeStyle = 'rgba(235, 225, 205, 0.98)'
-  ctx.lineWidth = kind === 'half' ? 5 : 4
+  ctx.strokeStyle = 'rgba(245, 235, 215, 1)'
+  ctx.lineWidth = kind === 'half' ? 6 : 5
+  ctx.lineJoin = 'round'
   ctx.beginPath()
   if (kind === 'cornerL') {
-    ctx.moveTo(w * 0.5, h)
-    appendJagged(ctx, w * 0.5, h, 0, h * 0.45, 16, 16)
+    ctx.moveTo(w * 0.55, h)
+    appendJagged(ctx, w * 0.55, h, 0, h * 0.38, 18, 18)
   } else if (kind === 'cornerR') {
-    ctx.moveTo(w * 0.5, h)
-    appendJagged(ctx, w * 0.5, h, w, h * 0.45, 16, 16)
+    ctx.moveTo(w * 0.45, h)
+    appendJagged(ctx, w * 0.45, h, w, h * 0.38, 18, 18)
   } else {
-    ctx.moveTo(0, h * 0.1)
-    appendJagged(ctx, 0, h * 0.1, w * 0.75, h, 22, 18)
+    ctx.moveTo(0, h * 0.08)
+    appendJagged(ctx, 0, h * 0.08, w * 0.78, h, 24, 20)
   }
   ctx.stroke()
   ctx.restore()
@@ -81,18 +97,6 @@ function eraseScrap(ctx: CanvasRenderingContext2D, kind: PolaroidScrapKind, w: n
   ctx.fill()
   ctx.restore()
   strokeTearEdge(ctx, kind, w, h)
-}
-
-/** Normalized scrap centre + size on the Polaroid (0–1, top-left origin for y). */
-export function scrapNormBounds(kind: PolaroidScrapKind): {
-  cx: number
-  cy: number
-  w: number
-  h: number
-} {
-  if (kind === 'cornerL') return { cx: 0.18, cy: 0.78, w: 0.42, h: 0.4 }
-  if (kind === 'cornerR') return { cx: 0.82, cy: 0.78, w: 0.42, h: 0.4 }
-  return { cx: 0.28, cy: 0.62, w: 0.58, h: 0.7 }
 }
 
 /** Selected-face caricature → warm B&W contain-fit into the photo well. */
@@ -178,7 +182,8 @@ function paintIntactPolaroid(ctx: CanvasRenderingContext2D, img: HTMLImageElemen
 }
 
 /**
- * Paint a B&W Polaroid of the selected face, with cumulative tear damage.
+ * Paint a B&W Polaroid of the selected face, with cumulative tear holes.
+ * Erased regions are fully transparent so the bag shows through.
  */
 export function drawPolaroidOnCanvas(
   ctx: CanvasRenderingContext2D,
@@ -206,58 +211,27 @@ export function drawPolaroidOnCanvas(
   }
 }
 
-export type PolaroidScrapRender = {
-  canvas: HTMLCanvasElement
-  /** Plane width/height as fractions of full Polaroid size. */
-  planeW: number
-  planeH: number
-  /** Offset of scrap centre from Polaroid centre, in Polaroid-local units (−0.5..0.5). */
-  localX: number
-  localY: number
-}
-
 /**
- * Cropped scrap texture + placement so the piece can peel from its hole.
+ * Full-size Polaroid canvas with ONLY the scrap region opaque.
+ * Same dimensions as the hanging print so the piece can sit exactly on
+ * top of the photo, then peel away and leave the matching hole.
  */
-export function renderPolaroidScrap(img: HTMLImageElement, kind: PolaroidScrapKind): PolaroidScrapRender {
-  const full = document.createElement('canvas')
-  full.width = CANVAS_W
-  full.height = CANVAS_H
-  const fctx = full.getContext('2d')!
-  paintIntactPolaroid(fctx, img)
-  fctx.save()
-  fctx.globalCompositeOperation = 'destination-in'
-  scrapPath(fctx, kind, CANVAS_W, CANVAS_H)
-  fctx.fill()
-  fctx.restore()
-  strokeTearEdge(fctx, kind, CANVAS_W, CANVAS_H)
-
-  const bounds = scrapNormBounds(kind)
-  const sx = Math.max(0, Math.floor((bounds.cx - bounds.w / 2) * CANVAS_W))
-  const sy = Math.max(0, Math.floor((bounds.cy - bounds.h / 2) * CANVAS_H))
-  const sw = Math.min(CANVAS_W - sx, Math.ceil(bounds.w * CANVAS_W))
-  const sh = Math.min(CANVAS_H - sy, Math.ceil(bounds.h * CANVAS_H))
-
+export function renderPolaroidScrapCanvas(
+  img: HTMLImageElement,
+  kind: PolaroidScrapKind
+): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
-  canvas.width = Math.max(1, sw)
-  canvas.height = Math.max(1, sh)
+  canvas.width = CANVAS_W
+  canvas.height = CANVAS_H
   const ctx = canvas.getContext('2d')!
-  // Opaque paper backing so the scrap reads on the gym floor.
-  ctx.fillStyle = '#efe8d8'
-  ctx.fillRect(0, 0, sw, sh)
-  ctx.drawImage(full, sx, sy, sw, sh, 0, 0, sw, sh)
-
-  // Polaroid local: x right, y up (Three plane). Canvas y is down.
-  const localX = (bounds.cx - 0.5)
-  const localY = -(bounds.cy - 0.5)
-
-  return {
-    canvas,
-    planeW: bounds.w,
-    planeH: bounds.h,
-    localX,
-    localY,
-  }
+  paintIntactPolaroid(ctx, img)
+  ctx.save()
+  ctx.globalCompositeOperation = 'destination-in'
+  scrapPath(ctx, kind, CANVAS_W, CANVAS_H)
+  ctx.fill()
+  ctx.restore()
+  strokeTearEdge(ctx, kind, CANVAS_W, CANVAS_H)
+  return canvas
 }
 
 export const POLAROID_CANVAS_SIZE = { width: CANVAS_W, height: CANVAS_H } as const
