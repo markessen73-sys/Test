@@ -224,12 +224,16 @@ export function renderPolaroidScrapCanvas(
   canvas.width = CANVAS_W
   canvas.height = CANVAS_H
   const ctx = canvas.getContext('2d')!
-  paintIntactPolaroid(ctx, img)
+  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H)
+
+  // Clip to the tear shape, then paint the intact Polaroid into that region
+  // so the scrap carries real photo pixels (not just an edge stroke).
   ctx.save()
-  ctx.globalCompositeOperation = 'destination-in'
   scrapPath(ctx, kind, CANVAS_W, CANVAS_H)
-  ctx.fill()
+  ctx.clip()
+  paintIntactPolaroid(ctx, img)
   ctx.restore()
+
   strokeTearEdge(ctx, kind, CANVAS_W, CANVAS_H)
   return canvas
 }

@@ -203,7 +203,7 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
       depthWrite: false,
       depthTest: true,
       side: THREE.DoubleSide,
-      alphaTest: 0.08,
+      alphaTest: 0.05,
     })
     const mesh = new THREE.Mesh(geo, mat)
     mesh.renderOrder = 10
