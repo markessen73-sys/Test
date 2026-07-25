@@ -264,13 +264,17 @@ function applyComedyClownMakeup(face, clean) {
         const nx = (x + 0.5) / W;
         const ny = (y + 0.5) / H;
         // Solid iris/pupil disk — covers green iris AND white specular glints.
-        if (ellipseDist(nx, ny, eye.x, eye.y, 0.034, 0.032) >= 1) continue;
+        const d = ellipseDist(nx, ny, eye.x, eye.y, 0.034, 0.032);
+        if (d >= 1) continue;
         const i = (y * W + x) * 4;
-        if (face.data[i + 3] < 40) continue;
-        if (isGlassesFrame(clean.data[i], clean.data[i + 1], clean.data[i + 2], clean.data[i + 3])) {
+        // Only protect glasses frame near the disk rim — never leave holes/glints inside.
+        if (
+          d > 0.75 &&
+          isGlassesFrame(clean.data[i], clean.data[i + 1], clean.data[i + 2], clean.data[i + 3])
+        ) {
           continue;
         }
-        // Pure solid black — no soft edge, no leftover highlight.
+        // Pure solid black — fills transparent gaps too.
         face.data[i] = 0;
         face.data[i + 1] = 0;
         face.data[i + 2] = 0;
