@@ -52,6 +52,66 @@ function put(ctx, face, file) {
   fs.writeFileSync(path.join(OUT, file), ctx.canvas.toBuffer('image/png'));
 }
 
+/** Barycentric point-in-triangle test. */
+function pointInTriangle(px, py, ax, ay, bx, by, cx, cy) {
+  const v0x = cx - ax;
+  const v0y = cy - ay;
+  const v1x = bx - ax;
+  const v1y = by - ay;
+  const v2x = px - ax;
+  const v2y = py - ay;
+  const dot00 = v0x * v0x + v0y * v0y;
+  const dot01 = v0x * v1x + v0y * v1y;
+  const dot02 = v0x * v2x + v0y * v2y;
+  const dot11 = v1x * v1x + v1y * v1y;
+  const dot12 = v1x * v2x + v1y * v2y;
+  const den = dot00 * dot11 - dot01 * dot01;
+  if (Math.abs(den) < 1e-12) return false;
+  const inv = 1 / den;
+  const u = (dot11 * dot02 - dot01 * dot12) * inv;
+  const v = (dot00 * dot12 - dot01 * dot02) * inv;
+  return u >= 0 && v >= 0 && u + v <= 1;
+}
+
+/**
+ * Crisp anime-style triangular catchlight in the upper-left of a black pupil.
+ * Tip points top-left; sized to read on the bobo doll head.
+ */
+function paintAnimeEyeGlint(face, eyeX, eyeY) {
+  // Large right-triangle catchlight (tip top-left) + small round sparkle.
+  const a = { x: eyeX - 0.024, y: eyeY - 0.022 }; // tip
+  const b = { x: eyeX + 0.002, y: eyeY - 0.024 };
+  const c = { x: eyeX - 0.022, y: eyeY + 0.004 };
+  const spark = { x: eyeX + 0.002, y: eyeY + 0.014, r: 0.0055 };
+
+  const x0 = Math.max(0, Math.floor((eyeX - 0.035) * W));
+  const x1 = Math.min(W - 1, Math.ceil((eyeX + 0.015) * W));
+  const y0 = Math.max(0, Math.floor((eyeY - 0.035) * H));
+  const y1 = Math.min(H - 1, Math.ceil((eyeY + 0.025) * H));
+
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const nx = (x + 0.5) / W;
+      const ny = (y + 0.5) / H;
+      const i = (y * W + x) * 4;
+      // Only paint onto the black pupil we just filled.
+      if (face.data[i + 3] < 200) continue;
+      if (face.data[i] > 20 || face.data[i + 1] > 20 || face.data[i + 2] > 20) continue;
+      // Stay inside the pupil disk so the glint doesn't spill onto sclera.
+      if (ellipseDist(nx, ny, eyeX, eyeY, 0.04, 0.038) >= 1) continue;
+
+      const inTri = pointInTriangle(nx, ny, a.x, a.y, b.x, b.y, c.x, c.y);
+      const inSpark = Math.hypot(nx - spark.x, ny - spark.y) <= spark.r;
+      if (!inTri && !inSpark) continue;
+
+      face.data[i] = 255;
+      face.data[i + 1] = 255;
+      face.data[i + 2] = 255;
+      face.data[i + 3] = 255;
+    }
+  }
+}
+
 /**
  * Classic comedy whiteface clown makeup — vivid primaries on the photo caricature.
  * Preserves glasses, eyes, teeth, line art, and ear silhouettes.
@@ -302,6 +362,9 @@ function applyComedyClownMakeup(face, clean) {
         }
       }
     }
+
+    // Anime-style triangular catchlight in the top-left of each pupil.
+    paintAnimeEyeGlint(face, eye.x, eye.y);
   }
   console.log('black pupils painted', pupilN);
 
