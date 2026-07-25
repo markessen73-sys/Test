@@ -263,18 +263,17 @@ function applyComedyClownMakeup(face, clean) {
       for (let x = 0; x < W; x++) {
         const nx = (x + 0.5) / W;
         const ny = (y + 0.5) / H;
-        // Solid iris/pupil disk — covers green iris AND white specular glints.
-        const d = ellipseDist(nx, ny, eye.x, eye.y, 0.038, 0.036);
+        // Large solid pupil — covers iris, glints, and inner sclera (no white in the middle).
+        const d = ellipseDist(nx, ny, eye.x, eye.y, 0.046, 0.044);
         if (d >= 1) continue;
         const i = (y * W + x) * 4;
-        // Only protect glasses frame near the disk rim — never leave holes/glints inside.
+        // Only protect glasses frame near the disk rim.
         if (
-          d > 0.8 &&
+          d > 0.85 &&
           isGlassesFrame(clean.data[i], clean.data[i + 1], clean.data[i + 2], clean.data[i + 3])
         ) {
           continue;
         }
-        // Pure solid black — fills transparent gaps too.
         face.data[i] = 0;
         face.data[i + 1] = 0;
         face.data[i + 2] = 0;
@@ -283,14 +282,19 @@ function applyComedyClownMakeup(face, clean) {
         pupilN++;
       }
     }
-    // Scrub leftover bright/green specks inside the disk (open eyes only).
+    // Scrub any non-black speck left inside the pupil disk.
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const nx = (x + 0.5) / W;
         const ny = (y + 0.5) / H;
-        if (ellipseDist(nx, ny, eye.x, eye.y, 0.036, 0.034) >= 1) continue;
+        if (ellipseDist(nx, ny, eye.x, eye.y, 0.044, 0.042) >= 1) continue;
         const i = (y * W + x) * 4;
-        if (face.data[i + 3] < 200 || face.data[i] > 4 || face.data[i + 1] > 4 || face.data[i + 2] > 4) {
+        if (
+          isGlassesFrame(clean.data[i], clean.data[i + 1], clean.data[i + 2], clean.data[i + 3])
+        ) {
+          continue;
+        }
+        if (face.data[i + 3] < 200 || face.data[i] > 2 || face.data[i + 1] > 2 || face.data[i + 2] > 2) {
           face.data[i] = 0;
           face.data[i + 1] = 0;
           face.data[i + 2] = 0;
