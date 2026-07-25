@@ -1,7 +1,7 @@
 /** Heavy-bag Polaroid placement + damage phases. */
 
-/** Play-bag body mid diameter ≈ width of the hanging photo. */
-export const BAG_POLAROID_WIDTH = 0.9
+/** Bag-width photo, then −20% so it sits inset on the leather. */
+export const BAG_POLAROID_WIDTH = 0.9 * 0.8
 
 /** Classic Polaroid outer aspect (taller white footer). */
 export const BAG_POLAROID_ASPECT = 1.22
@@ -15,10 +15,10 @@ export const BAG_POLAROID_HEIGHT = BAG_POLAROID_WIDTH * BAG_POLAROID_ASPECT
 export const BAG_POLAROID_CENTER: [number, number, number] = [0, 0.28, 0.47]
 
 /** Inset of each pin from the top corners of the Polaroid (metres). */
-export const BAG_POLAROID_PIN_INSET = 0.055
+export const BAG_POLAROID_PIN_INSET = 0.045
 
 /** Pin head radius. */
-export const BAG_POLAROID_PIN_RADIUS = 0.018
+export const BAG_POLAROID_PIN_RADIUS = 0.016
 
 export type BagPolaroidPhase =
   | 'intact'
@@ -27,6 +27,8 @@ export type BagPolaroidPhase =
   | 'bothCorners'
   | 'halfTear'
   | 'fallen'
+
+export type PolaroidScrapKind = 'cornerL' | 'cornerR' | 'half'
 
 /**
  * Map meter stage (0–10, each step 10%) onto Polaroid destruction phases.

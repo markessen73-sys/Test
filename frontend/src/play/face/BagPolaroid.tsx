@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { assetUrl } from '../../assetUrl'
 import { loadFaceImage } from './composeFaceTexture'
-import { drawPolaroidOnCanvas, POLAROID_CANVAS_SIZE } from './composePolaroidTexture'
+import {
+  drawPolaroidOnCanvas,
+  POLAROID_CANVAS_SIZE,
+  renderPolaroidScrapCanvas,
+} from './composePolaroidTexture'
+import { FACE_TEMPLATE_SRC } from './faceTemplate'
 import {
   BAG_POLAROID_CENTER,
   BAG_POLAROID_HEIGHT,
@@ -13,9 +17,8 @@ import {
   bagPolaroidHangsByOnePin,
   bagPolaroidPhaseForStage,
   type BagPolaroidPhase,
+  type PolaroidScrapKind,
 } from './bagPolaroid'
-
-const SOURCE_PHOTO_SRC = assetUrl('/faces/source-photo-909c.png')
 
 /** Floor Y in bag-local space (bag centre ≈ world 1.32 → floor ≈ -1.32). */
 const FLOOR_LOCAL_Y = -1.22
@@ -53,67 +56,19 @@ function PinHead({
   )
 }
 
-type ScrapKind = 'cornerL' | 'cornerR' | 'half'
-
 type FallingScrap = {
-  id: ScrapKind
+  id: PolaroidScrapKind
+  /** Bag-local pose — starts matched to the photo, then falls. */
   x: number
   y: number
   z: number
-  rot: number
+  rotZ: number
+  rotX: number
   vx: number
   vy: number
   vz: number
   wr: number
-  w: number
-  h: number
-}
-
-function makeScrap(kind: ScrapKind): FallingScrap {
-  const [cx, cy, cz] = BAG_POLAROID_CENTER
-  if (kind === 'cornerL') {
-    return {
-      id: kind,
-      x: cx - BAG_POLAROID_WIDTH * 0.32,
-      y: cy - BAG_POLAROID_HEIGHT * 0.38,
-      z: cz + 0.04,
-      rot: -0.2,
-      vx: -0.35,
-      vy: 0.25,
-      vz: 0.45,
-      wr: -3,
-      w: BAG_POLAROID_WIDTH * 0.38,
-      h: BAG_POLAROID_HEIGHT * 0.32,
-    }
-  }
-  if (kind === 'cornerR') {
-    return {
-      id: kind,
-      x: cx + BAG_POLAROID_WIDTH * 0.32,
-      y: cy - BAG_POLAROID_HEIGHT * 0.38,
-      z: cz + 0.04,
-      rot: 0.2,
-      vx: 0.4,
-      vy: 0.3,
-      vz: 0.4,
-      wr: 3.5,
-      w: BAG_POLAROID_WIDTH * 0.38,
-      h: BAG_POLAROID_HEIGHT * 0.32,
-    }
-  }
-  return {
-    id: kind,
-    x: cx - BAG_POLAROID_WIDTH * 0.12,
-    y: cy - BAG_POLAROID_HEIGHT * 0.1,
-    z: cz + 0.06,
-    rot: -0.35,
-    vx: -0.55,
-    vy: 0.35,
-    vz: 0.55,
-    wr: -4,
-    w: BAG_POLAROID_WIDTH * 0.55,
-    h: BAG_POLAROID_HEIGHT * 0.55,
-  }
+  texture: THREE.CanvasTexture
 }
 
 interface BagPolaroidProps {
@@ -126,13 +81,12 @@ interface BagPolaroidProps {
 }
 
 /**
- * B&W Polaroid of the source photo, pinned to the heavy bag.
- * Tears / loses a pin / falls as the damage meter climbs.
+ * B&W Polaroid of the selected face, pinned to the heavy bag.
+ * Tear scraps are real photo pieces that peel off from the Polaroid pose.
  */
 export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroidProps) {
   const phase = bagPolaroidPhaseForStage(stage)
   const hangOne = bagPolaroidHangsByOnePin(phase)
-  /** Stay in left-pin pivot space through the final fall so the scrap doesn't jump. */
   const [pivotFromLeft, setPivotFromLeft] = useState(false)
 
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null)
@@ -153,8 +107,8 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
   const rightPinPos = useRef({ x: 0, y: 0, z: 0, rot: 0 })
 
   const scrapsRef = useRef<FallingScrap[]>([])
-  const [scrapIds, setScrapIds] = useState<ScrapKind[]>([])
-  const spawnedScrapsRef = useRef<Set<ScrapKind>>(new Set())
+  const [scrapIds, setScrapIds] = useState<PolaroidScrapKind[]>([])
+  const spawnedScrapsRef = useRef<Set<PolaroidScrapKind>>(new Set())
 
   const fallRef = useRef({
     active: false,
@@ -168,13 +122,6 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
     vz: 0,
     wr: 0,
   })
-
-  const spawnScrap = (kind: ScrapKind) => {
-    if (spawnedScrapsRef.current.has(kind)) return
-    spawnedScrapsRef.current.add(kind)
-    scrapsRef.current.push(makeScrap(kind))
-    setScrapIds(scrapsRef.current.map((s) => s.id))
-  }
 
   const leftPinLocal: [number, number, number] = useMemo(
     () => [
@@ -193,6 +140,66 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
     []
   )
 
+  /** Current bag-local pose of the Polaroid plane centre (+ rotation). */
+  const photoPose = () => {
+    const usePivot = pivotFromLeft || hangOne
+    const angle = hangAngleRef.current
+    if (!usePivot || fallRef.current.active) {
+      const g = photoGroupRef.current
+      return {
+        x: g?.position.x ?? BAG_POLAROID_CENTER[0],
+        y: g?.position.y ?? BAG_POLAROID_CENTER[1],
+        z: g?.position.z ?? BAG_POLAROID_CENTER[2],
+        rotZ: g?.rotation.z ?? 0,
+      }
+    }
+    const [px, py, pz] = BAG_POLAROID_CENTER
+    const [lx, ly] = leftPinLocal
+    // Group at left pin; photo centre = pin + R * (-leftPinLocal).
+    const ox = -lx
+    const oy = -ly
+    const c = Math.cos(angle)
+    const s = Math.sin(angle)
+    return {
+      x: px + lx + c * ox - s * oy,
+      y: py + ly + s * ox + c * oy,
+      z: pz,
+      rotZ: angle,
+    }
+  }
+
+  const spawnScrap = (kind: PolaroidScrapKind) => {
+    if (spawnedScrapsRef.current.has(kind)) return
+    const img = imgRef.current
+    if (!img) return
+    spawnedScrapsRef.current.add(kind)
+
+    const scrapCanvas = renderPolaroidScrapCanvas(img, kind)
+    const scrapTex = new THREE.CanvasTexture(scrapCanvas)
+    scrapTex.colorSpace = THREE.SRGBColorSpace
+
+    const pose = photoPose()
+    const outward =
+      kind === 'cornerL' ? { vx: -0.55, vz: 0.55, wr: -4 } :
+      kind === 'cornerR' ? { vx: 0.6, vz: 0.5, wr: 4 } :
+      { vx: -0.7, vz: 0.65, wr: -5 }
+
+    scrapsRef.current.push({
+      id: kind,
+      x: pose.x,
+      y: pose.y,
+      z: pose.z + 0.02,
+      rotZ: pose.rotZ,
+      rotX: 0,
+      vx: outward.vx,
+      vy: 0.35,
+      vz: outward.vz,
+      wr: outward.wr,
+      texture: scrapTex,
+    })
+    setScrapIds(scrapsRef.current.map((s) => s.id))
+  }
+
   const paint = (p: BagPolaroidPhase) => {
     const canvas = canvasRef.current
     const tex = texRef.current
@@ -202,6 +209,19 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
     if (!ctx) return
     drawPolaroidOnCanvas(ctx, img, p)
     tex.needsUpdate = true
+  }
+
+  const syncScrapsForPhase = (p: BagPolaroidPhase) => {
+    // Spawn scrap first (from current pose + intact scrap art), then punch the hole.
+    if (p === 'cornerTear' || p === 'onePin' || p === 'bothCorners' || p === 'halfTear' || p === 'fallen') {
+      spawnScrap('cornerL')
+    }
+    if (p === 'bothCorners' || p === 'halfTear' || p === 'fallen') {
+      spawnScrap('cornerR')
+    }
+    if (p === 'halfTear' || p === 'fallen') {
+      spawnScrap('half')
+    }
   }
 
   useEffect(() => {
@@ -215,32 +235,25 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
     texRef.current = tex
     setTexture(tex)
 
-    loadFaceImage(SOURCE_PHOTO_SRC).then((img) => {
+    loadFaceImage(FACE_TEMPLATE_SRC).then((img) => {
       if (cancelled) return
       imgRef.current = img
+      syncScrapsForPhase(phaseRef.current)
       paint(phaseRef.current)
     })
 
     return () => {
       cancelled = true
       tex.dispose()
+      for (const scrap of scrapsRef.current) scrap.texture.dispose()
     }
   }, [])
 
   useEffect(() => {
+    syncScrapsForPhase(phase)
     paint(phase)
 
     if (hangOne) setPivotFromLeft(true)
-
-    if (phase === 'cornerTear' || phase === 'onePin' || phase === 'bothCorners' || phase === 'halfTear' || phase === 'fallen') {
-      spawnScrap('cornerL')
-    }
-    if (phase === 'bothCorners' || phase === 'halfTear' || phase === 'fallen') {
-      spawnScrap('cornerR')
-    }
-    if (phase === 'halfTear' || phase === 'fallen') {
-      spawnScrap('half')
-    }
 
     if (
       (phase === 'onePin' ||
@@ -250,34 +263,41 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
       !rightPinStartedRef.current
     ) {
       rightPinStartedRef.current = true
+      const pose = photoPose()
+      // Right pin in photo-local → bag-local using current photo pose.
+      const [rx, ry] = rightPinLocal
+      const c = Math.cos(pose.rotZ)
+      const s = Math.sin(pose.rotZ)
       rightPinPos.current = {
-        x: BAG_POLAROID_CENTER[0] + rightPinLocal[0],
-        y: BAG_POLAROID_CENTER[1] + rightPinLocal[1],
-        z: BAG_POLAROID_CENTER[2] + rightPinLocal[2],
+        x: pose.x + c * rx - s * ry,
+        y: pose.y + s * rx + c * ry,
+        z: pose.z + 0.02,
         rot: 0,
       }
       rightPinVel.current = {
-        x: 0.25 + Math.random() * 0.15,
+        x: 0.3 + Math.random() * 0.15,
         y: 0.55,
-        z: 0.35,
+        z: 0.4,
         rot: 3 + Math.random() * 2,
       }
     }
 
     if (phase === 'fallen' && !fallRef.current.active) {
-      const g = photoGroupRef.current
+      const pose = photoPose()
       fallRef.current = {
         active: true,
-        x: g?.position.x ?? BAG_POLAROID_CENTER[0] + leftPinLocal[0],
-        y: g?.position.y ?? BAG_POLAROID_CENTER[1] + leftPinLocal[1],
-        z: g?.position.z ?? BAG_POLAROID_CENTER[2],
-        rotZ: g?.rotation.z ?? hangAngleRef.current,
+        x: pose.x,
+        y: pose.y,
+        z: pose.z,
+        rotZ: pose.rotZ,
         rotX: 0,
         vx: (Math.random() - 0.3) * 0.45,
         vy: 0.2,
         vz: 0.4,
         wr: (Math.random() - 0.5) * 5,
       }
+      // Switch group out of pin-pivot child offset for a clean centre fall.
+      setPivotFromLeft(false)
     }
 
     if (phase === 'intact') {
@@ -286,6 +306,7 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
       hangAngleRef.current = 0
       hangVelRef.current = 0
       fallRef.current.active = false
+      for (const scrap of scrapsRef.current) scrap.texture.dispose()
       scrapsRef.current = []
       spawnedScrapsRef.current.clear()
       setScrapIds([])
@@ -339,7 +360,8 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
       scrap.x += scrap.vx * dt
       scrap.y += scrap.vy * dt
       scrap.z += scrap.vz * dt
-      scrap.rot += scrap.wr * dt
+      scrap.rotZ += scrap.wr * dt
+      scrap.rotX += 1.2 * dt
       scrap.vx *= 0.995
       scrap.vz *= 0.995
       if (scrap.y < FLOOR_LOCAL_Y + 0.01) {
@@ -348,6 +370,7 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
         scrap.vx *= 0.45
         scrap.vz *= 0.45
         scrap.wr *= 0.3
+        scrap.rotX = Math.min(scrap.rotX, 1.2)
         if (Math.abs(scrap.vy) < 0.04) scrap.vy = 0
       }
     }
@@ -395,12 +418,11 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
 
   if (!texture) return null
 
-  const usePivot = pivotFromLeft || hangOne
+  const usePivot = (pivotFromLeft || hangOne) && !fallRef.current.active
   const childOffset: [number, number, number] = usePivot
     ? [-leftPinLocal[0], -leftPinLocal[1], 0]
     : [0, 0, 0]
 
-  /** Right pin stays on the photo only before the 40% pop. */
   const showRightPinOnPhoto = phase === 'intact' || phase === 'cornerTear'
 
   return (
@@ -429,31 +451,29 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
       {scrapIds.map((id) => {
         const scrap = scrapsRef.current.find((s) => s.id === id)
         if (!scrap) return null
-        return (
-          <FallingScrapMesh key={id} scrap={scrap} opacity={opacity} />
-        )
+        return <FallingScrapMesh key={id} scrap={scrap} opacity={opacity} />
       })}
     </>
   )
 }
 
-/** Cream paper scrap that tracks a FallingScrap sim state each frame. */
+/** Full-size Polaroid scrap — texture is only the torn piece, rest transparent. */
 function FallingScrapMesh({ scrap, opacity }: { scrap: FallingScrap; opacity: number }) {
   const ref = useRef<THREE.Mesh>(null)
   useFrame(() => {
     if (!ref.current) return
     ref.current.position.set(scrap.x, scrap.y, Math.max(0.06, scrap.z))
-    ref.current.rotation.set(0.9, 0, scrap.rot)
+    ref.current.rotation.set(Math.min(1.25, scrap.rotX), 0, scrap.rotZ)
   })
   return (
     <mesh ref={ref} renderOrder={4}>
-      <planeGeometry args={[scrap.w, scrap.h]} />
+      <planeGeometry args={[BAG_POLAROID_WIDTH, BAG_POLAROID_HEIGHT]} />
       <meshBasicMaterial
-        color="#efe8d8"
+        map={scrap.texture}
         transparent
-        opacity={opacity * 0.95}
-        side={THREE.DoubleSide}
+        opacity={opacity}
         depthWrite={false}
+        side={THREE.DoubleSide}
       />
     </mesh>
   )
