@@ -10,7 +10,7 @@ interface KnockoutBellOverlayProps {
 }
 
 /**
- * Top-left KO cue: boxing bell rings once when damage hits 100%, with Restart below.
+ * Mid-left KO cue (below Back): boxing bell rings once at 100% damage, with Restart below.
  */
 export function KnockoutBellOverlay({ active, onRestart }: KnockoutBellOverlayProps) {
   useEffect(() => {

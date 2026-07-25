@@ -1324,10 +1324,10 @@ html, body, #root, .app {
   margin-left: 0.75rem;
 }
 
-/* KO boxing bell + Restart (top-left). */
+/* KO boxing bell + Restart (below Back button, mid-left). */
 .play-ko-bell {
   position: absolute;
-  top: max(3.6rem, calc(env(safe-area-inset-top) + 3.1rem));
+  top: max(6.75rem, calc(env(safe-area-inset-top) + 6.25rem));
   left: max(0.75rem, env(safe-area-inset-left));
   z-index: 8;
   display: flex;
@@ -1344,7 +1344,7 @@ html, body, #root, .app {
   object-fit: contain;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55));
   transform-origin: 50% 12%;
-  animation: play-ko-bell-ring 1.6s ease-in-out 1;
+  animation: play-ko-bell-ring 0.85s ease-in-out 1;
 }
 
 @keyframes play-ko-bell-ring {
