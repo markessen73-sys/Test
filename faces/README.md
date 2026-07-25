@@ -59,3 +59,17 @@ Writes `face-template-map.json` and `src/play/face/faceTemplateMap.ts`.
 | `targets.heavyBagMesh` | 3D decal on heavy bag cylinder |
 | `targets.ringPartner` | Sparring sprite face rect |
 | `targets.hudPlayer` / `hudOpponent` | Punch-Out style corner portraits |
+
+## Bobo doll comedy-clown faces
+
+Same caricature + injury ladder as the ring damage stages, painted as a
+classic whiteface clown (red nose, diamond eye makeup, smile, candy hair).
+
+```bash
+cd frontend
+node scripts/bake-bobo-clown-faces.mjs
+```
+
+Writes 11 PNGs to `bobo-clown-stages/00-clean.png` … `10-knockout.png`.
+Preview: `/clown-preview.html`. In play (`?play=bobo-doll`) the face sits on
+the doll head and advances every 3–6 hits; `?damageStage=0..10` previews a step.
