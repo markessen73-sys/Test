@@ -453,8 +453,10 @@ const steps = [
           if (!inH && !inV) continue;
           const i = (y * W + x) * 4;
           if (face.data[i + 3] < 20) continue;
-          if (isTooth(face.data[i], face.data[i + 1], face.data[i + 2])) continue;
           if (isIris(face.data[i], face.data[i + 1], face.data[i + 2])) continue;
+          // Don't use isTooth() — whiteface greasepaint matches the tooth heuristic.
+          const inMouth = ellipseDist(nx, ny, LM.mouth.x, LM.mouth.y, 0.12, 0.06) < 1;
+          if (inMouth) continue;
           let cr = 242;
           let cg = 228;
           let cb = 198;
