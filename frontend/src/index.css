@@ -1324,6 +1324,86 @@ html, body, #root, .app {
   margin-left: 0.75rem;
 }
 
+/* KO boxing bell + Restart (top-left). */
+.play-ko-bell {
+  position: absolute;
+  top: max(3.6rem, calc(env(safe-area-inset-top) + 3.1rem));
+  left: max(0.75rem, env(safe-area-inset-left));
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  pointer-events: none;
+}
+
+.play-ko-bell-icon {
+  display: block;
+  width: 4.25rem;
+  height: 4.25rem;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55));
+  transform-origin: 50% 12%;
+  animation: play-ko-bell-ring 1.6s ease-in-out 1;
+}
+
+@keyframes play-ko-bell-ring {
+  0% {
+    transform: rotate(0deg);
+  }
+  8% {
+    transform: rotate(-14deg);
+  }
+  16% {
+    transform: rotate(12deg);
+  }
+  24% {
+    transform: rotate(-10deg);
+  }
+  32% {
+    transform: rotate(8deg);
+  }
+  40% {
+    transform: rotate(-6deg);
+  }
+  48% {
+    transform: rotate(5deg);
+  }
+  56% {
+    transform: rotate(-4deg);
+  }
+  68% {
+    transform: rotate(2deg);
+  }
+  80%,
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.play-ko-restart {
+  pointer-events: auto;
+  appearance: none;
+  border: 1px solid rgba(232, 200, 100, 0.55);
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #1a1208;
+  background: linear-gradient(180deg, #f0d878, #d4a82a);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+.play-ko-restart:hover {
+  filter: brightness(1.06);
+}
+
+.play-ko-restart:active {
+  transform: translateY(1px);
+}
+
 /* Ring opponent damage portrait + meter (top-right). */
 .play-damage-hud {
   position: absolute;

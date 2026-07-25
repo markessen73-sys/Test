@@ -6,6 +6,7 @@ import { isKnuckleOnSparringPartner } from './ringZoneGrid';
 import { playPunchSfx, preloadPunchSfx } from './playPunchSfx';
 import { useFaceDamage } from './face/useFaceDamage';
 import { OpponentDamageHud } from './face/OpponentDamageHud';
+import { KnockoutBellOverlay } from './face/KnockoutBellOverlay';
 import { ALL_FACE_DAMAGES } from './face/faceDamage';
 import type { PunchImpact } from './punchImpact';
 import type { GloveId, GlovePosition } from '../types/game';
@@ -19,7 +20,11 @@ export function RingPlayView({ onBack }: RingPlayViewProps) {
   const [impacts, setImpacts] = useState<PunchImpact[]>([]);
   const impactIdRef = useRef(0);
   const targetZoneOffsetRef = useRef<GlovePosition>({ x: 0, y: 0 });
-  const { damages: faceDamages, registerHit: registerFaceHit } = useFaceDamage();
+  const {
+    damages: faceDamages,
+    registerHit: registerFaceHit,
+    resetDamages,
+  } = useFaceDamage();
   const knockedOut = faceDamages.length >= ALL_FACE_DAMAGES.length;
 
   const onPunch = useCallback(
@@ -35,6 +40,13 @@ export function RingPlayView({ onBack }: RingPlayViewProps) {
     },
     [registerFaceHit]
   );
+
+  const onRestart = useCallback(() => {
+    resetDamages();
+    setPunchCount(0);
+    setImpacts([]);
+    impactIdRef.current = 0;
+  }, [resetDamages]);
 
   useEffect(() => {
     preloadPunchSfx('ring');
@@ -56,7 +68,12 @@ export function RingPlayView({ onBack }: RingPlayViewProps) {
           <strong>Upward</strong> drags leave a vapour trail; release on your opponent while still moving to land shots.
         </>
       }
-      hudExtra={<OpponentDamageHud damages={faceDamages} />}
+      hudExtra={
+        <>
+          <KnockoutBellOverlay active={knockedOut} onRestart={onRestart} />
+          <OpponentDamageHud damages={faceDamages} />
+        </>
+      }
       canvas={
         <RingPlayScene
           impacts={impacts}

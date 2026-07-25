@@ -170,6 +170,53 @@ export function playPunchSfx(station: PunchSfxStation, volume = 0.85): void {
     .catch(() => {});
 }
 
+/**
+ * Synthesize a classic three-ring boxing bell (metallic ding with harmonics).
+ * No external sample required — plays immediately when damage hits 100%.
+ */
+export function playBoxingBellSfx(volume = 0.75): void {
+  const ctx = getAudioContext();
+  if (ctx.state === 'suspended') {
+    void ctx.resume();
+  }
+
+  const master = ctx.createGain();
+  master.gain.value = volume;
+  master.connect(ctx.destination);
+
+  const ringAt = (delaySec: number) => {
+    const t0 = ctx.currentTime + delaySec;
+    // Fundamental + bright partials of a small gong / desk bell
+    const partials: Array<[number, number]> = [
+      [880, 0.55],
+      [1320, 0.32],
+      [1760, 0.22],
+      [2640, 0.14],
+      [3520, 0.08],
+    ];
+    for (const [freq, amp] of partials) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t0);
+      // Slight pitch drop as metal settles
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.97, t0 + 0.9);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(amp, t0 + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.15);
+      osc.connect(gain);
+      gain.connect(master);
+      osc.start(t0);
+      osc.stop(t0 + 1.2);
+    }
+  };
+
+  // Three rings — classic end-of-round cadence
+  ringAt(0);
+  ringAt(0.52);
+  ringAt(1.04);
+}
+
 /** @deprecated Use unlockGameAudio */
 export function unlockPunchAudio(): void {
   unlockGameAudio();

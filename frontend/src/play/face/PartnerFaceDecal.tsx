@@ -24,6 +24,8 @@ const PARTNER_FACE_SCALE_BOTTOM_LEFT = 1.1;
 /** Nose pinned, +10% every direction (applied per user calibration step). */
 const PARTNER_FACE_SCALE_NOSE = 1.1;
 const PARTNER_FACE_NOSE_SCALE_STEPS = 2;
+/** Final overall boost — active head ~20% larger. */
+const PARTNER_FACE_SCALE_OVERALL = 1.2;
 /** How long the pre-authored "ooh!" face stays up (ms). */
 const OOH_MS = 380;
 
@@ -85,6 +87,7 @@ export function PartnerFaceDecal({
     for (let i = 0; i < PARTNER_FACE_NOSE_SCALE_STEPS; i++) {
       current = scaleFromNose(current, PARTNER_FACE_SCALE_NOSE);
     }
+    current = scaleFromNose(current, PARTNER_FACE_SCALE_OVERALL);
     return current;
   }, [spriteWidth, spriteHeight]);
   const [fw, fh] = placement.size;
