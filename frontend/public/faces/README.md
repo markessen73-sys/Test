@@ -4,8 +4,9 @@ Test portrait used to prototype how caricature faces attach to boxing targets be
 
 | File | Purpose |
 |------|---------|
-| `test-template-face.png` | Active playable face (photo man from `file_00000000909c…`, right face) |
-| `test-template-face-photo-man.png` | Backup of the photo-aligned playable face |
+| `test-template-face.png` | Active playable face (cartoon man from photo `file_00000000909c…`) |
+| `test-template-face-cartoon-man.png` | Backup of the cartoon playable face |
+| `test-template-face-photo-man.png` | Photo-aligned cutout (pre-cartoon) |
 | `test-template-face-male.png` | Male caricature template (damage baseline + layout canon) |
 | `test-template-face-female.png` | Female caricature (same head/feature layout as male) |
 | `source-photo-909c.png` | Source dual portrait used for the photo playable face |
