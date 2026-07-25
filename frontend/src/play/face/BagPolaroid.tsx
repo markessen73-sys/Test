@@ -111,6 +111,8 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
 
   const scrapsRef = useRef<FallingScrap[]>([])
   const spawnedScrapsRef = useRef<Set<PolaroidScrapKind>>(new Set())
+  /** Retry scrap sync until the image + scraps group are both ready. */
+  const needsScrapSyncRef = useRef(true)
 
   const fallRef = useRef({
     active: false,
@@ -279,12 +281,8 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
     loadFaceImage(FACE_TEMPLATE_SRC).then((img) => {
       if (cancelled) return
       imgRef.current = img
-      // Wait a frame so scrapsGroupRef is mounted.
-      requestAnimationFrame(() => {
-        if (cancelled) return
-        syncScrapsForPhase(phaseRef.current)
-        paint(phaseRef.current)
-      })
+      needsScrapSyncRef.current = true
+      paint(phaseRef.current)
     })
 
     return () => {
@@ -295,7 +293,7 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
   }, [])
 
   useEffect(() => {
-    syncScrapsForPhase(phase)
+    needsScrapSyncRef.current = true
     paint(phase)
 
     if (hangOne) setPivotFromLeft(true)
@@ -374,6 +372,12 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
   useFrame((_, delta) => {
     const dt = Math.min(0.05, delta)
     const g = photoGroupRef.current
+
+    if (needsScrapSyncRef.current && imgRef.current && scrapsGroupRef.current) {
+      needsScrapSyncRef.current = false
+      syncScrapsForPhase(phaseRef.current)
+      paint(phaseRef.current)
+    }
 
     if (rightPinStartedRef.current && rightPinFallRef.current) {
       const p = rightPinPos.current
