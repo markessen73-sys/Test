@@ -155,112 +155,158 @@ function sampleFaceSkin(clean) {
 }
 
 /**
- * Cauliflower ear — modest swell + redder skin (not purple).
- * Grow ~1.28× so it reads swollen but stays smaller.
+ * Cauliflower ear — real wrestler's/boxer's ear traits:
+ * keep the tall ear silhouette, fill the hollow folds with scar tissue,
+ * thicken the helix into a few irregular knobs (not a round balloon pad).
+ * Color: taut reddish shade of the caricature skin.
  */
 function applyCauliflowerEar(face, clean, side, skin) {
   const ear = side === 'left' ? LM.leftEar : LM.rightEar;
-  const scale = 1.18;
-  const rx = ear.rx * scale;
-  const ry = ear.ry * scale;
-  const cx = ear.x + (side === 'left' ? 0.01 : -0.01);
-  const cy = ear.y - 0.008;
+  const outSign = side === 'left' ? 1 : -1;
   const [skinR, skinG, skinB] = skin;
-  let painted = 0;
-  const solid = new Uint8Array(W * H);
 
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
+  // 1) Seed mask from the clean ear's actual pixels (keeps tall ear shape).
+  const seed = new Uint8Array(W * H);
+  const x0 = Math.max(0, Math.floor((ear.x - ear.rx * 1.35) * W));
+  const x1 = Math.min(W - 1, Math.ceil((ear.x + ear.rx * 1.35) * W));
+  const y0 = Math.max(0, Math.floor((ear.y - ear.ry * 1.25) * H));
+  const y1 = Math.min(H - 1, Math.ceil((ear.y + ear.ry * 1.25) * H));
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
       const nx = (x + 0.5) / W;
       const ny = (y + 0.5) / H;
-      const dMain = ellipseDist(nx, ny, cx, cy, rx, ry);
-      const lumpX = cx + (side === 'left' ? 0.016 : -0.016);
-      const lumpY = cy - 0.028;
-      const dLump = ellipseDist(nx, ny, lumpX, lumpY, rx * 0.42, ry * 0.38);
-      const dOut = Math.min(dMain, dLump);
-      if (dOut > 1.02) continue;
-
+      if (ellipseDist(nx, ny, ear.x, ear.y, ear.rx * 1.2, ear.ry * 1.15) > 1) continue;
       const i = (y * W + x) * 4;
+      const r = clean.data[i];
+      const g = clean.data[i + 1];
+      const b = clean.data[i + 2];
+      const a = clean.data[i + 3];
+      if (a < 20 || isBackdrop(r, g, b, a)) continue;
+      if (isGlassesFrame(r, g, b, a)) continue;
+      if (isBlondeHair(r, g, b, a)) continue;
+      // Ear flesh or ear line art.
+      if (isSkinTone(r, g, b, a) || isLineArt(r, g, b) || (r > 120 && g > 70 && b > 40 && r >= g - 5)) {
+        seed[y * W + x] = 1;
+      }
+    }
+  }
+
+  // 2) Modest dilate outward (~10%) + add helix/concha knobs.
+  const dilateR = Math.max(3, Math.round(ear.rx * W * 0.09));
+  const lumps = [
+    // Fill the hollow (concha) — main cauliflower fill.
+    { x: ear.x + outSign * ear.rx * 0.12, y: ear.y - ear.ry * 0.02, rx: ear.rx * 0.5, ry: ear.ry * 0.42 },
+    // Upper helix thickening.
+    { x: ear.x + outSign * ear.rx * 0.7, y: ear.y - ear.ry * 0.42, rx: ear.rx * 0.28, ry: ear.ry * 0.2 },
+    // Mid outer rim knob.
+    { x: ear.x + outSign * ear.rx * 0.78, y: ear.y + ear.ry * 0.08, rx: ear.rx * 0.28, ry: ear.ry * 0.22 },
+  ];
+
+  const solid = new Uint8Array(W * H);
+  for (let y = y0 - dilateR; y <= y1 + dilateR; y++) {
+    if (y < 0 || y >= H) continue;
+    for (let x = x0 - dilateR; x <= x1 + dilateR; x++) {
+      if (x < 0 || x >= W) continue;
+      const nx = (x + 0.5) / W;
+      const ny = (y + 0.5) / H;
+      let hit = false;
+      // Dilated seed.
+      for (let dy = -dilateR; dy <= dilateR && !hit; dy += 2) {
+        for (let dx = -dilateR; dx <= dilateR && !hit; dx += 2) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          if (!seed[yy * W + xx]) continue;
+          if (dx * dx + dy * dy <= dilateR * dilateR) hit = true;
+        }
+      }
+      // Knobs (small outward thickenings only).
+      for (const L of lumps) {
+        if (ellipseDist(nx, ny, L.x, L.y, L.rx, L.ry) <= 1) hit = true;
+      }
+      if (hit) solid[y * W + x] = 1;
+    }
+  }
+
+  let painted = 0;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (!solid[y * W + x]) continue;
+      const i = (y * W + x) * 4;
+      const nx = (x + 0.5) / W;
+      const ny = (y + 0.5) / H;
+
       const cr0 = clean.data[i];
       const cg0 = clean.data[i + 1];
       const cb0 = clean.data[i + 2];
       const ca0 = clean.data[i + 3];
       if (ca0 > 180 && Math.max(cr0, cg0, cb0) < 70) continue;
+      if (faGlasses(face, i)) continue;
+      if (isBlondeHair(face.data[i], face.data[i + 1], face.data[i + 2], face.data[i + 3])) continue;
 
-      const fr = face.data[i];
-      const fg = face.data[i + 1];
-      const fb = face.data[i + 2];
-      const fa = face.data[i + 3];
-      if (fa > 20 && isGlassesFrame(fr, fg, fb, fa)) continue;
-      if (fa > 20 && ny < cy - ry * 0.95 && fr > 170 && fg > 140 && fb < 130 && fr + fg > 340) continue;
+      // Distance cues for shading.
+      let dLump = 99;
+      for (const L of lumps) dLump = Math.min(dLump, ellipseDist(nx, ny, L.x, L.y, L.rx, L.ry));
+      const dEar = ellipseDist(nx, ny, ear.x, ear.y, ear.rx, ear.ry);
+      const shade = Math.max(0, 1 - Math.min(dEar, dLump));
 
-      const edge = softEdge(dOut, 0.9);
-      if (edge < 0.08) continue;
-
-      const shade = 1 - Math.min(1, dOut);
-      let [rr, gg, bb] = inflamedFromSkin(skinR, skinG, skinB, shade, 0.5);
-      // Slightly deeper fold toward head (still warm red skin).
-      const foldX = cx + (side === 'left' ? -0.024 : 0.024);
-      const fold = ellipseDist(nx, ny, foldX, cy + 0.02, rx * 0.32, ry * 0.38);
-      if (fold < 0.85) {
-        [rr, gg, bb] = inflamedFromSkin(skinR, skinG, skinB, 0.4, 0.62);
+      // Fill hollow + rim with inflamed skin (erase clean ear folds).
+      let strength = seed[y * W + x] ? 0.42 : 0.48;
+      if (dLump < 1) strength = 0.55;
+      // Inner bowl a touch redder (hematoma).
+      if (ellipseDist(nx, ny, ear.x + outSign * ear.rx * 0.1, ear.y, ear.rx * 0.5, ear.ry * 0.45) < 0.9) {
+        strength = 0.6;
       }
-      const hi = ellipseDist(nx, ny, cx + (side === 'left' ? -0.006 : 0.006), cy - 0.032, rx * 0.22, ry * 0.16);
-      if (hi < 0.7) {
-        [rr, gg, bb] = inflamedFromSkin(skinR, skinG, skinB, 1.0, 0.35);
+      let [rr, gg, bb] = inflamedFromSkin(skinR, skinG, skinB, 0.45 + shade * 0.4, strength);
+
+      // Shiny taut highlight on lump crowns.
+      if (dLump < 0.4) {
+        const hi = 1 - dLump / 0.4;
+        rr = clamp(mix(rr, 255, hi * 0.32));
+        gg = clamp(mix(gg, 205, hi * 0.22));
+        bb = clamp(mix(bb, 170, hi * 0.15));
+      } else if (dLump > 0.72 && dLump < 1) {
+        // Valley between knobs.
+        [rr, gg, bb] = inflamedFromSkin(skinR, skinG, skinB, 0.28, 0.7);
       }
 
       face.data[i] = rr;
       face.data[i + 1] = gg;
       face.data[i + 2] = bb;
       face.data[i + 3] = 255;
-      if (edge > 0.6) solid[y * W + x] = 1;
       painted++;
     }
   }
 
-  // Thick black cartoon outline (match face line art).
-  const stroke = createCanvas(W, H);
-  const sctx = stroke.getContext('2d');
-  sctx.strokeStyle = '#1a1014';
-  sctx.lineWidth = 5;
-  sctx.lineJoin = 'round';
-  sctx.lineCap = 'round';
-  sctx.beginPath();
-  sctx.ellipse(cx * W, cy * H, rx * W * 0.97, ry * H * 0.97, 0, 0, Math.PI * 2);
-  sctx.stroke();
-  const strokeData = sctx.getImageData(0, 0, W, H).data;
-  for (let i = 0; i < face.data.length; i += 4) {
-    const a = strokeData[i + 3];
-    if (a < 50) continue;
-    const p = i / 4;
-    const x = p % W;
-    const y = (p / W) | 0;
-    let near = solid[y * W + x];
-    if (!near) {
+  // Outer perimeter outline only (follows knobby ear silhouette).
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 1; x < W - 1; x++) {
+      if (!solid[y * W + x]) continue;
+      let edge = false;
       for (const [dx, dy] of [
-        [4, 0],
-        [-4, 0],
-        [0, 4],
-        [0, -4],
-        [3, 3],
-        [-3, 3],
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
       ]) {
-        const xx = x + dx;
-        const yy = y + dy;
-        if (xx >= 0 && yy >= 0 && xx < W && yy < H && solid[yy * W + xx]) near = 1;
+        if (!solid[(y + dy) * W + (x + dx)]) {
+          edge = true;
+          break;
+        }
       }
+      if (!edge) continue;
+      const i = (y * W + x) * 4;
+      if (clean.data[i + 3] > 180 && Math.max(clean.data[i], clean.data[i + 1], clean.data[i + 2]) < 70) continue;
+      face.data[i] = clamp(mix(face.data[i], 30, 0.8));
+      face.data[i + 1] = clamp(mix(face.data[i + 1], 18, 0.8));
+      face.data[i + 2] = clamp(mix(face.data[i + 2], 20, 0.8));
     }
-    if (!near) continue;
-    // Don't cover glasses temple with outline either.
-    if (clean.data[i + 3] > 180 && Math.max(clean.data[i], clean.data[i + 1], clean.data[i + 2]) < 70) continue;
-    const t = Math.min(1, a / 255);
-    face.data[i] = clamp(mix(face.data[i], 20, t));
-    face.data[i + 1] = clamp(mix(face.data[i + 1], 12, t));
-    face.data[i + 2] = clamp(mix(face.data[i + 2], 16, t));
-    if (face.data[i + 3] < 20) face.data[i + 3] = 255;
   }
   return painted;
+}
+
+function faGlasses(face, i) {
+  return isGlassesFrame(face.data[i], face.data[i + 1], face.data[i + 2], face.data[i + 3]);
 }
 
 /**
