@@ -1414,40 +1414,40 @@ html, body, #root, .app {
 }
 
 .play-damage-hud-frame {
-  width: 8.75rem;
-  padding: 0.35rem;
-  border-radius: 0.4rem;
+  width: 6.5rem;
+  padding: 0.28rem;
+  border-radius: 0.35rem;
   background: linear-gradient(160deg, rgba(28, 18, 10, 0.88), rgba(10, 8, 6, 0.92));
   border: 1px solid rgba(232, 200, 100, 0.35);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.38);
 }
 
 .play-damage-hud-face {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 0.35rem;
+  border-radius: 0.28rem;
   background: #0a0a0a;
 }
 
 .play-damage-hud-meter {
-  margin-top: 0.4rem;
+  margin-top: 0.3rem;
 }
 
 .play-damage-hud-meter-label {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  font-size: 0.55rem;
+  font-size: 0.5rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: #e8c840;
-  margin-bottom: 0.15rem;
+  margin-bottom: 0.12rem;
   font-variant-numeric: tabular-nums;
 }
 
 .play-damage-hud-meter-track {
-  height: 0.32rem;
+  height: 0.28rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.12);
   overflow: hidden;
