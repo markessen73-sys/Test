@@ -1,11 +1,11 @@
 import { assetUrl } from '../../assetUrl';
 import { DAMAGE_FACE_SEQUENCE } from './faceDamage';
 
-/** Clean caricature used as the damage-box base (same style as injury refs). */
+/** Clean uploaded-photo caricature used as the damage-box base. */
 export const DAMAGE_STAGE_CLEAN_SRC = assetUrl('/faces/damage-stages/00-clean.png');
 
 /**
- * Pre-baked cumulative injury faces created when the caricature is authored.
+ * Pre-baked cumulative injury faces of the uploaded-photo caricature.
  * Index 0 = 10% (left cauliflower ear) … index 7 = 80% (bandage).
  */
 export const DAMAGE_STAGE_SRCS: readonly string[] = [
