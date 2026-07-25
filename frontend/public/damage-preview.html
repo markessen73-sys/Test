@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Damage stage preview</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 1rem;
+        background: #111;
+        color: #eee;
+        font-family: system-ui, sans-serif;
+      }
+      h1 {
+        font-size: 1.1rem;
+        margin: 0 0 1rem;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 0.75rem;
+      }
+      figure {
+        margin: 0;
+        background: #1a1a1a;
+        border: 1px solid #333;
+        padding: 0.5rem;
+        text-align: center;
+      }
+      img {
+        width: 160px;
+        height: 160px;
+        object-fit: contain;
+        background: #000;
+      }
+      figcaption {
+        margin-top: 0.35rem;
+        font-size: 0.75rem;
+        color: #ccc;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Damage box faces (every 10%)</h1>
+    <div class="grid" id="grid"></div>
+    <script>
+      const stages = [
+        ['0% clean', './faces/damage-stages/00-clean.png'],
+        ['10% left cauliflower ear', './faces/damage-stages/01-cauliflowerLeftEar.png'],
+        ['20% + right black eye', './faces/damage-stages/02-blackRightEye.png'],
+        ['30% + swollen lip', './faces/damage-stages/03-swollenBottomLip.png'],
+        ['40% + right cauliflower ear', './faces/damage-stages/04-cauliflowerRightEar.png'],
+        ['50% + missing tooth', './faces/damage-stages/05-missingTooth.png'],
+        ['60% + swollen left eye', './faces/damage-stages/06-swollenLeftEye.png'],
+        ['70% + broken nose', './faces/damage-stages/07-brokenNose.png'],
+        ['80% + forehead bandage', './faces/damage-stages/08-foreheadBandage.png'],
+        ['100% knockout', './faces/test-template-face-knockout.png'],
+      ];
+      const grid = document.getElementById('grid');
+      for (const [label, src] of stages) {
+        const fig = document.createElement('figure');
+        fig.innerHTML = `<img src="${src}" alt="${label}" /><figcaption>${label}</figcaption>`;
+        grid.appendChild(fig);
+      }
+    </script>
+  </body>
+</html>

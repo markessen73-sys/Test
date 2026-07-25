@@ -5,7 +5,8 @@ import {
   type DamagedFaceAssets,
 } from './renderDamagedFace';
 
-const FACE_PX = 96;
+/** Large enough that cauliflower ears / bandage read clearly in the corner HUD. */
+const FACE_PX = 140;
 
 interface OpponentDamageHudProps {
   /** Damage meter stage 0–10 (each step = 10%). */
