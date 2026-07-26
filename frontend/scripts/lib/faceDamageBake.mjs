@@ -48,7 +48,15 @@ export function isLineArt(r, g, b) {
   return Math.max(r, g, b) < 55;
 }
 export function isIris(r, g, b) {
-  return g > 70 && g >= r - 5 && g > b + 5;
+  // Green / hazel cartoon iris.
+  if (g > 70 && g >= r - 5 && g > b + 5) return true;
+  // Brown / amber iris (Byson etc.) — mid luminance, warm, not skin-bright.
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (r > 70 && r < 190 && g > 40 && g < 150 && b > 20 && b < 120 && r >= g && g >= b - 8 && max - min > 18 && max < 200) {
+    return true;
+  }
+  return false;
 }
 export function isSclera(r, g, b) {
   return r > 200 && g > 200 && b > 200 && Math.max(r, g, b) - Math.min(r, g, b) < 30;
