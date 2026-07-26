@@ -130,11 +130,114 @@ export async function alignFaceToLandmarks(
   return face;
 }
 
+type Affine = { a: number; b: number; c: number; d: number; e: number; f: number };
+
+function applyAffineToSource(
+  source: HTMLImageElement | HTMLCanvasElement,
+  M: Affine
+): ImageData {
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  ctx.setTransform(M.a, M.b, M.c, M.d, M.e, M.f);
+  ctx.drawImage(source, 0, 0);
+  ctx.restore();
+  return cutBlackBackdrop(ctx.getImageData(0, 0, W, H));
+}
+
+/** Compute affine from source landmarks → bake LM (eyes + mouth). */
+function computeAlignAffine(
+  source: HTMLImageElement | HTMLCanvasElement,
+  lm: FaceLandmarks
+): Affine {
+  const srcW = source instanceof HTMLImageElement ? source.naturalWidth : source.width;
+  const srcH = source instanceof HTMLImageElement ? source.naturalHeight : source.height;
+  const srcPts = [
+    { x: lm.rightEye.x * srcW, y: lm.rightEye.y * srcH },
+    { x: lm.leftEye.x * srcW, y: lm.leftEye.y * srcH },
+    { x: lm.mouth.x * srcW, y: lm.mouth.y * srcH },
+  ];
+  const dstPts = [
+    { x: LM.rightEye.x * W, y: LM.rightEye.y * H },
+    { x: LM.leftEye.x * W, y: LM.leftEye.y * H },
+    { x: LM.mouth.x * W, y: LM.mouth.y * H },
+  ];
+  return similarityFromThree(srcPts, dstPts);
+}
+
+function scaleImageDataToWidth(face: ImageData, targetWidth: number): ImageData {
+  const current = measureMidFaceWidth(face);
+  if (current < 8) return face;
+  const scale = targetWidth / current;
+  if (Math.abs(scale - 1) < 0.02) return face;
+
+  const pivotX = ((LM.rightEye.x + LM.leftEye.x) / 2) * W;
+  const pivotY = ((LM.rightEye.y + LM.leftEye.y) / 2) * H;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext('2d')!;
+  ctx.clearRect(0, 0, W, H);
+  const tmp = canvasFromImageData(face);
+  ctx.translate(pivotX, pivotY);
+  ctx.scale(scale, scale);
+  ctx.translate(-pivotX, -pivotY);
+  ctx.drawImage(tmp, 0, 0);
+  return cutBlackBackdrop(ctx.getImageData(0, 0, W, H));
+}
+
+/**
+ * Align a clean/ooh/knockout pack the same way built-in characters are authored:
+ * detect landmarks on clean, reuse clean's affine for ooh + KO, scale clean to Default width,
+ * then match ooh/KO width to clean.
+ */
+export async function alignCharacterPack(
+  cleanSrc: HTMLImageElement,
+  oohSrc: HTMLImageElement,
+  knockoutSrc: HTMLImageElement
+): Promise<{ clean: ImageData; ooh: ImageData; knockout: ImageData }> {
+  const cleanLm = await detectFaceLandmarks(cleanSrc).catch(() => null);
+  if (!cleanLm) {
+    const clean = await alignFaceToLandmarks(cleanSrc, null);
+    const targetW = measureMidFaceWidth(clean);
+    const ooh = scaleImageDataToWidth(await alignFaceToLandmarks(oohSrc, null), targetW);
+    const knockout = scaleImageDataToWidth(
+      await alignFaceToLandmarks(knockoutSrc, null),
+      targetW
+    );
+    return { clean, ooh, knockout };
+  }
+
+  const M = computeAlignAffine(cleanSrc, cleanLm);
+  let clean = applyAffineToSource(cleanSrc, M);
+  let ooh = applyAffineToSource(oohSrc, M);
+  let knockout = applyAffineToSource(knockoutSrc, M);
+
+  clean = await matchDefaultMidFaceWidth(clean);
+  const targetW = measureMidFaceWidth(clean);
+  ooh = scaleImageDataToWidth(ooh, targetW);
+  knockout = scaleImageDataToWidth(knockout, targetW);
+
+  return { clean, ooh, knockout };
+}
+
+async function imageDataToPngBlob(img: ImageData): Promise<Blob> {
+  const c = canvasFromImageData(img);
+  return new Promise((resolve, reject) => {
+    c.toBlob((b) => (b ? resolve(b) : reject(new Error('PNG encode failed'))), 'image/png');
+  });
+}
+
+export { imageDataToPngBlob };
+
 /** Similarity transform from 3 point pairs (least squares on first 2 for scale/rot, mouth for refine). */
 function similarityFromThree(
   src: { x: number; y: number }[],
   dst: { x: number; y: number }[]
-): { a: number; b: number; c: number; d: number; e: number; f: number } {
+): Affine {
   // Use eye pair for scale + rotation + translation.
   const s0 = src[0];
   const s1 = src[1];

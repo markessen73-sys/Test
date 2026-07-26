@@ -7,6 +7,7 @@ import os
 from openai import OpenAI
 from PIL import Image
 
+from expressions import get_expression
 from styles import CaricatureStyle
 
 
@@ -36,19 +37,22 @@ def _prepare_png(image_bytes: bytes, max_size: int = 1024) -> bytes:
     return buffer.getvalue()
 
 
-def transform_openai(image_bytes: bytes, style: CaricatureStyle) -> bytes:
+def transform_openai(
+    image_bytes: bytes, style: CaricatureStyle, expression_id: str = "clean"
+) -> bytes:
     """Transform photo using OpenAI image edit API."""
     client = _get_client()
     if not client:
         raise OpenAIError("OPENAI_API_KEY is not set")
 
+    expression = get_expression(expression_id)
     png_bytes = _prepare_png(image_bytes)
     model = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-1")
 
     prompt = (
         f"Transform this portrait photo into an animated caricature in this style: {style.prompt}. "
-        "Preserve the person's likeness and facial features. "
-        "High quality cartoon illustration, clean lines, vibrant colors. "
+        f"{expression.prompt_suffix} "
+        "High quality flat cartoon illustration with bold black outlines and cel-shaded colours. "
         "No text, no watermark."
     )
 

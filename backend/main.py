@@ -1,5 +1,6 @@
 """Photo-to-Caricature API server — monetization-ready."""
 
+import base64
 import os
 from pathlib import Path
 
@@ -25,6 +26,7 @@ from database import (
     init_db,
     log_usage,
 )
+from pack_baker import PackBakeError, bake_character_pack
 from styles import get_style, list_styles
 from transformer import TransformError, ai_available, transform_image
 
@@ -138,6 +140,7 @@ async def styles():
 async def transform(
     photo: UploadFile = File(...),
     style_id: str = Form(...),
+    expression: str = Form("clean"),
     customer: dict = Depends(get_or_create_customer),
     x_customer_id: str | None = Header(None),
 ):
@@ -175,7 +178,9 @@ async def transform(
     style = get_style(style_id)
 
     try:
-        result_bytes, provider_used = await transform_image(image_bytes, style)
+        result_bytes, provider_used = await transform_image(
+            image_bytes, style, expression_id=expression
+        )
     except TransformError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
     except Exception as e:
@@ -199,6 +204,36 @@ async def transform(
             "X-Credits-Remaining": str(credits_remaining),
         },
     )
+
+
+@app.post("/api/bake-character-pack")
+async def bake_pack(
+    clean: UploadFile = File(...),
+    ooh: UploadFile = File(...),
+    knockout: UploadFile = File(...),
+):
+    """Run the same Node bake:damage + bake:clown scripts as built-in characters."""
+    clean_b = await clean.read()
+    ooh_b = await ooh.read()
+    ko_b = await knockout.read()
+    if not clean_b or not ooh_b or not ko_b:
+        raise HTTPException(
+            status_code=400,
+            detail="clean, ooh, and knockout images are required",
+        )
+    try:
+        files = bake_character_pack(clean_b, ooh_b, ko_b)
+    except PackBakeError as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pack bake failed: {e}") from e
+
+    return {
+        "files": {
+            path: base64.b64encode(data).decode("ascii")
+            for path, data in files.items()
+        }
+    }
 
 
 frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"

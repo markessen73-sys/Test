@@ -1,19 +1,18 @@
-import { transformPhoto, fetchHealth } from '../../../api';
+import { transformPhoto, fetchHealth, bakeCharacterPack } from '../../../api';
 import { bakeCustomBoxerPack } from '../bake/bakeCustomPack';
 import {
+  alignCharacterPack,
   alignFaceToLandmarks,
   canvasToJpegFile,
   cropFaceToSquare,
+  imageDataToPngBlob,
   loadImageFromBlob,
-  measureMidFaceWidth,
   synthesizeKnockout,
   synthesizeOoh,
 } from './faceImage';
 import { detectFaceLandmarks } from './faceDetect';
 import { paintFlatCaricature } from './paintFlatCaricature';
 import { stylizeFaceToCaricature } from './faceStylize';
-import { LM, W, H } from '../bake/faceDamageBake';
-import { assetUrl } from '../../../assetUrl';
 import {
   newCustomBoxerId,
   saveCustomBoxerPack,
@@ -22,85 +21,83 @@ import {
 
 export type CreateBoxerProgress = (message: string, ratio: number) => void;
 
-type CaricatureResult = { blob: Blob; alreadyOnLayout: boolean };
+type ExpressionId = 'clean' | 'ooh' | 'knockout';
 
 /**
- * Turn a photo face into a gym caricature (never leave it as a raw photo).
- * Prefer studio AI → MediaPipe Face Stylizer → flat landmark painter.
+ * Generate clean / ooh / knockout caricatures via studio AI (same methodology as built-in boxers).
  */
-async function caricatureFace(
+async function generateExpressionPack(
   faceFile: File,
+  onProgress?: CreateBoxerProgress
+): Promise<{ clean: Blob; ooh: Blob; knockout: Blob }> {
+  const steps: { id: ExpressionId; ratio: number; label: string }[] = [
+    { id: 'clean', ratio: 0.12, label: 'Creating clean expression…' },
+    { id: 'ooh', ratio: 0.22, label: 'Creating ooh expression…' },
+    { id: 'knockout', ratio: 0.32, label: 'Creating knockout expression…' },
+  ];
+
+  const out: Partial<Record<ExpressionId, Blob>> = {};
+  for (const step of steps) {
+    onProgress?.(step.label, step.ratio);
+    const result = await transformPhoto(
+      faceFile,
+      'mickeys_gym',
+      (msg) => onProgress?.(msg, step.ratio + 0.04),
+      step.id
+    );
+    out[step.id] = result.blob;
+  }
+
+  return {
+    clean: out.clean!,
+    ooh: out.ooh!,
+    knockout: out.knockout!,
+  };
+}
+
+/** On-device fallback when studio AI is unavailable. */
+async function generateOnDevicePack(
   faceCanvas: HTMLCanvasElement,
   onProgress?: CreateBoxerProgress
-): Promise<CaricatureResult> {
-  onProgress?.('Checking caricature service…', 0.1);
-  let aiConfigured = false;
+): Promise<{ clean: ImageData; ooh: ImageData; knockout: ImageData }> {
+  onProgress?.('Stylizing face into a caricature…', 0.16);
+  let caricatureBlob: Blob;
   try {
-    const health = await fetchHealth();
-    aiConfigured = !!health.ai_available;
-    if (health.ai_available || health.monetization_mode === false) {
-      onProgress?.('Creating AI caricature…', 0.15);
-      try {
-        const result = await transformPhoto(faceFile, 'mickeys_gym', (msg) => onProgress?.(msg, 0.22));
-        return { blob: result.blob, alreadyOnLayout: false };
-      } catch (err) {
-        // When studio AI is configured, surface the error (e.g. billing limit)
-        // instead of silently falling back to a crude on-device cartoon.
-        if (aiConfigured) throw err;
-      }
-    }
-  } catch (err) {
-    if (aiConfigured) throw err;
-    /* health unreachable — fall through to on-device */
+    caricatureBlob = await stylizeFaceToCaricature(faceCanvas);
+  } catch {
+    onProgress?.('Drawing boxing caricature…', 0.2);
+    caricatureBlob = await paintFlatCaricature(faceCanvas);
   }
 
+  const caricatureImg = await loadImageFromBlob(caricatureBlob);
+  const landmarks = await detectFaceLandmarks(caricatureImg).catch(() => null);
+  const clean = await alignFaceToLandmarks(caricatureImg, landmarks);
+  onProgress?.('Building expressions…', 0.45);
+  return {
+    clean,
+    ooh: synthesizeOoh(clean),
+    knockout: synthesizeKnockout(clean),
+  };
+}
+
+async function bakePack(
+  clean: ImageData,
+  ooh: ImageData,
+  knockout: ImageData,
+  onProgress?: CreateBoxerProgress
+) {
+  onProgress?.('Baking damage & clown packs…', 0.55);
   try {
-    onProgress?.('Stylizing face into a caricature…', 0.16);
-    const blob = await stylizeFaceToCaricature(faceCanvas);
-    return { blob, alreadyOnLayout: false };
+    const cleanBlob = await imageDataToPngBlob(clean);
+    const oohBlob = await imageDataToPngBlob(ooh);
+    const koBlob = await imageDataToPngBlob(knockout);
+    return await bakeCharacterPack(cleanBlob, oohBlob, koBlob, (msg) =>
+      onProgress?.(msg, 0.7)
+    );
   } catch (err) {
-    console.warn('Face stylizer failed, using flat painter', err);
+    console.warn('Server bake unavailable, using browser bake', err);
+    return bakeCustomBoxerPack(clean, ooh, knockout, onProgress);
   }
-
-  onProgress?.('Drawing boxing caricature…', 0.2);
-  const blob = await paintFlatCaricature(faceCanvas);
-  return { blob, alreadyOnLayout: true };
-}
-
-async function imageDataFromImage(img: HTMLImageElement): Promise<ImageData> {
-  const c = document.createElement('canvas');
-  c.width = W;
-  c.height = H;
-  const ctx = c.getContext('2d')!;
-  ctx.clearRect(0, 0, W, H);
-  ctx.drawImage(img, 0, 0, W, H);
-  return ctx.getImageData(0, 0, W, H);
-}
-
-async function matchDefaultWidth(face: ImageData): Promise<ImageData> {
-  const refImg = await loadImageFromBlob(
-    await fetch(assetUrl('/faces/characters/default/clean.png')).then((r) => r.blob())
-  );
-  const ref = await imageDataFromImage(refImg);
-  const target = measureMidFaceWidth(ref);
-  const current = measureMidFaceWidth(face);
-  if (current < 8 || Math.abs(target / current - 1) < 0.03) return face;
-  const scale = target / current;
-  const pivotX = ((LM.rightEye.x + LM.leftEye.x) / 2) * W;
-  const pivotY = ((LM.rightEye.y + LM.leftEye.y) / 2) * H;
-  const c = document.createElement('canvas');
-  c.width = W;
-  c.height = H;
-  const ctx = c.getContext('2d')!;
-  const tmp = document.createElement('canvas');
-  tmp.width = W;
-  tmp.height = H;
-  tmp.getContext('2d')!.putImageData(face, 0, 0);
-  ctx.translate(pivotX, pivotY);
-  ctx.scale(scale, scale);
-  ctx.translate(-pivotX, -pivotY);
-  ctx.drawImage(tmp, 0, 0);
-  return ctx.getImageData(0, 0, W, H);
 }
 
 /**
@@ -118,24 +115,31 @@ export async function createBoxerFromFaceSource(opts: {
   const crop = cropFaceToSquare(sourceImage, faceBox, 0.55);
   const faceFile = await canvasToJpegFile(crop, 'boxer-face.jpg');
 
-  const { blob: caricatureBlob, alreadyOnLayout } = await caricatureFace(faceFile, crop, onProgress);
-  onProgress?.('Aligning to gym face layout…', 0.4);
-  const caricatureImg = await loadImageFromBlob(caricatureBlob);
-
-  let clean: ImageData;
-  if (alreadyOnLayout) {
-    // Painter already put eyes/mouth on bake LM — only size-match to Default.
-    clean = await matchDefaultWidth(await imageDataFromImage(caricatureImg));
-  } else {
-    const landmarks = await detectFaceLandmarks(caricatureImg).catch(() => null);
-    clean = await alignFaceToLandmarks(caricatureImg, landmarks);
+  onProgress?.('Checking caricature service…', 0.08);
+  let studioAi = false;
+  try {
+    const health = await fetchHealth();
+    studioAi = !!health.ai_available || health.monetization_mode === false;
+  } catch {
+    /* on-device fallback */
   }
 
-  onProgress?.('Building expressions…', 0.5);
-  const ooh = synthesizeOoh(clean);
-  const knockout = synthesizeKnockout(clean);
+  let clean: ImageData;
+  let ooh: ImageData;
+  let knockout: ImageData;
 
-  const blobs = await bakeCustomBoxerPack(clean, ooh, knockout, onProgress);
+  if (studioAi) {
+    const expressions = await generateExpressionPack(faceFile, onProgress);
+    onProgress?.('Aligning face pack to gym layout…', 0.42);
+    const cleanImg = await loadImageFromBlob(expressions.clean);
+    const oohImg = await loadImageFromBlob(expressions.ooh);
+    const koImg = await loadImageFromBlob(expressions.knockout);
+    ({ clean, ooh, knockout } = await alignCharacterPack(cleanImg, oohImg, koImg));
+  } else {
+    ({ clean, ooh, knockout } = await generateOnDevicePack(crop, onProgress));
+  }
+
+  const blobs = await bakePack(clean, ooh, knockout, onProgress);
 
   const id = newCustomBoxerId();
   const record: CustomBoxerPackRecord = {

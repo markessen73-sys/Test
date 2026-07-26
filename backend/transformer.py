@@ -127,7 +127,10 @@ async def transform_with_replicate(image_bytes: bytes, style: CaricatureStyle) -
 
 
 async def transform_image(
-    image_bytes: bytes, style: CaricatureStyle, provider: str | None = None
+    image_bytes: bytes,
+    style: CaricatureStyle,
+    provider: str | None = None,
+    expression_id: str = "clean",
 ) -> tuple[bytes, str]:
     """
     AI-only transformation for production. Server API keys — never user keys.
@@ -146,7 +149,9 @@ async def transform_image(
             if prov == "replicate":
                 return await transform_with_replicate(image_bytes, style), "replicate"
             if prov == "openai":
-                result = await asyncio.to_thread(transform_openai, image_bytes, style)
+                result = await asyncio.to_thread(
+                    transform_openai, image_bytes, style, expression_id
+                )
                 return result, "openai"
         except Exception as error:
             errors.append(f"{prov}: {_friendly_error(error)}")
