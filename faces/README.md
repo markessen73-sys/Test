@@ -62,8 +62,9 @@ Writes `face-template-map.json` and `src/play/face/faceTemplateMap.ts`.
 
 ## Bobo doll comedy-clown faces
 
-Same caricature + injury ladder as the ring damage stages, painted as a
-classic whiteface clown (red nose, diamond eye makeup, smile, candy hair).
+Same caricature + injury ladder as the ring damage stages, with **natural
+skin tone** (no whiteface), red/blue clown accents, black pupils, and a
+large multi-coloured curly wig.
 
 ```bash
 cd frontend
@@ -84,6 +85,7 @@ in `src/play/face/characters.ts`, then run the guardrail script:
 ```bash
 cd frontend
 # Align clean/ooh/KO so eyes+mouth sit on bake LM (reuse clean's affine for ooh+KO).
+# Scale the pack so clean mid-face width matches Default (±4%), pivot on the eye midpoint.
 # Swap templates → bake damage + clown into characters/<id>/… → restore templates.
 npm run bake:damage
 npm run bake:clown
