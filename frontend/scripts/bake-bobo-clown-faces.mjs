@@ -302,7 +302,8 @@ function applyComedyClownMakeup(face, clean) {
   // 6) Solid black pupils — fill the whole iris disk (kills white specular glints).
   let pupilN = 0;
   for (const eye of [LM.leftEye, LM.rightEye]) {
-    // Only open eyes (source still has green iris) — skip closed KO lids.
+    // Only open eyes (source still has a colored iris) — skip closed KO lids.
+    // Match green Default irises and brown/amber ones (Byson etc.).
     let open = false;
     for (let y = Math.floor((eye.y - 0.04) * H); y < Math.ceil((eye.y + 0.04) * H) && !open; y++) {
       for (let x = Math.floor((eye.x - 0.04) * W); x < Math.ceil((eye.x + 0.04) * W); x++) {
@@ -311,7 +312,8 @@ function applyComedyClownMakeup(face, clean) {
         const r = clean.data[i];
         const g = clean.data[i + 1];
         const b = clean.data[i + 2];
-        if (clean.data[i + 3] > 200 && g > 85 && g > r + 5 && g > b + 5 && r < 180) {
+        if (clean.data[i + 3] <= 200) continue;
+        if ((g > 85 && g > r + 5 && g > b + 5 && r < 180) || isIris(r, g, b)) {
           open = true;
           break;
         }
