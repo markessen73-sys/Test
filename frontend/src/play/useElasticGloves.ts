@@ -170,7 +170,11 @@ function gloveVisual(
 export interface UseElasticGlovesOptions {
   onPunch: (glove: GloveId, knuckle: GlovePosition) => void;
   targetZoneOffsetRef: RefObject<GlovePosition>;
-  isKnuckleOnTarget: (knuckle: GlovePosition, zoneOffset: GlovePosition) => boolean;
+  isKnuckleOnTarget: (
+    knuckle: GlovePosition,
+    zoneOffset: GlovePosition,
+    contact: { glove: GloveId; cuff: GlovePosition }
+  ) => boolean;
 }
 
 export function useElasticGloves({
@@ -212,7 +216,10 @@ export function useElasticGloves({
       const last = lastPunchRef.current.get(glove) ?? 0;
       if (
         releaseSpeed >= RELEASE_MIN_NORM_SPEED &&
-        isKnuckleOnTarget(knucklePos, targetZoneOffsetRef.current) &&
+        isKnuckleOnTarget(knucklePos, targetZoneOffsetRef.current, {
+          glove,
+          cuff: { x: bodiesRef.current[glove].x, y: bodiesRef.current[glove].y },
+        }) &&
         now - last > PUNCH_COOLDOWN_MS
       ) {
         lastPunchRef.current.set(glove, now);
