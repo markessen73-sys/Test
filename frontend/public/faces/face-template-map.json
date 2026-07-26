@@ -1,0 +1,121 @@
+{
+  "template": "/faces/test-template-face.png",
+  "sourceSize": [
+    1024,
+    1024
+  ],
+  "faceOval": [
+    0.1426,
+    0.0801,
+    0.8555,
+    0.8633
+  ],
+  "regions": {
+    "leftEye": [
+      0.2709,
+      0.2994,
+      0.4277,
+      0.3934
+    ],
+    "rightEye": [
+      0.5703,
+      0.2994,
+      0.7271,
+      0.3934
+    ],
+    "nose": [
+      0.3992,
+      0.3934,
+      0.5988,
+      0.5187
+    ],
+    "mouth": [
+      0.3422,
+      0.5343,
+      0.6559,
+      0.6596
+    ]
+  },
+  "landmarks": {
+    "leftEye": [
+      0.3493,
+      0.3464
+    ],
+    "rightEye": [
+      0.6487,
+      0.3464
+    ],
+    "nose": [
+      0.499,
+      0.456
+    ],
+    "mouth": [
+      0.499,
+      0.597
+    ],
+    "chin": [
+      0.499,
+      0.8633
+    ]
+  },
+  "targets": {
+    "heavyBag": {
+      "comment": "Screen trapezoid \u2014 matches BAG_HIT_CORNERS in gloveZoneGrid.ts",
+      "corners": [
+        [
+          0.305,
+          0.18
+        ],
+        [
+          0.685,
+          0.18
+        ],
+        [
+          0.695,
+          0.46
+        ],
+        [
+          0.295,
+          0.46
+        ]
+      ]
+    },
+    "heavyBagMesh": {
+      "comment": "3D decal on cylinder body (bag-local metres)",
+      "center": [
+        0,
+        0.35,
+        0.44
+      ],
+      "size": [
+        0.52,
+        0.62
+      ]
+    },
+    "ringPartner": {
+      "comment": "Square head slot on sparring-boxer silhouette (1024\u00d71536 norm)",
+      "rect": [
+        0.4269,
+        0.1143,
+        0.5731,
+        0.2118
+      ]
+    },
+    "hudPlayer": {
+      "rect": [
+        0.02,
+        0.02,
+        0.22,
+        0.18
+      ]
+    },
+    "hudOpponent": {
+      "rect": [
+        0.78,
+        0.02,
+        0.98,
+        0.18
+      ]
+    }
+  }
+}
