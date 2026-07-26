@@ -1,7 +1,7 @@
 import type { GlovePosition } from '../types/game';
 import type { GloveId } from '../types/game';
 import type { GloveTransform } from './skeleton/types';
-import { PLAY_EQUIPMENT_BOTTOM_Y } from './gloveZoneGrid';
+import { GRID_BOTTOM_Y, PLAY_EQUIPMENT_BOTTOM_Y } from './gloveZoneGrid';
 import {
   gloveCuffYForBottomNorm,
   halfGloveHeightNorm,
@@ -18,18 +18,20 @@ const REF_SCREEN_W = 1080;
 /** Left guard sits a touch higher than the right. */
 const LEFT_GUARD_RAISE_FRAC = 0.22;
 
-/** Rest anchors — glove bottoms line up with equipment base; X spacing stays fixed. */
+/** Rest anchors — glove bottoms sit below equipment base; X spacing stays fixed. */
 export function gloveRestAnchors(screenH: number): Record<'left' | 'right', GlovePosition> {
   const halfGloveNorm = halfGloveWidthNorm(REF_SCREEN_W);
   const leftRaise = halfGloveHeightNorm(screenH) * LEFT_GUARD_RAISE_FRAC;
+  const extraDrop = halfGloveHeightNorm(screenH) * 0.5;
+  const restBottomY = Math.min(GRID_BOTTOM_Y - 0.02, PLAY_EQUIPMENT_BOTTOM_Y + extraDrop);
   const rightY = gloveCuffYForBottomNorm(
-    PLAY_EQUIPMENT_BOTTOM_Y,
+    restBottomY,
     screenH,
     'right',
     INWARD_GLOVE_TILT
   );
   const leftY = gloveCuffYForBottomNorm(
-    PLAY_EQUIPMENT_BOTTOM_Y,
+    restBottomY,
     screenH,
     'left',
     -INWARD_GLOVE_TILT,
