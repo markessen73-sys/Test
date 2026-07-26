@@ -1,0 +1,104 @@
+.character-builder {
+  min-height: 100vh;
+  background: #0f1118;
+  color: #f2f2f2;
+  font-family: system-ui, sans-serif;
+}
+
+.character-builder-header {
+  padding: 1.25rem 1.5rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.character-builder-header h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.5rem;
+}
+
+.character-builder-header p {
+  margin: 0;
+  opacity: 0.7;
+  font-size: 0.95rem;
+}
+
+.character-builder-body {
+  display: grid;
+  grid-template-columns: minmax(280px, 420px) 1fr minmax(220px, 320px);
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem 2rem;
+}
+
+@media (max-width: 960px) {
+  .character-builder-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.character-builder-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.character-builder-canvas-host {
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 1;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.character-builder-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.character-builder-loading {
+  margin: 0;
+  opacity: 0.6;
+  font-size: 0.9rem;
+}
+
+.character-builder-controls {
+  display: grid;
+  gap: 0.65rem;
+  align-content: start;
+}
+
+.character-builder-control {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: 0.75rem;
+  align-items: center;
+  font-size: 0.92rem;
+}
+
+.character-builder-control select {
+  padding: 0.45rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #1a1f2b;
+  color: inherit;
+}
+
+.character-builder-json h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.character-builder-json pre {
+  margin: 0;
+  padding: 0.85rem;
+  border-radius: 10px;
+  background: #1a1f2b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  overflow: auto;
+  max-height: 70vh;
+}

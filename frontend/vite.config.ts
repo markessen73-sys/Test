@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import { execSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { generate as generateCharacterManifest } from './scripts/generate-character-asset-manifest.mjs'
 
 function currentGitSha(): string {
   try {
@@ -23,6 +24,7 @@ function buildInfoPlugin(): Plugin {
   return {
     name: 'build-info',
     configureServer(server) {
+      generateCharacterManifest()
       server.middlewares.use((req, res, next) => {
         if (req.url?.split('?')[0] === '/build-info.json') {
           res.setHeader('Content-Type', 'application/json')
@@ -34,6 +36,7 @@ function buildInfoPlugin(): Plugin {
       })
     },
     buildStart() {
+      generateCharacterManifest()
       writeFileSync(resolve(__dirname, 'public/build-info.json'), buildInfoPayload())
     },
   }
