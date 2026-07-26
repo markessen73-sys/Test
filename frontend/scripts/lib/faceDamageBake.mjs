@@ -86,6 +86,22 @@ export function isIris(r, g, b) {
   ) {
     return true;
   }
+  // Light blue / cyan iris (The Don etc.) — cool, not sky-backdrop / not sclera-white.
+  if (
+    L > 55 &&
+    L < 175 &&
+    b > 110 &&
+    b < 230 &&
+    g > 90 &&
+    g < 200 &&
+    r < 160 &&
+    b >= g - 5 &&
+    b > r + 25 &&
+    max - min > 28 &&
+    max < 235
+  ) {
+    return true;
+  }
   return false;
 }
 export function isSclera(r, g, b) {

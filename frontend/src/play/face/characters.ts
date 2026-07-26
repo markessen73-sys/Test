@@ -6,7 +6,7 @@ import { assetUrl } from '../../assetUrl';
  * `public/faces/README.md`) so LM alignment, Default head size, KO scale,
  * natural-skin clown + curly wig, and pupils match pack conventions.
  */
-export type CharacterId = 'default' | 'byson' | 'tin-mick';
+export type CharacterId = 'default' | 'byson' | 'tin-mick' | 'the-don';
 
 export interface CharacterDef {
   id: CharacterId;
@@ -71,12 +71,14 @@ export const CHARACTERS: Record<CharacterId, CharacterDef> = {
   default: makeCharacter('default', 'Default'),
   byson: makeCharacter('byson', 'Byson'),
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick'),
+  'the-don': makeCharacter('the-don', 'The Don'),
 };
 
 export const CHARACTER_LIST: CharacterDef[] = [
   CHARACTERS.default,
   CHARACTERS.byson,
   CHARACTERS['tin-mick'],
+  CHARACTERS['the-don'],
 ];
 
 export const DEFAULT_CHARACTER_ID: CharacterId = 'default';
@@ -84,7 +86,7 @@ export const DEFAULT_CHARACTER_ID: CharacterId = 'default';
 export const CHARACTER_STORAGE_KEY = 'mickeys-gym-character';
 
 export function isCharacterId(value: string | null | undefined): value is CharacterId {
-  return value === 'default' || value === 'byson' || value === 'tin-mick';
+  return value === 'default' || value === 'byson' || value === 'tin-mick' || value === 'the-don';
 }
 
 export function readStoredCharacterId(): CharacterId {
