@@ -77,12 +77,18 @@ function getImageData(img: HTMLImageElement | HTMLCanvasElement, w = W, h = H): 
 
 /**
  * Affine-align eyes + mouth to bake landmarks, then scale mid-face width toward Default.
+ * Pass `landmarks: null` to skip detection and use center-fit (e.g. after a failed detect).
  */
 export async function alignFaceToLandmarks(
   source: HTMLImageElement | HTMLCanvasElement,
   landmarks?: FaceLandmarks | null
 ): Promise<ImageData> {
-  const lm = landmarks ?? (await detectFaceLandmarks(source instanceof HTMLCanvasElement ? source : source));
+  let lm: FaceLandmarks | null;
+  if (landmarks === undefined) {
+    lm = await detectFaceLandmarks(source).catch(() => null);
+  } else {
+    lm = landmarks;
+  }
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
