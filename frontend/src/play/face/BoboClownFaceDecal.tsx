@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture';
 import {
@@ -6,7 +6,7 @@ import {
   BOBO_CLOWN_LIVE_KO_SRC,
   BOBO_CLOWN_OOH_SRC,
 } from './boboClownStageAssets';
-import { BOBO_FACE_CENTER, BOBO_FACE_SIZE } from './boboFacePlacement';
+import { BOBO_FACE_CENTER, createBoboFacePatchGeometry } from './boboFacePlacement';
 
 const CANVAS_SIZE = 512;
 /** Match ring partner hit-face window. */
@@ -34,6 +34,7 @@ export function BoboClownFaceDecal({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const texRef = useRef<THREE.CanvasTexture | null>(null);
   const knockedOutRef = useRef(knockedOut);
+  const geometry = useMemo(() => createBoboFacePatchGeometry(), []);
   knockedOutRef.current = knockedOut;
 
   const paint = (img: HTMLImageElement) => {
@@ -76,6 +77,12 @@ export function BoboClownFaceDecal({
   }, []);
 
   useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
+
+  useEffect(() => {
     const ko = koRef.current;
     const normal = normalRef.current;
     if (knockedOut) {
@@ -114,16 +121,15 @@ export function BoboClownFaceDecal({
 
   if (!texture) return null;
 
-  const [fw, fh] = BOBO_FACE_SIZE;
   return (
     <mesh position={BOBO_FACE_CENTER} renderOrder={2}>
-      <planeGeometry args={[fw, fh]} />
+      <primitive attach="geometry" object={geometry} />
       <meshBasicMaterial
         map={texture}
         transparent
         depthWrite={false}
         depthTest={false}
-        side={THREE.DoubleSide}
+        side={THREE.FrontSide}
       />
     </mesh>
   );

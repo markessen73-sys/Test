@@ -1,7 +1,7 @@
 /** Heavy-bag Polaroid placement + damage phases. */
 
-/** Bag-width photo, then −20% so it sits inset on the leather. */
-export const BAG_POLAROID_WIDTH = 0.9 * 0.8
+/** Bag-width photo, then two 20% reductions so it sits well inside the leather. */
+export const BAG_POLAROID_WIDTH = 0.9 * 0.8 * 0.8
 
 /** Classic Polaroid outer aspect (taller white footer). */
 export const BAG_POLAROID_ASPECT = 1.22

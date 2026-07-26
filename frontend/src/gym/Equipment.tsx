@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { assetUrl } from '../assetUrl';
 import { CeilingChain } from '../play/CeilingChain';
 import { BAG_CHAIN_LENGTH } from '../play/bagSwing';
-import { BOBO_FACE_CENTER, BOBO_FACE_SIZE } from '../play/face/boboFacePlacement';
+import { BOBO_FACE_CENTER, createBoboFacePatchGeometry } from '../play/face/boboFacePlacement';
 import { SpeedballFaceDecal } from '../play/face/SpeedballFaceDecal';
 import { BagPolaroid } from '../play/face/BagPolaroid';
 import { SPEEDBALL_BALL_Y } from '../play/playCamera';
@@ -121,6 +121,7 @@ export function HeavyBag({ highlighted, position = [0, 0, 0] }: EquipmentProps) 
 
 function BoboBrowseClownFace({ opacity }: { opacity: number }) {
   const [map, setMap] = useState<THREE.Texture | null>(null);
+  const geometry = useMemo(() => createBoboFacePatchGeometry(), []);
   useEffect(() => {
     const loader = new THREE.TextureLoader();
     let tex: THREE.Texture | null = null;
@@ -133,18 +134,22 @@ function BoboBrowseClownFace({ opacity }: { opacity: number }) {
       tex?.dispose();
     };
   }, []);
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
   if (!map) return null;
-  const [fw, fh] = BOBO_FACE_SIZE;
   return (
     <mesh position={BOBO_FACE_CENTER} renderOrder={2}>
-      <planeGeometry args={[fw, fh]} />
+      <primitive attach="geometry" object={geometry} />
       <meshBasicMaterial
         map={map}
         transparent
         opacity={opacity}
         depthWrite={false}
         depthTest={false}
-        side={THREE.DoubleSide}
+        side={THREE.FrontSide}
       />
     </mesh>
   );
