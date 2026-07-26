@@ -2,18 +2,22 @@ import type { GlovePosition } from '../types/game';
 import type { GloveId } from '../types/game';
 import type { GloveTransform } from './skeleton/types';
 import { defaultAnchorY } from './gloveZoneGrid';
-import { halfGloveWidthNorm, ZONE_GLOVE_W } from './gloveGeometry';
+import { halfGloveHeightNorm, halfGloveWidthNorm, ZONE_GLOVE_W } from './gloveGeometry';
 
 const anchorY = defaultAnchorY();
 
-/** Reference width for anchor inset (half glove width in norm). */
+/** Reference viewport for anchor offsets (matches typical phone play area). */
 const REF_SCREEN_W = 1080;
+const REF_SCREEN_H = 1920;
 const halfGloveNorm = halfGloveWidthNorm(REF_SCREEN_W);
+const halfGloveHeight = halfGloveHeightNorm(REF_SCREEN_H);
+/** Left guard sits a touch higher than the right. */
+const LEFT_GUARD_RAISE = halfGloveHeight * 0.22;
 
 /** Anchor at cuff; inset half a glove width outward from centre. */
 export const GLOVE_ANCHORS: Record<'left' | 'right', GlovePosition> = {
-  left: { x: 0.4 - halfGloveNorm, y: anchorY },
-  right: { x: 0.6 + halfGloveNorm, y: anchorY },
+  left: { x: 0.4 - halfGloveNorm, y: anchorY + halfGloveHeight - LEFT_GUARD_RAISE },
+  right: { x: 0.6 + halfGloveNorm, y: anchorY + halfGloveHeight },
 };
 
 export { ZONE_GLOVE_W };

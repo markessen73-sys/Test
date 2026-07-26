@@ -83,3 +83,8 @@ export function gloveBottomNorm(
 export function halfGloveWidthNorm(screenW: number): number {
   return ZONE_GLOVE_W / 2 / screenW;
 }
+
+/** Half glove height as normalized screen fraction. */
+export function halfGloveHeightNorm(screenH: number): number {
+  return ZONE_GLOVE_H / 2 / screenH;
+}
