@@ -12,12 +12,15 @@ import {
 /** Fixed inward tilt (degrees) — knuckles angle toward centre when idle. */
 export const INWARD_GLOVE_TILT = 14;
 
+/** Reference width for horizontal inset — keeps guard spacing stable across viewports. */
+const REF_SCREEN_W = 1080;
+
 /** Left guard sits a touch higher than the right. */
 const LEFT_GUARD_RAISE_FRAC = 0.22;
 
-/** Rest anchors for the current viewport — glove bottoms line up with equipment base. */
-export function gloveRestAnchors(screenW: number, screenH: number): Record<'left' | 'right', GlovePosition> {
-  const halfGloveNorm = halfGloveWidthNorm(screenW);
+/** Rest anchors — glove bottoms line up with equipment base; X spacing stays fixed. */
+export function gloveRestAnchors(screenH: number): Record<'left' | 'right', GlovePosition> {
+  const halfGloveNorm = halfGloveWidthNorm(REF_SCREEN_W);
   const leftRaise = halfGloveHeightNorm(screenH) * LEFT_GUARD_RAISE_FRAC;
   const rightY = gloveCuffYForBottomNorm(
     PLAY_EQUIPMENT_BOTTOM_Y,
@@ -38,8 +41,8 @@ export function gloveRestAnchors(screenW: number, screenH: number): Record<'left
   };
 }
 
-/** Default anchors for 1280×800 play area (updated live on resize in useElasticGloves). */
-export const GLOVE_ANCHORS = gloveRestAnchors(1280, 800);
+/** Default anchors for 800px-tall play area (updated live on resize in useElasticGloves). */
+export const GLOVE_ANCHORS = gloveRestAnchors(800);
 
 export { ZONE_GLOVE_W };
 

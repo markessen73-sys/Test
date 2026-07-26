@@ -211,7 +211,7 @@ export function useElasticGloves({
   const syncRootSize = useCallback((root: HTMLElement) => {
     const rect = root.getBoundingClientRect();
     rootSizeRef.current = { width: rect.width, height: rect.height };
-    const anchors = gloveRestAnchors(rect.width, rect.height);
+    const anchors = gloveRestAnchors(rect.height);
     anchorsRef.current = anchors;
     for (const side of ['left', 'right'] as const) {
       if (grabbingRef.current[side]) continue;
