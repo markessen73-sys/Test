@@ -84,6 +84,7 @@ in `src/play/face/characters.ts`, then run the guardrail script:
 ```bash
 cd frontend
 # Align clean/ooh/KO so eyes+mouth sit on bake LM (reuse clean's affine for ooh+KO).
+# Scale the pack so clean mid-face width matches Default (±4%), pivot on the eye midpoint.
 # Swap templates → bake damage + clown into characters/<id>/… → restore templates.
 npm run bake:damage
 npm run bake:clown
@@ -95,6 +96,7 @@ npm run check:characters
 | Check | Why it matters |
 |-------|----------------|
 | Required clean / ooh / KO / damage / clown files | Incomplete packs crash stations |
+| Clean mid-face width ≈ Default (±4%) | Heads must match Default size in ring / HUD |
 | Clean eyes on damage-bake `LM` | Black eye / stamps land on forehead |
 | `isIris()` hits near eyes | Non-green irises break bruise + clown pupil bake |
 | KO / ooh mid-face width ≈ clean | Head “shrinks” on knockout |

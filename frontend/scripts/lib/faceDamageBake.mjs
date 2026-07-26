@@ -621,8 +621,24 @@ export function applyChinCrossPlaster(face, clean) {
 
 export function applyMissingTooth(face) {
   const mouth = LM.mouth;
-  const tx = mouth.x + 0.022;
-  const ty = mouth.y - 0.008;
+  // Prefer real tooth pixels near the mouth landmark so slight mouth drift
+  // after Default-size matching still removes a tooth.
+  let sx = 0;
+  let sy = 0;
+  let n = 0;
+  for (let y = Math.floor((mouth.y - 0.04) * H); y < Math.ceil((mouth.y + 0.08) * H); y++) {
+    for (let x = Math.floor((mouth.x - 0.12) * W); x < Math.ceil((mouth.x + 0.12) * W); x++) {
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      const i = (y * W + x) * 4;
+      if (face.data[i + 3] < 200) continue;
+      if (!isTooth(face.data[i], face.data[i + 1], face.data[i + 2])) continue;
+      sx += x + 0.5;
+      sy += y + 0.5;
+      n++;
+    }
+  }
+  const tx = n > 30 ? sx / n / W + 0.022 : mouth.x + 0.022;
+  const ty = n > 30 ? sy / n / H : mouth.y - 0.008;
   let painted = 0;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {

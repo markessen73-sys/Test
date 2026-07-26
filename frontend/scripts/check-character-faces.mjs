@@ -1,8 +1,9 @@
 /**
  * Guardrails for per-character face packs under public/faces/characters/<id>/.
  *
- * Catches the regressions we hit adding Byson:
+ * Catches the regressions we hit adding Byson / Tin Mick:
  *  - clean eyes/mouth not on damage-bake landmarks (black eye / stamps miss)
+ *  - clean head smaller/larger than Default (inconsistent ring / HUD size)
  *  - knockout head shrunk vs clean (independent affine over-scale)
  *  - clown bake left colored irises instead of Default-style black pupils
  *  - isIris() missing non-green eye colors (brown/amber)
@@ -46,6 +47,10 @@ const LM_MOUTH_TOL = 0.055;
 /** KO mid-face width vs clean — outside this range looks like a shrink/grow pop. */
 const KO_WIDTH_MIN = 0.92;
 const KO_WIDTH_MAX = 1.12;
+/** Every character clean head must match Default mid-face width (ear span @ y=0.55). */
+const REF_CHARACTER_ID = 'default';
+const REF_HEAD_WIDTH_MIN = 0.96;
+const REF_HEAD_WIDTH_MAX = 1.04;
 /** Clown pupil disk: min fraction of near-black (or white glint) pixels. */
 const CLOWN_BLACK_MIN = 0.72;
 
@@ -251,7 +256,7 @@ function checkIsIrisHeuristics() {
   if (isIris(124, 66, 31)) fail(id, 'dark cheek sample wrongly counted as iris');
 }
 
-async function checkCharacter(id) {
+async function checkCharacter(id, refCleanSpan) {
   const root = path.join(CHAR_ROOT, id);
   for (const p of requiredPaths(id)) {
     if (!fs.existsSync(p)) fail(id, `missing ${path.relative(root, p)}`);
@@ -264,6 +269,19 @@ async function checkCharacter(id) {
   const clean = await loadRgba(cleanPath);
   const ooh = await loadRgba(oohPath);
   const ko = await loadRgba(koPath);
+
+  // --- Head size vs Default ---
+  const cleanSpan = spanAtY(clean.data, 0.55);
+  if (refCleanSpan && cleanSpan && id !== REF_CHARACTER_ID) {
+    const ratio = cleanSpan.w / refCleanSpan.w;
+    if (ratio < REF_HEAD_WIDTH_MIN || ratio > REF_HEAD_WIDTH_MAX) {
+      fail(
+        id,
+        `clean mid-face width ratio ${ratio.toFixed(3)} vs ${REF_CHARACTER_ID} ` +
+          `(need ${REF_HEAD_WIDTH_MIN}–${REF_HEAD_WIDTH_MAX}) — scale clean/ooh/KO to Default head size before baking`
+      );
+    }
+  }
 
   // --- Landmark alignment (clean) ---
   const rightEye = detectEyeNear(clean.data, LM.rightEye);
@@ -318,7 +336,6 @@ async function checkCharacter(id) {
   }
 
   // --- KO / ooh size vs clean ---
-  const cleanSpan = spanAtY(clean.data, 0.55);
   const koSpan = spanAtY(ko.data, 0.55);
   const oohSpan = spanAtY(ooh.data, 0.55);
   if (cleanSpan && koSpan) {
@@ -427,8 +444,22 @@ if (ids.length === 0) {
   console.log('Characters:', ids.join(', '));
 }
 
+let refCleanSpan = null;
+const refCleanPath = path.join(CHAR_ROOT, REF_CHARACTER_ID, 'clean.png');
+if (fs.existsSync(refCleanPath)) {
+  const refClean = await loadRgba(refCleanPath);
+  refCleanSpan = spanAtY(refClean.data, 0.55);
+  if (refCleanSpan) {
+    console.log(
+      `Reference head (${REF_CHARACTER_ID}) mid-face width @y=0.55: ${refCleanSpan.w}px`
+    );
+  }
+} else {
+  fail('characters', `missing reference ${REF_CHARACTER_ID}/clean.png`);
+}
+
 for (const id of ids) {
-  await checkCharacter(id);
+  await checkCharacter(id, refCleanSpan);
 }
 
 if (warnings.length) {
