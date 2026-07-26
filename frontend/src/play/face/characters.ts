@@ -1,5 +1,11 @@
 import { assetUrl } from '../../assetUrl';
 
+/**
+ * Playable face packs live under `public/faces/characters/<id>/`.
+ * After adding a character, run `npm run check:characters` (see
+ * `public/faces/README.md`) so LM alignment, KO scale, and clown pupils
+ * match the Default pack conventions.
+ */
 export type CharacterId = 'default' | 'byson';
 
 export interface CharacterDef {
