@@ -90,9 +90,34 @@ function removedAt(phase: BagPolaroidPhase, u: number, v: number) {
   // These simple cut polygons intentionally overlap the alpha tear paths;
   // the mesh itself is missing, so the bag is visible through the damage.
   const canvasY = 1 - v
-  const cornerL: [number, number][] = [[0, 1], [0.58, 1], [0, 0.22]]
-  const cornerR: [number, number][] = [[1, 1], [0.42, 1], [1, 0.22]]
-  const half: [number, number][] = [[0, 0.08], [0.78, 1], [0, 1]]
+  const cornerL: [number, number][] = [
+    [0, 1],
+    [0.3, 1],
+    [0.25, 0.94],
+    [0.18, 0.88],
+    [0.13, 0.8],
+    [0.06, 0.75],
+    [0, 0.68],
+  ]
+  const cornerR: [number, number][] = [
+    [1, 1],
+    [0.7, 1],
+    [0.75, 0.94],
+    [0.82, 0.88],
+    [0.87, 0.8],
+    [0.94, 0.75],
+    [1, 0.68],
+  ]
+  const half: [number, number][] = [
+    [0, 0.18],
+    [0.12, 0.3],
+    [0.17, 0.47],
+    [0.3, 0.57],
+    [0.39, 0.72],
+    [0.52, 0.82],
+    [0.66, 1],
+    [0, 1],
+  ]
 
   if (phase === 'cornerTear' || phase === 'onePin' || phase === 'bothCorners' || phase === 'halfTear' || phase === 'fallen') {
     if (pointInPoly(u, canvasY, cornerL)) return true

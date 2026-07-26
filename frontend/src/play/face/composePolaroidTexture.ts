@@ -32,6 +32,20 @@ function appendJagged(
   }
 }
 
+function appendPaperTear(
+  ctx: CanvasRenderingContext2D,
+  points: readonly [number, number][],
+  amp: number
+) {
+  if (!points.length) return
+  ctx.moveTo(points[0][0], points[0][1])
+  for (let i = 1; i < points.length; i++) {
+    const [x0, y0] = points[i - 1]
+    const [x1, y1] = points[i]
+    appendJagged(ctx, x0, y0, x1, y1, 4, amp)
+  }
+}
+
 /**
  * Closed scrap region — identical path used to punch the hole in the
  * hanging Polaroid and to cut the falling scrap, so they match 1:1.
@@ -44,23 +58,44 @@ export function scrapPath(
 ) {
   ctx.beginPath()
   if (kind === 'cornerL') {
-    // Big bite through the white footer AND into the portrait so the hole reads.
+    // Small ragged corner bite through the footer and just into the photo.
     ctx.moveTo(0, h)
-    appendJagged(ctx, 0, h, w * 0.58, h, 10, 10)
-    appendJagged(ctx, w * 0.58, h, 0, h * 0.22, 20, 20)
+    appendJagged(ctx, 0, h, w * 0.3, h, 7, 5)
+    appendPaperTear(ctx, [
+      [w * 0.3, h],
+      [w * 0.25, h * 0.94],
+      [w * 0.18, h * 0.88],
+      [w * 0.13, h * 0.8],
+      [w * 0.06, h * 0.75],
+      [0, h * 0.68],
+    ], 5)
     ctx.closePath()
     return
   }
   if (kind === 'cornerR') {
     ctx.moveTo(w, h)
-    appendJagged(ctx, w, h, w * 0.42, h, 10, 10)
-    appendJagged(ctx, w * 0.42, h, w, h * 0.22, 20, 20)
+    appendJagged(ctx, w, h, w * 0.7, h, 7, 5)
+    appendPaperTear(ctx, [
+      [w * 0.7, h],
+      [w * 0.75, h * 0.94],
+      [w * 0.82, h * 0.88],
+      [w * 0.87, h * 0.8],
+      [w * 0.94, h * 0.75],
+      [w, h * 0.68],
+    ], 5)
     ctx.closePath()
     return
   }
-  // Half: diagonal through the portrait.
-  ctx.moveTo(0, h * 0.08)
-  appendJagged(ctx, 0, h * 0.08, w * 0.78, h, 24, 20)
+  // Half: irregular tear down through the portrait.
+  appendPaperTear(ctx, [
+    [0, h * 0.18],
+    [w * 0.12, h * 0.3],
+    [w * 0.17, h * 0.47],
+    [w * 0.3, h * 0.57],
+    [w * 0.39, h * 0.72],
+    [w * 0.52, h * 0.82],
+    [w * 0.66, h],
+  ], 12)
   ctx.lineTo(0, h)
   ctx.closePath()
 }
@@ -77,14 +112,33 @@ function strokeTearEdge(
   ctx.lineJoin = 'round'
   ctx.beginPath()
   if (kind === 'cornerL') {
-    ctx.moveTo(w * 0.58, h)
-    appendJagged(ctx, w * 0.58, h, 0, h * 0.22, 20, 20)
+    appendPaperTear(ctx, [
+      [w * 0.3, h],
+      [w * 0.25, h * 0.94],
+      [w * 0.18, h * 0.88],
+      [w * 0.13, h * 0.8],
+      [w * 0.06, h * 0.75],
+      [0, h * 0.68],
+    ], 5)
   } else if (kind === 'cornerR') {
-    ctx.moveTo(w * 0.42, h)
-    appendJagged(ctx, w * 0.42, h, w, h * 0.22, 20, 20)
+    appendPaperTear(ctx, [
+      [w * 0.7, h],
+      [w * 0.75, h * 0.94],
+      [w * 0.82, h * 0.88],
+      [w * 0.87, h * 0.8],
+      [w * 0.94, h * 0.75],
+      [w, h * 0.68],
+    ], 5)
   } else {
-    ctx.moveTo(0, h * 0.08)
-    appendJagged(ctx, 0, h * 0.08, w * 0.78, h, 24, 20)
+    appendPaperTear(ctx, [
+      [0, h * 0.18],
+      [w * 0.12, h * 0.3],
+      [w * 0.17, h * 0.47],
+      [w * 0.3, h * 0.57],
+      [w * 0.39, h * 0.72],
+      [w * 0.52, h * 0.82],
+      [w * 0.66, h],
+    ], 12)
   }
   ctx.stroke()
   ctx.restore()
