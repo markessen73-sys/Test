@@ -27,6 +27,20 @@ class CaricatureStyle:
 
 
 STYLES: dict[str, CaricatureStyle] = {
+    "mickeys_gym": CaricatureStyle(
+        id="mickeys_gym",
+        name="Mickey's Gym",
+        description="Flat 2D boxing caricature — head only on black, bold outlines",
+        prompt=(
+            "flat 2D cartoon boxing caricature portrait, head and neck only on pure black "
+            "background, bold black outlines, exaggerated features, warm skin tones, "
+            "clean cel-shaded colors, humorous sports caricature, no body, no text, "
+            "same style as classic punch-out cartoon boxer faces"
+        ),
+        negative_prompt="realistic, photograph, 3d render, full body, white background, blurry, text",
+        kontext_style="Cartoon",
+        preview_color="#E8C840",
+    ),
     "simpsons": CaricatureStyle(
         id="simpsons",
         name="The Simpsons",

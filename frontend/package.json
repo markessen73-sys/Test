@@ -13,6 +13,7 @@
     "bake:clown": "node scripts/bake-bobo-clown-faces.mjs"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.21",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "lucide-react": "^0.511.0",
