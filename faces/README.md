@@ -95,6 +95,7 @@ npm run check:characters
 | Check | Why it matters |
 |-------|----------------|
 | Required clean / ooh / KO / damage / clown files | Incomplete packs crash stations |
+| Clean mid-face width ≈ Default (±4%) | Heads must match Default size in ring / HUD |
 | Clean eyes on damage-bake `LM` | Black eye / stamps land on forehead |
 | `isIris()` hits near eyes | Non-green irises break bruise + clown pupil bake |
 | KO / ooh mid-face width ≈ clean | Head “shrinks” on knockout |
