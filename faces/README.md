@@ -67,7 +67,7 @@ classic whiteface clown (red nose, diamond eye makeup, smile, candy hair).
 
 ```bash
 cd frontend
-node scripts/bake-bobo-clown-faces.mjs
+npm run bake:clown
 ```
 
 Writes 11 PNGs to `bobo-clown-stages/00-clean.png` … `10-knockout.png`, plus
@@ -75,3 +75,28 @@ Writes 11 PNGs to `bobo-clown-stages/00-clean.png` … `10-knockout.png`, plus
 In play (`?play=bobo-doll`) the doll stays undamaged, swaps to ooh on hit and
 KO at 100%; injuries advance only in the damage box. Preview a HUD step with
 `?play=bobo-doll&damageStage=0..10`.
+
+## Adding a new playable character
+
+Drop a full pack under `characters/<id>/` (see `default/` / `byson/`), register it
+in `src/play/face/characters.ts`, then run the guardrail script:
+
+```bash
+cd frontend
+# Align clean/ooh/KO so eyes+mouth sit on bake LM (reuse clean's affine for ooh+KO).
+# Swap templates → bake damage + clown into characters/<id>/… → restore templates.
+npm run bake:damage
+npm run bake:clown
+npm run check:characters
+```
+
+`check:characters` fails the build-prep checklist if any of these regress:
+
+| Check | Why it matters |
+|-------|----------------|
+| Required clean / ooh / KO / damage / clown files | Incomplete packs crash stations |
+| Clean eyes on damage-bake `LM` | Black eye / stamps land on forehead |
+| `isIris()` hits near eyes | Non-green irises break bruise + clown pupil bake |
+| KO / ooh mid-face width ≈ clean | Head “shrinks” on knockout |
+| Clown pupils are black (+ glint) like Default | Colored irises left through clown bake |
+| Damage stage `02-blackRightEye` darkens the orbital | Wrong LM / iris skip / stale bake |
