@@ -2,8 +2,8 @@
  * Bake 11 comedy-classic clown faces for the bobo doll.
  *
  * Same caricature layout + cumulative injury ladder as the ring damage stages,
- * but first painted as a classic whiteface clown (white paint, red nose,
- * diamond eye makeup, big smile, rosy cheeks, candy hair tips).
+ * with natural skin tone kept (no whiteface), red/blue clown accents, black
+ * pupils, and a large multi-coloured curly wig.
  *
  * Stages 0–10:
  *   00 clean clown
@@ -113,56 +113,14 @@ function paintAnimeEyeGlint(face, eyeX, eyeY) {
 }
 
 /**
- * Classic comedy whiteface clown makeup — vivid primaries on the photo caricature.
- * Preserves glasses, eyes, teeth, line art, and ear silhouettes.
+ * Comedy clown makeup on the natural-skin caricature.
+ * Keeps the character's real face colour; adds red/blue accents, black pupils,
+ * and a large multi-coloured curly wig (works for bald + haired faces).
  */
 function applyComedyClownMakeup(face, clean) {
   let painted = 0;
 
-  // 1) Opaque whiteface on all flesh (ears stay warmer so injury stamps still read).
-  for (let i = 0; i < face.data.length; i += 4) {
-    const r = clean.data[i];
-    const g = clean.data[i + 1];
-    const b = clean.data[i + 2];
-    const a = clean.data[i + 3];
-    if (a < 20 || isBackdrop(r, g, b, a)) continue;
-    if (isGlassesFrame(r, g, b, a) || isLineArt(r, g, b)) continue;
-    if (isIris(r, g, b) || isSclera(r, g, b) || isTooth(r, g, b)) continue;
-
-    const x = (i / 4) % W;
-    const y = ((i / 4) / W) | 0;
-    const nx = (x + 0.5) / W;
-    const ny = (y + 0.5) / H;
-    // Peach skin matches the blonde-hair heuristic — only skip the real hair cap.
-    if (isBlondeHair(r, g, b, a) && ny < 0.22) continue;
-    // Catch peach, warm browns, dark brown skin, and soft shadows as paintable flesh.
-    const L = 0.299 * r + 0.587 * g + 0.114 * b;
-    const flesh =
-      isSkinTone(r, g, b, a) ||
-      (r > 120 && g > 75 && b > 50 && r >= g - 12 && g >= b - 25) ||
-      (r > 160 && g > 110 && b > 80 && Math.abs(r - g) < 90) ||
-      (r > 70 && g > 30 && b > 10 && r >= g + 5 && g >= b - 10 && L > 35 && L < 210);
-    if (!flesh) continue;
-    const onEar =
-      ellipseDist(nx, ny, LM.leftEar.x, LM.leftEar.y, LM.leftEar.rx * 1.15, LM.leftEar.ry * 1.15) < 1 ||
-      ellipseDist(nx, ny, LM.rightEar.x, LM.rightEar.y, LM.rightEar.rx * 1.15, LM.rightEar.ry * 1.15) < 1;
-
-    const shade = Math.max(0.92, Math.min(1.05, L / 210));
-    // Cool bright white greasepaint (reads as clown white, not peach).
-    let wr = 255 * shade;
-    let wg = 252 * shade;
-    let wb = 248 * shade;
-    if (ny > 0.64 && ny < 0.84) {
-      wr *= 0.96;
-      wg *= 0.97;
-      wb *= 0.99;
-    }
-    const t = onEar ? 0.22 : 0.98;
-    face.data[i] = clamp(mix(r, wr, t));
-    face.data[i + 1] = clamp(mix(g, wg, t));
-    face.data[i + 2] = clamp(mix(b, wb, t));
-    painted++;
-  }
+  // 1) Keep natural skin — no whiteface. (face already starts as a clean copy.)
 
   // 2) Big hot-pink cheek circles.
   for (const cheek of [
@@ -371,46 +329,126 @@ function applyComedyClownMakeup(face, clean) {
   }
   console.log('black pupils painted', pupilN);
 
-  // 7) Bright candy wig — large primary patches across the hair.
-  const tips = [
-    { x: 0.36, y: 0.15, rx: 0.09, ry: 0.08, rgb: [255, 45, 55] },
-    { x: 0.5, y: 0.11, rx: 0.1, ry: 0.085, rgb: [255, 220, 40] },
-    { x: 0.64, y: 0.15, rx: 0.09, ry: 0.08, rgb: [45, 120, 255] },
-    { x: 0.25, y: 0.22, rx: 0.08, ry: 0.07, rgb: [255, 220, 40] },
-    { x: 0.75, y: 0.22, rx: 0.08, ry: 0.07, rgb: [255, 45, 55] },
-    { x: 0.42, y: 0.2, rx: 0.07, ry: 0.06, rgb: [45, 120, 255] },
-    { x: 0.58, y: 0.2, rx: 0.07, ry: 0.06, rgb: [255, 45, 55] },
-  ];
-  for (const tip of tips) {
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        const nx = (x + 0.5) / W;
-        const ny = (y + 0.5) / H;
-        const d = ellipseDist(nx, ny, tip.x, tip.y, tip.rx, tip.ry);
-        if (d >= 1) continue;
-        const i = (y * W + x) * 4;
-        const r = clean.data[i];
-        const g = clean.data[i + 1];
-        const b = clean.data[i + 2];
-        const a = clean.data[i + 3];
-        if (!isBlondeHair(r, g, b, a) && !(a > 40 && r > 130 && g > 95 && b < 150 && ny < 0.36)) {
-          continue;
-        }
-        const t = softEdge(d, 0.55) * 0.95;
-        face.data[i] = clamp(mix(face.data[i], tip.rgb[0], t));
-        face.data[i + 1] = clamp(mix(face.data[i + 1], tip.rgb[1], t));
-        face.data[i + 2] = clamp(mix(face.data[i + 2], tip.rgb[2], t));
-        painted++;
-      }
-    }
-  }
+  // 7) Large multi-coloured curly clown wig (covers bald heads + short hair).
+  painted += paintCurlyClownWig(face, clean);
 
   return painted;
 }
 
-/** Clown KO — closed eyes, sad-clown frown, stars, keep whiteface + red nose. */
+function hash01(ix, iy) {
+  let n = (ix * 374761393 + iy * 668265263) | 0;
+  n = (n ^ (n >>> 13)) * 1274126177;
+  return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+}
+
+/** Big candy afro / curly wig — paints into backdrop and over the hairline. */
+function paintCurlyClownWig(face, clean) {
+  const palette = [
+    [255, 45, 55],
+    [255, 210, 40],
+    [45, 110, 255],
+    [255, 130, 40],
+    [55, 200, 95],
+    [190, 70, 255],
+  ];
+  const curls = [];
+  // Horseshoe of curls around the crown + side puffs.
+  for (let i = 0; i < 56; i++) {
+    const t = i / 55;
+    const ang = Math.PI * 1.12 + t * Math.PI * 1.76; // left → over top → right
+    const rad = 0.33 + (hash01(i, 1) - 0.5) * 0.07;
+    curls.push({
+      x: 0.5 + Math.cos(ang) * rad,
+      y: 0.4 + Math.sin(ang) * rad * 0.92 - 0.06,
+      r: 0.042 + hash01(i, 2) * 0.038,
+      rgb: palette[i % palette.length],
+    });
+  }
+  // Extra top fluff for a tall curly silhouette.
+  for (let i = 0; i < 28; i++) {
+    curls.push({
+      x: 0.22 + hash01(i, 3) * 0.56,
+      y: 0.02 + hash01(i, 4) * 0.2,
+      r: 0.048 + hash01(i, 5) * 0.042,
+      rgb: palette[(i * 2 + 1) % palette.length],
+    });
+  }
+  // Side puff volume near the ears (outside the face oval).
+  for (let i = 0; i < 14; i++) {
+    const side = i < 7 ? -1 : 1;
+    const j = i % 7;
+    curls.push({
+      x: 0.5 + side * (0.34 + hash01(i, 6) * 0.1),
+      y: 0.28 + j * 0.045 + hash01(i, 7) * 0.02,
+      r: 0.05 + hash01(i, 8) * 0.03,
+      rgb: palette[(i + 3) % palette.length],
+    });
+  }
+
+  let painted = 0;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const nx = (x + 0.5) / W;
+      const ny = (y + 0.5) / H;
+      // Keep the face proper (eyes/cheeks/mouth) clear — wig only above hairline + sides.
+      const inFaceCore = ellipseDist(nx, ny, 0.5, 0.54, 0.29, 0.33) < 1 && ny > 0.3;
+      if (inFaceCore) continue;
+      // Leave most of each ear visible.
+      const onEar =
+        ellipseDist(nx, ny, LM.leftEar.x, LM.leftEar.y, LM.leftEar.rx * 1.05, LM.leftEar.ry * 1.05) < 1 ||
+        ellipseDist(nx, ny, LM.rightEar.x, LM.rightEar.y, LM.rightEar.rx * 1.05, LM.rightEar.ry * 1.05) < 1;
+      if (onEar && ny > 0.42) continue;
+      // Overall wig shell.
+      const inShell = ellipseDist(nx, ny, 0.5, 0.34, 0.48, 0.42) < 1 && ny < 0.64;
+      const inSidePuff =
+        ny > 0.22 &&
+        ny < 0.58 &&
+        ((nx < 0.22 && nx > 0.04) || (nx > 0.78 && nx < 0.96));
+      if (!inShell && !inSidePuff) continue;
+
+      // Nearest curl — soft round "locks".
+      let best = 9;
+      let bestRgb = null;
+      let bestEdge = 0;
+      for (const c of curls) {
+        const d = Math.hypot(nx - c.x, ny - c.y) / c.r;
+        if (d < best) {
+          best = d;
+          bestRgb = c.rgb;
+          bestEdge = softEdge(d, 0.55);
+        }
+      }
+      if (!bestRgb || best > 1.05 || bestEdge < 0.04) continue;
+
+      const i = (y * W + x) * 4;
+      const a0 = face.data[i + 3];
+      const voidish = a0 < 28 || isBackdrop(face.data[i], face.data[i + 1], face.data[i + 2], a0);
+      const onHair =
+        isBlondeHair(clean.data[i], clean.data[i + 1], clean.data[i + 2], clean.data[i + 3]) ||
+        (clean.data[i + 3] > 40 && ny < 0.34);
+      // Also allow covering bald crown skin above the hairline.
+      const onCrownSkin =
+        clean.data[i + 3] > 40 &&
+        ny < 0.34 &&
+        isSkinTone(clean.data[i], clean.data[i + 1], clean.data[i + 2], clean.data[i + 3]);
+      if (!voidish && !onHair && !onCrownSkin) continue;
+
+      // Slight shading between curls.
+      const shade = best < 0.45 ? 1 : mix(0.72, 1, bestEdge);
+      const t = Math.min(1, bestEdge * (voidish ? 1 : 0.98));
+      face.data[i] = clamp(mix(face.data[i], bestRgb[0] * shade, t));
+      face.data[i + 1] = clamp(mix(face.data[i + 1], bestRgb[1] * shade, t));
+      face.data[i + 2] = clamp(mix(face.data[i + 2], bestRgb[2] * shade, t));
+      face.data[i + 3] = 255;
+      painted++;
+    }
+  }
+  return painted;
+}
+
+/** Clown KO — closed eyes, sad-clown frown, stars; lids match natural skin. */
 function applyClownKnockout(face, clean) {
-  // Force-cover eyes (bruises / iris / lids) with pale shut lids + arc.
+  // Force-cover eyes with natural-skin shut lids + arc.
   for (const eye of [LM.leftEye, LM.rightEye]) {
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
@@ -423,11 +461,25 @@ function applyClownKnockout(face, clean) {
         const fg = face.data[i + 1];
         const fb = face.data[i + 2];
         if (isGlassesFrame(fr, fg, fb, face.data[i + 3])) continue;
-        // Opaque lid — erase green iris / purple bruise / swell.
+        // Sample nearby clean skin for lid colour (fallback peach).
+        const sx = Math.max(0, Math.min(W - 1, x + (x < W / 2 ? -18 : 18)));
+        const sy = Math.max(0, Math.min(H - 1, y + 22));
+        const si = (sy * W + sx) * 4;
+        let lr = clean.data[si];
+        let lg = clean.data[si + 1];
+        let lb = clean.data[si + 2];
+        if (
+          clean.data[si + 3] < 40 ||
+          !isSkinTone(lr, lg, lb, clean.data[si + 3])
+        ) {
+          lr = 220;
+          lg = 160;
+          lb = 120;
+        }
         const lidT = Math.min(1, softEdge(d, 0.55) * 1.05);
-        face.data[i] = clamp(mix(fr, 250, lidT));
-        face.data[i + 1] = clamp(mix(fg, 248, lidT));
-        face.data[i + 2] = clamp(mix(fb, 245, lidT));
+        face.data[i] = clamp(mix(fr, lr, lidT));
+        face.data[i + 1] = clamp(mix(fg, lg, lidT));
+        face.data[i + 2] = clamp(mix(fb, lb, lidT));
         face.data[i + 3] = 255;
         const lidY = eye.y + 0.01 + Math.pow(Math.abs(nx - eye.x) / 0.055, 2) * 0.014;
         if (Math.abs(ny - lidY) < 0.008 && Math.abs(nx - eye.x) < 0.055) {
@@ -454,9 +506,10 @@ function applyClownKnockout(face, clean) {
       if (nearMouth) {
         const isRedLip = face.data[i] > 150 && face.data[i + 1] < 100 && face.data[i + 2] < 110;
         if (isRedLip) {
-          face.data[i] = 248;
-          face.data[i + 1] = 246;
-          face.data[i + 2] = 242;
+          // Restore natural skin from the clean caricature.
+          face.data[i] = clean.data[i];
+          face.data[i + 1] = clean.data[i + 1];
+          face.data[i + 2] = clean.data[i + 2];
         }
       }
 
@@ -474,7 +527,7 @@ function applyClownKnockout(face, clean) {
     }
   }
 
-  // Hide teeth with a soft closed-mouth fill under the frown.
+  // Hide teeth with a soft closed-mouth fill under the frown (natural lip tone).
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const nx = (x + 0.5) / W;
@@ -482,13 +535,14 @@ function applyClownKnockout(face, clean) {
       if (ellipseDist(nx, ny, mouth.x, mouth.y + 0.01, 0.11, 0.05) >= 1) continue;
       const i = (y * W + x) * 4;
       if (!isTooth(face.data[i], face.data[i + 1], face.data[i + 2])) continue;
-      face.data[i] = 245;
-      face.data[i + 1] = 242;
-      face.data[i + 2] = 238;
+      const cr = clean.data[i];
+      const cg = clean.data[i + 1];
+      const cb = clean.data[i + 2];
+      face.data[i] = clamp(mix(cr, 160, 0.35));
+      face.data[i + 1] = clamp(mix(cg, 90, 0.35));
+      face.data[i + 2] = clamp(mix(cb, 80, 0.35));
     }
   }
-
-  void clean;
 
   const stars = [
     { x: 0.2, y: 0.2, s: 0.038 },
@@ -517,11 +571,19 @@ function drawStar(face, cx, cy, size, rgb) {
       const rad = 0.45 + tip * 0.55;
       if (r > rad) continue;
       const i = (y * W + x) * 4;
-      // Only paint into void / near head edge, or over hair.
+      // Only paint into void / near head edge, or over hair / curly wig.
       const a = face.data[i + 3];
-      const onHair = isBlondeHair(face.data[i], face.data[i + 1], face.data[i + 2], a);
-      const voidish = a < 30 || isBackdrop(face.data[i], face.data[i + 1], face.data[i + 2], a);
-      if (!voidish && !onHair && r > 0.55) continue;
+      const fr = face.data[i];
+      const fg = face.data[i + 1];
+      const fb = face.data[i + 2];
+      const onHair = isBlondeHair(fr, fg, fb, a);
+      const onWig =
+        a > 180 &&
+        ny < 0.5 &&
+        Math.max(fr, fg, fb) > 140 &&
+        Math.max(fr, fg, fb) - Math.min(fr, fg, fb) > 40;
+      const voidish = a < 30 || isBackdrop(fr, fg, fb, a);
+      if (!voidish && !onHair && !onWig && r > 0.55) continue;
       const t = r < rad * 0.7 ? 1 : (rad - r) / (rad * 0.3);
       face.data[i] = clamp(mix(face.data[i], rgb[0], t));
       face.data[i + 1] = clamp(mix(face.data[i + 1], rgb[1], t));
@@ -544,8 +606,8 @@ let face = copyImageData(photoClean);
 const makeupN = applyComedyClownMakeup(face, photoClean);
 console.log('clown makeup pixels', makeupN);
 
-// From here, injuries paint on whiteface.
-setAllowClownSkin(true);
+// From here, injuries paint on natural skin (+ clown accents).
+setAllowClownSkin(false);
 const clownClean = copyImageData(face);
 const skin = sampleFaceSkin(clownClean);
 // Prefer a warm flesh sample for ear inflammation (from original cheeks).
