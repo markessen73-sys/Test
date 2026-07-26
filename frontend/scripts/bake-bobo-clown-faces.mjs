@@ -135,17 +135,18 @@ function applyComedyClownMakeup(face, clean) {
     const ny = (y + 0.5) / H;
     // Peach skin matches the blonde-hair heuristic — only skip the real hair cap.
     if (isBlondeHair(r, g, b, a) && ny < 0.22) continue;
-    // Catch peach, warm browns, and soft shadows as paintable flesh.
+    // Catch peach, warm browns, dark brown skin, and soft shadows as paintable flesh.
+    const L = 0.299 * r + 0.587 * g + 0.114 * b;
     const flesh =
       isSkinTone(r, g, b, a) ||
       (r > 120 && g > 75 && b > 50 && r >= g - 12 && g >= b - 25) ||
-      (r > 160 && g > 110 && b > 80 && Math.abs(r - g) < 90);
+      (r > 160 && g > 110 && b > 80 && Math.abs(r - g) < 90) ||
+      (r > 70 && g > 30 && b > 10 && r >= g + 5 && g >= b - 10 && L > 35 && L < 210);
     if (!flesh) continue;
     const onEar =
       ellipseDist(nx, ny, LM.leftEar.x, LM.leftEar.y, LM.leftEar.rx * 1.15, LM.leftEar.ry * 1.15) < 1 ||
       ellipseDist(nx, ny, LM.rightEar.x, LM.rightEar.y, LM.rightEar.rx * 1.15, LM.rightEar.ry * 1.15) < 1;
 
-    const L = 0.299 * r + 0.587 * g + 0.114 * b;
     const shade = Math.max(0.92, Math.min(1.05, L / 210));
     // Cool bright white greasepaint (reads as clown white, not peach).
     let wr = 255 * shade;

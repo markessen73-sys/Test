@@ -241,10 +241,14 @@ function checkIsIrisHeuristics() {
   if (!isIris(70, 140, 55)) fail(id, 'green iris sample not detected');
   // Brown / amber (Byson-like).
   if (!isIris(95, 60, 35)) fail(id, 'brown iris sample not detected');
+  // Dark brown (Tin Mick-like).
+  if (!isIris(81, 32, 4)) fail(id, 'dark brown iris sample not detected');
   // Bright ginger beard must NOT count as iris (would skip bruise paint).
   if (isIris(190, 110, 55)) fail(id, 'bright beard sample wrongly counted as iris');
   // Skin peach must not count as iris.
   if (isIris(246, 157, 103)) fail(id, 'skin sample wrongly counted as iris');
+  // Medium-dark cheek must not count as iris.
+  if (isIris(124, 66, 31)) fail(id, 'dark cheek sample wrongly counted as iris');
 }
 
 async function checkCharacter(id) {

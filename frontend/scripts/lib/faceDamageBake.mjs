@@ -50,24 +50,39 @@ export function isLineArt(r, g, b) {
 export function isIris(r, g, b) {
   // Green / hazel cartoon iris.
   if (g > 70 && g >= r - 5 && g > b + 5) return true;
-  // Brown / amber iris (Byson etc.) — darker than skin/beard, warm, saturated.
-  // Keep tight so ginger beard / cheek skin are not treated as iris.
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
   const L = lum(r, g, b);
+  // Brown / amber iris (Byson etc.) — darker than peach skin/beard, warm, saturated.
+  // Keep tight so ginger beard / medium-dark cheeks are not treated as iris.
   if (
     L > 35 &&
-    L < 110 &&
+    L < 72 &&
     r > 55 &&
-    r < 145 &&
+    r < 120 &&
     g > 30 &&
-    g < 100 &&
+    g < 95 &&
     b > 15 &&
-    b < 85 &&
-    r >= g + 8 &&
+    b < 55 &&
+    r >= g + 10 &&
     g >= b - 5 &&
-    max - min > 22 &&
-    max < 150
+    max - min > 24 &&
+    max < 130
+  ) {
+    return true;
+  }
+  // Dark brown iris (Tin Mick etc.) — deeper / less blue than cheek skin.
+  if (
+    L > 28 &&
+    L < 58 &&
+    r > 50 &&
+    r < 105 &&
+    g > 16 &&
+    g < 48 &&
+    b < 30 &&
+    r >= g + 18 &&
+    max - min > 25 &&
+    max < 120
   ) {
     return true;
   }
@@ -89,8 +104,26 @@ export function isSkinTone(r, g, b, a) {
   if (allowClownSkin && r > 215 && g > 210 && b > 200 && Math.max(r, g, b) - Math.min(r, g, b) < 40) {
     return true;
   }
-  if (r < 130 || g < 85 || b < 60 || r < g - 10) return false;
-  return true;
+  // Light peach skin (Default / Byson).
+  if (r >= 130 && g >= 85 && b >= 60 && r >= g - 10) return true;
+  // Medium–dark warm brown skin (Tin Mick etc.).
+  const L = lum(r, g, b);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (
+    L > 38 &&
+    L < 200 &&
+    r >= 70 &&
+    g >= 32 &&
+    b >= 12 &&
+    r >= g + 6 &&
+    g >= b - 8 &&
+    max - min > 18 &&
+    r < 230
+  ) {
+    return true;
+  }
+  return false;
 }
 export function ellipseDist(nx, ny, cx, cy, rx, ry) {
   return Math.hypot((nx - cx) / rx, (ny - cy) / ry);

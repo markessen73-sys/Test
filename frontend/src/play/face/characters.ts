@@ -6,7 +6,7 @@ import { assetUrl } from '../../assetUrl';
  * `public/faces/README.md`) so LM alignment, KO scale, and clown pupils
  * match the Default pack conventions.
  */
-export type CharacterId = 'default' | 'byson';
+export type CharacterId = 'default' | 'byson' | 'tin-mick';
 
 export interface CharacterDef {
   id: CharacterId;
@@ -70,16 +70,21 @@ function makeCharacter(id: CharacterId, name: string): CharacterDef {
 export const CHARACTERS: Record<CharacterId, CharacterDef> = {
   default: makeCharacter('default', 'Default'),
   byson: makeCharacter('byson', 'Byson'),
+  'tin-mick': makeCharacter('tin-mick', 'Tin Mick'),
 };
 
-export const CHARACTER_LIST: CharacterDef[] = [CHARACTERS.default, CHARACTERS.byson];
+export const CHARACTER_LIST: CharacterDef[] = [
+  CHARACTERS.default,
+  CHARACTERS.byson,
+  CHARACTERS['tin-mick'],
+];
 
 export const DEFAULT_CHARACTER_ID: CharacterId = 'default';
 
 export const CHARACTER_STORAGE_KEY = 'mickeys-gym-character';
 
 export function isCharacterId(value: string | null | undefined): value is CharacterId {
-  return value === 'default' || value === 'byson';
+  return value === 'default' || value === 'byson' || value === 'tin-mick';
 }
 
 export function readStoredCharacterId(): CharacterId {
