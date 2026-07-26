@@ -1,0 +1,56 @@
+import type { CameraShot } from '../types/game';
+
+/** Matches HeavyBagPlayScene — camera sits back from the target so equipment is not too close. */
+export const PLAY_CAMERA_FORWARD = 4.25;
+export const PLAY_CAMERA_Y_OFFSET = 0.08;
+export const PLAY_CAMERA_FOV = 52;
+
+export type PlayTarget = [number, number, number];
+
+export function playCameraForTarget(lookAt: PlayTarget): CameraShot {
+  return {
+    position: [lookAt[0], lookAt[1] + PLAY_CAMERA_Y_OFFSET, lookAt[2] + PLAY_CAMERA_FORWARD],
+    lookAt,
+    fov: PLAY_CAMERA_FOV,
+  };
+}
+
+/** Heavy bag body centre in play mode (world space). */
+export const HEAVY_BAG_PLAY_TARGET: PlayTarget = [0, 1.3, -3.8];
+
+/** Bobo doll torso centre in play mode. */
+export const BOBO_PLAY_TARGET: PlayTarget = [0, 1.35, -3.8];
+
+/** Speedball ball centre in play mode (world Y). */
+export const SPEEDBALL_BALL_Y = 2.15;
+export const SPEEDBALL_PLAY_TARGET: PlayTarget = [0, SPEEDBALL_BALL_Y, -3.8];
+
+/** Fixed camera aim — same as heavy bag/bobo so a raised ball reads higher on screen. */
+const SPEEDBALL_CAMERA_LOOK_AT: PlayTarget = [0, 1.35, -3.8];
+
+/** Sparring partner chest height in ring play mode (world space). */
+export const RING_PARTNER_FORWARD = 0.8;
+/** Raise partner so feet sit just below glove height on screen. */
+export const RING_PARTNER_LIFT = 1.25;
+export const RING_PARTNER_TARGET: PlayTarget = [0, 2.5, -2.2 + RING_PARTNER_FORWARD];
+
+/** Back-right corner — player stands here inside the ring. */
+export const RING_PLAYER_CORNER: PlayTarget = [1.72, 1.44, -4.02];
+
+/** Partner faces the player corner. */
+export const RING_PARTNER_YAW = Math.atan2(
+  RING_PLAYER_CORNER[0] - RING_PARTNER_TARGET[0],
+  RING_PLAYER_CORNER[2] - RING_PARTNER_TARGET[2]
+);
+
+/** @deprecated Use RING_PARTNER_TARGET */
+export const RING_PLAY_TARGET: PlayTarget = RING_PARTNER_TARGET;
+
+export const HEAVY_BAG_PLAY_CAMERA = playCameraForTarget(HEAVY_BAG_PLAY_TARGET);
+export const BOBO_PLAY_CAMERA = playCameraForTarget(BOBO_PLAY_TARGET);
+export const SPEEDBALL_PLAY_CAMERA = playCameraForTarget(SPEEDBALL_CAMERA_LOOK_AT);
+export const RING_PLAY_CAMERA: CameraShot = {
+  position: RING_PLAYER_CORNER,
+  lookAt: RING_PARTNER_TARGET,
+  fov: 78,
+};
