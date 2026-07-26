@@ -338,6 +338,10 @@ export function CreateBoxerFlow({ open, onClose, onCreated }: CreateBoxerFlowPro
             <div className="create-boxer-progress-track" aria-hidden>
               <div className="create-boxer-progress-bar" style={{ width: `${Math.round(progressRatio * 100)}%` }} />
             </div>
+            <p className="options-section-hint" style={{ marginTop: '0.75rem', opacity: 0.85 }}>
+              Studio AI caricatures (same look as Default / The Don) need the transform API with
+              Replicate or OpenAI keys. Without that, we draw an on-device boxing caricature instead.
+            </p>
           </div>
         )}
 

@@ -123,11 +123,22 @@ def transform_local(image_bytes: bytes, style: CaricatureStyle) -> bytes:
     """Apply free local cartoon/caricature filter."""
     image = _pil_to_cv2(image_bytes)
 
-    if style.id == "exaggerated":
+    if style.id in ("exaggerated", "mickeys_gym"):
         image = _exaggerate_features(image)
 
-    edge = 1.4 if style.id in ("simpsons", "comic", "south_park") else 1.0
+    edge = 1.45 if style.id in ("simpsons", "comic", "south_park", "mickeys_gym") else 1.0
     cartoon = _cartoon_base(image, edge_strength=edge)
     styled = _apply_color_grade(cartoon, style)
+
+    if style.id == "mickeys_gym":
+        # Head-only on black — match playable pack convention.
+        h, w = styled.shape[:2]
+        yy, xx = np.ogrid[:h, :w]
+        mask = ((xx - w / 2) / (0.42 * w)) ** 2 + ((yy - 0.48 * h) / (0.48 * h)) ** 2 <= 1
+        neck = (yy > 0.72 * h) & (np.abs(xx - w / 2) < 0.18 * w)
+        keep = mask | neck
+        out = np.zeros_like(styled)
+        out[keep] = styled[keep]
+        styled = out
 
     return _cv2_to_png_bytes(styled)
