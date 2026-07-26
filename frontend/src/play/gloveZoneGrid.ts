@@ -6,15 +6,18 @@ import { hitZoneOutline, isKnuckleInHitZone, type HitZoneCorners } from './targe
 export const GRID_COLS = 4;
 export const GRID_ROWS = 4;
 
-/**
- * Normalized screen Y of heavy bag top (from 3D camera projection).
- * Grid row 0 starts here; gloves cannot go above.
- */
+/** Normalized screen Y of heavy bag top (from 3D camera projection). */
 export const GRID_TOP_Y = 0.23;
 
 export const GRID_BOTTOM_Y = 1;
 
 export const PLAYABLE_HEIGHT = GRID_BOTTOM_Y - GRID_TOP_Y;
+
+/**
+ * Heavy bag / bobo / speedball bottom edge in normalized screen space
+ * (projected from play camera + bag mesh).
+ */
+export const PLAY_EQUIPMENT_BOTTOM_Y = 0.747;
 
 /** Screen midpoint — touch left half controls left glove, right half controls right. */
 export const SCREEN_MID_X = 0.5;

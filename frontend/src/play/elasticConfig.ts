@@ -1,29 +1,47 @@
 import type { GlovePosition } from '../types/game';
 import type { GloveId } from '../types/game';
 import type { GloveTransform } from './skeleton/types';
-import { defaultAnchorY } from './gloveZoneGrid';
-import { halfGloveHeightNorm, halfGloveWidthNorm, ZONE_GLOVE_W } from './gloveGeometry';
-
-const anchorY = defaultAnchorY();
-
-/** Reference viewport for anchor offsets (matches typical phone play area). */
-const REF_SCREEN_W = 1080;
-const REF_SCREEN_H = 1920;
-const halfGloveNorm = halfGloveWidthNorm(REF_SCREEN_W);
-const halfGloveHeight = halfGloveHeightNorm(REF_SCREEN_H);
-/** Left guard sits a touch higher than the right. */
-const LEFT_GUARD_RAISE = halfGloveHeight * 0.22;
-
-/** Anchor at cuff; inset half a glove width outward from centre. */
-export const GLOVE_ANCHORS: Record<'left' | 'right', GlovePosition> = {
-  left: { x: 0.4 - halfGloveNorm, y: anchorY + halfGloveHeight - LEFT_GUARD_RAISE },
-  right: { x: 0.6 + halfGloveNorm, y: anchorY + halfGloveHeight },
-};
-
-export { ZONE_GLOVE_W };
+import { PLAY_EQUIPMENT_BOTTOM_Y } from './gloveZoneGrid';
+import {
+  gloveCuffYForBottomNorm,
+  halfGloveHeightNorm,
+  halfGloveWidthNorm,
+  ZONE_GLOVE_W,
+} from './gloveGeometry';
 
 /** Fixed inward tilt (degrees) — knuckles angle toward centre when idle. */
 export const INWARD_GLOVE_TILT = 14;
+
+/** Left guard sits a touch higher than the right. */
+const LEFT_GUARD_RAISE_FRAC = 0.22;
+
+/** Rest anchors for the current viewport — glove bottoms line up with equipment base. */
+export function gloveRestAnchors(screenW: number, screenH: number): Record<'left' | 'right', GlovePosition> {
+  const halfGloveNorm = halfGloveWidthNorm(screenW);
+  const leftRaise = halfGloveHeightNorm(screenH) * LEFT_GUARD_RAISE_FRAC;
+  const rightY = gloveCuffYForBottomNorm(
+    PLAY_EQUIPMENT_BOTTOM_Y,
+    screenH,
+    'right',
+    INWARD_GLOVE_TILT
+  );
+  const leftY = gloveCuffYForBottomNorm(
+    PLAY_EQUIPMENT_BOTTOM_Y,
+    screenH,
+    'left',
+    -INWARD_GLOVE_TILT,
+    leftRaise
+  );
+  return {
+    left: { x: 0.4 - halfGloveNorm, y: leftY },
+    right: { x: 0.6 + halfGloveNorm, y: rightY },
+  };
+}
+
+/** Default anchors for 1280×800 play area (updated live on resize in useElasticGloves). */
+export const GLOVE_ANCHORS = gloveRestAnchors(1280, 800);
+
+export { ZONE_GLOVE_W };
 
 /**
  * Fast-move threshold on a 0–100 scale (trail + bag impact).

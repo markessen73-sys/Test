@@ -5,6 +5,7 @@ import {
   ELASTIC_TENSION,
   GLOVE_ANCHORS,
   GLOVE_MIN_SEPARATION,
+  gloveRestAnchors,
   GUARD_GLOVE_POSE,
   INWARD_GLOVE_TILT,
   springFromTension,
@@ -205,10 +206,20 @@ export function useElasticGloves({
     right: { ...GLOVE_ANCHORS.right },
   });
   const aimRef = useRef({ left: -INWARD_GLOVE_TILT, right: INWARD_GLOVE_TILT });
+  const anchorsRef = useRef(GLOVE_ANCHORS);
 
   const syncRootSize = useCallback((root: HTMLElement) => {
     const rect = root.getBoundingClientRect();
     rootSizeRef.current = { width: rect.width, height: rect.height };
+    const anchors = gloveRestAnchors(rect.width, rect.height);
+    anchorsRef.current = anchors;
+    for (const side of ['left', 'right'] as const) {
+      if (grabbingRef.current[side]) continue;
+      bodiesRef.current[side].x = anchors[side].x;
+      bodiesRef.current[side].y = anchors[side].y;
+      bodiesRef.current[side].vx = 0;
+      bodiesRef.current[side].vy = 0;
+    }
   }, []);
 
   const tryPunchOnRelease = useCallback(
@@ -260,7 +271,7 @@ export function useElasticGloves({
 
       for (const side of ['left', 'right'] as const) {
         const body = side === 'left' ? leftBody : rightBody;
-        const anchor = GLOVE_ANCHORS[side];
+        const anchor = anchorsRef.current[side];
         const rest = idleWobble(anchor, side, now, wobbleAmp);
 
         if (grabbingRef.current[side] && grabTargetRef.current[side]) {
@@ -304,7 +315,7 @@ export function useElasticGloves({
       setLeft((prev) => {
         const trail = prev.trail.filter((p) => now - p.t < TRAIL_FADE_MS);
         if (grabbingRef.current.left && isMovingUpward(leftBody.vy)) {
-          const scale = gloveVisual(leftPos, GLOVE_ANCHORS.left, 'left', true, aimRef.current.left).scale;
+          const scale = gloveVisual(leftPos, anchorsRef.current.left, 'left', true, aimRef.current.left).scale;
           const pt = makeBottomTrailPoint(
             leftPos,
             aimRef.current.left,
@@ -322,7 +333,7 @@ export function useElasticGloves({
       setRight((prev) => {
         const trail = prev.trail.filter((p) => now - p.t < TRAIL_FADE_MS);
         if (grabbingRef.current.right && isMovingUpward(rightBody.vy)) {
-          const scale = gloveVisual(rightPos, GLOVE_ANCHORS.right, 'right', true, aimRef.current.right).scale;
+          const scale = gloveVisual(rightPos, anchorsRef.current.right, 'right', true, aimRef.current.right).scale;
           const pt = makeBottomTrailPoint(
             rightPos,
             aimRef.current.right,
@@ -418,7 +429,7 @@ export function useElasticGloves({
       const cuffPos = { x: body.x, y: body.y };
       const aim = aimRef.current[glove];
       const { width: screenW, height: screenH } = rootSizeRef.current;
-      const scale = gloveVisual(cuffPos, GLOVE_ANCHORS[glove], glove, true, aim).scale;
+      const scale = gloveVisual(cuffPos, anchorsRef.current[glove], glove, true, aim).scale;
       const knucklePos = gloveKnuckleNorm(cuffPos, aim, scale, screenW, screenH, glove);
       const releaseSpeed = Math.hypot(body.vx, body.vy);
 
@@ -443,8 +454,8 @@ export function useElasticGloves({
 
   const leftZoneSrc = leftGloveZoneSrc(left.position);
   const rightZoneSrc = rightGloveZoneSrc(right.position);
-  const leftTransform = gloveVisual(left.position, GLOVE_ANCHORS.left, 'left', true, leftAim);
-  const rightTransform = gloveVisual(right.position, GLOVE_ANCHORS.right, 'right', true, rightAim);
+  const leftTransform = gloveVisual(left.position, anchorsRef.current.left, 'left', true, leftAim);
+  const rightTransform = gloveVisual(right.position, anchorsRef.current.right, 'right', true, rightAim);
 
   return {
     left,

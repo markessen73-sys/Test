@@ -88,3 +88,16 @@ export function halfGloveWidthNorm(screenW: number): number {
 export function halfGloveHeightNorm(screenH: number): number {
   return ZONE_GLOVE_H / 2 / screenH;
 }
+
+/** Cuff Y so the glove bottom sits on a target normalized screen Y. */
+export function gloveCuffYForBottomNorm(
+  bottomY: number,
+  screenH: number,
+  side: GloveId,
+  rotateDeg: number,
+  raiseNorm = 0
+): number {
+  const mirror = side === 'left';
+  const { py } = applyGloveImageTransform(0, BOTTOM_DIST_PX, rotateDeg, 1, mirror);
+  return bottomY - py / screenH - raiseNorm;
+}
