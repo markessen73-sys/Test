@@ -9,7 +9,7 @@ import {
   synthesizeOoh,
 } from './faceImage';
 import { detectFaceLandmarks } from './faceDetect';
-import { stylizeFaceToCaricature } from './faceStylize';
+import { paintFlatCaricature } from './paintFlatCaricature';
 import {
   newCustomBoxerId,
   saveCustomBoxerPack,
@@ -19,9 +19,9 @@ import {
 export type CreateBoxerProgress = (message: string, ratio: number) => void;
 
 /**
- * Turn a photo face into a gym caricature.
- * Prefer the studio API when configured; otherwise MediaPipe Face Stylizer
- * (real cartoon stylization — not a photo filter).
+ * Turn a photo face into a gym caricature (never leave it as a raw photo).
+ * Prefer the studio AI API when configured; otherwise paint a flat boxing
+ * caricature from face landmarks + sampled colours (Default-style).
  */
 async function caricatureFace(
   faceFile: File,
@@ -37,18 +37,17 @@ async function caricatureFace(
       return result.blob;
     }
   } catch {
-    /* fall through to on-device stylizer */
+    /* fall through to on-device painter */
   }
 
-  onProgress?.('Drawing caricature (on-device)…', 0.18);
-  return stylizeFaceToCaricature(faceCanvas);
+  onProgress?.('Drawing boxing caricature…', 0.2);
+  return paintFlatCaricature(faceCanvas);
 }
 
 /**
  * Turn a confirmed face crop into a full playable pack and persist it.
  */
 export async function createBoxerFromFaceSource(opts: {
-  /** Image element that was used for detection (full photo). */
   sourceImage: HTMLImageElement | HTMLCanvasElement;
   faceBox: { x: number; y: number; width: number; height: number };
   name: string;
@@ -63,6 +62,7 @@ export async function createBoxerFromFaceSource(opts: {
   const caricatureBlob = await caricatureFace(faceFile, crop, onProgress);
   onProgress?.('Aligning to gym face layout…', 0.4);
   const caricatureImg = await loadImageFromBlob(caricatureBlob);
+  // Flat painter already places features on LM; still run align for AI outputs / size match.
   const landmarks = await detectFaceLandmarks(caricatureImg).catch(() => null);
   const clean = await alignFaceToLandmarks(caricatureImg, landmarks);
 
