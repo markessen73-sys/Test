@@ -50,10 +50,25 @@ export function isLineArt(r, g, b) {
 export function isIris(r, g, b) {
   // Green / hazel cartoon iris.
   if (g > 70 && g >= r - 5 && g > b + 5) return true;
-  // Brown / amber iris (Byson etc.) — mid luminance, warm, not skin-bright.
+  // Brown / amber iris (Byson etc.) — darker than skin/beard, warm, saturated.
+  // Keep tight so ginger beard / cheek skin are not treated as iris.
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
-  if (r > 70 && r < 190 && g > 40 && g < 150 && b > 20 && b < 120 && r >= g && g >= b - 8 && max - min > 18 && max < 200) {
+  const L = lum(r, g, b);
+  if (
+    L > 35 &&
+    L < 110 &&
+    r > 55 &&
+    r < 145 &&
+    g > 30 &&
+    g < 100 &&
+    b > 15 &&
+    b < 85 &&
+    r >= g + 8 &&
+    g >= b - 5 &&
+    max - min > 22 &&
+    max < 150
+  ) {
     return true;
   }
   return false;
