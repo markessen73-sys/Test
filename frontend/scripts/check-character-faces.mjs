@@ -6,6 +6,7 @@
  *  - clean head smaller/larger than Default (inconsistent ring / HUD size)
  *  - knockout head shrunk vs clean (independent affine over-scale)
  *  - clown bake left colored irises instead of Default-style black pupils
+ *  - clown whiteface instead of natural skin / missing red-blue accents / no curly wig
  *  - isIris() missing non-green eye colors (brown/amber)
  *  - incomplete stage file sets
  *
@@ -53,6 +54,14 @@ const REF_HEAD_WIDTH_MIN = 0.96;
 const REF_HEAD_WIDTH_MAX = 1.04;
 /** Clown pupil disk: min fraction of near-black (or white glint) pixels. */
 const CLOWN_BLACK_MIN = 0.72;
+/** Max mean RGB delta (cheek) between clean and clown — guards whiteface regression. */
+const CLOWN_SKIN_MAX_DELTA = 48;
+/** Min saturated red pixels near clown nose. */
+const CLOWN_NOSE_RED_MIN = 120;
+/** Min blue / red diamond pixels above each eye. */
+const CLOWN_DIAMOND_MIN = 40;
+/** Min vibrant multicolour wig pixels in the crown (curly wig template). */
+const CLOWN_WIG_VIVID_MIN = 2500;
 
 const failures = [];
 const warnings = [];
@@ -197,6 +206,79 @@ function detectMouth(data) {
 
 function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function meanRgbInEllipse(data, cx, cy, rx, ry, predicate) {
+  let sr = 0;
+  let sg = 0;
+  let sb = 0;
+  let n = 0;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const nx = (x + 0.5) / W;
+      const ny = (y + 0.5) / H;
+      if (ellipseDist(nx, ny, cx, cy, rx, ry) >= 1) continue;
+      const i = (y * W + x) * 4;
+      if (data[i + 3] < 40) continue;
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      if (predicate && !predicate(r, g, b)) continue;
+      sr += r;
+      sg += g;
+      sb += b;
+      n++;
+    }
+  }
+  return n ? { r: sr / n, g: sg / n, b: sb / n, n } : null;
+}
+
+function countPixelsInEllipse(data, cx, cy, rx, ry, predicate) {
+  let n = 0;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const nx = (x + 0.5) / W;
+      const ny = (y + 0.5) / H;
+      if (ellipseDist(nx, ny, cx, cy, rx, ry) >= 1) continue;
+      const i = (y * W + x) * 4;
+      if (data[i + 3] < 40) continue;
+      if (predicate(data[i], data[i + 1], data[i + 2])) n++;
+    }
+  }
+  return n;
+}
+
+function isVividClownWig(r, g, b) {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  // Saturated primaries / secondaries — not skin, not black outline.
+  return max > 140 && max - min > 55 && lum(r, g, b) > 40 && lum(r, g, b) < 230;
+}
+
+/** True when a sample mean looks like curly-wig candy paint (not peach/brown skin). */
+function looksLikeWigPaint(r, g, b) {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max - min < 90) return false;
+  return (
+    (r > 200 && g < 120 && b < 120) ||
+    (g > 200 && r < 130 && b < 130) ||
+    (b > 200 && r < 130 && g < 160) ||
+    (r > 200 && g > 180 && b < 90) ||
+    (r > 180 && b > 180 && g < 120)
+  );
+}
+
+function isClownNoseRed(r, g, b) {
+  return r > 170 && g < 90 && b < 100 && r > g + 60;
+}
+
+function isClownDiamondBlue(r, g, b) {
+  return b > 140 && b > r + 30 && b > g + 20;
+}
+
+function isClownDiamondRed(r, g, b) {
+  return r > 170 && g < 100 && b < 120 && r > g + 50;
 }
 
 /** Fraction of pupil-disk pixels that look like Default clown eyes (black + white glint). */
@@ -369,11 +451,12 @@ async function checkCharacter(id, refCleanSpan) {
     }
   }
 
-  // --- Clown black pupils (match Default style) ---
+  // --- Clown bake: natural skin, black pupils, red/blue accents, curly wig ---
   const clownCleanPath = path.join(root, 'bobo-clown-stages', '00-clean.png');
   const clownOohPath = path.join(root, 'bobo-clown-stages', 'ooh.png');
   if (fs.existsSync(clownCleanPath)) {
     const clown = await loadRgba(clownCleanPath);
+
     for (const [label, eye] of [
       ['right', LM.rightEye],
       ['left', LM.leftEye],
@@ -386,6 +469,89 @@ async function checkCharacter(id, refCleanSpan) {
             `open-eye pupil bake must detect this iris color (see bake-bobo-clown-faces.mjs)`
         );
       }
+    }
+
+    // Natural skin (no whiteface): sample forehead / jaw away from blush & wig.
+    const skinSites = [
+      [0.5, 0.36, 0.06, 0.04],
+      [0.5, 0.78, 0.06, 0.04],
+    ];
+    let skinChecked = false;
+    for (const [cx, cy, rx, ry] of skinSites) {
+      const skinClean = meanRgbInEllipse(clean.data, cx, cy, rx, ry);
+      const skinClown = meanRgbInEllipse(clown.data, cx, cy, rx, ry);
+      if (!skinClean || !skinClown || skinClean.n < 80 || skinClown.n < 80) continue;
+      // Skip sites covered by vivid curly-wig paint (not normal skin chroma).
+      if (looksLikeWigPaint(skinClown.r, skinClown.g, skinClown.b)) continue;
+      const delta =
+        Math.abs(skinClean.r - skinClown.r) +
+        Math.abs(skinClean.g - skinClown.g) +
+        Math.abs(skinClean.b - skinClown.b);
+      skinChecked = true;
+      if (delta > CLOWN_SKIN_MAX_DELTA) {
+        fail(
+          id,
+          `clown skin RGB delta ${delta.toFixed(0)} vs clean at (${cx},${cy}) (max ${CLOWN_SKIN_MAX_DELTA}) — ` +
+            `keep natural skin tone; do not bake whiteface greasepaint`
+        );
+      }
+      if (skinClown.r > 235 && skinClown.g > 230 && skinClown.b > 220) {
+        fail(id, 'clown face looks whiteface — bake must preserve natural skin colour');
+      }
+      break;
+    }
+    if (!skinChecked) {
+      warn(id, 'could not sample forehead/jaw for clown natural-skin check');
+    }
+
+    // Red clown nose.
+    const noseRed = countPixelsInEllipse(
+      clown.data,
+      LM.nose.x,
+      LM.nose.y + 0.01,
+      0.09,
+      0.08,
+      isClownNoseRed
+    );
+    if (noseRed < CLOWN_NOSE_RED_MIN) {
+      fail(
+        id,
+        `clown red-nose pixels ${noseRed} < ${CLOWN_NOSE_RED_MIN} — keep tomato-red nose accent`
+      );
+    }
+
+    // Blue diamond above right eye, red above left.
+    const blueDiamond = countPixelsInEllipse(
+      clown.data,
+      LM.rightEye.x,
+      LM.rightEye.y - 0.1,
+      0.05,
+      0.06,
+      isClownDiamondBlue
+    );
+    const redDiamond = countPixelsInEllipse(
+      clown.data,
+      LM.leftEye.x,
+      LM.leftEye.y - 0.1,
+      0.05,
+      0.06,
+      isClownDiamondRed
+    );
+    if (blueDiamond < CLOWN_DIAMOND_MIN) {
+      fail(id, `clown blue eye-diamond pixels ${blueDiamond} < ${CLOWN_DIAMOND_MIN}`);
+    }
+    if (redDiamond < CLOWN_DIAMOND_MIN) {
+      fail(id, `clown red eye-diamond pixels ${redDiamond} < ${CLOWN_DIAMOND_MIN}`);
+    }
+
+    // Large multicolour curly wig in the crown (not just short candy hair tips).
+    const wigVivid = countPixelsInEllipse(clown.data, 0.5, 0.18, 0.42, 0.22, isVividClownWig);
+    if (wigVivid < CLOWN_WIG_VIVID_MIN) {
+      fail(
+        id,
+        `clown curly-wig vivid pixels ${wigVivid} < ${CLOWN_WIG_VIVID_MIN} — ` +
+          `bake must include the large multi-coloured curly wig template`
+      );
     }
   }
   if (fs.existsSync(clownOohPath)) {
