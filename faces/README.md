@@ -101,5 +101,8 @@ npm run check:characters
 | Clean eyes on damage-bake `LM` | Black eye / stamps land on forehead |
 | `isIris()` hits near eyes | Non-green irises break bruise + clown pupil bake |
 | KO / ooh mid-face width ≈ clean | Head “shrinks” on knockout |
+| Clown cheek ≈ clean skin (no whiteface) | Clown face must keep natural skin colour |
+| Clown red nose + blue/red eye diamonds | Red/blue accents required |
+| Clown curly multicolour wig in crown | Large curly wig template, not short candy tips |
 | Clown pupils are black (+ glint) like Default | Colored irises left through clown bake |
 | Damage stage `02-blackRightEye` darkens the orbital | Wrong LM / iris skip / stale bake |
