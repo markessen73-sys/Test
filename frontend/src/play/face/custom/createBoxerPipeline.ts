@@ -11,6 +11,7 @@ import {
 } from './faceImage';
 import { detectFaceLandmarks } from './faceDetect';
 import { paintFlatCaricature } from './paintFlatCaricature';
+import { stylizeFaceToCaricature } from './faceStylize';
 import { LM, W, H } from '../bake/faceDamageBake';
 import { assetUrl } from '../../../assetUrl';
 import {
@@ -25,8 +26,7 @@ type CaricatureResult = { blob: Blob; alreadyOnLayout: boolean };
 
 /**
  * Turn a photo face into a gym caricature (never leave it as a raw photo).
- * Prefer the studio AI API when configured; otherwise paint a flat boxing
- * caricature from face landmarks + sampled colours (Default-style).
+ * Prefer studio AI → MediaPipe Face Stylizer → flat landmark painter.
  */
 async function caricatureFace(
   faceFile: File,
@@ -42,7 +42,15 @@ async function caricatureFace(
       return { blob: result.blob, alreadyOnLayout: false };
     }
   } catch {
-    /* fall through to on-device painter */
+    /* fall through */
+  }
+
+  try {
+    onProgress?.('Stylizing face into a caricature…', 0.16);
+    const blob = await stylizeFaceToCaricature(faceCanvas);
+    return { blob, alreadyOnLayout: false };
+  } catch (err) {
+    console.warn('Face stylizer failed, using flat painter', err);
   }
 
   onProgress?.('Drawing boxing caricature…', 0.2);
