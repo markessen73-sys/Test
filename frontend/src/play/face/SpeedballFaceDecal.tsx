@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture'
-import { FACE_KO_SRC, FACE_OOH_SRC, FACE_TEMPLATE_SRC } from './faceTemplate'
+import { useCharacter } from './CharacterContext'
 import { SPEEDBALL_FACE_RADIUS } from './speedballFacePlacement'
 
 const CANVAS_SIZE = 512
@@ -45,6 +45,7 @@ export function SpeedballFaceDecal({
   knockedOut = false,
   opacity = 1,
 }: SpeedballFaceDecalProps) {
+  const { character } = useCharacter()
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null)
   const normalRef = useRef<HTMLImageElement | null>(null)
   const oohRef = useRef<HTMLImageElement | null>(null)
@@ -80,9 +81,9 @@ export function SpeedballFaceDecal({
     setTexture(tex)
 
     Promise.all([
-      loadFaceImage(FACE_TEMPLATE_SRC),
-      loadFaceImage(FACE_OOH_SRC),
-      loadFaceImage(FACE_KO_SRC),
+      loadFaceImage(character.cleanSrc),
+      loadFaceImage(character.oohSrc),
+      loadFaceImage(character.knockoutSrc),
     ]).then(([normal, ooh, ko]) => {
       if (cancelled) return
       normalRef.current = normal
@@ -95,7 +96,7 @@ export function SpeedballFaceDecal({
       cancelled = true
       tex.dispose()
     }
-  }, [])
+  }, [character])
 
   useEffect(() => {
     const ko = koRef.current

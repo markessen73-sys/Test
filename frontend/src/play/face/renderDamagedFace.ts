@@ -1,4 +1,5 @@
 import { drawFullFaceOnCanvas } from './composeFaceTexture';
+import type { CharacterDef } from './characters';
 import {
   damageFaceIndexForStage,
   DAMAGE_METER_STEPS,
@@ -14,13 +15,17 @@ export type DamagedFaceAssets = {
 };
 
 /** Load clean + knockout faces and bake the cumulative damage variants. */
-export async function loadDamagedFaceAssets(): Promise<DamagedFaceAssets> {
-  return createDamageFaceVariants();
+export async function loadDamagedFaceAssets(
+  character?: CharacterDef
+): Promise<DamagedFaceAssets> {
+  return createDamageFaceVariants(character);
 }
 
 /** Load the 11 comedy-clown faces for the bobo doll. */
-export async function loadBoboClownFaceAssets(): Promise<DamagedFaceAssets> {
-  return createBoboClownFaceVariants();
+export async function loadBoboClownFaceAssets(
+  character?: CharacterDef
+): Promise<DamagedFaceAssets> {
+  return createBoboClownFaceVariants(character);
 }
 
 /**

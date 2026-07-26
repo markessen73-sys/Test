@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { assetUrl } from '../assetUrl';
 import { CeilingChain } from '../play/CeilingChain';
 import { BAG_CHAIN_LENGTH } from '../play/bagSwing';
+import { useCharacter } from '../play/face/CharacterContext';
 import { BOBO_FACE_CENTER, createBoboFacePatchGeometry } from '../play/face/boboFacePlacement';
 import { SpeedballFaceDecal } from '../play/face/SpeedballFaceDecal';
 import { BagPolaroid } from '../play/face/BagPolaroid';
 import { SPEEDBALL_BALL_Y } from '../play/playCamera';
-
-const BOBO_CLOWN_CLEAN = assetUrl('/faces/bobo-clown-stages/00-clean.png');
 
 interface EquipmentProps {
   highlighted: boolean;
@@ -120,12 +118,13 @@ export function HeavyBag({ highlighted, position = [0, 0, 0] }: EquipmentProps) 
 }
 
 function BoboBrowseClownFace({ opacity }: { opacity: number }) {
+  const { character } = useCharacter();
   const [map, setMap] = useState<THREE.Texture | null>(null);
   const geometry = useMemo(() => createBoboFacePatchGeometry(), []);
   useEffect(() => {
     const loader = new THREE.TextureLoader();
     let tex: THREE.Texture | null = null;
-    loader.load(BOBO_CLOWN_CLEAN, (t) => {
+    loader.load(character.boboCleanSrc, (t) => {
       t.colorSpace = THREE.SRGBColorSpace;
       tex = t;
       setMap(t);
@@ -133,7 +132,7 @@ function BoboBrowseClownFace({ opacity }: { opacity: number }) {
     return () => {
       tex?.dispose();
     };
-  }, []);
+  }, [character]);
   useEffect(() => {
     return () => {
       geometry.dispose();

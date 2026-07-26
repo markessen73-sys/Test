@@ -7,6 +7,7 @@ import { playPunchSfx, preloadPunchSfx } from './playPunchSfx';
 import { useFaceDamage } from './face/useFaceDamage';
 import { OpponentDamageHud } from './face/OpponentDamageHud';
 import { KnockoutBellOverlay } from './face/KnockoutBellOverlay';
+import { useCharacter } from './face/CharacterContext';
 import { loadBoboClownFaceAssets } from './face/renderDamagedFace';
 import type { PunchImpact } from './punchImpact';
 import type { GloveId, GlovePosition } from '../types/game';
@@ -16,6 +17,7 @@ interface BoboDollPlayViewProps {
 }
 
 export function BoboDollPlayView({ onBack }: BoboDollPlayViewProps) {
+  const { character } = useCharacter();
   const [punchCount, setPunchCount] = useState(0);
   const [impacts, setImpacts] = useState<PunchImpact[]>([]);
   const impactIdRef = useRef(0);
@@ -58,6 +60,11 @@ export function BoboDollPlayView({ onBack }: BoboDollPlayViewProps) {
     isKnuckleOnTarget: isKnuckleOnBoboDoll,
   });
 
+  const loadClownHud = useCallback(
+    () => loadBoboClownFaceAssets(character),
+    [character]
+  );
+
   return (
     <GlovesPlayShell
       onBack={onBack}
@@ -71,7 +78,7 @@ export function BoboDollPlayView({ onBack }: BoboDollPlayViewProps) {
       hudExtra={
         <>
           <KnockoutBellOverlay active={knockedOut} onRestart={onRestart} />
-          <OpponentDamageHud stage={damageStage} loadAssets={loadBoboClownFaceAssets} />
+          <OpponentDamageHud stage={damageStage} loadAssets={loadClownHud} />
         </>
       }
       canvas={

@@ -7,7 +7,7 @@ import {
   POLAROID_CANVAS_SIZE,
   renderPolaroidScrapCanvas,
 } from './composePolaroidTexture'
-import { FACE_TEMPLATE_SRC } from './faceTemplate'
+import { useCharacter } from './CharacterContext'
 import {
   BAG_POLAROID_CENTER,
   BAG_POLAROID_HEIGHT,
@@ -187,6 +187,7 @@ interface BagPolaroidProps {
  * Tear scraps are real photo pieces that peel off from the hole.
  */
 export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroidProps) {
+  const { character } = useCharacter()
   const phase = bagPolaroidPhaseForStage(stage)
   const hangOne = bagPolaroidHangsByOnePin(phase)
   const [pivotFromLeft, setPivotFromLeft] = useState(false)
@@ -382,7 +383,7 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
     texRef.current = tex
     setTexture(tex)
 
-    loadFaceImage(FACE_TEMPLATE_SRC).then((img) => {
+    loadFaceImage(character.cleanSrc).then((img) => {
       if (cancelled) return
       imgRef.current = img
       needsScrapSyncRef.current = true
@@ -394,7 +395,7 @@ export function BagPolaroid({ stage, lastHitTime = 0, opacity = 1 }: BagPolaroid
       tex.dispose()
       clearScraps()
     }
-  }, [])
+  }, [character])
 
   useEffect(() => {
     needsScrapSyncRef.current = true

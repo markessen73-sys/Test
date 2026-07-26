@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { FACE_CONTAIN_PAD, drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture';
+import { useCharacter } from './CharacterContext';
 import {
-  FACE_KO_SRC,
   FACE_NOSE_LANDMARK,
-  FACE_OOH_SRC,
   FACE_SOURCE_SIZE,
-  FACE_TEMPLATE_SRC,
   RING_PARTNER_FACE,
 } from './faceTemplate';
 import {
@@ -69,6 +67,7 @@ export function PartnerFaceDecal({
   lastHitTime = 0,
   knockedOut = false,
 }: PartnerFaceDecalProps) {
+  const { character } = useCharacter();
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
   const normalRef = useRef<HTMLImageElement | null>(null);
   const oohRef = useRef<HTMLImageElement | null>(null);
@@ -114,9 +113,9 @@ export function PartnerFaceDecal({
     setTexture(tex);
 
     Promise.all([
-      loadFaceImage(FACE_TEMPLATE_SRC),
-      loadFaceImage(FACE_OOH_SRC),
-      loadFaceImage(FACE_KO_SRC),
+      loadFaceImage(character.cleanSrc),
+      loadFaceImage(character.oohSrc),
+      loadFaceImage(character.knockoutSrc),
     ]).then(([normal, ooh, ko]) => {
       if (cancelled) return;
       normalRef.current = normal;
@@ -129,7 +128,7 @@ export function PartnerFaceDecal({
       cancelled = true;
       tex.dispose();
     };
-  }, []);
+  }, [character]);
 
   // Hold knockout face once the meter hits 100%.
   useEffect(() => {

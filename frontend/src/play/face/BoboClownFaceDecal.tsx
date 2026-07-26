@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture';
-import {
-  BOBO_CLOWN_CLEAN_SRC,
-  BOBO_CLOWN_LIVE_KO_SRC,
-  BOBO_CLOWN_OOH_SRC,
-} from './boboClownStageAssets';
+import { useCharacter } from './CharacterContext';
 import { BOBO_FACE_CENTER, createBoboFacePatchGeometry } from './boboFacePlacement';
 
 const CANVAS_SIZE = 512;
@@ -27,6 +23,7 @@ export function BoboClownFaceDecal({
   lastHitTime = 0,
   knockedOut = false,
 }: BoboClownFaceDecalProps) {
+  const { character } = useCharacter();
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
   const normalRef = useRef<HTMLImageElement | null>(null);
   const oohRef = useRef<HTMLImageElement | null>(null);
@@ -59,9 +56,9 @@ export function BoboClownFaceDecal({
     setTexture(tex);
 
     Promise.all([
-      loadFaceImage(BOBO_CLOWN_CLEAN_SRC),
-      loadFaceImage(BOBO_CLOWN_OOH_SRC),
-      loadFaceImage(BOBO_CLOWN_LIVE_KO_SRC),
+      loadFaceImage(character.boboCleanSrc),
+      loadFaceImage(character.boboOohSrc),
+      loadFaceImage(character.boboLiveKoSrc),
     ]).then(([normal, ooh, ko]) => {
       if (cancelled) return;
       normalRef.current = normal;
@@ -74,7 +71,7 @@ export function BoboClownFaceDecal({
       cancelled = true;
       tex.dispose();
     };
-  }, []);
+  }, [character]);
 
   useEffect(() => {
     return () => {
