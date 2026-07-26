@@ -5,11 +5,11 @@ import {
   canvasToJpegFile,
   cropFaceToSquare,
   loadImageFromBlob,
-  localCartoonize,
   synthesizeKnockout,
   synthesizeOoh,
 } from './faceImage';
 import { detectFaceLandmarks } from './faceDetect';
+import { stylizeFaceToCaricature } from './faceStylize';
 import {
   newCustomBoxerId,
   saveCustomBoxerPack,
@@ -18,30 +18,30 @@ import {
 
 export type CreateBoxerProgress = (message: string, ratio: number) => void;
 
-const GYM_STYLE_CANDIDATES = ['mickeys_gym', 'exaggerated', 'family_guy', 'comic', 'disney'];
-
-async function caricatureFace(file: File, onProgress?: CreateBoxerProgress): Promise<Blob> {
-  onProgress?.('Checking caricature service…', 0.12);
+/**
+ * Turn a photo face into a gym caricature.
+ * Prefer the studio API when configured; otherwise MediaPipe Face Stylizer
+ * (real cartoon stylization — not a photo filter).
+ */
+async function caricatureFace(
+  faceFile: File,
+  faceCanvas: HTMLCanvasElement,
+  onProgress?: CreateBoxerProgress
+): Promise<Blob> {
+  onProgress?.('Checking caricature service…', 0.1);
   try {
     const health = await fetchHealth();
-    if (health.ai_available || !health.monetization_mode) {
-      onProgress?.('Creating your caricature…', 0.18);
-      let lastErr: Error | null = null;
-      for (const styleId of GYM_STYLE_CANDIDATES) {
-        try {
-          const result = await transformPhoto(file, styleId, (msg) => onProgress?.(msg, 0.25));
-          return result.blob;
-        } catch (e) {
-          lastErr = e instanceof Error ? e : new Error(String(e));
-        }
-      }
-      if (lastErr) throw lastErr;
+    if (health.ai_available || health.monetization_mode === false) {
+      onProgress?.('Creating AI caricature…', 0.15);
+      const result = await transformPhoto(faceFile, 'mickeys_gym', (msg) => onProgress?.(msg, 0.22));
+      return result.blob;
     }
   } catch {
-    /* fall through to local */
+    /* fall through to on-device stylizer */
   }
-  onProgress?.('Caricature service offline — using local cartoon…', 0.22);
-  return localCartoonize(file);
+
+  onProgress?.('Drawing caricature (on-device)…', 0.18);
+  return stylizeFaceToCaricature(faceCanvas);
 }
 
 /**
@@ -57,10 +57,10 @@ export async function createBoxerFromFaceSource(opts: {
   const { sourceImage, faceBox, name, onProgress } = opts;
 
   onProgress?.('Cropping face…', 0.05);
-  const crop = cropFaceToSquare(sourceImage, faceBox, 0.6);
+  const crop = cropFaceToSquare(sourceImage, faceBox, 0.55);
   const faceFile = await canvasToJpegFile(crop, 'boxer-face.jpg');
 
-  const caricatureBlob = await caricatureFace(faceFile, onProgress);
+  const caricatureBlob = await caricatureFace(faceFile, crop, onProgress);
   onProgress?.('Aligning to gym face layout…', 0.4);
   const caricatureImg = await loadImageFromBlob(caricatureBlob);
   const landmarks = await detectFaceLandmarks(caricatureImg).catch(() => null);

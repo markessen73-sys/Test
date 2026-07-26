@@ -232,8 +232,8 @@ export function CreateBoxerFlow({ open, onClose, onCreated }: CreateBoxerFlowPro
         {step === 'pick-source' && (
           <div className="create-boxer-source">
             <p className="options-section-hint">
-              Take a selfie or choose a photo. We&apos;ll detect the face and run the same caricature
-              process used for the built-in boxers.
+              Take a selfie or choose a photo. We detect the face, turn it into a cartoon
+              caricature (same layout as the built-in boxers), then bake the full pack.
             </p>
             {cameraOn ? (
               <div className="create-boxer-camera">
