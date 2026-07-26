@@ -75,6 +75,10 @@ def _parse_retry_seconds(error: ReplicateError) -> float:
 
 def _friendly_error(error: Exception) -> str:
     msg = str(error).lower()
+    if "billing_hard_limit" in msg or "billing hard limit" in msg:
+        return "OpenAI billing limit reached. Add credits or raise the limit in your OpenAI account."
+    if "insufficient_quota" in msg or "exceeded your current quota" in msg:
+        return "OpenAI quota exceeded. Check billing/usage in your OpenAI account."
     if "429" in str(error) or "throttled" in msg:
         return "AI service is busy. Please try again in a few seconds."
     if "402" in str(error) or "insufficient credit" in msg:
@@ -127,7 +131,8 @@ async def transform_image(
 ) -> tuple[bytes, str]:
     """
     AI-only transformation for production. Server API keys — never user keys.
-    Dev mode (MONETIZATION_MODE=false) allows local fallback.
+    Local OpenCV fallback only when no AI providers are configured
+    (dev mode without keys).
     """
     order = _get_ai_provider_order()
     if provider and provider not in ("auto", "local"):
@@ -147,11 +152,13 @@ async def transform_image(
             errors.append(f"{prov}: {_friendly_error(error)}")
             continue
 
-    if not MONETIZATION_MODE:
+    # Local cartoon only when no AI keys are configured at all.
+    if not order and not MONETIZATION_MODE:
         from local_processor import transform_local
         result = await asyncio.to_thread(transform_local, image_bytes, style)
         return result, "local"
 
     raise TransformError(
-        "AI transformation unavailable. " + (" | ".join(errors) if errors else "Configure server API keys.")
+        "AI transformation unavailable. "
+        + (" | ".join(errors) if errors else "Configure server API keys.")
     )

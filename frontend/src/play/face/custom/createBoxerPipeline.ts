@@ -34,15 +34,24 @@ async function caricatureFace(
   onProgress?: CreateBoxerProgress
 ): Promise<CaricatureResult> {
   onProgress?.('Checking caricature service…', 0.1);
+  let aiConfigured = false;
   try {
     const health = await fetchHealth();
+    aiConfigured = !!health.ai_available;
     if (health.ai_available || health.monetization_mode === false) {
       onProgress?.('Creating AI caricature…', 0.15);
-      const result = await transformPhoto(faceFile, 'mickeys_gym', (msg) => onProgress?.(msg, 0.22));
-      return { blob: result.blob, alreadyOnLayout: false };
+      try {
+        const result = await transformPhoto(faceFile, 'mickeys_gym', (msg) => onProgress?.(msg, 0.22));
+        return { blob: result.blob, alreadyOnLayout: false };
+      } catch (err) {
+        // When studio AI is configured, surface the error (e.g. billing limit)
+        // instead of silently falling back to a crude on-device cartoon.
+        if (aiConfigured) throw err;
+      }
     }
-  } catch {
-    /* fall through */
+  } catch (err) {
+    if (aiConfigured) throw err;
+    /* health unreachable — fall through to on-device */
   }
 
   try {
