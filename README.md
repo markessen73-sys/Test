@@ -31,7 +31,24 @@ cd frontend && npm install && npm run dev
 
 Open http://localhost:5173 — you land straight in the gym.
 
-### Direct links
+## Play online (phone / no install)
+
+GitHub Pages is not enabled on this repo yet. Use this direct link instead (same idea as the old `raw.githack.com` preview):
+
+**Main gym:** https://cdn.jsdelivr.net/gh/markessen73-sys/Test@gh-pages/index.html
+
+### Direct play links
+
+| Station | Link |
+|---------|------|
+| Main gym | https://cdn.jsdelivr.net/gh/markessen73-sys/Test@gh-pages/index.html |
+| Heavy bag | https://cdn.jsdelivr.net/gh/markessen73-sys/Test@gh-pages/index.html?play=heavy-bag |
+| Boxing ring | https://cdn.jsdelivr.net/gh/markessen73-sys/Test@gh-pages/index.html?play=ring |
+| Speedball | https://cdn.jsdelivr.net/gh/markessen73-sys/Test@gh-pages/index.html?play=speedball |
+| Bobo doll | https://cdn.jsdelivr.net/gh/markessen73-sys/Test@gh-pages/index.html?play=bobo-doll |
+| Character builder | https://cdn.jsdelivr.net/gh/markessen73-sys/Test@gh-pages/index.html?builder=character |
+
+### Local dev direct links
 
 | URL | Opens |
 |-----|-------|
