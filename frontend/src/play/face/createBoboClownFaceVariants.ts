@@ -1,23 +1,21 @@
 import { loadFaceImage } from './composeFaceTexture';
-import {
-  BOBO_CLOWN_CLEAN_SRC,
-  BOBO_CLOWN_KO_SRC,
-  BOBO_CLOWN_STAGE_SRCS,
-} from './boboClownStageAssets';
+import type { CharacterDef } from './characters';
+import { CHARACTERS, DEFAULT_CHARACTER_ID } from './characters';
 
 /**
- * Load the 11 comedy-clown faces baked for the bobo doll
- * (`scripts/bake-bobo-clown-faces.mjs`).
+ * Load the 11 comedy-clown faces baked for a character's bobo doll set.
  */
-export async function createBoboClownFaceVariants(): Promise<{
+export async function createBoboClownFaceVariants(
+  character: CharacterDef = CHARACTERS[DEFAULT_CHARACTER_ID]
+): Promise<{
   cleanFace: HTMLImageElement;
   damageFaces: HTMLImageElement[];
   knockoutFace: HTMLImageElement;
 }> {
   const [cleanFace, knockoutFace, ...damageFaces] = await Promise.all([
-    loadFaceImage(BOBO_CLOWN_CLEAN_SRC),
-    loadFaceImage(BOBO_CLOWN_KO_SRC),
-    ...BOBO_CLOWN_STAGE_SRCS.map(loadFaceImage),
+    loadFaceImage(character.boboCleanSrc),
+    loadFaceImage(character.boboKoSrc),
+    ...character.boboDamageStageSrcs.map(loadFaceImage),
   ]);
   return { cleanFace, damageFaces, knockoutFace };
 }

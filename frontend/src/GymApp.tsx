@@ -6,6 +6,7 @@ import { BoboDollPlayView } from './play/BoboDollPlayView';
 import { SpeedballPlayView } from './play/SpeedballPlayView';
 import { RingPlayView } from './play/RingPlayView';
 import { BoxingGymScene } from './gym/BoxingGymScene';
+import { OptionsPanel } from './OptionsPanel';
 import { GYM_STATIONS, type GymStation, type ViewMode } from './types/game';
 
 const STATION_INDEX: Record<GymStation, number> = {
@@ -20,6 +21,7 @@ const PLAY_STATIONS = new Set<GymStation>(['ring', 'speedball', 'heavy-bag', 'bo
 export function GymApp() {
   const [stationIndex, setStationIndex] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('browse');
+  const [optionsOpen, setOptionsOpen] = useState(false);
 
   // Direct links:
   //   ?gym           — main gym browse (optional station: ?gym=heavy-bag)
@@ -72,6 +74,7 @@ export function GymApp() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (optionsOpen) return;
       if (viewMode === 'browse') {
         if (e.key === 'ArrowRight') goNext();
         if (e.key === 'ArrowLeft') goPrev();
@@ -81,7 +84,7 @@ export function GymApp() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [viewMode, goNext, goPrev, selectStation, backToBrowse]);
+  }, [viewMode, goNext, goPrev, selectStation, backToBrowse, optionsOpen]);
 
   if (viewMode === 'play') {
     switch (station.id) {
@@ -111,7 +114,14 @@ export function GymApp() {
               ← Back
             </button>
           ) : (
-            <span className="gym-brand">Mickey's Gym</span>
+            <button
+              type="button"
+              className="gym-options-btn"
+              onClick={() => setOptionsOpen(true)}
+              aria-label="Options"
+            >
+              Options
+            </button>
           )}
           <div className="gym-station-title">
             <span className="gym-station-emoji">{station.emoji}</span>
@@ -159,6 +169,8 @@ export function GymApp() {
           )}
         </footer>
       </div>
+
+      <OptionsPanel open={optionsOpen} onClose={() => setOptionsOpen(false)} />
     </div>
   );
 }

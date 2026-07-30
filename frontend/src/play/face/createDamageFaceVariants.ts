@@ -1,23 +1,22 @@
 import { loadFaceImage } from './composeFaceTexture';
-import { DAMAGE_STAGE_CLEAN_SRC, DAMAGE_STAGE_SRCS } from './damageStageAssets';
-import { FACE_KO_SRC } from './faceTemplate';
+import type { CharacterDef } from './characters';
+import { CHARACTERS, DEFAULT_CHARACTER_ID } from './characters';
 
 /**
- * Load the cumulative injury faces created with the caricature.
- *
- * These PNGs are authored/baked ahead of time (see
- * `scripts/bake-damage-stage-faces.mjs`) so the damage box can swap a real
- * face every 10% instead of stamping procedural bruises.
+ * Load the cumulative injury faces for a character.
+ * Baked ahead of time (see `scripts/bake-damage-stage-faces.mjs`).
  */
-export async function createDamageFaceVariants(): Promise<{
+export async function createDamageFaceVariants(
+  character: CharacterDef = CHARACTERS[DEFAULT_CHARACTER_ID]
+): Promise<{
   cleanFace: HTMLImageElement;
   damageFaces: HTMLImageElement[];
   knockoutFace: HTMLImageElement;
 }> {
   const [cleanFace, knockoutFace, ...damageFaces] = await Promise.all([
-    loadFaceImage(DAMAGE_STAGE_CLEAN_SRC),
-    loadFaceImage(FACE_KO_SRC),
-    ...DAMAGE_STAGE_SRCS.map(loadFaceImage),
+    loadFaceImage(character.damageStageCleanSrc),
+    loadFaceImage(character.knockoutSrc),
+    ...character.damageStageSrcs.map(loadFaceImage),
   ]);
   return { cleanFace, damageFaces, knockoutFace };
 }

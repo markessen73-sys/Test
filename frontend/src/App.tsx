@@ -1,13 +1,16 @@
 import { GymApp } from './GymApp';
+import { CharacterProvider } from './play/face/CharacterContext';
 import { useBackgroundMusic } from './useBackgroundMusic';
 
 function App() {
   useBackgroundMusic();
 
   return (
-    <div className="app">
-      <GymApp />
-    </div>
+    <CharacterProvider>
+      <div className="app">
+        <GymApp />
+      </div>
+    </CharacterProvider>
   );
 }
 

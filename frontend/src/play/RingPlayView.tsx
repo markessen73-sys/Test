@@ -7,6 +7,8 @@ import { playPunchSfx, preloadPunchSfx } from './playPunchSfx';
 import { useFaceDamage } from './face/useFaceDamage';
 import { OpponentDamageHud } from './face/OpponentDamageHud';
 import { KnockoutBellOverlay } from './face/KnockoutBellOverlay';
+import { useCharacter } from './face/CharacterContext';
+import { loadDamagedFaceAssets } from './face/renderDamagedFace';
 import type { PunchImpact } from './punchImpact';
 import type { GloveId, GlovePosition } from '../types/game';
 
@@ -15,6 +17,7 @@ interface RingPlayViewProps {
 }
 
 export function RingPlayView({ onBack }: RingPlayViewProps) {
+  const { character } = useCharacter();
   const [punchCount, setPunchCount] = useState(0);
   const [impacts, setImpacts] = useState<PunchImpact[]>([]);
   const impactIdRef = useRef(0);
@@ -57,6 +60,8 @@ export function RingPlayView({ onBack }: RingPlayViewProps) {
     isKnuckleOnTarget: isKnuckleOnSparringPartner,
   });
 
+  const loadHud = useCallback(() => loadDamagedFaceAssets(character), [character]);
+
   return (
     <GlovesPlayShell
       onBack={onBack}
@@ -70,7 +75,7 @@ export function RingPlayView({ onBack }: RingPlayViewProps) {
       hudExtra={
         <>
           <KnockoutBellOverlay active={knockedOut} onRestart={onRestart} />
-          <OpponentDamageHud stage={damageStage} />
+          <OpponentDamageHud stage={damageStage} loadAssets={loadHud} />
         </>
       }
       canvas={
