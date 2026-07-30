@@ -27,6 +27,7 @@ from database import (
 )
 from styles import get_style, list_styles
 from transformer import TransformError, ai_available, transform_image
+from face_engine import convert_photo_to_caricature
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 load_dotenv()
@@ -132,6 +133,39 @@ async def stripe_webhook(request: Request):
 @app.get("/api/styles")
 async def styles():
     return {"styles": list_styles()}
+
+
+@app.post("/api/face-engine/caricature")
+async def face_engine_caricature(photo: UploadFile = File(...)):
+    """
+    Standalone background engine: photo → Mickey's Gym flat caricature.
+    No AI credits required — feature sampling + cartoon render.
+    """
+    if photo.content_type and photo.content_type not in ALLOWED_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {photo.content_type}.",
+        )
+    image_bytes = await photo.read()
+    if len(image_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large. Maximum 10 MB.")
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="Empty file uploaded.")
+
+    try:
+        result = convert_photo_to_caricature(image_bytes)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Face engine failed: {e}") from e
+
+    return Response(
+        content=result.png_bytes,
+        media_type="image/png",
+        headers={
+            "Content-Disposition": 'inline; filename="mickeys-gym-caricature.png"',
+            "X-Provider": "face_engine",
+            "X-Canvas-Size": str(result.canvas_size),
+        },
+    )
 
 
 @app.post("/api/transform")
