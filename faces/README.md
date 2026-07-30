@@ -62,12 +62,13 @@ Writes `face-template-map.json` and `src/play/face/faceTemplateMap.ts`.
 
 ## Bobo doll comedy-clown faces
 
-Same caricature + injury ladder as the ring damage stages, painted as a
-classic whiteface clown (red nose, diamond eye makeup, smile, candy hair).
+Same caricature + injury ladder as the ring damage stages, with **natural
+skin tone** (no whiteface), red/blue clown accents, black pupils, and a
+large multi-coloured curly wig.
 
 ```bash
 cd frontend
-node scripts/bake-bobo-clown-faces.mjs
+npm run bake:clown
 ```
 
 Writes 11 PNGs to `bobo-clown-stages/00-clean.png` … `10-knockout.png`, plus
@@ -75,3 +76,33 @@ Writes 11 PNGs to `bobo-clown-stages/00-clean.png` … `10-knockout.png`, plus
 In play (`?play=bobo-doll`) the doll stays undamaged, swaps to ooh on hit and
 KO at 100%; injuries advance only in the damage box. Preview a HUD step with
 `?play=bobo-doll&damageStage=0..10`.
+
+## Adding a new playable character
+
+Drop a full pack under `characters/<id>/` (see `default/` / `byson/`), register it
+in `src/play/face/characters.ts`, then run the guardrail script:
+
+```bash
+cd frontend
+# Align clean/ooh/KO so eyes+mouth sit on bake LM (reuse clean's affine for ooh+KO).
+# Scale the pack so clean mid-face width matches Default (±4%), pivot on the eye midpoint.
+# Swap templates → bake damage + clown into characters/<id>/… → restore templates.
+npm run bake:damage
+npm run bake:clown
+npm run check:characters
+```
+
+`check:characters` fails the build-prep checklist if any of these regress:
+
+| Check | Why it matters |
+|-------|----------------|
+| Required clean / ooh / KO / damage / clown files | Incomplete packs crash stations |
+| Clean mid-face width ≈ Default (±4%) | Heads must match Default size in ring / HUD |
+| Clean eyes on damage-bake `LM` | Black eye / stamps land on forehead |
+| `isIris()` hits near eyes | Non-green irises break bruise + clown pupil bake |
+| KO / ooh mid-face width ≈ clean | Head “shrinks” on knockout |
+| Clown cheek ≈ clean skin (no whiteface) | Clown face must keep natural skin colour |
+| Clown red nose + blue/red eye diamonds | Red/blue accents required |
+| Clown curly multicolour wig in crown | Large curly wig template, not short candy tips |
+| Clown pupils are black (+ glint) like Default | Colored irises left through clown bake |
+| Damage stage `02-blackRightEye` darkens the orbital | Wrong LM / iris skip / stale bake |
