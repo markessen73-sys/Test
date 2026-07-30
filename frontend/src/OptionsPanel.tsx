@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useCharacter } from './play/face/CharacterContext';
 import type { CharacterId } from './play/face/characters';
+import { FaceEngineSelfieTest } from './FaceEngineSelfieTest';
 
 interface OptionsPanelProps {
   open: boolean;
@@ -72,10 +73,7 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
           </div>
         </section>
 
-        <section className="options-section options-section-muted">
-          <h3 className="options-section-title">More options</h3>
-          <p className="options-section-hint">Coming soon.</p>
-        </section>
+        <FaceEngineSelfieTest />
       </div>
     </div>
   );

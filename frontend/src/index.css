@@ -1652,3 +1652,92 @@ html, body, #root, .app {
   letter-spacing: 0.02em;
 }
 
+.face-engine-test {
+  margin-top: 0.25rem;
+}
+
+.face-engine-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+
+.face-engine-btn {
+  appearance: none;
+  border: 2px solid rgba(232, 200, 64, 0.45);
+  background: linear-gradient(180deg, #5a3a14, #2c1a08);
+  color: #ffe4b5;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.face-engine-btn-primary {
+  width: 100%;
+  margin-top: 0.5rem;
+  border-color: #e8c840;
+}
+
+.face-engine-btn-secondary {
+  border-color: rgba(255, 228, 181, 0.28);
+  background: rgba(20, 14, 8, 0.85);
+}
+
+.face-engine-camera {
+  display: grid;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+
+.face-engine-video {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 12px;
+  background: #000;
+  transform: scaleX(-1);
+}
+
+.face-engine-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  margin: 0.4rem 0 0.75rem;
+}
+
+.face-engine-shot {
+  margin: 0;
+  text-align: center;
+}
+
+.face-engine-shot img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  background: #000;
+  border-radius: 10px;
+  border: 1px solid rgba(232, 200, 64, 0.25);
+}
+
+.face-engine-shot figcaption {
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: rgba(255, 228, 181, 0.7);
+}
+
+.face-engine-status {
+  margin: 0.4rem 0 0;
+  color: rgba(255, 228, 181, 0.85);
+  font-size: 0.88rem;
+}
+
+.face-engine-error {
+  margin: 0.5rem 0 0;
+  color: #ff8f8f;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+

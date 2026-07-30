@@ -135,3 +135,30 @@ export async function transformPhoto(
     creditsRemaining: parseInt(res.headers.get('X-Credits-Remaining') || '0', 10),
   };
 }
+
+/** Standalone Mickey's Gym face engine (no AI credits). */
+export async function runFaceEngineCaricature(
+  file: File,
+  onProgress?: (message: string) => void
+): Promise<{ blob: Blob; canvasSize: number }> {
+  onProgress?.('Uploading photo to face engine…');
+  const form = new FormData();
+  form.append('photo', file);
+
+  const res = await fetch(`${API_BASE}/api/face-engine/caricature`, {
+    method: 'POST',
+    body: form,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Face engine failed' }));
+    const detail = err.detail;
+    throw new Error(typeof detail === 'string' ? detail : detail?.message || 'Face engine failed');
+  }
+
+  onProgress?.('Rendering caricature…');
+  return {
+    blob: await res.blob(),
+    canvasSize: parseInt(res.headers.get('X-Canvas-Size') || '1024', 10),
+  };
+}
