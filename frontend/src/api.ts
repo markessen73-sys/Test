@@ -140,7 +140,8 @@ export async function transformPhoto(
 export async function runFaceEngineCaricature(
   file: File,
   onProgress?: (message: string) => void,
-  mode: 'full' | 'skin' | 'eyes' = 'full'
+  mode: 'full' | 'skin' | 'eyes' = 'full',
+  opts?: { forceGlasses?: boolean }
 ): Promise<{
   blob: Blob;
   canvasSize: number;
@@ -160,6 +161,7 @@ export async function runFaceEngineCaricature(
   const form = new FormData();
   form.append('photo', file);
   form.append('mode', mode);
+  form.append('force_glasses', opts?.forceGlasses ? '1' : '0');
 
   const res = await fetch(`${API_BASE}/api/face-engine/caricature`, {
     method: 'POST',

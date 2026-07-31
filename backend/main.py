@@ -139,6 +139,7 @@ async def styles():
 async def face_engine_caricature(
     photo: UploadFile = File(...),
     mode: str = Form("full"),
+    force_glasses: str = Form("0"),
 ):
     """
     Standalone background engine: photo → Mickey's Gym flat caricature.
@@ -147,6 +148,7 @@ async def face_engine_caricature(
     mode=full → complete caricature
     mode=skin → skin-tone test plate (head/neck/ears + swatch)
     mode=eyes → eyes / glasses test plate
+    force_glasses=1 → draw frames even if auto-detect missed them
     """
     if photo.content_type and photo.content_type not in ALLOWED_TYPES:
         raise HTTPException(
@@ -163,8 +165,12 @@ async def face_engine_caricature(
     if mode_norm not in {"full", "skin", "eyes"}:
         raise HTTPException(status_code=400, detail="mode must be 'full', 'skin', or 'eyes'")
 
+    force = str(force_glasses).strip().lower() in {"1", "true", "yes", "on"}
+
     try:
-        result = convert_photo_to_caricature(image_bytes, mode=mode_norm)
+        result = convert_photo_to_caricature(
+            image_bytes, mode=mode_norm, force_glasses=force
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Face engine failed: {e}") from e
 
@@ -186,6 +192,7 @@ async def face_engine_caricature(
             "X-Eye-Scale": f"{result.features.eye_scale:.3f}",
             "X-Has-Glasses": "1" if result.features.has_glasses else "0",
             "X-Glasses-Hex": result.features.glasses_hex if result.features.has_glasses else "",
+            "X-Glasses-Score": f"{result.features.glasses_score:.3f}",
         },
     )
 

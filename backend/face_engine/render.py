@@ -310,10 +310,10 @@ def render_eyes_test(features: FaceFeatures, size: int = CANVAS_SIZE) -> np.ndar
     else:
         cv2.putText(
             img,
-            "no glasses",
+            f"no glasses ({features.glasses_score:.2f})",
             (gx0, sy0 + sw // 2),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.6,
+            0.55,
             (160, 160, 160),
             2,
             lineType=cv2.LINE_AA,

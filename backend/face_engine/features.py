@@ -32,6 +32,7 @@ class FaceFeatures:
     glasses_bgr: tuple[int, int, int] = (40, 40, 40)
     glasses_hex: str = "#282828"
     glasses_sample_count: int = 0
+    glasses_score: float = 0.0
     eye_features: EyeFeatures | None = None
 
 
@@ -108,5 +109,6 @@ def extract_features(bgr: np.ndarray, lm: PhotoLandmarks) -> FaceFeatures:
         glasses_bgr=eyes.glasses_bgr,
         glasses_hex=eyes.glasses_hex,
         glasses_sample_count=eyes.glasses_sample_count,
+        glasses_score=eyes.glasses_score,
         eye_features=eyes,
     )

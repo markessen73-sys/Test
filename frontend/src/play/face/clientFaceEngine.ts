@@ -211,8 +211,10 @@ function sampleEyesAndGlasses(ctx: CanvasRenderingContext2D): EyeSample {
   const h = ctx.canvas.height;
   const eyeY = h * 0.38;
   const eyeSpan = w * 0.22;
-  const right = { x: w * 0.5 - eyeSpan * 0.5, y: eyeY };
-  const left = { x: w * 0.5 + eyeSpan * 0.5, y: eyeY };
+  const right0 = { x: w * 0.5 - eyeSpan * 0.5, y: eyeY };
+  const left0 = { x: w * 0.5 + eyeSpan * 0.5, y: eyeY };
+  const right = refineEyeCenter(ctx, right0.x, right0.y, eyeSpan);
+  const left = refineEyeCenter(ctx, left0.x, left0.y, eyeSpan);
 
   const ir = sampleIrisAt(ctx, right.x, right.y, eyeSpan);
   const il = sampleIrisAt(ctx, left.x, left.y, eyeSpan);
@@ -220,15 +222,17 @@ function sampleEyesAndGlasses(ctx: CanvasRenderingContext2D): EyeSample {
     ir.count + il.count === 0
       ? { r: 90, g: 90, b: 110 }
       : {
-          r: (ir.rgb.r * Math.max(1, ir.count) + il.rgb.r * Math.max(1, il.count)) /
+          r:
+            (ir.rgb.r * Math.max(1, ir.count) + il.rgb.r * Math.max(1, il.count)) /
             (Math.max(1, ir.count) + Math.max(1, il.count)),
-          g: (ir.rgb.g * Math.max(1, ir.count) + il.rgb.g * Math.max(1, il.count)) /
+          g:
+            (ir.rgb.g * Math.max(1, ir.count) + il.rgb.g * Math.max(1, il.count)) /
             (Math.max(1, ir.count) + Math.max(1, il.count)),
-          b: (ir.rgb.b * Math.max(1, ir.count) + il.rgb.b * Math.max(1, il.count)) /
+          b:
+            (ir.rgb.b * Math.max(1, ir.count) + il.rgb.b * Math.max(1, il.count)) /
             (Math.max(1, ir.count) + Math.max(1, il.count)),
         };
 
-  // Contrast-based eye scale (matches server range ~1.12–1.45)
   let eyeScale = 1.22;
   for (const eye of [right, left]) {
     const r = Math.max(6, Math.floor(eyeSpan * 0.12));
@@ -254,72 +258,194 @@ function sampleEyesAndGlasses(ctx: CanvasRenderingContext2D): EyeSample {
     }
   }
 
-  // Glasses: dark non-skin ring on both eyes + bridge
+  // Edge-aware glasses detection (matches server recall bias).
+  // Elliptical annulus + bridge; catch dark plastic AND light/thin metal.
   const framePool: number[] = [];
-  const perEye: number[] = [];
-  const rIn = Math.max(5, Math.floor(eyeSpan * 0.11));
-  const rOut = Math.max(rIn + 3, Math.floor(eyeSpan * 0.22));
+  const eyeEdge: number[] = [];
+  const eyeFrame: number[] = [];
+  const rxOut = eyeSpan * 0.32;
+  const ryOut = eyeSpan * 0.22;
+  const rxIn = eyeSpan * 0.09;
+  const ryIn = eyeSpan * 0.07;
+
   for (const eye of [right, left]) {
-    const x0 = Math.max(0, Math.floor(eye.x - rOut));
-    const y0 = Math.max(0, Math.floor(eye.y - rOut));
-    const x1 = Math.min(w - 1, Math.ceil(eye.x + rOut));
-    const y1 = Math.min(h - 1, Math.ceil(eye.y + rOut));
+    const x0 = Math.max(0, Math.floor(eye.x - rxOut));
+    const y0 = Math.max(0, Math.floor(eye.y - ryOut));
+    const x1 = Math.min(w - 1, Math.ceil(eye.x + rxOut));
+    const y1 = Math.min(h - 1, Math.ceil(eye.y + ryOut));
     const rw = x1 - x0 + 1;
     const rh = y1 - y0 + 1;
     const data = ctx.getImageData(x0, y0, rw, rh).data;
-    let hits = 0;
-    let total = 0;
+    const lums = new Float32Array(rw * rh);
+    for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+      lums[p] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    }
+    // Local median approx via average of annulus (fast).
+    let annSum = 0;
+    let annN = 0;
     for (let py = 0; py < rh; py++) {
       for (let px = 0; px < rw; px++) {
-        const dx = x0 + px - eye.x;
-        const dy = y0 + py - eye.y;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        if (d < rIn || d > rOut) continue;
-        const i = (py * rw + px) * 4;
+        const nx = (x0 + px - eye.x) / rxOut;
+        const ny = (y0 + py - eye.y) / ryOut;
+        const nix = (x0 + px - eye.x) / rxIn;
+        const niy = (y0 + py - eye.y) / ryIn;
+        if (nx * nx + ny * ny > 1 || nix * nix + niy * niy <= 1) continue;
+        annSum += lums[py * rw + px];
+        annN++;
+      }
+    }
+    const med = annN ? annSum / annN : 128;
+    let edgeHits = 0;
+    let frameHits = 0;
+    let total = 0;
+    for (let py = 1; py < rh - 1; py++) {
+      for (let px = 1; px < rw - 1; px++) {
+        const nx = (x0 + px - eye.x) / rxOut;
+        const ny = (y0 + py - eye.y) / ryOut;
+        const nix = (x0 + px - eye.x) / rxIn;
+        const niy = (y0 + py - eye.y) / ryIn;
+        if (nx * nx + ny * ny > 1 || nix * nix + niy * niy <= 1) continue;
+        total++;
+        const p = py * rw + px;
+        const lum = lums[p];
+        const gx = Math.abs(lums[p + 1] - lums[p - 1]);
+        const gy = Math.abs(lums[p + rw] - lums[p - rw]);
+        const grad = gx + gy;
+        const i = p * 4;
         const r = data[i];
         const g = data[i + 1];
         const b = data[i + 2];
-        const lum = (r + g + b) / 3;
-        if (isSkinYCrCb(r, g, b)) continue;
-        total++;
-        if (lum < 95) {
-          hits++;
+        const skin = isSkinYCrCb(r, g, b);
+        const isEdge = grad > 28;
+        if (isEdge) edgeHits++;
+        const dark = lum < med - 12;
+        const bright = lum > med + 20 && !skin;
+        if (isEdge && (!skin || dark || bright)) {
+          frameHits++;
+          framePool.push(r, g, b);
+        } else if (!skin && (dark || bright)) {
+          frameHits++;
           framePool.push(r, g, b);
         }
       }
     }
-    perEye.push(hits / Math.max(1, total));
+    eyeEdge.push(edgeHits / Math.max(1, total));
+    eyeFrame.push(frameHits / Math.max(1, total));
   }
 
   const mx = (right.x + left.x) / 2;
   const my = (right.y + left.y) / 2;
-  const bw = Math.max(4, Math.floor(eyeSpan * 0.18));
-  const bh = Math.max(3, Math.floor(eyeSpan * 0.055));
+  const bw = Math.max(6, Math.floor(eyeSpan * 0.24));
+  const bh = Math.max(4, Math.floor(eyeSpan * 0.12));
   const bridge = ctx.getImageData(
     Math.max(0, Math.floor(mx - bw)),
     Math.max(0, Math.floor(my - bh)),
-    bw * 2,
-    bh * 2
-  ).data;
-  let bridgeHit = 0;
+    Math.max(1, bw * 2),
+    Math.max(1, bh * 2)
+  );
+  const bd = bridge.data;
+  const bW = bridge.width;
+  const bH = bridge.height;
+  const bLums = new Float32Array(bW * bH);
+  for (let i = 0, p = 0; i < bd.length; i += 4, p++) {
+    bLums[p] = 0.299 * bd[i] + 0.587 * bd[i + 1] + 0.114 * bd[i + 2];
+  }
+  let bSum = 0;
+  for (let i = 0; i < bLums.length; i++) bSum += bLums[i];
+  const bMed = bLums.length ? bSum / bLums.length : 128;
+  let bridgeEdge = 0;
+  let bridgeDark = 0;
   let bridgeN = 0;
-  for (let i = 0; i < bridge.length; i += 4) {
-    const r = bridge[i];
-    const g = bridge[i + 1];
-    const b = bridge[i + 2];
-    bridgeN++;
-    if (isSkinYCrCb(r, g, b)) continue;
-    if ((r + g + b) / 3 < 90) {
-      bridgeHit++;
-      framePool.push(r, g, b);
+  for (let py = 1; py < bH - 1; py++) {
+    for (let px = 1; px < bW - 1; px++) {
+      bridgeN++;
+      const p = py * bW + px;
+      const lum = bLums[p];
+      const grad =
+        Math.abs(bLums[p + 1] - bLums[p - 1]) + Math.abs(bLums[p + bW] - bLums[p - bW]);
+      const i = p * 4;
+      const skin = isSkinYCrCb(bd[i], bd[i + 1], bd[i + 2]);
+      if (grad > 24) bridgeEdge++;
+      if (!skin && (lum < bMed - 8 || lum > bMed + 18)) {
+        bridgeDark++;
+        framePool.push(bd[i], bd[i + 1], bd[i + 2]);
+      }
     }
   }
-  const bridgeRatio = bridgeHit / Math.max(1, bridgeN);
-  const bothEyes = perEye.length === 2 && Math.min(...perEye) > 0.1;
-  const strongRings = perEye.length === 2 && Math.min(...perEye) > 0.2;
-  let hasGlasses = (bothEyes && bridgeRatio > 0.1) || (strongRings && bridgeRatio > 0.04);
-  const glasses = framePool.length >= 30 && hasGlasses ? medianRgb(framePool) : { r: 40, g: 40, b: 40 };
-  if (framePool.length < 30) hasGlasses = false;
+  const bridgeEdgeR = bridgeEdge / Math.max(1, bridgeN);
+  const bridgeDarkR = bridgeDark / Math.max(1, bridgeN);
+
+  // Temples
+  let temple = 0;
+  for (const [eye, side] of [
+    [right, -1],
+    [left, 1],
+  ] as const) {
+    const tx0 = Math.floor(eye.x + side * rxOut * 0.7);
+    const tx1 = Math.floor(eye.x + side * rxOut * 1.7);
+    const ty0 = Math.floor(eye.y - ryOut * 0.4);
+    const ty1 = Math.floor(eye.y + ryOut * 0.5);
+    const xA = Math.max(0, Math.min(tx0, tx1));
+    const xB = Math.min(w - 1, Math.max(tx0, tx1));
+    const yA = Math.max(0, ty0);
+    const yB = Math.min(h - 1, ty1);
+    if (xB <= xA || yB <= yA) continue;
+    const patch = ctx.getImageData(xA, yA, xB - xA + 1, yB - yA + 1);
+    const pd = patch.data;
+    const pw = patch.width;
+    const ph = patch.height;
+    let hits = 0;
+    let n = 0;
+    for (let py = 1; py < ph - 1; py++) {
+      for (let px = 1; px < pw - 1; px++) {
+        n++;
+        const i = (py * pw + px) * 4;
+        const lum = 0.299 * pd[i] + 0.587 * pd[i + 1] + 0.114 * pd[i + 2];
+        const iR = (py * pw + px + 1) * 4;
+        const iL = (py * pw + px - 1) * 4;
+        const iD = ((py + 1) * pw + px) * 4;
+        const iU = ((py - 1) * pw + px) * 4;
+        const lumR = 0.299 * pd[iR] + 0.587 * pd[iR + 1] + 0.114 * pd[iR + 2];
+        const lumL = 0.299 * pd[iL] + 0.587 * pd[iL + 1] + 0.114 * pd[iL + 2];
+        const lumD = 0.299 * pd[iD] + 0.587 * pd[iD + 1] + 0.114 * pd[iD + 2];
+        const lumU = 0.299 * pd[iU] + 0.587 * pd[iU + 1] + 0.114 * pd[iU + 2];
+        if (Math.abs(lumR - lumL) + Math.abs(lumD - lumU) > 28) hits++;
+        void lum;
+      }
+    }
+    temple += hits / Math.max(1, n);
+  }
+  temple *= 0.5;
+
+  const minEdge = Math.min(...eyeEdge);
+  const meanEdge = eyeEdge.reduce((a, b) => a + b, 0) / Math.max(1, eyeEdge.length);
+  const minFrame = Math.min(...eyeFrame);
+  const meanFrame = eyeFrame.reduce((a, b) => a + b, 0) / Math.max(1, eyeFrame.length);
+  const score =
+    meanEdge * 1.6 +
+    minEdge * 1.2 +
+    meanFrame * 1.1 +
+    minFrame * 0.9 +
+    bridgeEdgeR * 1.4 +
+    bridgeDarkR * 0.8 +
+    temple * 0.7;
+
+  let hasGlasses =
+    score >= 0.55 ||
+    (minEdge >= 0.12 && bridgeEdgeR >= 0.05) ||
+    (minEdge >= 0.14 && minFrame >= 0.08) ||
+    (meanEdge >= 0.16 && bridgeEdgeR >= 0.04) ||
+    (minFrame >= 0.12 && bridgeDarkR >= 0.06) ||
+    meanEdge >= 0.2 ||
+    (minEdge >= 0.12 && temple >= 0.06);
+
+  let glasses = { r: 35, g: 32, b: 30 };
+  if (hasGlasses && framePool.length >= 12) {
+    glasses = medianRgb(framePool);
+  } else if (framePool.length < 12) {
+    // still allow hasGlasses with default frame colour if edges were strong
+    if (!hasGlasses) glasses = { r: 40, g: 40, b: 40 };
+  }
 
   return {
     iris,
@@ -566,7 +692,8 @@ function paintEyesSwatches(ctx: CanvasRenderingContext2D, eyes: EyeSample) {
 /** Convert a face photo to a flat gym caricature (or feature test) in the browser. */
 export async function clientFaceEngineCaricature(
   file: File,
-  mode: FaceEngineMode = 'full'
+  mode: FaceEngineMode = 'full',
+  opts?: { forceGlasses?: boolean }
 ): Promise<Blob> {
   const img = await loadImage(file);
   const sampleCanvas = document.createElement('canvas');
@@ -585,6 +712,14 @@ export async function clientFaceEngineCaricature(
   const skinTone = sampleSkinTone(sctx);
   const skin = skinTone.rgb;
   const eyes = sampleEyesAndGlasses(sctx);
+  if (opts?.forceGlasses) {
+    eyes.hasGlasses = true;
+    // Keep sampled frame colour if detection found any; else dark default.
+    if (eyes.glasses.r > 200 && eyes.glasses.g > 200 && eyes.glasses.b > 200) {
+      eyes.glasses = { r: 35, g: 32, b: 30 };
+      eyes.glassesHex = toHex(eyes.glasses);
+    }
+  }
   const hair = sample(sctx, midX, Math.max(8, eyeY - eyeSpan * 1.2), 16);
   const lip = sample(sctx, midX, midY + eyeSpan * 0.95, 5);
   const brow = mix(hair, skin, 0.25);

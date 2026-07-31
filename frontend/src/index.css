@@ -1741,3 +1741,18 @@ html, body, #root, .app {
   line-height: 1.35;
 }
 
+.face-engine-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.65rem 0 0.35rem;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  color: #d7d0c4;
+  cursor: pointer;
+}
+
+.face-engine-check input {
+  margin-top: 0.15rem;
+}
+

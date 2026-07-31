@@ -21,6 +21,7 @@ export function FaceEngineSelfieTest() {
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultLabel, setResultLabel] = useState('Caricature');
   const [metaLine, setMetaLine] = useState<string | null>(null);
+  const [wearingGlasses, setWearingGlasses] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('');
 
@@ -134,12 +135,18 @@ export function FaceEngineSelfieTest() {
         let blob: Blob;
         let meta: string | null = null;
         try {
-          const result = await runFaceEngineCaricature(photoFile, setStatus, mode);
+          const result = await runFaceEngineCaricature(photoFile, setStatus, mode, {
+            forceGlasses: wearingGlasses,
+          });
           blob = result.blob;
           if (mode === 'skin') meta = result.skinHex;
           else if (mode === 'eyes') {
             const g = result.hasGlasses && result.glassesHex ? ` · frames ${result.glassesHex}` : '';
-            meta = result.irisHex ? `iris ${result.irisHex}${g}` : g || null;
+            const forced = wearingGlasses && !result.hasGlasses ? '' : '';
+            meta = result.irisHex
+              ? `iris ${result.irisHex}${g}${result.hasGlasses || wearingGlasses ? '' : ' · no glasses'}`
+              : g || (wearingGlasses ? 'glasses (forced)' : null);
+            void forced;
           } else meta = result.skinHex;
         } catch {
           setStatus(
@@ -149,7 +156,9 @@ export function FaceEngineSelfieTest() {
                 ? 'Server unavailable — sampling eyes on-device…'
                 : 'Server unavailable — running on-device face engine…'
           );
-          blob = await clientFaceEngineCaricature(photoFile, mode);
+          blob = await clientFaceEngineCaricature(photoFile, mode, {
+            forceGlasses: wearingGlasses,
+          });
         }
         setResultUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
@@ -166,7 +175,7 @@ export function FaceEngineSelfieTest() {
         setError(err instanceof Error ? err.message : 'Face engine failed');
       }
     },
-    [photoFile]
+    [photoFile, wearingGlasses]
   );
 
   const reset = useCallback(() => {
@@ -258,29 +267,39 @@ export function FaceEngineSelfieTest() {
       )}
 
       {(phase === 'preview' || phase === 'done') && (
-        <div className="face-engine-actions">
-          <button
-            type="button"
-            className="face-engine-btn face-engine-btn-secondary"
-            onClick={() => void runEngine('skin')}
-          >
-            Test skin tone
-          </button>
-          <button
-            type="button"
-            className="face-engine-btn face-engine-btn-primary"
-            onClick={() => void runEngine('eyes')}
-          >
-            Test eyes
-          </button>
-          <button
-            type="button"
-            className="face-engine-btn face-engine-btn-secondary"
-            onClick={() => void runEngine('full')}
-          >
-            Make caricature
-          </button>
-        </div>
+        <>
+          <label className="face-engine-check">
+            <input
+              type="checkbox"
+              checked={wearingGlasses}
+              onChange={(e) => setWearingGlasses(e.target.checked)}
+            />
+            I&apos;m wearing glasses (force frames if auto-detect misses them)
+          </label>
+          <div className="face-engine-actions">
+            <button
+              type="button"
+              className="face-engine-btn face-engine-btn-secondary"
+              onClick={() => void runEngine('skin')}
+            >
+              Test skin tone
+            </button>
+            <button
+              type="button"
+              className="face-engine-btn face-engine-btn-primary"
+              onClick={() => void runEngine('eyes')}
+            >
+              Test eyes
+            </button>
+            <button
+              type="button"
+              className="face-engine-btn face-engine-btn-secondary"
+              onClick={() => void runEngine('full')}
+            >
+              Make caricature
+            </button>
+          </div>
+        </>
       )}
 
       {phase === 'busy' && <p className="face-engine-status">{status || 'Working…'}</p>}

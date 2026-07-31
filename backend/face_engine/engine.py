@@ -55,6 +55,7 @@ def convert_photo_to_caricature(
     *,
     canvas_size: int = CANVAS_SIZE,
     mode: str = "full",
+    force_glasses: bool = False,
 ) -> CaricatureResult:
     """
     Convert a face photo into a flat 2D gym caricature.
@@ -76,6 +77,15 @@ def convert_photo_to_caricature(
     bgr = _load_bgr(source)
     landmarks = detect_primary_face(bgr)
     features = extract_features(bgr, landmarks)
+    if force_glasses and not features.has_glasses:
+        from dataclasses import replace
+
+        features = replace(
+            features,
+            has_glasses=True,
+            glasses_bgr=features.glasses_bgr if features.glasses_sample_count else (35, 32, 30),
+            glasses_hex=features.glasses_hex if features.glasses_sample_count else "#23201e",
+        )
     cartoon = render_flat_caricature(features, size=canvas_size, mode=mode)
     return CaricatureResult(
         png_bytes=to_png_bytes(cartoon),
