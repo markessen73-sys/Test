@@ -12,23 +12,36 @@ type Props = {
   onClose?: () => void;
 };
 
+type HairTransform = {
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+};
+
+const DEFAULT_TRANSFORM: HairTransform = { scale: 1, offsetX: 0, offsetY: 0 };
+
 /**
- * Build a Face — pick hair colour, then swipe / scroll styles left-to-right.
+ * Build a Face — colour → style → stretch / shrink / move into place.
  */
 export function BuildFaceView({ onClose }: Props) {
   const hairStyles = useMemo(() => buildFaceHair(), []);
   const blankUrl = useMemo(() => buildFaceBlankUrl(), []);
   const [colorId, setColorId] = useState<string | null>(null);
   const [hairId, setHairId] = useState(hairStyles[0]?.id ?? '');
+  const [xform, setXform] = useState<HairTransform>(DEFAULT_TRANSFORM);
   const previewRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   const tintCache = useRef<Map<string, string>>(new Map());
-  const swipeRef = useRef<{ x: number; y: number; active: boolean }>({
-    x: 0,
-    y: 0,
-    active: false,
-  });
+  const dragRef = useRef<{
+    mode: 'none' | 'swipe' | 'move';
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+  }>({ mode: 'none', startX: 0, startY: 0, origX: 0, origY: 0 });
+  const xformRef = useRef(xform);
+  xformRef.current = xform;
 
   const selectedColor: HairColor | undefined = useMemo(
     () => BUILD_FACE_HAIR_COLORS.find((c) => c.id === colorId),
@@ -72,7 +85,11 @@ export function BuildFaceView({ onClose }: Props) {
   }, []);
 
   const paint = useCallback(
-    async (hairSrc: string | undefined, hex: string | undefined) => {
+    async (
+      hairSrc: string | undefined,
+      hex: string | undefined,
+      transform: HairTransform
+    ) => {
       const canvas = previewRef.current;
       if (!canvas || !hairSrc || !hex) return;
       const ctx = canvas.getContext('2d');
@@ -90,26 +107,39 @@ export function BuildFaceView({ onClose }: Props) {
       ctx.fillStyle = '#0a0a0a';
       ctx.fillRect(0, 0, size, size);
       ctx.drawImage(blank, 0, 0, size, size);
-      ctx.drawImage(hairImg, 0, 0, size, size);
+
+      // Transform around canvas centre so scale/move feel natural.
+      const cx = size / 2 + transform.offsetX;
+      const cy = size / 2 + transform.offsetY;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(transform.scale, transform.scale);
+      ctx.drawImage(hairImg, -size / 2, -size / 2, size, size);
+      ctx.restore();
     },
     [blankUrl, tintedHairUrl]
   );
 
   useEffect(() => {
     if (!selectedColor) return;
-    void paint(selected?.src, selectedColor.hex);
-  }, [paint, selected, selectedColor]);
+    void paint(selected?.src, selectedColor.hex, xform);
+  }, [paint, selected, selectedColor, xform]);
 
   const goStyle = useCallback(
     (dir: -1 | 1) => {
       if (!hairStyles.length) return;
       const next = (selectedIndex + dir + hairStyles.length) % hairStyles.length;
       setHairId(hairStyles[next].id);
+      setXform(DEFAULT_TRANSFORM);
     },
     [hairStyles, selectedIndex]
   );
 
-  // Keep thumbnail strip synced with selection
+  const selectStyle = (id: string) => {
+    setHairId(id);
+    setXform(DEFAULT_TRANSFORM);
+  };
+
   useEffect(() => {
     const el = stripRef.current;
     if (!el) return;
@@ -117,34 +147,71 @@ export function BuildFaceView({ onClose }: Props) {
     thumb?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   }, [hairId]);
 
-  // Swipe left/right on the main preview to change styles
+  // Pointer: drag to move hair; short horizontal flick still changes style.
   useEffect(() => {
     if (!selectedColor) return;
     const el = stageRef.current;
     if (!el) return;
 
+    const canvasScale = () => {
+      const canvas = previewRef.current;
+      if (!canvas) return 1;
+      const rect = canvas.getBoundingClientRect();
+      return canvas.width / Math.max(rect.width, 1);
+    };
+
     const onPointerDown = (e: PointerEvent) => {
-      swipeRef.current = { x: e.clientX, y: e.clientY, active: true };
+      // Ignore clicks on nav buttons
+      if ((e.target as HTMLElement).closest('.build-face-stage-nav')) return;
+      const cur = xformRef.current;
+      dragRef.current = {
+        mode: 'none',
+        startX: e.clientX,
+        startY: e.clientY,
+        origX: cur.offsetX,
+        origY: cur.offsetY,
+      };
       el.setPointerCapture(e.pointerId);
     };
-    const onPointerUp = (e: PointerEvent) => {
-      if (!swipeRef.current.active) return;
-      const dx = e.clientX - swipeRef.current.x;
-      const dy = e.clientY - swipeRef.current.y;
-      swipeRef.current.active = false;
-      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
-      // swipe left → next, swipe right → previous
-      goStyle(dx < 0 ? 1 : -1);
+
+    const onPointerMove = (e: PointerEvent) => {
+      const d = dragRef.current;
+      if (d.mode === 'none' && (Math.abs(e.clientX - d.startX) > 6 || Math.abs(e.clientY - d.startY) > 6)) {
+        const dx = e.clientX - d.startX;
+        const dy = e.clientY - d.startY;
+        // Prefer move; only treat as swipe if clearly horizontal and little vertical
+        d.mode = Math.abs(dx) > Math.abs(dy) * 2.2 && Math.abs(dy) < 14 ? 'swipe' : 'move';
+      }
+      if (d.mode !== 'move') return;
+      const s = canvasScale();
+      setXform((prev) => ({
+        ...prev,
+        offsetX: d.origX + (e.clientX - d.startX) * s,
+        offsetY: d.origY + (e.clientY - d.startY) * s,
+      }));
     };
+
+    const onPointerUp = (e: PointerEvent) => {
+      const d = dragRef.current;
+      const dx = e.clientX - d.startX;
+      const dy = e.clientY - d.startY;
+      if (d.mode === 'swipe' || (d.mode === 'none' && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5)) {
+        goStyle(dx < 0 ? 1 : -1);
+      }
+      d.mode = 'none';
+    };
+
     const onPointerCancel = () => {
-      swipeRef.current.active = false;
+      dragRef.current.mode = 'none';
     };
 
     el.addEventListener('pointerdown', onPointerDown);
+    el.addEventListener('pointermove', onPointerMove);
     el.addEventListener('pointerup', onPointerUp);
     el.addEventListener('pointercancel', onPointerCancel);
     return () => {
       el.removeEventListener('pointerdown', onPointerDown);
+      el.removeEventListener('pointermove', onPointerMove);
       el.removeEventListener('pointerup', onPointerUp);
       el.removeEventListener('pointercancel', onPointerCancel);
     };
@@ -159,6 +226,7 @@ export function BuildFaceView({ onClose }: Props) {
   const onPickColor = (id: string) => {
     setColorId(id);
     if (!hairId) setHairId(hairStyles[0]?.id ?? '');
+    setXform(DEFAULT_TRANSFORM);
   };
 
   return (
@@ -167,12 +235,14 @@ export function BuildFaceView({ onClose }: Props) {
         <div>
           <p className="build-face-kicker">Build a face</p>
           <h1 className="build-face-title">
-            {selectedColor ? 'Pick a hair style' : 'Pick a hair colour'}
+            {!selectedColor
+              ? 'Pick a hair colour'
+              : 'Pick a style, then fit it'}
           </h1>
           <p className="build-face-sub">
-            {selectedColor
-              ? 'Swipe the preview left or right — or scroll the strip — to choose a cut.'
-              : 'Choose a colour first. Styles unlock once selected.'}
+            {!selectedColor
+              ? 'Choose a colour first. Styles unlock once selected.'
+              : 'Cycle styles, then stretch, shrink, or drag the hair into place on the head.'}
           </p>
         </div>
         {onClose && (
@@ -208,7 +278,7 @@ export function BuildFaceView({ onClose }: Props) {
       <div
         ref={stageRef}
         className={`build-face-stage ${selectedColor ? 'is-swipeable' : 'is-dimmed'}`}
-        aria-label={selectedColor ? 'Swipe left or right to change hair style' : undefined}
+        aria-label={selectedColor ? 'Drag hair to move; swipe to change style' : undefined}
       >
         {selectedColor && (
           <button
@@ -228,7 +298,7 @@ export function BuildFaceView({ onClose }: Props) {
               : 'Select a colour to preview styles'}
           </p>
           {selectedColor && (
-            <p className="build-face-swipe-hint">Swipe left / right</p>
+            <p className="build-face-swipe-hint">Drag to move · swipe for next style</p>
           )}
         </div>
         {selectedColor && (
@@ -242,6 +312,63 @@ export function BuildFaceView({ onClose }: Props) {
           </button>
         )}
       </div>
+
+      {selectedColor && (
+        <section className="build-face-fit" aria-label="Fit hair on head">
+          <div className="build-face-fit-bar">
+            <h2 className="build-face-catalog-title">Fit</h2>
+            <button
+              type="button"
+              className="build-face-nav-btn"
+              onClick={() => setXform(DEFAULT_TRANSFORM)}
+            >
+              Reset
+            </button>
+          </div>
+          <label className="build-face-slider">
+            <span>Size</span>
+            <input
+              type="range"
+              min={0.45}
+              max={2.4}
+              step={0.01}
+              value={xform.scale}
+              onChange={(e) =>
+                setXform((prev) => ({ ...prev, scale: Number(e.target.value) }))
+              }
+            />
+            <span className="build-face-slider-val">{xform.scale.toFixed(2)}×</span>
+          </label>
+          <label className="build-face-slider">
+            <span>Move X</span>
+            <input
+              type="range"
+              min={-280}
+              max={280}
+              step={1}
+              value={xform.offsetX}
+              onChange={(e) =>
+                setXform((prev) => ({ ...prev, offsetX: Number(e.target.value) }))
+              }
+            />
+            <span className="build-face-slider-val">{Math.round(xform.offsetX)}</span>
+          </label>
+          <label className="build-face-slider">
+            <span>Move Y</span>
+            <input
+              type="range"
+              min={-280}
+              max={280}
+              step={1}
+              value={xform.offsetY}
+              onChange={(e) =>
+                setXform((prev) => ({ ...prev, offsetY: Number(e.target.value) }))
+              }
+            />
+            <span className="build-face-slider-val">{Math.round(xform.offsetY)}</span>
+          </label>
+        </section>
+      )}
 
       {selectedColor && (
         <section className="build-face-catalog" aria-label="Hair styles">
@@ -267,7 +394,7 @@ export function BuildFaceView({ onClose }: Props) {
                 active={style.id === hairId}
                 colorHex={selectedColor.hex}
                 tintedHairUrl={tintedHairUrl}
-                onSelect={() => setHairId(style.id)}
+                onSelect={() => selectStyle(style.id)}
               />
             ))}
           </div>

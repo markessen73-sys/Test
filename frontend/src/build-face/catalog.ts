@@ -14,7 +14,7 @@ export type HairColor = {
 };
 
 const HAIR_FILES: HairStyle[] = [
-  { id: '01-bald', name: 'Bald', file: 'assets/build-face/hair/01-bald.png' },
+  { id: '01-swept-crown', name: 'Swept crown', file: 'assets/build-face/hair/01-swept-crown.png' },
   { id: '02-receding-buzz', name: 'Receding buzz', file: 'assets/build-face/hair/02-receding-buzz.png' },
   { id: '03-buzz', name: 'Buzz cut', file: 'assets/build-face/hair/03-buzz.png' },
   { id: '04-short-spiky', name: 'Short spiky', file: 'assets/build-face/hair/04-short-spiky.png' },
