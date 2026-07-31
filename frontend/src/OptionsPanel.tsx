@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useCharacter } from './play/face/CharacterContext';
 import type { CharacterId } from './play/face/characters';
-import { FaceEngineSelfieTest } from './FaceEngineSelfieTest';
 
 interface OptionsPanelProps {
   open: boolean;
@@ -49,7 +48,15 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
           </button>
         </header>
 
-        <FaceEngineSelfieTest />
+        <section className="options-section">
+          <h3 className="options-section-title">Build a face</h3>
+          <p className="options-section-hint">
+            Start from a blank gym face and pick a hair style from the catalogue.
+          </p>
+          <a className="options-link-btn" href="?builder=face">
+            Open face builder
+          </a>
+        </section>
 
         <section className="options-section">
           <h3 className="options-section-title">Character selection</h3>

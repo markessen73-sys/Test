@@ -1,0 +1,67 @@
+{
+  "canvas": 1024,
+  "hairColor": "#2a1c16",
+  "blank": "/assets/build-face/blank.png",
+  "hair": [
+    {
+      "id": "01-short-crop",
+      "name": "Short crop",
+      "src": "/assets/build-face/hair/01-short-crop.png"
+    },
+    {
+      "id": "02-crew",
+      "name": "Crew cut",
+      "src": "/assets/build-face/hair/02-crew.png"
+    },
+    {
+      "id": "03-side-part",
+      "name": "Side part",
+      "src": "/assets/build-face/hair/03-side-part.png"
+    },
+    {
+      "id": "04-quiff",
+      "name": "Quiff",
+      "src": "/assets/build-face/hair/04-quiff.png"
+    },
+    {
+      "id": "05-curtains",
+      "name": "Curtains",
+      "src": "/assets/build-face/hair/05-curtains.png"
+    },
+    {
+      "id": "06-bowl",
+      "name": "Bowl cut",
+      "src": "/assets/build-face/hair/06-bowl.png"
+    },
+    {
+      "id": "07-afro",
+      "name": "Afro",
+      "src": "/assets/build-face/hair/07-afro.png"
+    },
+    {
+      "id": "08-long",
+      "name": "Long",
+      "src": "/assets/build-face/hair/08-long.png"
+    },
+    {
+      "id": "09-mullet",
+      "name": "Mullet",
+      "src": "/assets/build-face/hair/09-mullet.png"
+    },
+    {
+      "id": "10-spiky",
+      "name": "Spiky",
+      "src": "/assets/build-face/hair/10-spiky.png"
+    },
+    {
+      "id": "11-messy",
+      "name": "Messy fringe",
+      "src": "/assets/build-face/hair/11-messy.png"
+    },
+    {
+      "id": "12-pompadour",
+      "name": "Pompadour",
+      "src": "/assets/build-face/hair/12-pompadour.png"
+    }
+  ]
+}
