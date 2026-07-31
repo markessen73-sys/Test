@@ -3,6 +3,10 @@
 
 Source: file_0000000030888246b8a0103e7ee2caf7.png (5 cols × 6 rows)
 Output: frontend/public/assets/build-face/hair/*.png + catalog.json
+
+Placement is driven by ear-outline span on the bald sheet cell vs the blank head
+ears (scale + horizontal centre). Vertical placement locks the sheet crown to the
+blank crown so scalp is covered; ear outlines themselves are banned from hair.
 """
 from __future__ import annotations
 
@@ -47,16 +51,11 @@ HAIR_COLORS = [
 COL_BOUNDS = [(16, 200), (242, 426), (470, 654), (703, 892), (930, 1122)]
 ROW_BOUNDS = [(18, 235), (253, 467), (493, 696), (707, 931), (952, 1158), (1177, 1368)]
 
-# Fixed placement onto blank-no-features (1024×1024). Ear-line centre ≈ 500;
-# hair sits above the silhouette top (~136). SHIFT_LEFT centres dense styles.
-DST_CX = 500.0
-DST_TOP = 78.0
-SCALE = 5.55
-SHIFT_LEFT = 30.0  # pixels; applied after scale so overlays sit left of dead-centre
-CROWN_FILL_Y0 = 90
-CROWN_FILL_Y1 = 220
-CROWN_FILL_X0 = 320
-CROWN_FILL_X1 = 700
+# Soft crown seal after warp (blank-space coords).
+CROWN_FILL_Y0 = 120
+CROWN_FILL_Y1 = 280
+CROWN_FILL_X0 = 340
+CROWN_FILL_X1 = 680
 
 
 def dilate(mask: np.ndarray, k: int = 3) -> np.ndarray:
@@ -70,6 +69,19 @@ def erode(mask: np.ndarray, k: int = 3) -> np.ndarray:
 def skin_mask(rgb: np.ndarray) -> np.ndarray:
   r, g, b = rgb[:, :, 0].astype(np.int16), rgb[:, :, 1].astype(np.int16), rgb[:, :, 2].astype(np.int16)
   return (r > 145) & (g > 95) & (b > 60) & (r > g) & ((r - b) > 25) & (g > b - 15)
+
+
+def outline_mask(rgb: np.ndarray) -> np.ndarray:
+  """Black ink strokes (head/ear outlines), not filled dark hair."""
+  r, g, b = rgb[:, :, 0].astype(np.int16), rgb[:, :, 1].astype(np.int16), rgb[:, :, 2].astype(np.int16)
+  lum = 0.299 * r + 0.587 * g + 0.114 * b
+  dark = (lum > 5) & (lum < 48) & (r < 70) & (g < 65) & (b < 65)
+  # Prefer thin strokes: dark pixels with fewer dark neighbours than a fill.
+  dark_u8 = (dark.astype(np.uint8) * 255)
+  neigh = np.array(Image.fromarray(dark_u8).filter(ImageFilter.BoxBlur(1)))
+  # BoxBlur returns ~local density; strokes stay lower than solid fills.
+  thin = dark & (neigh < 140)
+  return dilate(thin, 3)
 
 
 def label_mask(rgb: np.ndarray) -> np.ndarray:
@@ -114,27 +126,77 @@ def keep_components(mask: np.ndarray, min_size: int = 8) -> np.ndarray:
   return out
 
 
-def blank_head_landmarks(blank_a: np.ndarray) -> dict:
-  sil = blank_a > 10
-  head = sil.copy()
-  head[820:, :] = False
-  widths = np.array([
-    int(np.where(head[y])[0].max() - np.where(head[y])[0].min() + 1) if head[y].any() else 0
-    for y in range(1024)
-  ])
-  face_rows = np.where((widths > 420) & (widths < 640) & (np.arange(1024) < 780))[0]
-  y0 = int(np.where(widths > 20)[0][0])
-  y1 = int(face_rows.max()) if len(face_rows) else 800
-  row = np.where(head[350])[0]
-  x0, x1 = int(row.min()), int(row.max())
+def ear_span(sil: np.ndarray, y0: int, y1: int) -> tuple[float, float, float, float]:
+  """Return left, right, cx, ear_y from silhouette extremes in [y0, y1]."""
+  lefts: list[int] = []
+  rights: list[int] = []
+  rows: list[int] = []
+  for y in range(y0, y1 + 1):
+    xs = np.where(sil[y])[0]
+    if len(xs) < 5:
+      continue
+    lefts.append(int(xs.min()))
+    rights.append(int(xs.max()))
+    rows.append(y)
+  if not lefts:
+    raise RuntimeError('No ear-span rows found')
+  lefts_a = np.array(lefts)
+  rights_a = np.array(rights)
+  rows_a = np.array(rows)
+  n = max(1, len(lefts_a) // 10)
+  li = np.argsort(lefts_a)[:n]
+  ri = np.argsort(-rights_a)[:n]
+  left = float(lefts_a[li].mean())
+  right = float(rights_a[ri].mean())
+  ear_y = float(np.concatenate([rows_a[li], rows_a[ri]]).mean())
+  return left, right, (left + right) / 2, ear_y
+
+
+def sheet_ear_landmarks(bald_rgb: np.ndarray) -> dict:
+  skin = skin_mask(bald_rgb)
+  outline = outline_mask(bald_rgb)
+  sil = dilate(skin | outline, 3)
+  sil = erode(sil, 3)
+  h, w = sil.shape
+  sil[: int(h * 0.12), : int(w * 0.22)] = False
+  ys = np.where(sil.any(1))[0]
+  ytop, ybot = int(ys[0]), int(ys[-1])
+  band0 = ytop + int((ybot - ytop) * 0.28)
+  band1 = ytop + int((ybot - ytop) * 0.62)
+  left, right, cx, ear_y = ear_span(sil, band0, band1)
+  # Crown = top of skin oval (ignore label wipe).
+  skin_ys = np.where(skin.any(1))[0]
+  crown = int(skin_ys[0]) if len(skin_ys) else ytop
+  # Ban ear lobes + face/ear outline strokes only — never the scalp skin fill
+  # (hair sits on the scalp and would be erased).
+  h, w = bald_rgb.shape[:2]
+  yy, xx = np.ogrid[:h, :w]
+  ear_lobes = (
+    ((xx <= left + 16) | (xx >= right - 16))
+    & (yy >= ear_y - 40) & (yy <= ear_y + 50)
+    & (skin | outline)
+  )
+  face_outline = outline & (yy > crown + int(h * 0.10))
+  ban = dilate(ear_lobes | face_outline, 3)
   return {
-    'cx': (x0 + x1) / 2, 'cy': (y0 + y1) / 2,
-    'x0': x0, 'x1': x1, 'y0': y0, 'y1': y1,
-    'w': x1 - x0 + 1, 'h': y1 - y0 + 1,
+    'left': left, 'right': right, 'cx': cx, 'ear_y': ear_y,
+    'w': right - left + 1, 'crown': float(crown),
+    'ban': ban,
   }
 
 
-def hair_mask(rgb: np.ndarray) -> np.ndarray:
+def blank_ear_landmarks(blank_a: np.ndarray) -> dict:
+  sil = blank_a > 10
+  # Ear tips are most extreme around mid-ear (avoid jaw flare below ~410).
+  left, right, cx, ear_y = ear_span(sil, 350, 405)
+  top = int(np.where(sil.any(1))[0][0])
+  return {
+    'left': left, 'right': right, 'cx': cx, 'ear_y': ear_y,
+    'w': right - left + 1, 'crown': float(top),
+  }
+
+
+def hair_mask(rgb: np.ndarray, ban: np.ndarray | None = None) -> np.ndarray:
   r = rgb[:, :, 0].astype(np.int16)
   g = rgb[:, :, 1].astype(np.int16)
   b = rgb[:, :, 2].astype(np.int16)
@@ -146,12 +208,15 @@ def hair_mask(rgb: np.ndarray) -> np.ndarray:
   labels = label_mask(rgb)
   eyes = (r > 200) & (g > 200) & (b > 200) & ~labels
   hair_color = (
-    (lum >= 22) & (lum <= 140)
-    & (r < 155) & (g < 125) & (b < 115)
-    & (r >= g - 6) & (g >= b - 20) & ((r - b) < 90)
+    (lum >= 18) & (lum <= 155)
+    & (r < 170) & (g < 140) & (b < 130)
+    & (r >= g - 10) & (g >= b - 25) & ((r - b) < 100)
   )
   cand = hair_color & ~bg & ~skin & ~eyes & ~labels
   cand[: int(h * 0.18), : int(w * 0.18)] = False
+
+  if ban is not None and ban.shape == cand.shape:
+    cand &= ~ban
 
   if skin.any():
     sy, sx = np.where(skin)
@@ -174,6 +239,10 @@ def hair_mask(rgb: np.ndarray) -> np.ndarray:
   cand &= ~face
   cand &= yy <= crown_top + int((y1 - crown_top) * 0.95)
 
+  # Drop thin black ink strokes (not filled dark hair).
+  strokes = outline_mask(rgb)
+  cand &= ~strokes
+
   solid = dilate(cand, 3)
   solid = dilate(solid, 3)
   solid = erode(solid, 3)
@@ -182,47 +251,42 @@ def hair_mask(rgb: np.ndarray) -> np.ndarray:
   solid = keep_components(solid, 10)
   solid &= ~face
   solid &= ~skin
+  if ban is not None and ban.shape == solid.shape:
+    solid &= ~ban
+  solid &= ~strokes
   solid[: int(h * 0.18), : int(w * 0.18)] = False
   return solid
 
 
-def warp_to_blank(cell_rgb: np.ndarray, mask: np.ndarray, src_lm: dict, _dst_lm: dict) -> Image.Image:
-  """Warp sheet hair onto the blank head with fixed scale/placement constants."""
-  scale = SCALE
-  src_cx = (src_lm['x0'] + src_lm['x1']) / 2
-  src_top = float(src_lm['y0'])
-  dst_cx = DST_CX - SHIFT_LEFT
-  dst_top = DST_TOP
-  h, w = cell_rgb.shape[:2]
-  rgba = np.zeros((h, w, 4), dtype=np.uint8)
-  rgba[mask, :3] = cell_rgb[mask]
-  rgba[mask, 3] = 255
-  if mask.any():
-    mean_c = cell_rgb[mask].mean(0)
-    lum = cell_rgb.mean(2)
-    fill = mask & (lum < 20)
-    if fill.any():
-      rgba[fill, 0] = int(mean_c[0])
-      rgba[fill, 1] = int(mean_c[1])
-      rgba[fill, 2] = int(mean_c[2])
-      rgba[fill, 3] = 220
-  img = Image.fromarray(rgba, 'RGBA')
-  tx = dst_cx - scale * src_cx
-  ty = dst_top - scale * src_top
+def warp_rgba(rgba: np.ndarray, scale: float, tx: float, ty: float) -> np.ndarray:
   a = 1 / scale
   e = -tx / scale
   d = 1 / scale
   f = -ty / scale
-  return img.transform(
+  img = Image.fromarray(rgba, 'RGBA')
+  return np.array(img.transform(
     (1024, 1024),
     Image.Transform.AFFINE,
     (a, 0, e, 0, d, f),
     resample=Image.Resampling.BILINEAR,
-  )
+  ))
+
+
+def warp_mask(mask: np.ndarray, scale: float, tx: float, ty: float) -> np.ndarray:
+  a = 1 / scale
+  e = -tx / scale
+  d = 1 / scale
+  f = -ty / scale
+  img = Image.fromarray((mask.astype(np.uint8) * 255))
+  return np.array(img.transform(
+    (1024, 1024),
+    Image.Transform.AFFINE,
+    (a, 0, e, 0, d, f),
+    resample=Image.Resampling.NEAREST,
+  )) > 127
 
 
 def seal_crown_gaps(arr: np.ndarray, blank_a: np.ndarray) -> np.ndarray:
-  """Fill stipple / see-through holes over the crown so the blank scalp does not show."""
   al = arr[:, :, 3]
   hair = al > 20
   if not hair.any():
@@ -234,7 +298,6 @@ def seal_crown_gaps(arr: np.ndarray, blank_a: np.ndarray) -> np.ndarray:
     & (xx >= CROWN_FILL_X0) & (xx <= CROWN_FILL_X1)
     & (blank_a > 10)
   )
-  # Grow hair slightly then fill holes still inside the crown band.
   grown = dilate(hair, 5)
   grown = dilate(grown, 5)
   holes = crown & grown & ~hair
@@ -243,7 +306,6 @@ def seal_crown_gaps(arr: np.ndarray, blank_a: np.ndarray) -> np.ndarray:
     arr[holes, 1] = int(mean_c[1])
     arr[holes, 2] = int(mean_c[2])
     arr[holes, 3] = 255
-  # Soft opaque pass over sparse crown hair (stipple gaps).
   sparse = crown & hair & (al < 200)
   if sparse.any():
     arr[sparse, 3] = np.maximum(arr[sparse, 3], 230)
@@ -264,19 +326,24 @@ def main() -> None:
     return sheet[ya:yb + 1, xa:xb + 1].copy()
 
   bald = wipe_label(get_cell(0))
-  skin = skin_mask(bald)
-  sy, sx = np.where(skin)
-  shared_lm = {
-    'cx': (sx.min() + sx.max()) / 2,
-    'cy': (sy.min() + sy.max()) / 2,
-    'x0': int(sx.min()),
-    'x1': int(sx.max()),
-    'y0': int(sy.min()),
-    'y1': int(sy.min() + int((sy.max() - sy.min()) * 0.78)),
-    'w': int(sx.max() - sx.min() + 1),
-    'h': int((sy.max() - sy.min()) * 0.78) + 1,
-  }
-  dst_lm = blank_head_landmarks(blank[:, :, 3])
+  src = sheet_ear_landmarks(bald)
+  dst = blank_ear_landmarks(blank[:, :, 3])
+
+  # Scale from ear-outline span; centre horizontally on blank ears.
+  # Vertical: lock sheet crown to blank crown (hair covers scalp; ears only set size).
+  scale = dst['w'] / src['w']
+  src_cx = src['cx']
+  src_crown = src['crown']
+  dst_cx = dst['cx']
+  dst_crown = dst['crown'] - 6.0  # hair sits just above silhouette top
+  tx = dst_cx - scale * src_cx
+  ty = dst_crown - scale * src_crown
+  print(
+    f'ear-align scale={scale:.4f} src_w={src["w"]:.1f} dst_w={dst["w"]:.1f} '
+    f'cx {src_cx:.1f}->{dst_cx:.1f} crown {src_crown:.1f}->{dst_crown:.1f}'
+  )
+
+  bald_ban = src['ban']
 
   for p in OUT.glob('*.png'):
     p.unlink()
@@ -284,15 +351,32 @@ def main() -> None:
   catalog = []
   for i in range(30):
     cell = wipe_label(get_cell(i))
-    lm = dict(shared_lm)
-    content = cell.mean(2) > 22
-    if content.any():
-      top = int(np.where(content.any(1))[0][0])
-      lm['y0'] = min(lm['y0'], top)
-      lm['h'] = lm['y1'] - lm['y0'] + 1
-    mask = np.zeros(cell.shape[:2], dtype=bool) if i == 0 else hair_mask(cell)
-    overlay = warp_to_blank(cell, mask, lm, dst_lm)
-    arr = np.array(overlay)
+    # Only ban bald-cell ear/face strokes (shared head geometry). Do NOT
+    # rebuild outline bans from each hair cell — dark hair reads as outline.
+    if cell.shape[:2] != bald_ban.shape:
+      ban = np.array(
+        Image.fromarray((bald_ban.astype(np.uint8) * 255)).resize(
+          (cell.shape[1], cell.shape[0]), Image.Resampling.NEAREST
+        )
+      ) > 127
+    else:
+      ban = bald_ban
+
+    mask = np.zeros(cell.shape[:2], dtype=bool) if i == 0 else hair_mask(cell, ban)
+    rgba = np.zeros((*cell.shape[:2], 4), dtype=np.uint8)
+    rgba[mask, :3] = cell[mask]
+    rgba[mask, 3] = 255
+    if mask.any():
+      mean_c = cell[mask].mean(0)
+      lum = cell.mean(2)
+      fill = mask & (lum < 20)
+      if fill.any():
+        rgba[fill, 0] = int(mean_c[0])
+        rgba[fill, 1] = int(mean_c[1])
+        rgba[fill, 2] = int(mean_c[2])
+        rgba[fill, 3] = 220
+
+    arr = warp_rgba(rgba, scale, tx, ty)
     r, g, b, al = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2], arr[:, :, 3]
     leak = (al > 0) & (r > 145) & (g > 100) & (b > 70) & (r.astype(int) - b.astype(int) > 25)
     arr[leak, 3] = 0
@@ -300,15 +384,36 @@ def main() -> None:
     face = ((xx - 512) / 190) ** 2 + ((yy - 540) / 210) ** 2 <= 1
     arr[(arr[:, :, 3] > 0) & face & (yy > 400), 3] = 0
     arr[(arr[:, :, 3] > 0) & (yy > 780), 3] = 0
+
+    # Strip any warped head/ear outline remnants (dark thin strokes).
+    ban_w = warp_mask(ban, scale, tx, ty)
+    dark = (arr[:, :, 3] > 0) & ((r.astype(int) + g + b) < 110)
+    arr[ban_w & dark, 3] = 0
+    # Clear leftover outline-like pixels near blank ear discs.
+    ear_discs = (
+      (((xx - dst['left']) / 55) ** 2 + ((yy - dst['ear_y']) / 70) ** 2 <= 1)
+      | (((xx - dst['right']) / 55) ** 2 + ((yy - dst['ear_y']) / 70) ** 2 <= 1)
+    )
+    arr[(arr[:, :, 3] > 0) & ear_discs & dark, 3] = 0
+
     if i > 0:
       arr = seal_crown_gaps(arr, blank[:, :, 3])
+
     Image.fromarray(arr).save(OUT / f'{SLUGS[i]}.png')
     catalog.append({
       'id': SLUGS[i],
       'name': NAMES[i],
       'file': f'assets/build-face/hair/{SLUGS[i]}.png',
     })
-    print(f'{i + 1:02d} {SLUGS[i]}')
+    ha = arr[:, :, 3] > 10
+    if ha.any():
+      ys, xs = np.where(ha)
+      print(
+        f'{i + 1:02d} {SLUGS[i]} cx={(xs.min() + xs.max()) / 2:.0f} '
+        f'top={ys.min()} w={xs.max() - xs.min() + 1}'
+      )
+    else:
+      print(f'{i + 1:02d} {SLUGS[i]} (empty)')
 
   CATALOG.write_text(json.dumps({
     'blank': 'assets/build-face/blank-no-features.png',
