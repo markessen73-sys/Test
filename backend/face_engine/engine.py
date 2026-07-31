@@ -13,7 +13,7 @@ from .landmarks import PhotoLandmarks, detect_primary_face
 from .layout import CANVAS_SIZE
 from .render import render_flat_caricature, to_png_bytes
 
-VALID_MODES = frozenset({"full", "skin"})
+VALID_MODES = frozenset({"full", "skin", "eyes"})
 
 
 @dataclass(frozen=True)
@@ -68,6 +68,7 @@ def convert_photo_to_caricature(
     mode:
       - "full": complete caricature
       - "skin": skin-tone test plate (head/neck/ears + swatch) — verify tone first
+      - "eyes": eyes / glasses test plate — larger eyes, iris colour, frames
     """
     if mode not in VALID_MODES:
         raise ValueError(f"Unknown mode {mode!r}; expected one of {sorted(VALID_MODES)}")

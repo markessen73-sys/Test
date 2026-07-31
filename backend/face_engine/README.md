@@ -22,6 +22,8 @@ cd backend
 python -m face_engine path/to/photo.jpg -o clean.png
 # Skin-tone test plate first (head/neck/ears + swatch, no features):
 python -m face_engine path/to/photo.jpg --mode skin -o skin.png
+# Eyes / glasses plate (larger eyes, iris colour, frames if worn):
+python -m face_engine path/to/photo.jpg --mode eyes -o eyes.png
 ```
 
 ## Python API
@@ -35,6 +37,10 @@ Path("clean.png").write_bytes(result.png_bytes)
 # Verify skin tone before full caricature:
 skin = convert_photo_to_caricature("photo.jpg", mode="skin")
 print(skin.features.skin_hex, skin.features.skin_sample_count)
+
+# Then eyes (size stays on bake LM positions; scale + iris + glasses):
+eyes = convert_photo_to_caricature("photo.jpg", mode="eyes")
+print(eyes.features.iris_hex, eyes.features.eye_scale, eyes.features.has_glasses)
 ```
 
 ## HTTP (optional)
@@ -44,10 +50,12 @@ With the FastAPI server running:
 ```bash
 curl -F photo=@face.jpg http://localhost:8000/api/face-engine/caricature -o clean.png
 curl -F photo=@face.jpg -F mode=skin http://localhost:8000/api/face-engine/caricature -o skin.png
+curl -F photo=@face.jpg -F mode=eyes http://localhost:8000/api/face-engine/caricature -o eyes.png
 ```
 
 Skin sampling uses a YCrCb cheek/forehead mask and the **median** colour (not
-quantized) so the tone stays close to the photo.
+quantized) so the tone stays close to the photo. Iris uses an annular sample
+around each eye centre; glasses are detected from dark non-skin rings + bridge.
 ## Design notes
 
 | Rule | Value |

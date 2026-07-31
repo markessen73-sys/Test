@@ -30,7 +30,7 @@ def main(argv: list[str] | None = None) -> int:
         "--mode",
         choices=sorted(VALID_MODES),
         default="full",
-        help="full = caricature; skin = skin-tone test plate only",
+        help="full = caricature; skin = skin-tone plate; eyes = eyes/glasses plate",
     )
     args = parser.parse_args(argv)
 
@@ -44,6 +44,10 @@ def main(argv: list[str] | None = None) -> int:
         f"Skin: {result.features.skin_hex} "
         f"rgb={result.features.skin_tone.rgb if result.features.skin_tone else '?'} "
         f"samples={result.features.skin_sample_count}"
+    )
+    print(
+        f"Iris: {result.features.iris_hex} scale={result.features.eye_scale:.2f} "
+        f"glasses={'yes '+result.features.glasses_hex if result.features.has_glasses else 'no'}"
     )
     return 0
 

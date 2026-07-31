@@ -20,7 +20,7 @@ export function FaceEngineSelfieTest() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultLabel, setResultLabel] = useState('Caricature');
-  const [skinHex, setSkinHex] = useState<string | null>(null);
+  const [metaLine, setMetaLine] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('');
 
@@ -45,7 +45,7 @@ export function FaceEngineSelfieTest() {
       if (prev) URL.revokeObjectURL(prev);
       return null;
     });
-    setSkinHex(null);
+    setMetaLine(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -108,7 +108,7 @@ export function FaceEngineSelfieTest() {
         if (prev) URL.revokeObjectURL(prev);
         return null;
       });
-      setSkinHex(null);
+      setMetaLine(null);
       if (photoUrl) URL.revokeObjectURL(photoUrl);
       setPhotoFile(file);
       setPhotoUrl(URL.createObjectURL(file));
@@ -122,20 +122,32 @@ export function FaceEngineSelfieTest() {
       if (!photoFile) return;
       setPhase('busy');
       setError(null);
-      setSkinHex(null);
-      setStatus(mode === 'skin' ? 'Testing skin tone first…' : 'Sending photo to face engine…');
+      setMetaLine(null);
+      setStatus(
+        mode === 'skin'
+          ? 'Testing skin tone first…'
+          : mode === 'eyes'
+            ? 'Testing eyes…'
+            : 'Sending photo to face engine…'
+      );
       try {
         let blob: Blob;
-        let hex: string | null = null;
+        let meta: string | null = null;
         try {
           const result = await runFaceEngineCaricature(photoFile, setStatus, mode);
           blob = result.blob;
-          hex = result.skinHex;
+          if (mode === 'skin') meta = result.skinHex;
+          else if (mode === 'eyes') {
+            const g = result.hasGlasses && result.glassesHex ? ` · frames ${result.glassesHex}` : '';
+            meta = result.irisHex ? `iris ${result.irisHex}${g}` : g || null;
+          } else meta = result.skinHex;
         } catch {
           setStatus(
             mode === 'skin'
               ? 'Server unavailable — sampling skin on-device…'
-              : 'Server unavailable — running on-device face engine…'
+              : mode === 'eyes'
+                ? 'Server unavailable — sampling eyes on-device…'
+                : 'Server unavailable — running on-device face engine…'
           );
           blob = await clientFaceEngineCaricature(photoFile, mode);
         }
@@ -143,8 +155,10 @@ export function FaceEngineSelfieTest() {
           if (prev) URL.revokeObjectURL(prev);
           return URL.createObjectURL(blob);
         });
-        setResultLabel(mode === 'skin' ? 'Skin tone test' : 'Caricature');
-        setSkinHex(hex);
+        setResultLabel(
+          mode === 'skin' ? 'Skin tone test' : mode === 'eyes' ? 'Eyes test' : 'Caricature'
+        );
+        setMetaLine(meta);
         setPhase('done');
         setStatus('Done');
       } catch (err) {
@@ -160,7 +174,7 @@ export function FaceEngineSelfieTest() {
     setError(null);
     setStatus('');
     setPhotoFile(null);
-    setSkinHex(null);
+    setMetaLine(null);
     setResultLabel('Caricature');
     setPhotoUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
@@ -177,8 +191,8 @@ export function FaceEngineSelfieTest() {
     <section className="options-section face-engine-test">
       <h3 className="options-section-title">Photo → caricature</h3>
       <p className="options-section-hint">
-        Take a selfie or choose a photo. Start with <strong>Test skin tone</strong> — head/neck only
-        plus a colour swatch — to check the match before the full caricature.
+        Take a selfie or choose a photo. Test features in order: skin tone, then eyes (size, colour,
+        glasses), then full caricature.
       </p>
 
       <div className="face-engine-actions">
@@ -236,7 +250,7 @@ export function FaceEngineSelfieTest() {
               <img src={resultUrl} alt={resultLabel} />
               <figcaption>
                 {resultLabel}
-                {skinHex ? ` · ${skinHex}` : ''}
+                {metaLine ? ` · ${metaLine}` : ''}
               </figcaption>
             </figure>
           )}
@@ -247,10 +261,17 @@ export function FaceEngineSelfieTest() {
         <div className="face-engine-actions">
           <button
             type="button"
-            className="face-engine-btn face-engine-btn-primary"
+            className="face-engine-btn face-engine-btn-secondary"
             onClick={() => void runEngine('skin')}
           >
             Test skin tone
+          </button>
+          <button
+            type="button"
+            className="face-engine-btn face-engine-btn-primary"
+            onClick={() => void runEngine('eyes')}
+          >
+            Test eyes
           </button>
           <button
             type="button"

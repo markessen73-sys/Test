@@ -146,6 +146,7 @@ async def face_engine_caricature(
 
     mode=full → complete caricature
     mode=skin → skin-tone test plate (head/neck/ears + swatch)
+    mode=eyes → eyes / glasses test plate
     """
     if photo.content_type and photo.content_type not in ALLOWED_TYPES:
         raise HTTPException(
@@ -159,17 +160,18 @@ async def face_engine_caricature(
         raise HTTPException(status_code=400, detail="Empty file uploaded.")
 
     mode_norm = (mode or "full").strip().lower()
-    if mode_norm not in {"full", "skin"}:
-        raise HTTPException(status_code=400, detail="mode must be 'full' or 'skin'")
+    if mode_norm not in {"full", "skin", "eyes"}:
+        raise HTTPException(status_code=400, detail="mode must be 'full', 'skin', or 'eyes'")
 
     try:
         result = convert_photo_to_caricature(image_bytes, mode=mode_norm)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Face engine failed: {e}") from e
 
-    filename = (
-        "mickeys-gym-skin-tone.png" if mode_norm == "skin" else "mickeys-gym-caricature.png"
-    )
+    filename = {
+        "skin": "mickeys-gym-skin-tone.png",
+        "eyes": "mickeys-gym-eyes.png",
+    }.get(mode_norm, "mickeys-gym-caricature.png")
     return Response(
         content=result.png_bytes,
         media_type="image/png",
@@ -180,6 +182,10 @@ async def face_engine_caricature(
             "X-Face-Mode": mode_norm,
             "X-Skin-Hex": result.features.skin_hex,
             "X-Skin-Samples": str(result.features.skin_sample_count),
+            "X-Iris-Hex": result.features.iris_hex,
+            "X-Eye-Scale": f"{result.features.eye_scale:.3f}",
+            "X-Has-Glasses": "1" if result.features.has_glasses else "0",
+            "X-Glasses-Hex": result.features.glasses_hex if result.features.has_glasses else "",
         },
     )
 

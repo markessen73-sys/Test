@@ -140,9 +140,23 @@ export async function transformPhoto(
 export async function runFaceEngineCaricature(
   file: File,
   onProgress?: (message: string) => void,
-  mode: 'full' | 'skin' = 'full'
-): Promise<{ blob: Blob; canvasSize: number; skinHex: string | null; mode: string }> {
-  onProgress?.(mode === 'skin' ? 'Testing skin tone…' : 'Uploading photo to face engine…');
+  mode: 'full' | 'skin' | 'eyes' = 'full'
+): Promise<{
+  blob: Blob;
+  canvasSize: number;
+  skinHex: string | null;
+  irisHex: string | null;
+  hasGlasses: boolean;
+  glassesHex: string | null;
+  mode: string;
+}> {
+  const progressMsg =
+    mode === 'skin'
+      ? 'Testing skin tone…'
+      : mode === 'eyes'
+        ? 'Testing eyes…'
+        : 'Uploading photo to face engine…';
+  onProgress?.(progressMsg);
   const form = new FormData();
   form.append('photo', file);
   form.append('mode', mode);
@@ -158,11 +172,16 @@ export async function runFaceEngineCaricature(
     throw new Error(typeof detail === 'string' ? detail : detail?.message || 'Face engine failed');
   }
 
-  onProgress?.(mode === 'skin' ? 'Rendering skin plate…' : 'Rendering caricature…');
+  const doneMsg =
+    mode === 'skin' ? 'Rendering skin plate…' : mode === 'eyes' ? 'Rendering eyes plate…' : 'Rendering caricature…';
+  onProgress?.(doneMsg);
   return {
     blob: await res.blob(),
     canvasSize: parseInt(res.headers.get('X-Canvas-Size') || '1024', 10),
     skinHex: res.headers.get('X-Skin-Hex'),
+    irisHex: res.headers.get('X-Iris-Hex'),
+    hasGlasses: res.headers.get('X-Has-Glasses') === '1',
+    glassesHex: res.headers.get('X-Glasses-Hex') || null,
     mode: res.headers.get('X-Face-Mode') || mode,
   };
 }
