@@ -4,8 +4,7 @@
 Source: 254778899bf63ae536da91436c4294bb9d812192e3c6151553016268a92de65d.png
 (5 cols × 6 rows, brown hair on black — no head).
 
-Overlays are centred as a starting fit on blank-no-features; the UI lets the
-user stretch / shrink / move them into place.
+Overlays are centred as a starting fit on blank-no-features.
 """
 from __future__ import annotations
 
