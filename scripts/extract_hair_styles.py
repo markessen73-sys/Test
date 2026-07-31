@@ -4,9 +4,9 @@
 Source: file_0000000030888246b8a0103e7ee2caf7.png (5 cols × 6 rows)
 Output: frontend/public/assets/build-face/hair/*.png + catalog.json
 
-Placement is driven by ear-outline span on the bald sheet cell vs the blank head
-ears (scale + horizontal centre). Vertical placement locks the sheet crown to the
-blank crown so scalp is covered; ear outlines themselves are banned from hair.
+Scale is calibrated to the blank skull (between ear-tip match which was too
+small, and the prior 5.55× which was too big). Vertical lock uses the crown.
+Stipple gaps are closed so the scalp does not show through.
 """
 from __future__ import annotations
 
@@ -51,11 +51,11 @@ HAIR_COLORS = [
 COL_BOUNDS = [(16, 200), (242, 426), (470, 654), (703, 892), (930, 1122)]
 ROW_BOUNDS = [(18, 235), (253, 467), (493, 696), (707, 931), (952, 1158), (1177, 1368)]
 
-# Soft crown seal after warp (blank-space coords).
-CROWN_FILL_Y0 = 120
-CROWN_FILL_Y1 = 280
-CROWN_FILL_X0 = 340
-CROWN_FILL_X1 = 680
+# Calibrated between ear-tip scale (~3.3, too small) and prior 5.55 (too big).
+# Matches blank cheek/temple coverage without the oversized ghost-ear look.
+SCALE = 5.15
+DST_CX = 500.0
+DST_CROWN_PAD = -2.0  # hair sits slightly above blank silhouette top
 
 
 def dilate(mask: np.ndarray, k: int = 3) -> np.ndarray:
@@ -286,29 +286,85 @@ def warp_mask(mask: np.ndarray, scale: float, tx: float, ty: float) -> np.ndarra
   )) > 127
 
 
-def seal_crown_gaps(arr: np.ndarray, blank_a: np.ndarray) -> np.ndarray:
+def close_mask(mask: np.ndarray, radius: int = 3, rounds: int = 2) -> np.ndarray:
+  m = mask
+  for _ in range(rounds):
+    m = dilate(m, radius)
+  for _ in range(rounds):
+    m = erode(m, radius)
+  return m
+
+
+def solidify_hair(arr: np.ndarray, blank_a: np.ndarray) -> np.ndarray:
+  """Fill stipple holes and paint an opaque scalp cap under the hair."""
   al = arr[:, :, 3]
-  hair = al > 20
+  hair = al > 12
   if not hair.any():
     return arr
-  mean_c = arr[hair, :3].mean(0)
+
+  mean_c = arr[hair, :3].astype(np.float64).mean(0)
   yy, xx = np.ogrid[:1024, :1024]
-  crown = (
-    (yy >= CROWN_FILL_Y0) & (yy <= CROWN_FILL_Y1)
-    & (xx >= CROWN_FILL_X0) & (xx <= CROWN_FILL_X1)
-    & (blank_a > 10)
+  blank = blank_a > 10
+
+  # Morphological close to seal stipple / dither gaps.
+  closed = close_mask(hair, 5, 3)
+  closed = close_mask(closed, 3, 2)
+
+  ys, xs = np.where(hair)
+  pad = 50
+  y0, y1 = max(0, int(ys.min()) - pad), min(1023, int(ys.max()) + pad)
+  x0, x1 = max(0, int(xs.min()) - pad), min(1023, int(xs.max()) + pad)
+  region = np.zeros_like(hair)
+  region[y0:y1 + 1, x0:x1 + 1] = True
+
+  # Scalp cap: blank silhouette from crown through hairline, inset from ears.
+  blank_top = int(np.where(blank.any(1))[0][0])
+  center = hair[:, 380:640]
+  center_rows = np.where(center.any(1))[0]
+  hair_bottom = int(center_rows.max()) if len(center_rows) else int(ys.max())
+  cap_y1 = min(420, max(hair_bottom + 10, blank_top + 100))
+  cap = np.zeros_like(hair)
+  for y in range(max(0, blank_top - 4), cap_y1 + 1):
+    if not blank[y].any():
+      continue
+    bx = np.where(blank[y])[0]
+    w = int(bx.max() - bx.min() + 1)
+    inset = int(w * (0.04 if y < 300 else 0.10))
+    xa, xb = int(bx.min()) + inset, int(bx.max()) - inset
+    if xa < xb:
+      cap[y, xa:xb + 1] = True
+
+  fill = (closed & region) | (cap & (closed | dilate(hair, 9) | (yy < blank_top + 90)))
+  fill &= region
+  fill &= yy < 430
+  # Keep off blank ear discs.
+  ears = (
+    (((xx - 205) / 72) ** 2 + ((yy - 385) / 82) ** 2 <= 1)
+    | (((xx - 795) / 72) ** 2 + ((yy - 385) / 82) ** 2 <= 1)
   )
-  grown = dilate(hair, 5)
-  grown = dilate(grown, 5)
-  holes = crown & grown & ~hair
+  fill &= ~ears
+
+  under = fill & (al < 250)
+  if under.any():
+    arr[under, 0] = int(mean_c[0])
+    arr[under, 1] = int(mean_c[1])
+    arr[under, 2] = int(mean_c[2])
+    arr[under, 3] = 255
+
+  # Force full opacity on all hair; patch ALL holes inside the closed mass
+  # (including above the skull for afros — stops black background show-through).
+  hair2 = arr[:, :, 3] > 12
+  arr[hair2, 3] = 255
+  lum = arr[:, :, 0].astype(np.int16) + arr[:, :, 1] + arr[:, :, 2]
+  holes = closed & ((arr[:, :, 3] < 200) | ((lum < 55) & (arr[:, :, 3] > 0)))
+  # Also fill closed pixels that are still empty (alpha 0) inside the hull.
+  holes |= closed & (arr[:, :, 3] < 180)
+  holes &= ~ears
   if holes.any():
     arr[holes, 0] = int(mean_c[0])
     arr[holes, 1] = int(mean_c[1])
     arr[holes, 2] = int(mean_c[2])
     arr[holes, 3] = 255
-  sparse = crown & hair & (al < 200)
-  if sparse.any():
-    arr[sparse, 3] = np.maximum(arr[sparse, 3], 230)
   return arr
 
 
@@ -329,18 +385,17 @@ def main() -> None:
   src = sheet_ear_landmarks(bald)
   dst = blank_ear_landmarks(blank[:, :, 3])
 
-  # Scale from ear-outline span; centre horizontally on blank ears.
-  # Vertical: lock sheet crown to blank crown (hair covers scalp; ears only set size).
-  scale = dst['w'] / src['w']
+  # Horizontal centre from sheet bald; vertical from crowns. Scale is calibrated.
+  scale = SCALE
   src_cx = src['cx']
   src_crown = src['crown']
-  dst_cx = dst['cx']
-  dst_crown = dst['crown'] - 6.0  # hair sits just above silhouette top
+  dst_cx = DST_CX
+  dst_crown = dst['crown'] + DST_CROWN_PAD
   tx = dst_cx - scale * src_cx
   ty = dst_crown - scale * src_crown
   print(
-    f'ear-align scale={scale:.4f} src_w={src["w"]:.1f} dst_w={dst["w"]:.1f} '
-    f'cx {src_cx:.1f}->{dst_cx:.1f} crown {src_crown:.1f}->{dst_crown:.1f}'
+    f'scale={scale:.3f} (calibrated) cx {src_cx:.1f}->{dst_cx:.1f} '
+    f'crown {src_crown:.1f}->{dst_crown:.1f}'
   )
 
   bald_ban = src['ban']
@@ -351,8 +406,6 @@ def main() -> None:
   catalog = []
   for i in range(30):
     cell = wipe_label(get_cell(i))
-    # Only ban bald-cell ear/face strokes (shared head geometry). Do NOT
-    # rebuild outline bans from each hair cell — dark hair reads as outline.
     if cell.shape[:2] != bald_ban.shape:
       ban = np.array(
         Image.fromarray((bald_ban.astype(np.uint8) * 255)).resize(
@@ -362,42 +415,40 @@ def main() -> None:
     else:
       ban = bald_ban
 
-    mask = np.zeros(cell.shape[:2], dtype=bool) if i == 0 else hair_mask(cell, ban)
-    rgba = np.zeros((*cell.shape[:2], 4), dtype=np.uint8)
-    rgba[mask, :3] = cell[mask]
-    rgba[mask, 3] = 255
+    raw = np.zeros(cell.shape[:2], dtype=bool) if i == 0 else hair_mask(cell, ban)
+    # Close stipple in cell space, then paint mean under + texture on top.
+    mask = close_mask(raw, 3, 3) if raw.any() else raw
     if mask.any():
-      mean_c = cell[mask].mean(0)
-      lum = cell.mean(2)
-      fill = mask & (lum < 20)
-      if fill.any():
-        rgba[fill, 0] = int(mean_c[0])
-        rgba[fill, 1] = int(mean_c[1])
-        rgba[fill, 2] = int(mean_c[2])
-        rgba[fill, 3] = 220
+      mask &= ~skin_mask(cell)
+
+    rgba = np.zeros((*cell.shape[:2], 4), dtype=np.uint8)
+    if mask.any():
+      src_pix = cell[raw] if raw.any() else cell[mask]
+      mean_c = src_pix.mean(0)
+      rgba[mask, 0] = int(mean_c[0])
+      rgba[mask, 1] = int(mean_c[1])
+      rgba[mask, 2] = int(mean_c[2])
+      rgba[mask, 3] = 255
+      if raw.any():
+        rgba[raw, :3] = cell[raw]
+        rgba[raw, 3] = 255
 
     arr = warp_rgba(rgba, scale, tx, ty)
     r, g, b, al = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2], arr[:, :, 3]
     leak = (al > 0) & (r > 145) & (g > 100) & (b > 70) & (r.astype(int) - b.astype(int) > 25)
     arr[leak, 3] = 0
     yy, xx = np.ogrid[:1024, :1024]
-    face = ((xx - 512) / 190) ** 2 + ((yy - 540) / 210) ** 2 <= 1
-    arr[(arr[:, :, 3] > 0) & face & (yy > 400), 3] = 0
-    arr[(arr[:, :, 3] > 0) & (yy > 780), 3] = 0
+    face = ((xx - 512) / 200) ** 2 + ((yy - 560) / 220) ** 2 <= 1
+    arr[(arr[:, :, 3] > 0) & face & (yy > 440), 3] = 0
+    arr[(arr[:, :, 3] > 0) & (yy > 820), 3] = 0
 
-    # Strip any warped head/ear outline remnants (dark thin strokes).
+    # Strip warped head/ear ink remnants only (keep filled dark hair).
     ban_w = warp_mask(ban, scale, tx, ty)
-    dark = (arr[:, :, 3] > 0) & ((r.astype(int) + g + b) < 110)
+    dark = (arr[:, :, 3] > 0) & ((r.astype(int) + g + b) < 80)
     arr[ban_w & dark, 3] = 0
-    # Clear leftover outline-like pixels near blank ear discs.
-    ear_discs = (
-      (((xx - dst['left']) / 55) ** 2 + ((yy - dst['ear_y']) / 70) ** 2 <= 1)
-      | (((xx - dst['right']) / 55) ** 2 + ((yy - dst['ear_y']) / 70) ** 2 <= 1)
-    )
-    arr[(arr[:, :, 3] > 0) & ear_discs & dark, 3] = 0
 
     if i > 0:
-      arr = seal_crown_gaps(arr, blank[:, :, 3])
+      arr = solidify_hair(arr, blank[:, :, 3])
 
     Image.fromarray(arr).save(OUT / f'{SLUGS[i]}.png')
     catalog.append({
@@ -408,9 +459,12 @@ def main() -> None:
     ha = arr[:, :, 3] > 10
     if ha.any():
       ys, xs = np.where(ha)
+      # scalp see-through check
+      ba = blank[:, :, 3] > 10
+      see = ba[150:280, 360:640] & (arr[150:280, 360:640, 3] < 200)
       print(
         f'{i + 1:02d} {SLUGS[i]} cx={(xs.min() + xs.max()) / 2:.0f} '
-        f'top={ys.min()} w={xs.max() - xs.min() + 1}'
+        f'top={ys.min()} w={xs.max() - xs.min() + 1} see={see.sum()}'
       )
     else:
       print(f'{i + 1:02d} {SLUGS[i]} (empty)')
