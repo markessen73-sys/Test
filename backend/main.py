@@ -136,10 +136,16 @@ async def styles():
 
 
 @app.post("/api/face-engine/caricature")
-async def face_engine_caricature(photo: UploadFile = File(...)):
+async def face_engine_caricature(
+    photo: UploadFile = File(...),
+    mode: str = Form("full"),
+):
     """
     Standalone background engine: photo → Mickey's Gym flat caricature.
     No AI credits required — feature sampling + cartoon render.
+
+    mode=full → complete caricature
+    mode=skin → skin-tone test plate (head/neck/ears + swatch)
     """
     if photo.content_type and photo.content_type not in ALLOWED_TYPES:
         raise HTTPException(
@@ -152,18 +158,28 @@ async def face_engine_caricature(photo: UploadFile = File(...)):
     if not image_bytes:
         raise HTTPException(status_code=400, detail="Empty file uploaded.")
 
+    mode_norm = (mode or "full").strip().lower()
+    if mode_norm not in {"full", "skin"}:
+        raise HTTPException(status_code=400, detail="mode must be 'full' or 'skin'")
+
     try:
-        result = convert_photo_to_caricature(image_bytes)
+        result = convert_photo_to_caricature(image_bytes, mode=mode_norm)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Face engine failed: {e}") from e
 
+    filename = (
+        "mickeys-gym-skin-tone.png" if mode_norm == "skin" else "mickeys-gym-caricature.png"
+    )
     return Response(
         content=result.png_bytes,
         media_type="image/png",
         headers={
-            "Content-Disposition": 'inline; filename="mickeys-gym-caricature.png"',
+            "Content-Disposition": f'inline; filename="{filename}"',
             "X-Provider": "face_engine",
             "X-Canvas-Size": str(result.canvas_size),
+            "X-Face-Mode": mode_norm,
+            "X-Skin-Hex": result.features.skin_hex,
+            "X-Skin-Samples": str(result.features.skin_sample_count),
         },
     )
 

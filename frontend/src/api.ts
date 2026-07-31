@@ -139,11 +139,13 @@ export async function transformPhoto(
 /** Standalone Mickey's Gym face engine (no AI credits). */
 export async function runFaceEngineCaricature(
   file: File,
-  onProgress?: (message: string) => void
-): Promise<{ blob: Blob; canvasSize: number }> {
-  onProgress?.('Uploading photo to face engine…');
+  onProgress?: (message: string) => void,
+  mode: 'full' | 'skin' = 'full'
+): Promise<{ blob: Blob; canvasSize: number; skinHex: string | null; mode: string }> {
+  onProgress?.(mode === 'skin' ? 'Testing skin tone…' : 'Uploading photo to face engine…');
   const form = new FormData();
   form.append('photo', file);
+  form.append('mode', mode);
 
   const res = await fetch(`${API_BASE}/api/face-engine/caricature`, {
     method: 'POST',
@@ -156,9 +158,11 @@ export async function runFaceEngineCaricature(
     throw new Error(typeof detail === 'string' ? detail : detail?.message || 'Face engine failed');
   }
 
-  onProgress?.('Rendering caricature…');
+  onProgress?.(mode === 'skin' ? 'Rendering skin plate…' : 'Rendering caricature…');
   return {
     blob: await res.blob(),
     canvasSize: parseInt(res.headers.get('X-Canvas-Size') || '1024', 10),
+    skinHex: res.headers.get('X-Skin-Hex'),
+    mode: res.headers.get('X-Face-Mode') || mode,
   };
 }

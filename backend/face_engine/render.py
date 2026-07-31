@@ -58,12 +58,119 @@ def _stroke_ellipse(
     )
 
 
-def render_flat_caricature(features: FaceFeatures, size: int = CANVAS_SIZE) -> np.ndarray:
+def _head_geometry(features: FaceFeatures, size: int):
+    width_scale = float(np.clip(0.92 + (features.face_aspect - 0.85) * 0.25, 0.88, 1.08))
+    re = px(LM["rightEye"], size)
+    le = px(LM["leftEye"], size)
+    chin = px(LM["chin"], size)
+    forehead = px(LM["forehead"], size)
+    mid = ((re[0] + le[0]) / 2, (re[1] + le[1]) / 2)
+    head_rx = size * 0.30 * width_scale
+    head_ry = size * 0.355
+    head_c = (mid[0], mid[1] + size * 0.04)
+    neck_w = size * 0.13 * width_scale
+    return width_scale, re, le, chin, forehead, mid, head_rx, head_ry, head_c, neck_w
+
+
+def render_skin_tone_test(features: FaceFeatures, size: int = CANVAS_SIZE) -> np.ndarray:
+    """
+    Skin-tone debug plate: head / neck / ears only + hex swatch.
+
+    Used to verify sampling before hair / eyes / mouth distract from the match.
+    """
+    img = np.zeros((size, size, 3), dtype=np.uint8)
+    ink = (18, 12, 10)
+    skin = features.skin_bgr
+    width_scale, _, _, chin, _, _, head_rx, head_ry, head_c, neck_w = _head_geometry(features, size)
+
+    cv2.rectangle(
+        img,
+        (int(chin[0] - neck_w), int(chin[1] - size * 0.02)),
+        (int(chin[0] + neck_w), int(size * 0.98)),
+        skin,
+        -1,
+        lineType=cv2.LINE_AA,
+    )
+    for ear in (LM["rightEar"], LM["leftEar"]):
+        _fill_ellipse(
+            img,
+            (ear.x * size, ear.y * size),
+            (ear.rx * size * width_scale, ear.ry * size),
+            _darken(skin, 0.08),
+        )
+        _stroke_ellipse(
+            img,
+            (ear.x * size, ear.y * size),
+            (ear.rx * size * width_scale, ear.ry * size),
+            ink,
+            3,
+        )
+    _fill_ellipse(img, head_c, (head_rx, head_ry), skin)
+    _stroke_ellipse(img, head_c, (head_rx, head_ry), ink, 5)
+    cv2.line(
+        img,
+        (int(chin[0] - neck_w), int(chin[1])),
+        (int(chin[0] - neck_w * 0.85), int(size * 0.98)),
+        ink,
+        3,
+        lineType=cv2.LINE_AA,
+    )
+    cv2.line(
+        img,
+        (int(chin[0] + neck_w), int(chin[1])),
+        (int(chin[0] + neck_w * 0.85), int(size * 0.98)),
+        ink,
+        3,
+        lineType=cv2.LINE_AA,
+    )
+
+    # Colour swatch + hex label for side-by-side photo comparison.
+    sw = int(size * 0.18)
+    sx0, sy0 = int(size * 0.06), int(size * 0.78)
+    cv2.rectangle(img, (sx0, sy0), (sx0 + sw, sy0 + sw), skin, -1)
+    cv2.rectangle(img, (sx0, sy0), (sx0 + sw, sy0 + sw), (240, 240, 240), 2)
+    label = features.skin_hex.upper()
+    cv2.putText(
+        img,
+        label,
+        (sx0, sy0 - 12),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (240, 240, 240),
+        2,
+        lineType=cv2.LINE_AA,
+    )
+    cv2.putText(
+        img,
+        f"n={features.skin_sample_count}",
+        (sx0, sy0 + sw + 28),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.55,
+        (180, 180, 180),
+        1,
+        lineType=cv2.LINE_AA,
+    )
+    return img
+
+
+def render_flat_caricature(
+    features: FaceFeatures,
+    size: int = CANVAS_SIZE,
+    *,
+    mode: str = "full",
+) -> np.ndarray:
     """
     Paint a punch-out style head on black, features locked to bake LM.
 
+    mode:
+      - "full": complete caricature
+      - "skin": skin-tone test plate only
+
     Returns BGR uint8 image (size × size).
     """
+    if mode == "skin":
+        return render_skin_tone_test(features, size=size)
+
     img = np.zeros((size, size, 3), dtype=np.uint8)
     ink = (18, 12, 10)
     skin = features.skin_bgr
@@ -72,22 +179,13 @@ def render_flat_caricature(features: FaceFeatures, size: int = CANVAS_SIZE) -> n
     lip = features.lip_bgr
     brow = features.brow_bgr
 
-    width_scale = float(np.clip(0.92 + (features.face_aspect - 0.85) * 0.25, 0.88, 1.08))
-
-    re = px(LM["rightEye"], size)
-    le = px(LM["leftEye"], size)
+    width_scale, re, le, chin, forehead, mid, head_rx, head_ry, head_c, neck_w = _head_geometry(
+        features, size
+    )
     nose = px(LM["nose"], size)
     mouth = px(LM["mouth"], size)
-    chin = px(LM["chin"], size)
-    forehead = px(LM["forehead"], size)
-    mid = ((re[0] + le[0]) / 2, (re[1] + le[1]) / 2)
-
-    head_rx = size * 0.30 * width_scale
-    head_ry = size * 0.355
-    head_c = (mid[0], mid[1] + size * 0.04)
 
     # 1. Neck
-    neck_w = size * 0.13 * width_scale
     cv2.rectangle(
         img,
         (int(chin[0] - neck_w), int(chin[1] - size * 0.02)),

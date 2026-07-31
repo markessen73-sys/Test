@@ -8,10 +8,12 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .features import extract_features
+from .features import FaceFeatures, extract_features
 from .landmarks import PhotoLandmarks, detect_primary_face
 from .layout import CANVAS_SIZE
 from .render import render_flat_caricature, to_png_bytes
+
+VALID_MODES = frozenset({"full", "skin"})
 
 
 @dataclass(frozen=True)
@@ -21,6 +23,8 @@ class CaricatureResult:
     png_bytes: bytes
     image_bgr: np.ndarray
     landmarks: PhotoLandmarks
+    features: FaceFeatures
+    mode: str = "full"
     canvas_size: int = CANVAS_SIZE
 
 
@@ -50,6 +54,7 @@ def convert_photo_to_caricature(
     source: bytes | str | Path | np.ndarray,
     *,
     canvas_size: int = CANVAS_SIZE,
+    mode: str = "full",
 ) -> CaricatureResult:
     """
     Convert a face photo into a flat 2D gym caricature.
@@ -59,14 +64,23 @@ def convert_photo_to_caricature(
       2. Estimate feature landmarks
       3. Sample skin / hair / iris / lip colours from the photo
       4. Paint a cartoon head on black, locked to bake LM positions
+
+    mode:
+      - "full": complete caricature
+      - "skin": skin-tone test plate (head/neck/ears + swatch) — verify tone first
     """
+    if mode not in VALID_MODES:
+        raise ValueError(f"Unknown mode {mode!r}; expected one of {sorted(VALID_MODES)}")
+
     bgr = _load_bgr(source)
     landmarks = detect_primary_face(bgr)
     features = extract_features(bgr, landmarks)
-    cartoon = render_flat_caricature(features, size=canvas_size)
+    cartoon = render_flat_caricature(features, size=canvas_size, mode=mode)
     return CaricatureResult(
         png_bytes=to_png_bytes(cartoon),
         image_bgr=cartoon,
         landmarks=landmarks,
+        features=features,
+        mode=mode,
         canvas_size=canvas_size,
     )

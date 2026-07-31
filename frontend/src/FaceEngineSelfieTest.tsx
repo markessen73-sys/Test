@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { runFaceEngineCaricature } from './api';
-import { clientFaceEngineCaricature } from './play/face/clientFaceEngine';
+import { clientFaceEngineCaricature, type FaceEngineMode } from './play/face/clientFaceEngine';
 
 type Phase = 'idle' | 'camera' | 'preview' | 'busy' | 'done' | 'error';
 
@@ -19,6 +19,8 @@ export function FaceEngineSelfieTest() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [resultLabel, setResultLabel] = useState('Caricature');
+  const [skinHex, setSkinHex] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('');
 
@@ -43,6 +45,7 @@ export function FaceEngineSelfieTest() {
       if (prev) URL.revokeObjectURL(prev);
       return null;
     });
+    setSkinHex(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -105,6 +108,7 @@ export function FaceEngineSelfieTest() {
         if (prev) URL.revokeObjectURL(prev);
         return null;
       });
+      setSkinHex(null);
       if (photoUrl) URL.revokeObjectURL(photoUrl);
       setPhotoFile(file);
       setPhotoUrl(URL.createObjectURL(file));
@@ -113,37 +117,51 @@ export function FaceEngineSelfieTest() {
     [photoUrl, stopCamera]
   );
 
-  const runEngine = useCallback(async () => {
-    if (!photoFile) return;
-    setPhase('busy');
-    setError(null);
-    setStatus('Sending photo to face engine…');
-    try {
-      let blob: Blob;
+  const runEngine = useCallback(
+    async (mode: FaceEngineMode) => {
+      if (!photoFile) return;
+      setPhase('busy');
+      setError(null);
+      setSkinHex(null);
+      setStatus(mode === 'skin' ? 'Testing skin tone first…' : 'Sending photo to face engine…');
       try {
-        const result = await runFaceEngineCaricature(photoFile, setStatus);
-        blob = result.blob;
-      } catch {
-        setStatus('Server unavailable — running on-device face engine…');
-        blob = await clientFaceEngineCaricature(photoFile);
+        let blob: Blob;
+        let hex: string | null = null;
+        try {
+          const result = await runFaceEngineCaricature(photoFile, setStatus, mode);
+          blob = result.blob;
+          hex = result.skinHex;
+        } catch {
+          setStatus(
+            mode === 'skin'
+              ? 'Server unavailable — sampling skin on-device…'
+              : 'Server unavailable — running on-device face engine…'
+          );
+          blob = await clientFaceEngineCaricature(photoFile, mode);
+        }
+        setResultUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(blob);
+        });
+        setResultLabel(mode === 'skin' ? 'Skin tone test' : 'Caricature');
+        setSkinHex(hex);
+        setPhase('done');
+        setStatus('Done');
+      } catch (err) {
+        setPhase('error');
+        setError(err instanceof Error ? err.message : 'Face engine failed');
       }
-      setResultUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return URL.createObjectURL(blob);
-      });
-      setPhase('done');
-      setStatus('Done');
-    } catch (err) {
-      setPhase('error');
-      setError(err instanceof Error ? err.message : 'Face engine failed');
-    }
-  }, [photoFile]);
+    },
+    [photoFile]
+  );
 
   const reset = useCallback(() => {
     stopCamera();
     setError(null);
     setStatus('');
     setPhotoFile(null);
+    setSkinHex(null);
+    setResultLabel('Caricature');
     setPhotoUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -159,8 +177,8 @@ export function FaceEngineSelfieTest() {
     <section className="options-section face-engine-test">
       <h3 className="options-section-title">Photo → caricature</h3>
       <p className="options-section-hint">
-        Take a selfie or choose a photo. The face engine converts it into a Mickey&apos;s Gym flat
-        caricature.
+        Take a selfie or choose a photo. Start with <strong>Test skin tone</strong> — head/neck only
+        plus a colour swatch — to check the match before the full caricature.
       </p>
 
       <div className="face-engine-actions">
@@ -215,21 +233,33 @@ export function FaceEngineSelfieTest() {
           )}
           {resultUrl && (
             <figure className="face-engine-shot">
-              <img src={resultUrl} alt="Caricature result" />
-              <figcaption>Caricature</figcaption>
+              <img src={resultUrl} alt={resultLabel} />
+              <figcaption>
+                {resultLabel}
+                {skinHex ? ` · ${skinHex}` : ''}
+              </figcaption>
             </figure>
           )}
         </div>
       )}
 
-      {phase === 'preview' && (
-        <button
-          type="button"
-          className="face-engine-btn face-engine-btn-primary"
-          onClick={() => void runEngine()}
-        >
-          Make caricature
-        </button>
+      {(phase === 'preview' || phase === 'done') && (
+        <div className="face-engine-actions">
+          <button
+            type="button"
+            className="face-engine-btn face-engine-btn-primary"
+            onClick={() => void runEngine('skin')}
+          >
+            Test skin tone
+          </button>
+          <button
+            type="button"
+            className="face-engine-btn face-engine-btn-secondary"
+            onClick={() => void runEngine('full')}
+          >
+            Make caricature
+          </button>
+        </div>
       )}
 
       {phase === 'busy' && <p className="face-engine-status">{status || 'Working…'}</p>}

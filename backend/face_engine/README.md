@@ -20,6 +20,8 @@ This engine does **not** depend on the game UI, React, or browser APIs.
 ```bash
 cd backend
 python -m face_engine path/to/photo.jpg -o clean.png
+# Skin-tone test plate first (head/neck/ears + swatch, no features):
+python -m face_engine path/to/photo.jpg --mode skin -o skin.png
 ```
 
 ## Python API
@@ -29,6 +31,10 @@ from face_engine import convert_photo_to_caricature
 
 result = convert_photo_to_caricature("photo.jpg")
 Path("clean.png").write_bytes(result.png_bytes)
+
+# Verify skin tone before full caricature:
+skin = convert_photo_to_caricature("photo.jpg", mode="skin")
+print(skin.features.skin_hex, skin.features.skin_sample_count)
 ```
 
 ## HTTP (optional)
@@ -37,8 +43,11 @@ With the FastAPI server running:
 
 ```bash
 curl -F photo=@face.jpg http://localhost:8000/api/face-engine/caricature -o clean.png
+curl -F photo=@face.jpg -F mode=skin http://localhost:8000/api/face-engine/caricature -o skin.png
 ```
 
+Skin sampling uses a YCrCb cheek/forehead mask and the **median** colour (not
+quantized) so the tone stays close to the photo.
 ## Design notes
 
 | Rule | Value |
