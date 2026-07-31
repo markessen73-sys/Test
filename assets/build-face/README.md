@@ -23,12 +23,11 @@ Stack order: blank → eyebrows → eyes → nose → mouth → hair
 
 ## Hair
 
-- Source sheet: repo root `file_0000000030888246b8a0103e7ee2caf7.png` (30 styles, 5×6)
+- Source sheet: repo root `254778899bf63ae536da91436c4294bb9d812192e3c6151553016268a92de65d.png`
+  (hair only on black, 5×6)
 - Extract: `python3 scripts/extract_hair_styles.py`
-  - Scale **5.15×** (between ear-tip ~3.3 too-small and prior 5.55 too-big)
-  - Crown-locked vertically; centred on blank `cx=500`
-  - Stipple/hole close + opaque scalp cap so blank does not show through
-- `hair/*.png` — 30 transparent 1024 overlays aligned to blank (neutral brown; recolored in UI)
+- `hair/*.png` — 30 transparent 1024 overlays (starting placement; user fits in UI)
+- UI flow: pick colour → cycle styles → **stretch / shrink / drag** into place
 - Colours (UI): light blonde, blonde, light brown, brown, dark brown, black, grey, auburn
 - `catalog.json` — styles + colour swatches
 

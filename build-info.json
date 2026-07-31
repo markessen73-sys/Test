@@ -1,6 +1,6 @@
 {
-  "builtAt": "2026-07-31T22:42:30Z",
+  "builtAt": "2026-07-31T23:19:05Z",
   "branch": "cursor/build-a-face-b62b",
-  "sha": "ea1af54",
-  "note": "hair scale 5.15 + opaque scalp seal"
+  "sha": "b864207",
+  "note": "hair-only sheet + stretch/shrink/move fit"
 }
