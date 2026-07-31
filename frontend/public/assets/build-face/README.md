@@ -23,8 +23,11 @@ Stack order: blank → eyebrows → eyes → nose → mouth → hair
 
 ## Hair
 
-- `hair/*.png` — temporary procedural styles (same colour `#2a1c16`)
-- `catalog.json` — index
+- Source sheet: repo root `file_0000000030888246b8a0103e7ee2caf7.png` (30 styles, 5×6)
+- Extract: `python3 scripts/extract_hair_styles.py`
+- `hair/*.png` — 30 transparent 1024 overlays aligned to blank (neutral brown; recolored in UI)
+- Colours (UI): light blonde, blonde, light brown, brown, dark brown, black, grey, auburn
+- `catalog.json` — styles + colour swatches
 
 ## Contract
 

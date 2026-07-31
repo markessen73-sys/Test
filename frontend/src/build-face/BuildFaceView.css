@@ -59,6 +59,61 @@
   border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
+.build-face-colors {
+  background: var(--bf-panel);
+  border: 1px solid var(--bf-line);
+  border-radius: 14px;
+  padding: 0.85rem 0.85rem 1rem;
+}
+
+.build-face-color-row {
+  display: flex;
+  gap: 0.55rem;
+  overflow-x: auto;
+  padding: 0.35rem 0.1rem 0.25rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.build-face-color-chip {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 4.6rem;
+  padding: 0.45rem 0.4rem;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: #0d0c0a;
+  color: var(--bf-muted);
+  cursor: pointer;
+}
+
+.build-face-color-chip.is-active {
+  border-color: var(--bf-accent);
+  color: var(--bf-ink);
+}
+
+.build-face-color-swatch {
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.build-face-color-name {
+  font-size: 0.68rem;
+  line-height: 1.15;
+  text-align: center;
+  max-width: 4.4rem;
+}
+
+.build-face-stage.is-dimmed .build-face-preview {
+  opacity: 0.55;
+}
+
 .build-face-close {
   flex-shrink: 0;
   border: 1px solid var(--bf-line);
