@@ -1,6 +1,6 @@
 {
-  "builtAt": "2026-07-31T21:27:34Z",
+  "builtAt": "2026-07-31T22:06:47Z",
   "branch": "cursor/build-a-face-b62b",
-  "sha": "ed0525e",
-  "note": "re-centre hair overlays + crown seal (37bd846)"
+  "sha": "af0cdd0",
+  "note": "ear-aligned hair scale (~3.3x) + no ghost ears"
 }

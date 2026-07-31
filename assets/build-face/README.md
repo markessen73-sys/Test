@@ -25,7 +25,9 @@ Stack order: blank → eyebrows → eyes → nose → mouth → hair
 
 - Source sheet: repo root `file_0000000030888246b8a0103e7ee2caf7.png` (30 styles, 5×6)
 - Extract: `python3 scripts/extract_hair_styles.py`
-  - Placement: `DST_CX=500`, `DST_TOP=78`, `SCALE=5.55`, `SHIFT_LEFT=30`, plus crown-gap seal
+  - **Scale + X** from sheet bald ear-outline span → blank ear tips (~3.3×)
+  - **Y** locks sheet crown to blank crown so scalp is covered
+  - Ear/face ink strokes are banned from the hair mask (no ghost ears)
 - `hair/*.png` — 30 transparent 1024 overlays aligned to blank (neutral brown; recolored in UI)
 - Colours (UI): light blonde, blonde, light brown, brown, dark brown, black, grey, auburn
 - `catalog.json` — styles + colour swatches
