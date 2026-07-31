@@ -27,7 +27,7 @@ Stack order: blank → eyebrows → eyes → nose → mouth → hair
   (hair only on black, 5×6)
 - Extract: `python3 scripts/extract_hair_styles.py`
 - `hair/*.png` — 30 transparent 1024 overlays (starting placement; user fits in UI)
-- UI flow: pick colour → cycle styles → **stretch / shrink / drag** into place
+- UI flow: pick colour → cycle styles (overlays already placed on the blank)
 - Colours (UI): light blonde, blonde, light brown, brown, dark brown, black, grey, auburn
 - `catalog.json` — styles + colour swatches
 
