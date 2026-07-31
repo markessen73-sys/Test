@@ -1,5 +1,6 @@
 {
-  "builtAt": "2026-07-31T20:50:24Z",
+  "builtAt": "2026-07-31T21:27:34Z",
   "branch": "cursor/build-a-face-b62b",
-  "note": "hair position + opacity fix"
+  "sha": "ed0525e",
+  "note": "re-centre hair overlays + crown seal (37bd846)"
 }
