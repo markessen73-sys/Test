@@ -47,6 +47,17 @@ HAIR_COLORS = [
 COL_BOUNDS = [(16, 200), (242, 426), (470, 654), (703, 892), (930, 1122)]
 ROW_BOUNDS = [(18, 235), (253, 467), (493, 696), (707, 931), (952, 1158), (1177, 1368)]
 
+# Fixed placement onto blank-no-features (1024×1024). Ear-line centre ≈ 500;
+# hair sits above the silhouette top (~136). SHIFT_LEFT centres dense styles.
+DST_CX = 500.0
+DST_TOP = 78.0
+SCALE = 5.55
+SHIFT_LEFT = 30.0  # pixels; applied after scale so overlays sit left of dead-centre
+CROWN_FILL_Y0 = 90
+CROWN_FILL_Y1 = 220
+CROWN_FILL_X0 = 320
+CROWN_FILL_X1 = 700
+
 
 def dilate(mask: np.ndarray, k: int = 3) -> np.ndarray:
   return np.array(Image.fromarray((mask.astype(np.uint8) * 255)).filter(ImageFilter.MaxFilter(k))) > 127
@@ -175,14 +186,13 @@ def hair_mask(rgb: np.ndarray) -> np.ndarray:
   return solid
 
 
-def warp_to_blank(cell_rgb: np.ndarray, mask: np.ndarray, src_lm: dict, dst_lm: dict) -> Image.Image:
-  sx = dst_lm['w'] / max(src_lm['w'], 1)
-  sy = dst_lm['h'] / max(src_lm['h'], 1)
-  scale = sx * 0.85 + sy * 0.15
+def warp_to_blank(cell_rgb: np.ndarray, mask: np.ndarray, src_lm: dict, _dst_lm: dict) -> Image.Image:
+  """Warp sheet hair onto the blank head with fixed scale/placement constants."""
+  scale = SCALE
   src_cx = (src_lm['x0'] + src_lm['x1']) / 2
-  src_top = src_lm['y0']
-  dst_cx = (dst_lm['x0'] + dst_lm['x1']) / 2
-  dst_top = dst_lm['y0'] - 4
+  src_top = float(src_lm['y0'])
+  dst_cx = DST_CX - SHIFT_LEFT
+  dst_top = DST_TOP
   h, w = cell_rgb.shape[:2]
   rgba = np.zeros((h, w, 4), dtype=np.uint8)
   rgba[mask, :3] = cell_rgb[mask]
@@ -209,6 +219,35 @@ def warp_to_blank(cell_rgb: np.ndarray, mask: np.ndarray, src_lm: dict, dst_lm: 
     (a, 0, e, 0, d, f),
     resample=Image.Resampling.BILINEAR,
   )
+
+
+def seal_crown_gaps(arr: np.ndarray, blank_a: np.ndarray) -> np.ndarray:
+  """Fill stipple / see-through holes over the crown so the blank scalp does not show."""
+  al = arr[:, :, 3]
+  hair = al > 20
+  if not hair.any():
+    return arr
+  mean_c = arr[hair, :3].mean(0)
+  yy, xx = np.ogrid[:1024, :1024]
+  crown = (
+    (yy >= CROWN_FILL_Y0) & (yy <= CROWN_FILL_Y1)
+    & (xx >= CROWN_FILL_X0) & (xx <= CROWN_FILL_X1)
+    & (blank_a > 10)
+  )
+  # Grow hair slightly then fill holes still inside the crown band.
+  grown = dilate(hair, 5)
+  grown = dilate(grown, 5)
+  holes = crown & grown & ~hair
+  if holes.any():
+    arr[holes, 0] = int(mean_c[0])
+    arr[holes, 1] = int(mean_c[1])
+    arr[holes, 2] = int(mean_c[2])
+    arr[holes, 3] = 255
+  # Soft opaque pass over sparse crown hair (stipple gaps).
+  sparse = crown & hair & (al < 200)
+  if sparse.any():
+    arr[sparse, 3] = np.maximum(arr[sparse, 3], 230)
+  return arr
 
 
 def main() -> None:
@@ -261,6 +300,8 @@ def main() -> None:
     face = ((xx - 512) / 190) ** 2 + ((yy - 540) / 210) ** 2 <= 1
     arr[(arr[:, :, 3] > 0) & face & (yy > 400), 3] = 0
     arr[(arr[:, :, 3] > 0) & (yy > 780), 3] = 0
+    if i > 0:
+      arr = seal_crown_gaps(arr, blank[:, :, 3])
     Image.fromarray(arr).save(OUT / f'{SLUGS[i]}.png')
     catalog.append({
       'id': SLUGS[i],
