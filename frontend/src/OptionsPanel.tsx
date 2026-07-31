@@ -49,6 +49,8 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
           </button>
         </header>
 
+        <FaceEngineSelfieTest />
+
         <section className="options-section">
           <h3 className="options-section-title">Character selection</h3>
           <p className="options-section-hint">
@@ -72,8 +74,6 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
             })}
           </div>
         </section>
-
-        <FaceEngineSelfieTest />
       </div>
     </div>
   );

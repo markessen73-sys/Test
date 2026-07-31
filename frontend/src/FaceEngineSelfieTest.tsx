@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { runFaceEngineCaricature } from './api';
+import { clientFaceEngineCaricature } from './play/face/clientFaceEngine';
 
 type Phase = 'idle' | 'camera' | 'preview' | 'busy' | 'done' | 'error';
 
 /**
  * Options-panel tester for the standalone face caricature engine.
- * Capture a selfie (or pick a photo) → POST /api/face-engine/caricature → show result.
+ * Capture a selfie (or pick a photo) → face engine → show result.
+ * Uses the backend API when available; falls back to an on-device renderer.
  */
 export function FaceEngineSelfieTest() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -48,7 +50,6 @@ export function FaceEngineSelfieTest() {
       });
       streamRef.current = stream;
       setPhase('camera');
-      // Wait a tick so the video element mounts.
       requestAnimationFrame(() => {
         const video = videoRef.current;
         if (!video) return;
@@ -75,7 +76,6 @@ export function FaceEngineSelfieTest() {
     canvas.height = h;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    // Mirror so it matches what the user saw in the preview.
     ctx.translate(w, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, w, h);
@@ -119,7 +119,14 @@ export function FaceEngineSelfieTest() {
     setError(null);
     setStatus('Sending photo to face engine…');
     try {
-      const { blob } = await runFaceEngineCaricature(photoFile, setStatus);
+      let blob: Blob;
+      try {
+        const result = await runFaceEngineCaricature(photoFile, setStatus);
+        blob = result.blob;
+      } catch {
+        setStatus('Server unavailable — running on-device face engine…');
+        blob = await clientFaceEngineCaricature(photoFile);
+      }
       setResultUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return URL.createObjectURL(blob);
@@ -150,10 +157,10 @@ export function FaceEngineSelfieTest() {
 
   return (
     <section className="options-section face-engine-test">
-      <h3 className="options-section-title">Test face engine</h3>
+      <h3 className="options-section-title">Photo → caricature</h3>
       <p className="options-section-hint">
-        Take a selfie (or choose a photo). The background engine converts facial features into a
-        Mickey&apos;s Gym flat caricature — no OpenAI required.
+        Take a selfie or choose a photo. The face engine converts it into a Mickey&apos;s Gym flat
+        caricature.
       </p>
 
       <div className="face-engine-actions">
@@ -216,8 +223,12 @@ export function FaceEngineSelfieTest() {
       )}
 
       {phase === 'preview' && (
-        <button type="button" className="face-engine-btn face-engine-btn-primary" onClick={() => void runEngine()}>
-          Run face engine
+        <button
+          type="button"
+          className="face-engine-btn face-engine-btn-primary"
+          onClick={() => void runEngine()}
+        >
+          Make caricature
         </button>
       )}
 
