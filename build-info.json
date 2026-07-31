@@ -1,6 +1,6 @@
 {
-  "builtAt": "2026-07-31T22:06:47Z",
+  "builtAt": "2026-07-31T22:42:30Z",
   "branch": "cursor/build-a-face-b62b",
-  "sha": "af0cdd0",
-  "note": "ear-aligned hair scale (~3.3x) + no ghost ears"
+  "sha": "ea1af54",
+  "note": "hair scale 5.15 + opaque scalp seal"
 }
