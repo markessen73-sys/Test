@@ -300,7 +300,8 @@
 }
 
 .build-face-thumb-blank,
-.build-face-thumb-hair {
+.build-face-thumb-hair,
+.build-face-thumb-ear {
   position: absolute;
   inset: 0;
   width: 100%;

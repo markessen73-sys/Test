@@ -30,6 +30,7 @@ export function BuildFaceView({ onClose }: Props) {
   const hairStripRef = useRef<HTMLDivElement>(null);
   const earStripRef = useRef<HTMLDivElement>(null);
   const tintCache = useRef<Map<string, string>>(new Map());
+  const paintGen = useRef(0);
   const swipeRef = useRef<{ x: number; y: number; active: boolean }>({
     x: 0,
     y: 0,
@@ -96,6 +97,7 @@ export function BuildFaceView({ onClose }: Props) {
       if (!canvas || !hairSrc || !hex) return;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
+      const gen = ++paintGen.current;
 
       const loads: Promise<HTMLImageElement>[] = [
         loadImage(blankUrl),
@@ -103,6 +105,7 @@ export function BuildFaceView({ onClose }: Props) {
       ];
       if (earSrc) loads.push(loadImage(earSrc));
       const [blank, hairImg, earImg] = await Promise.all(loads);
+      if (gen !== paintGen.current) return;
       const size = 1024;
       canvas.width = size;
       canvas.height = size;
@@ -110,8 +113,9 @@ export function BuildFaceView({ onClose }: Props) {
       ctx.fillStyle = '#0a0a0a';
       ctx.fillRect(0, 0, size, size);
       ctx.drawImage(blank, 0, 0, size, size);
-      if (earImg) ctx.drawImage(earImg, 0, 0, size, size);
+      // Hair under ears so ear-style changes stay visible in the picker.
       ctx.drawImage(hairImg, 0, 0, size, size);
+      if (earImg) ctx.drawImage(earImg, 0, 0, size, size);
     },
     [blankUrl, tintedHairUrl]
   );
@@ -119,7 +123,7 @@ export function BuildFaceView({ onClose }: Props) {
   useEffect(() => {
     if (!selectedColor) return;
     void paint(selectedHair?.src, previewEar?.src, selectedColor.hex);
-  }, [paint, selectedHair, previewEar, selectedColor]);
+  }, [paint, selectedHair?.src, previewEar?.src, selectedColor]);
 
   const goHair = useCallback(
     (dir: -1 | 1) => {
@@ -439,11 +443,11 @@ function StyleThumb({
     >
       <span className="build-face-thumb-art">
         <img src={blankUrl} alt="" className="build-face-thumb-blank" draggable={false} />
-        {earSrc && (
-          <img src={earSrc} alt="" className="build-face-thumb-hair" draggable={false} />
-        )}
         {tintSrc && (
           <img src={tintSrc} alt="" className="build-face-thumb-hair" draggable={false} />
+        )}
+        {earSrc && (
+          <img src={earSrc} alt="" className="build-face-thumb-ear" draggable={false} />
         )}
       </span>
       <span className="build-face-thumb-name">{name}</span>

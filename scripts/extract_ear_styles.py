@@ -37,25 +37,27 @@ CELLS = [
 ]
 # Per-style size / vertical tweaks relative to blank ear fit
 TWEAKS = {
-  '02-small': {'scale': 0.82, 'dy': 0},
-  '03-large': {'scale': 1.22, 'dy': -6},
-  '04-low-set': {'scale': 1.0, 'dy': 38},
-  '05-high-set': {'scale': 1.0, 'dy': -34},
-  '08-prominent': {'scale': 1.14, 'dy': 0},
+  '02-small': {'scale': 0.78, 'dy': 0},
+  '03-large': {'scale': 1.32, 'dy': -8},
+  '04-low-set': {'scale': 1.05, 'dy': 48},
+  '05-high-set': {'scale': 1.05, 'dy': -44},
+  '08-prominent': {'scale': 1.22, 'dy': 0},
   '09-folded': {'scale': 0.95, 'dy': 4},
 }
 
 
 def write_blank_no_ears(blank: np.ndarray) -> np.ndarray:
+  """Remove protruding ears, leaving a smooth cheek silhouette."""
   ba = blank[:, :, 3] > 10
   out = blank.copy()
-  cx = 500.0
-  cheek_half = 519 / 2  # width at y≈300
-  for y in range(280, 460):
+  cx = 512.0
+  # Tighter cheek half-width through the ear band so stubs disappear.
+  for y in range(270, 470):
     if not ba[y].any():
       continue
-    t = (y - 280) / (460 - 280)
-    half = cheek_half * (1.0 + 0.06 * t)
+    # Head oval widens slightly toward the jaw.
+    t = (y - 270) / (470 - 270)
+    half = 248.0 + 18.0 * t
     xs = np.where(ba[y])[0]
     for x in xs:
       if x < cx - half or x > cx + half:
@@ -169,7 +171,7 @@ def main() -> None:
       for side, ear, tip in (('L', ears[0], dst['left']), ('R', ears[1], dst['right'])):
         rgba = ear_rgba(cell, ear)
         eh, ew = rgba.shape[0], rgba.shape[1]
-        scale = (dst['h'] / max(eh, 1)) * 1.05 * float(tw['scale'])
+        scale = (dst['h'] / max(eh, 1)) * 1.18 * float(tw['scale'])
         nw = max(1, int(round(ew * scale)))
         nh = max(1, int(round(eh * scale)))
         img = Image.fromarray(rgba, 'RGBA').resize((nw, nh), Image.Resampling.LANCZOS)
