@@ -38,18 +38,25 @@ CELLS = [
   (407, 665, 72, 360), (406, 605, 511, 789), (406, 647, 944, 1229),
   (801, 1039, 67, 362), (801, 1047, 495, 805), (801, 1046, 937, 1229),
 ]
-# Relative tweaks vs the template ear footprint (standard = 1:1)
+# Relative tweaks vs the template ear footprint
 TWEAKS = {
   '01-standard': {'scale': 1.0, 'dy': 0},
-  '02-small': {'scale': 0.78, 'dy': 4},
-  '03-large': {'scale': 1.28, 'dy': -6},
-  '04-low-set': {'scale': 1.0, 'dy': 36},
-  '05-high-set': {'scale': 1.0, 'dy': -36},
-  '06-pointed-top': {'scale': 1.05, 'dy': -8},
+  '02-small': {'scale': 0.82, 'dy': 4},
+  '03-large': {'scale': 1.22, 'dy': -4},
+  '04-low-set': {'scale': 1.0, 'dy': 38},
+  '05-high-set': {'scale': 1.0, 'dy': -32},
+  '06-pointed-top': {'scale': 1.05, 'dy': -6},
   '07-round': {'scale': 1.0, 'dy': 0},
-  '08-prominent': {'scale': 1.18, 'dy': 0},
+  '08-prominent': {'scale': 1.15, 'dy': 0},
   '09-folded': {'scale': 0.92, 'dy': 4},
 }
+# Fit to template box, then enlarge (feedback: too small) and drop (too high).
+# Non-uniform: sheet ears are much taller than the template lobes.
+# Vertical placement uses target cy + BASE_DY (not tip-y) so growth doesn't
+# shove the tops upward when we enlarge.
+BASE_SCALE_W = 2.35
+BASE_SCALE_H = 2.10
+BASE_DY = 105
 
 
 def _clusters(xs: np.ndarray, gap: int = 3) -> list[tuple[int, int]]:
@@ -215,27 +222,25 @@ def ear_rgba(cell_rgb: np.ndarray, ear: dict) -> np.ndarray:
 
 
 def place_ear(canvas: Image.Image, rgba: np.ndarray, target: dict, tw: dict) -> None:
-  """Fit one sheet ear into the template ear footprint (flush to tip + attach)."""
-  # Trim to opaque content first
+  """Fit one sheet ear onto the template ear box — larger and a bit lower."""
   ys0, xs0 = np.where(rgba[:, :, 3] > 20)
   if not len(ys0):
     return
   rgba = rgba[ys0.min():ys0.max() + 1, xs0.min():xs0.max() + 1]
-  eh, ew = rgba.shape[0], rgba.shape[1]
 
-  # Scale so ear width matches the template ear span (tip → attach).
-  scale = (target['w'] / max(ew, 1)) * float(tw['scale'])
-  nw = max(1, int(round(ew * scale)))
-  nh = max(1, int(round(eh * scale)))
+  s = float(tw['scale'])
+  nw = max(1, int(round(target['w'] * BASE_SCALE_W * s)))
+  nh = max(1, int(round(target['h'] * BASE_SCALE_H * s)))
   img = Image.fromarray(rgba, 'RGBA').resize((nw, nh), Image.Resampling.LANCZOS)
   arr = np.array(img)
   ys, xs = np.where(arr[:, :, 3] > 20)
   if not len(ys):
     return
   content_h = int(ys.max() - ys.min() + 1)
-  cy = target['cy'] + float(tw['dy'])
+  content_w = int(xs.max() - xs.min() + 1)
+  cy = target['cy'] + BASE_DY + float(tw['dy'])
+  # Outer tip stays on the template tip; extra width grows over the cheek.
   if target['side'] == 'L':
-    # Map content left→tip, content right→attach
     px = int(round(target['tip'] - xs.min()))
   else:
     px = int(round(target['tip'] - xs.max()))
