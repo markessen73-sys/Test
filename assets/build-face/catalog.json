@@ -194,5 +194,54 @@
       "name": "High fade",
       "file": "assets/build-face/hair/30-high-fade.png"
     }
-  ]
+  ],
+  "ears": [
+    {
+      "id": "01-standard",
+      "name": "Standard",
+      "file": "assets/build-face/ears/01-standard.png"
+    },
+    {
+      "id": "02-small",
+      "name": "Small",
+      "file": "assets/build-face/ears/02-small.png"
+    },
+    {
+      "id": "03-large",
+      "name": "Large",
+      "file": "assets/build-face/ears/03-large.png"
+    },
+    {
+      "id": "04-low-set",
+      "name": "Low set",
+      "file": "assets/build-face/ears/04-low-set.png"
+    },
+    {
+      "id": "05-high-set",
+      "name": "High set",
+      "file": "assets/build-face/ears/05-high-set.png"
+    },
+    {
+      "id": "06-pointed-top",
+      "name": "Pointed top",
+      "file": "assets/build-face/ears/06-pointed-top.png"
+    },
+    {
+      "id": "07-round",
+      "name": "Round",
+      "file": "assets/build-face/ears/07-round.png"
+    },
+    {
+      "id": "08-prominent",
+      "name": "Prominent",
+      "file": "assets/build-face/ears/08-prominent.png"
+    },
+    {
+      "id": "09-folded",
+      "name": "Folded",
+      "file": "assets/build-face/ears/09-folded.png"
+    }
+  ],
+  "blankNoEars": "assets/build-face/blank-no-ears.png",
+  "earsSource": "file_00000000c184820a8c0203d285a8c48c.png"
 }
