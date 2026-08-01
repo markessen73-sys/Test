@@ -13,8 +13,6 @@ type Props = {
   onClose?: () => void;
 };
 
-type SwipeTarget = 'hair' | 'ears';
-
 /**
  * Build a Face — colour → hair styles → ear styles.
  */
@@ -27,7 +25,6 @@ export function BuildFaceView({ onClose }: Props) {
   const [earId, setEarId] = useState(earStyles[0]?.id ?? '');
   /** Ears unlock only after the user confirms a hair style. */
   const [hairConfirmed, setHairConfirmed] = useState(false);
-  const [swipeTarget, setSwipeTarget] = useState<SwipeTarget>('hair');
   const previewRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const hairStripRef = useRef<HTMLDivElement>(null);
@@ -129,7 +126,6 @@ export function BuildFaceView({ onClose }: Props) {
       if (!hairStyles.length) return;
       const next = (hairIndex + dir + hairStyles.length) % hairStyles.length;
       setHairId(hairStyles[next].id);
-      setSwipeTarget('hair');
     },
     [hairStyles, hairIndex]
   );
@@ -139,7 +135,6 @@ export function BuildFaceView({ onClose }: Props) {
       if (!earsUnlocked || !earStyles.length) return;
       const next = (earIndex + dir + earStyles.length) % earStyles.length;
       setEarId(earStyles[next].id);
-      setSwipeTarget('ears');
     },
     [earStyles, earIndex, earsUnlocked]
   );
@@ -147,7 +142,6 @@ export function BuildFaceView({ onClose }: Props) {
   const confirmHair = useCallback(() => {
     if (!selectedColor || !selectedHair) return;
     setHairConfirmed(true);
-    setSwipeTarget('ears');
   }, [selectedColor, selectedHair]);
 
   useEffect(() => {
@@ -215,7 +209,6 @@ export function BuildFaceView({ onClose }: Props) {
     if (!hairId) setHairId(hairStyles[0]?.id ?? '');
     if (!earId) setEarId(earStyles[0]?.id ?? '');
     setHairConfirmed(false);
-    setSwipeTarget('hair');
   };
 
   const statusLine = (() => {
@@ -349,7 +342,6 @@ export function BuildFaceView({ onClose }: Props) {
                 tintedHairUrl={tintedHairUrl}
                 onSelect={() => {
                   setHairId(style.id);
-                  setSwipeTarget('hair');
                 }}
               />
             ))}
@@ -385,7 +377,6 @@ export function BuildFaceView({ onClose }: Props) {
                 tintedHairUrl={tintedHairUrl}
                 onSelect={() => {
                   setEarId(style.id);
-                  setSwipeTarget('ears');
                 }}
               />
             ))}
