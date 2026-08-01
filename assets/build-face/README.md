@@ -37,7 +37,7 @@ Full stack later: blank → ears → eyebrows → eyes → nose → mouth → ha
 - Source sheet: repo root `file_00000000c184820a8c0203d285a8c48c.png` (3×3 ear pairs)
 - Extract: `python3 scripts/extract_ear_styles.py`
 - `ears/*.png` — 9 transparent 1024 overlays (Standard, Small, Large, Low set, High set, Pointed top, Round, Prominent, Folded)
-- UI flow: after colour + hair, browse ear styles the same way (strip / swipe)
+- UI flow: after colour, browse hair and tap **Select this hair** — then browse ear styles the same way (strip / swipe)
 
 ## Contract
 
