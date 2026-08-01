@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BUILD_FACE_HAIR_COLORS,
   buildFaceBlankUrl,
+  buildFaceEars,
   buildFaceHair,
   colorizeHairImageData,
   type HairColor,
@@ -12,17 +13,23 @@ type Props = {
   onClose?: () => void;
 };
 
+type SwipeTarget = 'hair' | 'ears';
+
 /**
- * Build a Face — pick hair colour, then swipe / scroll styles left-to-right.
+ * Build a Face — colour → hair styles → ear styles.
  */
 export function BuildFaceView({ onClose }: Props) {
   const hairStyles = useMemo(() => buildFaceHair(), []);
+  const earStyles = useMemo(() => buildFaceEars(), []);
   const blankUrl = useMemo(() => buildFaceBlankUrl(), []);
   const [colorId, setColorId] = useState<string | null>(null);
   const [hairId, setHairId] = useState(hairStyles[0]?.id ?? '');
+  const [earId, setEarId] = useState(earStyles[0]?.id ?? '');
+  const [swipeTarget, setSwipeTarget] = useState<SwipeTarget>('hair');
   const previewRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
-  const stripRef = useRef<HTMLDivElement>(null);
+  const hairStripRef = useRef<HTMLDivElement>(null);
+  const earStripRef = useRef<HTMLDivElement>(null);
   const tintCache = useRef<Map<string, string>>(new Map());
   const swipeRef = useRef<{ x: number; y: number; active: boolean }>({
     x: 0,
@@ -35,12 +42,19 @@ export function BuildFaceView({ onClose }: Props) {
     [colorId]
   );
 
-  const selectedIndex = useMemo(() => {
+  const hairIndex = useMemo(() => {
     const idx = hairStyles.findIndex((h) => h.id === hairId);
     return idx >= 0 ? idx : 0;
   }, [hairId, hairStyles]);
 
-  const selected = hairStyles[selectedIndex] ?? hairStyles[0];
+  const earIndex = useMemo(() => {
+    const idx = earStyles.findIndex((e) => e.id === earId);
+    return idx >= 0 ? idx : 0;
+  }, [earId, earStyles]);
+
+  const selectedHair = hairStyles[hairIndex] ?? hairStyles[0];
+  const selectedEar = earStyles[earIndex] ?? earStyles[0];
+  const hairChosen = Boolean(selectedColor && hairId);
 
   const loadImage = (src: string) =>
     new Promise<HTMLImageElement>((resolve, reject) => {
@@ -72,17 +86,22 @@ export function BuildFaceView({ onClose }: Props) {
   }, []);
 
   const paint = useCallback(
-    async (hairSrc: string | undefined, hex: string | undefined) => {
+    async (
+      hairSrc: string | undefined,
+      earSrc: string | undefined,
+      hex: string | undefined
+    ) => {
       const canvas = previewRef.current;
       if (!canvas || !hairSrc || !hex) return;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const [blank, tintedSrc] = await Promise.all([
+      const loads: Promise<HTMLImageElement>[] = [
         loadImage(blankUrl),
-        tintedHairUrl(hairSrc, hex),
-      ]);
-      const hairImg = await loadImage(tintedSrc);
+        tintedHairUrl(hairSrc, hex).then(loadImage),
+      ];
+      if (earSrc) loads.push(loadImage(earSrc));
+      const [blank, hairImg, earImg] = await Promise.all(loads);
       const size = 1024;
       canvas.width = size;
       canvas.height = size;
@@ -90,6 +109,7 @@ export function BuildFaceView({ onClose }: Props) {
       ctx.fillStyle = '#0a0a0a';
       ctx.fillRect(0, 0, size, size);
       ctx.drawImage(blank, 0, 0, size, size);
+      if (earImg) ctx.drawImage(earImg, 0, 0, size, size);
       ctx.drawImage(hairImg, 0, 0, size, size);
     },
     [blankUrl, tintedHairUrl]
@@ -97,26 +117,49 @@ export function BuildFaceView({ onClose }: Props) {
 
   useEffect(() => {
     if (!selectedColor) return;
-    void paint(selected?.src, selectedColor.hex);
-  }, [paint, selected, selectedColor]);
+    void paint(selectedHair?.src, hairChosen ? selectedEar?.src : undefined, selectedColor.hex);
+  }, [paint, selectedHair, selectedEar, selectedColor, hairChosen]);
 
-  const goStyle = useCallback(
+  const goHair = useCallback(
     (dir: -1 | 1) => {
       if (!hairStyles.length) return;
-      const next = (selectedIndex + dir + hairStyles.length) % hairStyles.length;
+      const next = (hairIndex + dir + hairStyles.length) % hairStyles.length;
       setHairId(hairStyles[next].id);
+      setSwipeTarget('hair');
     },
-    [hairStyles, selectedIndex]
+    [hairStyles, hairIndex]
+  );
+
+  const goEar = useCallback(
+    (dir: -1 | 1) => {
+      if (!earStyles.length) return;
+      const next = (earIndex + dir + earStyles.length) % earStyles.length;
+      setEarId(earStyles[next].id);
+      setSwipeTarget('ears');
+    },
+    [earStyles, earIndex]
   );
 
   useEffect(() => {
-    const el = stripRef.current;
+    const el = hairStripRef.current;
     if (!el) return;
-    const thumb = el.querySelector<HTMLElement>(`[data-hair-id="${hairId}"]`);
-    thumb?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    el.querySelector<HTMLElement>(`[data-hair-id="${hairId}"]`)?.scrollIntoView({
+      behavior: 'smooth',
+      inline: 'center',
+      block: 'nearest',
+    });
   }, [hairId]);
 
-  // Swipe left/right on the main preview to change styles
+  useEffect(() => {
+    const el = earStripRef.current;
+    if (!el) return;
+    el.querySelector<HTMLElement>(`[data-ear-id="${earId}"]`)?.scrollIntoView({
+      behavior: 'smooth',
+      inline: 'center',
+      block: 'nearest',
+    });
+  }, [earId]);
+
   useEffect(() => {
     if (!selectedColor) return;
     const el = stageRef.current;
@@ -133,7 +176,9 @@ export function BuildFaceView({ onClose }: Props) {
       const dy = e.clientY - swipeRef.current.y;
       swipeRef.current.active = false;
       if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
-      goStyle(dx < 0 ? 1 : -1);
+      const dir: -1 | 1 = dx < 0 ? 1 : -1;
+      if (swipeTarget === 'ears' && hairChosen) goEar(dir);
+      else goHair(dir);
     };
     const onPointerCancel = () => {
       swipeRef.current.active = false;
@@ -147,10 +192,10 @@ export function BuildFaceView({ onClose }: Props) {
       el.removeEventListener('pointerup', onPointerUp);
       el.removeEventListener('pointercancel', onPointerCancel);
     };
-  }, [selectedColor, goStyle]);
+  }, [selectedColor, swipeTarget, hairChosen, goHair, goEar]);
 
-  const scrollStrip = (dir: -1 | 1) => {
-    const el = stripRef.current;
+  const scrollStrip = (ref: React.RefObject<HTMLDivElement | null>, dir: -1 | 1) => {
+    const el = ref.current;
     if (!el) return;
     el.scrollBy({ left: dir * Math.min(280, el.clientWidth * 0.7), behavior: 'smooth' });
   };
@@ -158,7 +203,17 @@ export function BuildFaceView({ onClose }: Props) {
   const onPickColor = (id: string) => {
     setColorId(id);
     if (!hairId) setHairId(hairStyles[0]?.id ?? '');
+    if (!earId) setEarId(earStyles[0]?.id ?? '');
+    setSwipeTarget('hair');
   };
+
+  const statusLine = (() => {
+    if (!selectedColor) return 'Select a colour to preview styles';
+    if (swipeTarget === 'ears' && hairChosen) {
+      return `${earIndex + 1}/9 · Ears: ${selectedEar?.name ?? '—'} · ${selectedColor.name}`;
+    }
+    return `${hairIndex + 1}/30 · ${selectedHair?.name ?? '—'} · ${selectedColor.name}`;
+  })();
 
   return (
     <div className="build-face">
@@ -166,12 +221,18 @@ export function BuildFaceView({ onClose }: Props) {
         <div>
           <p className="build-face-kicker">Build a face</p>
           <h1 className="build-face-title">
-            {selectedColor ? 'Pick a hair style' : 'Pick a hair colour'}
+            {!selectedColor
+              ? 'Pick a hair colour'
+              : hairChosen && swipeTarget === 'ears'
+                ? 'Pick ear style'
+                : 'Pick a hair style'}
           </h1>
           <p className="build-face-sub">
-            {selectedColor
-              ? 'Swipe the preview left or right — or scroll the strip — to choose a cut.'
-              : 'Choose a colour first. Styles unlock once selected.'}
+            {!selectedColor
+              ? 'Choose a colour first. Hair unlocks once selected.'
+              : hairChosen
+                ? 'Swipe for the active catalogue — hair or ears — or tap a thumbnail.'
+                : 'Swipe the preview left or right — or scroll the strip — to choose a cut.'}
           </p>
         </div>
         {onClose && (
@@ -207,27 +268,29 @@ export function BuildFaceView({ onClose }: Props) {
       <div
         ref={stageRef}
         className={`build-face-stage ${selectedColor ? 'is-swipeable' : 'is-dimmed'}`}
-        aria-label={selectedColor ? 'Swipe left or right to change hair style' : undefined}
+        aria-label={
+          selectedColor
+            ? `Swipe left or right to change ${swipeTarget === 'ears' ? 'ear' : 'hair'} style`
+            : undefined
+        }
       >
         {selectedColor && (
           <button
             type="button"
             className="build-face-stage-nav is-prev"
             aria-label="Previous style"
-            onClick={() => goStyle(-1)}
+            onClick={() => (swipeTarget === 'ears' && hairChosen ? goEar(-1) : goHair(-1))}
           >
             ‹
           </button>
         )}
         <div className="build-face-stage-main">
           <canvas ref={previewRef} className="build-face-preview" aria-label="Face preview" />
-          <p className="build-face-selected">
-            {selectedColor
-              ? `${selectedIndex + 1}/30 · ${selected?.name ?? '—'} · ${selectedColor.name}`
-              : 'Select a colour to preview styles'}
-          </p>
+          <p className="build-face-selected">{statusLine}</p>
           {selectedColor && (
-            <p className="build-face-swipe-hint">Swipe left / right</p>
+            <p className="build-face-swipe-hint">
+              Swipe {swipeTarget === 'ears' ? 'ears' : 'hair'} · left / right
+            </p>
           )}
         </div>
         {selectedColor && (
@@ -235,7 +298,7 @@ export function BuildFaceView({ onClose }: Props) {
             type="button"
             className="build-face-stage-nav is-next"
             aria-label="Next style"
-            onClick={() => goStyle(1)}
+            onClick={() => (swipeTarget === 'ears' && hairChosen ? goEar(1) : goHair(1))}
           >
             ›
           </button>
@@ -243,30 +306,81 @@ export function BuildFaceView({ onClose }: Props) {
       </div>
 
       {selectedColor && (
-        <section className="build-face-catalog" aria-label="Hair styles">
+        <section
+          className={`build-face-catalog ${swipeTarget === 'hair' ? 'is-active-layer' : ''}`}
+          aria-label="Hair styles"
+          onFocus={() => setSwipeTarget('hair')}
+          onPointerDown={() => setSwipeTarget('hair')}
+        >
           <div className="build-face-catalog-bar">
-            <h2 className="build-face-catalog-title">Styles</h2>
+            <h2 className="build-face-catalog-title">Hair</h2>
             <div className="build-face-catalog-nav">
-              <button type="button" className="build-face-nav-btn" onClick={() => scrollStrip(-1)} aria-label="Scroll left">
+              <button type="button" className="build-face-nav-btn" onClick={() => scrollStrip(hairStripRef, -1)} aria-label="Scroll hair left">
                 ‹
               </button>
-              <button type="button" className="build-face-nav-btn" onClick={() => scrollStrip(1)} aria-label="Scroll right">
+              <button type="button" className="build-face-nav-btn" onClick={() => scrollStrip(hairStripRef, 1)} aria-label="Scroll hair right">
                 ›
               </button>
             </div>
           </div>
-          <div className="build-face-strip" ref={stripRef} role="listbox" aria-label="Hair catalogue">
+          <div className="build-face-strip" ref={hairStripRef} role="listbox" aria-label="Hair catalogue">
             {hairStyles.map((style) => (
-              <HairThumb
+              <StyleThumb
                 key={style.id}
-                hairId={style.id}
+                dataId={style.id}
+                dataAttr="data-hair-id"
                 blankUrl={blankUrl}
-                hairSrc={style.src}
+                overlaySrc={style.src}
+                earSrc={selectedEar?.src}
                 name={style.name}
                 active={style.id === hairId}
                 colorHex={selectedColor.hex}
                 tintedHairUrl={tintedHairUrl}
-                onSelect={() => setHairId(style.id)}
+                onSelect={() => {
+                  setHairId(style.id);
+                  setSwipeTarget('hair');
+                }}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {hairChosen && (
+        <section
+          className={`build-face-catalog ${swipeTarget === 'ears' ? 'is-active-layer' : ''}`}
+          aria-label="Ear styles"
+          onFocus={() => setSwipeTarget('ears')}
+          onPointerDown={() => setSwipeTarget('ears')}
+        >
+          <div className="build-face-catalog-bar">
+            <h2 className="build-face-catalog-title">Ears</h2>
+            <div className="build-face-catalog-nav">
+              <button type="button" className="build-face-nav-btn" onClick={() => scrollStrip(earStripRef, -1)} aria-label="Scroll ears left">
+                ‹
+              </button>
+              <button type="button" className="build-face-nav-btn" onClick={() => scrollStrip(earStripRef, 1)} aria-label="Scroll ears right">
+                ›
+              </button>
+            </div>
+          </div>
+          <div className="build-face-strip" ref={earStripRef} role="listbox" aria-label="Ear catalogue">
+            {earStyles.map((style) => (
+              <StyleThumb
+                key={style.id}
+                dataId={style.id}
+                dataAttr="data-ear-id"
+                blankUrl={blankUrl}
+                overlaySrc={selectedHair?.src}
+                earSrc={style.src}
+                name={style.name}
+                active={style.id === earId}
+                colorHex={selectedColor!.hex}
+                tintedHairUrl={tintedHairUrl}
+                onSelect={() => {
+                  setEarId(style.id);
+                  setSwipeTarget('ears');
+                }}
               />
             ))}
           </div>
@@ -276,19 +390,23 @@ export function BuildFaceView({ onClose }: Props) {
   );
 }
 
-function HairThumb({
-  hairId,
+function StyleThumb({
+  dataId,
+  dataAttr,
   blankUrl,
-  hairSrc,
+  overlaySrc,
+  earSrc,
   name,
   active,
   colorHex,
   tintedHairUrl,
   onSelect,
 }: {
-  hairId: string;
+  dataId: string;
+  dataAttr: 'data-hair-id' | 'data-ear-id';
   blankUrl: string;
-  hairSrc: string;
+  overlaySrc: string | undefined;
+  earSrc: string | undefined;
   name: string;
   active: boolean;
   colorHex: string;
@@ -299,25 +417,34 @@ function HairThumb({
 
   useEffect(() => {
     let cancelled = false;
-    void tintedHairUrl(hairSrc, colorHex).then((url) => {
+    if (!overlaySrc) {
+      setTintSrc(null);
+      return;
+    }
+    void tintedHairUrl(overlaySrc, colorHex).then((url) => {
       if (!cancelled) setTintSrc(url);
     });
     return () => {
       cancelled = true;
     };
-  }, [hairSrc, colorHex, tintedHairUrl]);
+  }, [overlaySrc, colorHex, tintedHairUrl]);
+
+  const attr = { [dataAttr]: dataId };
 
   return (
     <button
       type="button"
       role="option"
       aria-selected={active}
-      data-hair-id={hairId}
+      {...attr}
       className={`build-face-thumb ${active ? 'is-active' : ''}`}
       onClick={onSelect}
     >
       <span className="build-face-thumb-art">
         <img src={blankUrl} alt="" className="build-face-thumb-blank" draggable={false} />
+        {earSrc && (
+          <img src={earSrc} alt="" className="build-face-thumb-hair" draggable={false} />
+        )}
         {tintSrc && (
           <img src={tintSrc} alt="" className="build-face-thumb-hair" draggable={false} />
         )}

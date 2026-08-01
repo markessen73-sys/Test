@@ -60,14 +60,41 @@ export const BUILD_FACE_HAIR_COLORS: HairColor[] = [
 /** @deprecated Use BUILD_FACE_HAIR_COLORS; kept for any old imports */
 export const BUILD_FACE_HAIR_COLOR = BUILD_FACE_HAIR_COLORS[4].hex;
 
+export type EarStyle = {
+  id: string;
+  name: string;
+  file: string;
+};
+
 export const BUILD_FACE_BLANK_FILE = 'assets/build-face/blank-no-features.png';
+export const BUILD_FACE_BLANK_NO_EARS_FILE = 'assets/build-face/blank-no-ears.png';
+
+const EAR_FILES: EarStyle[] = [
+  { id: '01-standard', name: 'Standard', file: 'assets/build-face/ears/01-standard.png' },
+  { id: '02-small', name: 'Small', file: 'assets/build-face/ears/02-small.png' },
+  { id: '03-large', name: 'Large', file: 'assets/build-face/ears/03-large.png' },
+  { id: '04-low-set', name: 'Low set', file: 'assets/build-face/ears/04-low-set.png' },
+  { id: '05-high-set', name: 'High set', file: 'assets/build-face/ears/05-high-set.png' },
+  { id: '06-pointed-top', name: 'Pointed top', file: 'assets/build-face/ears/06-pointed-top.png' },
+  { id: '07-round', name: 'Round', file: 'assets/build-face/ears/07-round.png' },
+  { id: '08-prominent', name: 'Prominent', file: 'assets/build-face/ears/08-prominent.png' },
+  { id: '09-folded', name: 'Folded', file: 'assets/build-face/ears/09-folded.png' },
+];
 
 export function buildFaceBlankUrl(): string {
+  return assetUrl(BUILD_FACE_BLANK_NO_EARS_FILE);
+}
+
+export function buildFaceBlankWithEarsUrl(): string {
   return assetUrl(BUILD_FACE_BLANK_FILE);
 }
 
 export function buildFaceHair(): Array<HairStyle & { src: string }> {
   return HAIR_FILES.map((h) => ({ ...h, src: assetUrl(h.file) }));
+}
+
+export function buildFaceEars(): Array<EarStyle & { src: string }> {
+  return EAR_FILES.map((e) => ({ ...e, src: assetUrl(e.file) }));
 }
 
 export function parseHexColor(hex: string): { r: number; g: number; b: number } {
