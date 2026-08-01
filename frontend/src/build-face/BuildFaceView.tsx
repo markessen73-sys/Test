@@ -25,6 +25,8 @@ export function BuildFaceView({ onClose }: Props) {
   const [colorId, setColorId] = useState<string | null>(null);
   const [hairId, setHairId] = useState(hairStyles[0]?.id ?? '');
   const [earId, setEarId] = useState(earStyles[0]?.id ?? '');
+  /** Ears unlock only after the user confirms a hair style. */
+  const [hairConfirmed, setHairConfirmed] = useState(false);
   const [swipeTarget, setSwipeTarget] = useState<SwipeTarget>('hair');
   const previewRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -54,7 +56,9 @@ export function BuildFaceView({ onClose }: Props) {
 
   const selectedHair = hairStyles[hairIndex] ?? hairStyles[0];
   const selectedEar = earStyles[earIndex] ?? earStyles[0];
-  const hairChosen = Boolean(selectedColor && hairId);
+  /** Placeholder ears while browsing hair (before confirm). */
+  const previewEar = hairConfirmed ? selectedEar : earStyles[0];
+  const earsUnlocked = Boolean(selectedColor && hairConfirmed);
 
   const loadImage = (src: string) =>
     new Promise<HTMLImageElement>((resolve, reject) => {
@@ -117,8 +121,8 @@ export function BuildFaceView({ onClose }: Props) {
 
   useEffect(() => {
     if (!selectedColor) return;
-    void paint(selectedHair?.src, hairChosen ? selectedEar?.src : undefined, selectedColor.hex);
-  }, [paint, selectedHair, selectedEar, selectedColor, hairChosen]);
+    void paint(selectedHair?.src, previewEar?.src, selectedColor.hex);
+  }, [paint, selectedHair, previewEar, selectedColor]);
 
   const goHair = useCallback(
     (dir: -1 | 1) => {
@@ -132,13 +136,19 @@ export function BuildFaceView({ onClose }: Props) {
 
   const goEar = useCallback(
     (dir: -1 | 1) => {
-      if (!earStyles.length) return;
+      if (!earsUnlocked || !earStyles.length) return;
       const next = (earIndex + dir + earStyles.length) % earStyles.length;
       setEarId(earStyles[next].id);
       setSwipeTarget('ears');
     },
-    [earStyles, earIndex]
+    [earStyles, earIndex, earsUnlocked]
   );
+
+  const confirmHair = useCallback(() => {
+    if (!selectedColor || !selectedHair) return;
+    setHairConfirmed(true);
+    setSwipeTarget('ears');
+  }, [selectedColor, selectedHair]);
 
   useEffect(() => {
     const el = hairStripRef.current;
@@ -177,7 +187,7 @@ export function BuildFaceView({ onClose }: Props) {
       swipeRef.current.active = false;
       if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
       const dir: -1 | 1 = dx < 0 ? 1 : -1;
-      if (swipeTarget === 'ears' && hairChosen) goEar(dir);
+      if (swipeTarget === 'ears' && earsUnlocked) goEar(dir);
       else goHair(dir);
     };
     const onPointerCancel = () => {
@@ -192,7 +202,7 @@ export function BuildFaceView({ onClose }: Props) {
       el.removeEventListener('pointerup', onPointerUp);
       el.removeEventListener('pointercancel', onPointerCancel);
     };
-  }, [selectedColor, swipeTarget, hairChosen, goHair, goEar]);
+  }, [selectedColor, swipeTarget, earsUnlocked, goHair, goEar]);
 
   const scrollStrip = (ref: React.RefObject<HTMLDivElement | null>, dir: -1 | 1) => {
     const el = ref.current;
@@ -204,12 +214,13 @@ export function BuildFaceView({ onClose }: Props) {
     setColorId(id);
     if (!hairId) setHairId(hairStyles[0]?.id ?? '');
     if (!earId) setEarId(earStyles[0]?.id ?? '');
+    setHairConfirmed(false);
     setSwipeTarget('hair');
   };
 
   const statusLine = (() => {
     if (!selectedColor) return 'Select a colour to preview styles';
-    if (swipeTarget === 'ears' && hairChosen) {
+    if (swipeTarget === 'ears' && earsUnlocked) {
       return `${earIndex + 1}/9 · Ears: ${selectedEar?.name ?? '—'} · ${selectedColor.name}`;
     }
     return `${hairIndex + 1}/30 · ${selectedHair?.name ?? '—'} · ${selectedColor.name}`;
@@ -223,16 +234,16 @@ export function BuildFaceView({ onClose }: Props) {
           <h1 className="build-face-title">
             {!selectedColor
               ? 'Pick a hair colour'
-              : hairChosen && swipeTarget === 'ears'
+              : earsUnlocked && swipeTarget === 'ears'
                 ? 'Pick ear style'
                 : 'Pick a hair style'}
           </h1>
           <p className="build-face-sub">
             {!selectedColor
               ? 'Choose a colour first. Hair unlocks once selected.'
-              : hairChosen
-                ? 'Swipe for the active catalogue — hair or ears — or tap a thumbnail.'
-                : 'Swipe the preview left or right — or scroll the strip — to choose a cut.'}
+              : !hairConfirmed
+                ? 'Browse cuts, then tap Select this hair when you are happy — ears unlock next.'
+                : 'Swipe for the active catalogue — hair or ears — or tap a thumbnail.'}
           </p>
         </div>
         {onClose && (
@@ -279,7 +290,7 @@ export function BuildFaceView({ onClose }: Props) {
             type="button"
             className="build-face-stage-nav is-prev"
             aria-label="Previous style"
-            onClick={() => (swipeTarget === 'ears' && hairChosen ? goEar(-1) : goHair(-1))}
+            onClick={() => (swipeTarget === 'ears' && earsUnlocked ? goEar(-1) : goHair(-1))}
           >
             ‹
           </button>
@@ -289,8 +300,13 @@ export function BuildFaceView({ onClose }: Props) {
           <p className="build-face-selected">{statusLine}</p>
           {selectedColor && (
             <p className="build-face-swipe-hint">
-              Swipe {swipeTarget === 'ears' ? 'ears' : 'hair'} · left / right
+              Swipe {swipeTarget === 'ears' && earsUnlocked ? 'ears' : 'hair'} · left / right
             </p>
+          )}
+          {selectedColor && !hairConfirmed && (
+            <button type="button" className="build-face-confirm" onClick={confirmHair}>
+              Select this hair
+            </button>
           )}
         </div>
         {selectedColor && (
@@ -298,7 +314,7 @@ export function BuildFaceView({ onClose }: Props) {
             type="button"
             className="build-face-stage-nav is-next"
             aria-label="Next style"
-            onClick={() => (swipeTarget === 'ears' && hairChosen ? goEar(1) : goHair(1))}
+            onClick={() => (swipeTarget === 'ears' && earsUnlocked ? goEar(1) : goHair(1))}
           >
             ›
           </button>
@@ -331,7 +347,7 @@ export function BuildFaceView({ onClose }: Props) {
                 dataAttr="data-hair-id"
                 blankUrl={blankUrl}
                 overlaySrc={style.src}
-                earSrc={selectedEar?.src}
+                earSrc={previewEar?.src}
                 name={style.name}
                 active={style.id === hairId}
                 colorHex={selectedColor.hex}
@@ -346,7 +362,7 @@ export function BuildFaceView({ onClose }: Props) {
         </section>
       )}
 
-      {hairChosen && (
+      {earsUnlocked && (
         <section
           className={`build-face-catalog ${swipeTarget === 'ears' ? 'is-active-layer' : ''}`}
           aria-label="Ear styles"

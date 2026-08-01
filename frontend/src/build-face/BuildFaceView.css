@@ -196,6 +196,23 @@
   color: var(--bf-muted);
 }
 
+.build-face-confirm {
+  margin-top: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--bf-accent) 70%, transparent);
+  background: color-mix(in srgb, var(--bf-accent) 22%, var(--bf-panel));
+  color: var(--bf-ink);
+  padding: 0.65rem 1.15rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.build-face-confirm:hover {
+  border-color: var(--bf-accent);
+  background: color-mix(in srgb, var(--bf-accent) 32%, var(--bf-panel));
+}
+
 .build-face-catalog {
   background: var(--bf-panel);
   border: 1px solid var(--bf-line);
