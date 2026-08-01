@@ -20,7 +20,8 @@ Transparent 1024×1024 layers locked to bake / damage landmarks:
 | `features/blank-with-generic-features-on-black.png` | blank + features preview |
 | `features/damage-map-landmarks.png` | landmark dots (debug) |
 
-Stack order (builder): blank-no-ears → ears → hair  
+Stack order (builder): blank-no-ears → hair → ears  
+(Ears on top in the picker so style changes stay visible over hair.)  
 Full stack later: blank → ears → eyebrows → eyes → nose → mouth → hair
 
 ## Hair
