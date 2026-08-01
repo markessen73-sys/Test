@@ -2,7 +2,10 @@
 """Extract 9 ear-pair styles onto blank-aligned 1024 overlays.
 
 Source: file_00000000c184820a8c0203d285a8c48c.png (3×3 ear pairs on black)
-Also writes blank-no-ears.png (blank head with protruding ears removed).
+
+Placement is locked to the ears already drawn on blank-no-features.png:
+detect each template ear's tip / attach / top / bottom, remove those ears
+to make blank-no-ears.png, then fit every sheet style into that footprint.
 """
 from __future__ import annotations
 
@@ -35,67 +38,128 @@ CELLS = [
   (407, 665, 72, 360), (406, 605, 511, 789), (406, 647, 944, 1229),
   (801, 1039, 67, 362), (801, 1047, 495, 805), (801, 1046, 937, 1229),
 ]
-# Per-style size / vertical tweaks relative to blank ear fit
+# Relative tweaks vs the template ear footprint (standard = 1:1)
 TWEAKS = {
-  '02-small': {'scale': 0.78, 'dy': 0},
-  '03-large': {'scale': 1.32, 'dy': -8},
-  '04-low-set': {'scale': 1.05, 'dy': 48},
-  '05-high-set': {'scale': 1.05, 'dy': -44},
-  '08-prominent': {'scale': 1.22, 'dy': 0},
-  '09-folded': {'scale': 0.95, 'dy': 4},
+  '01-standard': {'scale': 1.0, 'dy': 0},
+  '02-small': {'scale': 0.78, 'dy': 4},
+  '03-large': {'scale': 1.28, 'dy': -6},
+  '04-low-set': {'scale': 1.0, 'dy': 36},
+  '05-high-set': {'scale': 1.0, 'dy': -36},
+  '06-pointed-top': {'scale': 1.05, 'dy': -8},
+  '07-round': {'scale': 1.0, 'dy': 0},
+  '08-prominent': {'scale': 1.18, 'dy': 0},
+  '09-folded': {'scale': 0.92, 'dy': 4},
 }
 
 
-def write_blank_no_ears(blank: np.ndarray) -> np.ndarray:
-  """Remove protruding ears, leaving a smooth cheek silhouette."""
-  ba = blank[:, :, 3] > 10
+def _clusters(xs: np.ndarray, gap: int = 3) -> list[tuple[int, int]]:
+  if not len(xs):
+    return []
+  xs = np.sort(xs.astype(int))
+  groups: list[list[int]] = [[int(xs[0])]]
+  for x in xs[1:]:
+    x = int(x)
+    if x <= groups[-1][-1] + gap:
+      groups[-1].append(x)
+    else:
+      groups.append([x])
+  return [(g[0], g[-1]) for g in groups if g[-1] - g[0] + 1 >= 2]
+
+
+def detect_template_ears(blank: np.ndarray) -> dict:
+  """Measure L/R ear footprints from the template's own ear outlines."""
+  a = blank[:, :, 3] > 10
+  lum = blank[:, :, :3].mean(2)
+  outline = a & (lum < 55)
+
+  left_rows: list[tuple[int, int, int]] = []
+  right_rows: list[tuple[int, int, int]] = []
+  for y in range(400, 520):
+    cs = _clusters(np.where(outline[y, :350])[0])
+    if len(cs) >= 2:
+      tip, attach = cs[0][0], cs[-1][0]
+      if attach - tip >= 25:
+        left_rows.append((y, tip, attach))
+    cs = _clusters(np.where(outline[y, 674:])[0] + 674)
+    if len(cs) >= 2:
+      attach, tip = cs[0][1], cs[-1][1]
+      if tip - attach >= 25:
+        right_rows.append((y, attach, tip))
+
+  if not left_rows or not right_rows:
+    raise SystemExit('Could not detect template ears from blank-no-features.png')
+
+  # Ignore shoulder flare at the very bottom
+  left_rows = [r for r in left_rows if r[0] <= 505]
+  right_rows = [r for r in right_rows if r[0] <= 505]
+
+  def pack(rows: list[tuple[int, int, int]], side: str) -> dict:
+    top, bot = rows[0][0], rows[-1][0]
+    if side == 'L':
+      tip = int(min(r[1] for r in rows))
+      attach = int(np.median([r[2] for r in rows[: max(1, len(rows) // 3)]]))
+      return {
+        'side': 'L',
+        'tip': tip,
+        'attach': attach,
+        'top': int(top),
+        'bot': int(bot),
+        'w': int(attach - tip),
+        'h': int(bot - top + 1),
+        'cx': float((tip + attach) / 2),
+        'cy': float((top + bot) / 2),
+      }
+    tip = int(max(r[2] for r in rows))
+    attach = int(np.median([r[1] for r in rows[: max(1, len(rows) // 3)]]))
+    return {
+      'side': 'R',
+      'tip': tip,
+      'attach': attach,
+      'top': int(top),
+      'bot': int(bot),
+      'w': int(tip - attach),
+      'h': int(bot - top + 1),
+      'cx': float((tip + attach) / 2),
+      'cy': float((top + bot) / 2),
+    }
+
+  L = pack(left_rows, 'L')
+  R = pack(right_rows, 'R')
+  # Unify height/vertical span to the larger ear so the pair matches
+  top = min(L['top'], R['top'])
+  bot = max(L['bot'], R['bot'])
+  h = bot - top + 1
+  w = max(L['w'], R['w'])
+  L.update({'top': top, 'bot': bot, 'h': h, 'w': w, 'cy': (top + bot) / 2, 'attach': L['tip'] + w})
+  R.update({'top': top, 'bot': bot, 'h': h, 'w': w, 'cy': (top + bot) / 2, 'attach': R['tip'] - w})
+  print(f"Template L ear tip={L['tip']} attach={L['attach']} y={L['top']}-{L['bot']} w={L['w']} h={L['h']}")
+  print(f"Template R ear tip={R['tip']} attach={R['attach']} y={R['top']}-{R['bot']} w={R['w']} h={R['h']}")
+  return {'L': L, 'R': R}
+
+
+def write_blank_no_ears(blank: np.ndarray, ears: dict) -> np.ndarray:
+  """Remove protruding template ears so selected overlays replace them."""
   out = blank.copy()
-  cx = 512.0
-  # Tighter cheek half-width through the ear band so stubs disappear.
-  for y in range(270, 470):
-    if not ba[y].any():
-      continue
-    # Head oval widens slightly toward the jaw.
-    t = (y - 270) / (470 - 270)
-    half = 248.0 + 18.0 * t
-    xs = np.where(ba[y])[0]
-    for x in xs:
-      if x < cx - half or x > cx + half:
-        out[y, x] = 0
+  a = blank[:, :, 3] > 10
+  lum = blank[:, :, :3].mean(2)
+  outline = a & (lum < 55)
+
+  for y in range(max(0, ears['L']['top'] - 8), min(1024, ears['L']['bot'] + 8)):
+    # Left
+    cs = _clusters(np.where(outline[y, :350])[0])
+    if len(cs) >= 2:
+      tip, attach = cs[0][0], cs[-1][0]
+      if attach - tip >= 20:
+        out[y, tip:attach + 1] = 0
+    # Right
+    cs = _clusters(np.where(outline[y, 674:])[0] + 674)
+    if len(cs) >= 2:
+      attach, tip = cs[0][1], cs[-1][1]
+      if tip - attach >= 20:
+        out[y, attach:tip + 1] = 0
+
   Image.fromarray(out).save(BLANK_NO_EARS)
   return out
-
-
-def blank_ear_targets(blank_a: np.ndarray) -> dict:
-  ba = blank_a > 10
-  lefts, rights, rows = [], [], []
-  for y in range(340, 415):
-    xs = np.where(ba[y])[0]
-    if len(xs) < 10:
-      continue
-    lefts.append(int(xs.min()))
-    rights.append(int(xs.max()))
-    rows.append(y)
-  li = int(np.argmin(lefts))
-  ri = int(np.argmax(rights))
-  cheek_L = 500 - 519 / 2
-  ear_top = None
-  ear_bot = None
-  for y in range(300, 450):
-    xs = np.where(ba[y])[0]
-    if not len(xs):
-      continue
-    if xs.min() < cheek_L - 8:
-      if ear_top is None:
-        ear_top = y
-      ear_bot = y
-  return {
-    'left': float(lefts[li]),
-    'right': float(rights[ri]),
-    'y': float((rows[li] + rows[ri]) / 2),
-    'top': int(ear_top or 340),
-    'h': float((ear_bot or 420) - (ear_top or 340) + 1),
-  }
 
 
 def extract_ears(cell_rgb: np.ndarray) -> list[dict]:
@@ -150,13 +214,42 @@ def ear_rgba(cell_rgb: np.ndarray, ear: dict) -> np.ndarray:
   return np.dstack([crop, alpha])
 
 
+def place_ear(canvas: Image.Image, rgba: np.ndarray, target: dict, tw: dict) -> None:
+  """Fit one sheet ear into the template ear footprint (flush to tip + attach)."""
+  # Trim to opaque content first
+  ys0, xs0 = np.where(rgba[:, :, 3] > 20)
+  if not len(ys0):
+    return
+  rgba = rgba[ys0.min():ys0.max() + 1, xs0.min():xs0.max() + 1]
+  eh, ew = rgba.shape[0], rgba.shape[1]
+
+  # Scale so ear width matches the template ear span (tip → attach).
+  scale = (target['w'] / max(ew, 1)) * float(tw['scale'])
+  nw = max(1, int(round(ew * scale)))
+  nh = max(1, int(round(eh * scale)))
+  img = Image.fromarray(rgba, 'RGBA').resize((nw, nh), Image.Resampling.LANCZOS)
+  arr = np.array(img)
+  ys, xs = np.where(arr[:, :, 3] > 20)
+  if not len(ys):
+    return
+  content_h = int(ys.max() - ys.min() + 1)
+  cy = target['cy'] + float(tw['dy'])
+  if target['side'] == 'L':
+    # Map content left→tip, content right→attach
+    px = int(round(target['tip'] - xs.min()))
+  else:
+    px = int(round(target['tip'] - xs.max()))
+  py = int(round(cy - content_h / 2.0 - ys.min()))
+  canvas.paste(img, (px, py), img)
+
+
 def main() -> None:
   if not SHEET.exists():
     raise SystemExit(f'Missing sheet: {SHEET}')
   sheet = np.array(Image.open(SHEET).convert('RGB'))
   blank = np.array(Image.open(BLANK).convert('RGBA'))
-  write_blank_no_ears(blank)
-  dst = blank_ear_targets(blank[:, :, 3])
+  targets = detect_template_ears(blank)
+  write_blank_no_ears(blank, targets)
   OUT.mkdir(parents=True, exist_ok=True)
   for p in OUT.glob('*.png'):
     p.unlink()
@@ -168,16 +261,8 @@ def main() -> None:
     canvas = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0))
     tw = TWEAKS.get(SLUGS[i], {'scale': 1.0, 'dy': 0})
     if len(ears) >= 2:
-      for side, ear, tip in (('L', ears[0], dst['left']), ('R', ears[1], dst['right'])):
-        rgba = ear_rgba(cell, ear)
-        eh, ew = rgba.shape[0], rgba.shape[1]
-        scale = (dst['h'] / max(eh, 1)) * 1.18 * float(tw['scale'])
-        nw = max(1, int(round(ew * scale)))
-        nh = max(1, int(round(eh * scale)))
-        img = Image.fromarray(rgba, 'RGBA').resize((nw, nh), Image.Resampling.LANCZOS)
-        py = int(round(dst['top'] - 4 + tw['dy']))
-        px = int(round(tip if side == 'L' else tip - nw))
-        canvas.paste(img, (px, py), img)
+      place_ear(canvas, ear_rgba(cell, ears[0]), targets['L'], tw)
+      place_ear(canvas, ear_rgba(cell, ears[1]), targets['R'], tw)
     path = OUT / f'{SLUGS[i]}.png'
     canvas.save(path)
     catalog.append({
@@ -189,7 +274,7 @@ def main() -> None:
     ha = arr[:, :, 3] > 20
     if ha.any():
       ys, xs = np.where(ha)
-      print(f'{i + 1:02d} {SLUGS[i]} top={ys.min()} w={xs.max() - xs.min() + 1}')
+      print(f'{i + 1:02d} {SLUGS[i]} bbox x={xs.min()}-{xs.max()} y={ys.min()}-{ys.max()}')
     else:
       print(f'{i + 1:02d} {SLUGS[i]} (empty)')
 
