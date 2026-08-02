@@ -4,7 +4,7 @@ import {
   FACE_GUIDE_OUTLINE_SRC,
   FACE_GUIDE_SIZE,
 } from './guide';
-import { writeCustomFaceDataUrl } from './customFace';
+import { writeCustomFaceDataUrl, writeCustomFaceSet, type CustomFaceSet } from './customFace';
 import './FaceCaptureView.css';
 
 type Mode = 'choose' | 'camera' | 'upload' | 'saving' | 'done' | 'error';
@@ -15,6 +15,35 @@ type Props = {
 
 const MIN_SCALE = 0.6;
 const MAX_SCALE = 2.4;
+
+const SELFIE_STEPS = [
+  {
+    key: 'clean' as const,
+    label: 'Smile',
+    prompt: 'Smile — this is your normal face.',
+    button: 'Capture smile',
+  },
+  {
+    key: 'ooh' as const,
+    label: 'Ooh!',
+    prompt: 'Say “ooh!” — this is the punched face.',
+    button: 'Capture ooh!',
+  },
+  {
+    key: 'knockout' as const,
+    label: 'Sad',
+    prompt: 'Look sad — this is the knockout face.',
+    button: 'Capture sad',
+  },
+];
+
+function selectDefaultCharacter() {
+  try {
+    localStorage.setItem('mickeys-gym-character', 'default');
+  } catch {
+    /* ignore */
+  }
+}
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.min(hi, Math.max(lo, n));
@@ -121,6 +150,9 @@ export function FaceCaptureView({ onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewSet, setPreviewSet] = useState<CustomFaceSet | null>(null);
+  const [selfieStep, setSelfieStep] = useState(0);
+  const [selfieShots, setSelfieShots] = useState<Partial<CustomFaceSet>>({});
   const [scale, setScale] = useState(1);
   const [panX, setPanX] = useState(0);
   const [panY, setPanY] = useState(0);
@@ -151,6 +183,9 @@ export function FaceCaptureView({ onClose }: Props) {
   const startCamera = useCallback(async () => {
     setError(null);
     stopCamera();
+    setSelfieStep(0);
+    setSelfieShots({});
+    setPreviewSet(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -183,6 +218,7 @@ export function FaceCaptureView({ onClose }: Props) {
       const url = URL.createObjectURL(file);
       setPhotoUrl(url);
       resetTransform();
+      setPreviewSet(null);
       setMode('upload');
       const img = new Image();
       img.onload = () => {
@@ -193,9 +229,11 @@ export function FaceCaptureView({ onClose }: Props) {
     [photoUrl, stopCamera]
   );
 
-  const saveFromCamera = useCallback(async () => {
+  const captureSelfieShot = useCallback(async () => {
     const video = videoRef.current;
     if (!video) return;
+    const step = SELFIE_STEPS[selfieStep];
+    if (!step) return;
     setMode('saving');
     try {
       const canvas = document.createElement('canvas');
@@ -208,20 +246,39 @@ export function FaceCaptureView({ onClose }: Props) {
       const vh = video.videoHeight || 480;
       drawCoverMirrored(ctx, video, vw, vh, FACE_GUIDE_SIZE);
       const dataUrl = await applyHeadMask(canvas);
-      writeCustomFaceDataUrl(dataUrl);
-      try {
-        localStorage.setItem('mickeys-gym-character', 'default');
-      } catch {
-        /* ignore */
+      const nextShots: Partial<CustomFaceSet> = { ...selfieShots, [step.key]: dataUrl };
+      setSelfieShots(nextShots);
+
+      if (selfieStep < SELFIE_STEPS.length - 1) {
+        setSelfieStep(selfieStep + 1);
+        setMode('camera');
+        // Keep the stream attached — re-bind if needed after mode flip
+        requestAnimationFrame(() => {
+          const v = videoRef.current;
+          if (v && streamRef.current) {
+            v.srcObject = streamRef.current;
+            void v.play();
+          }
+        });
+        return;
       }
+
+      const faces: CustomFaceSet = {
+        clean: nextShots.clean!,
+        ooh: nextShots.ooh!,
+        knockout: nextShots.knockout!,
+      };
+      writeCustomFaceSet(faces);
+      selectDefaultCharacter();
       stopCamera();
-      setPreviewUrl(dataUrl);
+      setPreviewSet(faces);
+      setPreviewUrl(faces.clean);
       setMode('done');
     } catch (err) {
       setMode('error');
       setError(err instanceof Error ? err.message : 'Could not save face');
     }
-  }, [stopCamera]);
+  }, [selfieShots, selfieStep, stopCamera]);
 
   const saveFromUpload = useCallback(async () => {
     const img = photoRef.current;
@@ -237,11 +294,9 @@ export function FaceCaptureView({ onClose }: Props) {
       drawPhotoTransformed(ctx, img, FACE_GUIDE_SIZE, scale, panX, panY, rotation);
       const dataUrl = await applyHeadMask(canvas);
       writeCustomFaceDataUrl(dataUrl);
-      try {
-        localStorage.setItem('mickeys-gym-character', 'default');
-      } catch {
-        /* ignore */
-      }
+      selectDefaultCharacter();
+      const faces = { clean: dataUrl, ooh: dataUrl, knockout: dataUrl };
+      setPreviewSet(faces);
       setPreviewUrl(dataUrl);
       setMode('done');
     } catch (err) {
@@ -343,7 +398,7 @@ export function FaceCaptureView({ onClose }: Props) {
         <div className="face-capture-titles">
           <h1 className="face-capture-title">Fit your face</h1>
           <p className="face-capture-sub">
-            Line up your head inside the yellow outline — then tap OK.
+            Selfie: smile, say ooh!, then look sad. Upload: line up one photo and tap OK.
           </p>
         </div>
       </header>
@@ -351,7 +406,7 @@ export function FaceCaptureView({ onClose }: Props) {
       {mode === 'choose' && (
         <div className="face-capture-choose">
           <button type="button" className="face-capture-primary" onClick={() => void startCamera()}>
-            Take selfie
+            Take 3 selfies
           </button>
           <label className="face-capture-primary face-capture-file-label">
             Upload photo
@@ -425,20 +480,47 @@ export function FaceCaptureView({ onClose }: Props) {
             </div>
           )}
 
-          {mode === 'camera' && (
-            <p className="face-capture-hint">Fit your face inside the outline, then capture.</p>
+          {(mode === 'camera' || (mode === 'saving' && !photoUrl)) && (
+            <div className="face-capture-selfie-steps">
+              <div className="face-capture-step-pills" aria-label={`Photo ${selfieStep + 1} of 3`}>
+                {SELFIE_STEPS.map((s, i) => (
+                  <span
+                    key={s.key}
+                    className={`face-capture-step-pill ${i === selfieStep ? 'is-current' : ''} ${
+                      selfieShots[s.key] ? 'is-done' : ''
+                    }`}
+                  >
+                    {i + 1}. {s.label}
+                  </span>
+                ))}
+              </div>
+              <p className="face-capture-hint face-capture-selfie-prompt">
+                {SELFIE_STEPS[selfieStep]?.prompt ?? 'Fit your face inside the outline.'}
+              </p>
+              {Object.keys(selfieShots).length > 0 && (
+                <div className="face-capture-shot-thumbs">
+                  {SELFIE_STEPS.map((s) =>
+                    selfieShots[s.key] ? (
+                      <img key={s.key} src={selfieShots[s.key]} alt={s.label} className="face-capture-shot-thumb" />
+                    ) : null
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           {mode === 'camera' && (
             <div className="face-capture-actions">
-              <button type="button" className="face-capture-primary" onClick={() => void saveFromCamera()}>
-                Capture &amp; save
+              <button type="button" className="face-capture-primary" onClick={() => void captureSelfieShot()}>
+                {SELFIE_STEPS[selfieStep]?.button ?? 'Capture'} ({selfieStep + 1}/3)
               </button>
               <button
                 type="button"
                 className="face-capture-secondary"
                 onClick={() => {
                   stopCamera();
+                  setSelfieStep(0);
+                  setSelfieShots({});
                   setMode('choose');
                 }}
               >
@@ -480,8 +562,27 @@ export function FaceCaptureView({ onClose }: Props) {
 
       {mode === 'done' && previewUrl && (
         <div className="face-capture-done">
-          <img src={previewUrl} alt="Saved face" className="face-capture-result" />
-          <p className="face-capture-hint">Saved — only the head inside the outline is kept (background is clear).</p>
+          {previewSet ? (
+            <div className="face-capture-result-row">
+              {(
+                [
+                  ['Smile', previewSet.clean],
+                  ['Ooh!', previewSet.ooh],
+                  ['Sad', previewSet.knockout],
+                ] as const
+              ).map(([label, src]) => (
+                <figure key={label} className="face-capture-result-fig">
+                  <img src={src} alt={label} className="face-capture-result" />
+                  <figcaption>{label}</figcaption>
+                </figure>
+              ))}
+            </div>
+          ) : (
+            <img src={previewUrl} alt="Saved face" className="face-capture-result" />
+          )}
+          <p className="face-capture-hint">
+            Saved — smile is normal, ooh! is punched, sad is knockout. Outside the outline stays clear.
+          </p>
           <button type="button" className="face-capture-primary" onClick={goGymWithFace}>
             Back to gym
           </button>

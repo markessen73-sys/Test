@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { readCustomFaceDataUrl } from '../../face-capture/customFace';
+import { readCustomFaceSet, type CustomFaceSet } from '../../face-capture/customFace';
 import {
   CHARACTERS,
   CHARACTER_LIST,
@@ -21,32 +21,32 @@ interface CharacterContextValue {
   character: CharacterDef;
   characters: CharacterDef[];
   setCharacterId: (id: CharacterId) => void;
+  customFace: CustomFaceSet | null;
+  /** @deprecated use customFace?.clean */
   customFaceDataUrl: string | null;
   refreshCustomFace: () => void;
 }
 
 const CharacterContext = createContext<CharacterContextValue | null>(null);
 
-/** When the user has fitted a photo, use it for the Default boxer expressions. */
-function applyCustomFace(def: CharacterDef, custom: string | null): CharacterDef {
+/** When the user has fitted photos, use them for the Default boxer expressions. */
+function applyCustomFace(def: CharacterDef, custom: CustomFaceSet | null): CharacterDef {
   if (!custom || def.id !== 'default') return def;
   return {
     ...def,
-    cleanSrc: custom,
-    oohSrc: custom,
-    knockoutSrc: custom,
-    damageStageCleanSrc: custom,
-    damageStageHoldSrc: custom,
-    damageStageKnockoutSrc: custom,
+    cleanSrc: custom.clean,
+    oohSrc: custom.ooh,
+    knockoutSrc: custom.knockout,
+    damageStageCleanSrc: custom.clean,
+    damageStageHoldSrc: custom.ooh,
+    damageStageKnockoutSrc: custom.knockout,
     name: 'My face',
   };
 }
 
 export function CharacterProvider({ children }: { children: ReactNode }) {
   const [characterId, setCharacterIdState] = useState<CharacterId>(() => readStoredCharacterId());
-  const [customFaceDataUrl, setCustomFaceDataUrl] = useState<string | null>(() =>
-    readCustomFaceDataUrl()
-  );
+  const [customFace, setCustomFace] = useState<CustomFaceSet | null>(() => readCustomFaceSet());
 
   const setCharacterId = useCallback((id: CharacterId) => {
     setCharacterIdState(id);
@@ -54,21 +54,22 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshCustomFace = useCallback(() => {
-    setCustomFaceDataUrl(readCustomFaceDataUrl());
+    setCustomFace(readCustomFaceSet());
   }, []);
 
   const value = useMemo<CharacterContextValue>(() => {
-    const characters = CHARACTER_LIST.map((c) => applyCustomFace(c, customFaceDataUrl));
-    const character = applyCustomFace(CHARACTERS[characterId], customFaceDataUrl);
+    const characters = CHARACTER_LIST.map((c) => applyCustomFace(c, customFace));
+    const character = applyCustomFace(CHARACTERS[characterId], customFace);
     return {
       characterId,
       character,
       characters,
       setCharacterId,
-      customFaceDataUrl,
+      customFace,
+      customFaceDataUrl: customFace?.clean ?? null,
       refreshCustomFace,
     };
-  }, [characterId, customFaceDataUrl, refreshCustomFace, setCharacterId]);
+  }, [characterId, customFace, refreshCustomFace, setCharacterId]);
 
   return <CharacterContext.Provider value={value}>{children}</CharacterContext.Provider>;
 }
