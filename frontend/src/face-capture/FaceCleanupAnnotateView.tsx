@@ -9,9 +9,6 @@ type AnnotateStep = 'erase' | 'eyes' | 'nose' | 'mouth' | 'ears';
 type Props = {
   /** Initial clean cutout (after auto background removal). */
   cleanSrc: string;
-  /** Optional existing ooh/knockout — if omitted, synthesized from cleaned face. */
-  oohSrc?: string;
-  knockoutSrc?: string;
   onComplete: (faces: CustomFaceSet) => void;
   onCancel: () => void;
 };
@@ -132,32 +129,8 @@ function splitLeftRight(mask: ImageData): { left: FaceFeatureMark | null; right:
   return { left: markFromMask(leftData), right: markFromMask(rightData) };
 }
 
-/**
- * Apply cleaned face alpha onto another expression so erased background stays gone.
- */
-async function applyCleanAlpha(expressionSrc: string, cleanCanvas: HTMLCanvasElement): Promise<string> {
-  const img = await loadImage(expressionSrc);
-  const out = document.createElement('canvas');
-  out.width = FACE_SIZE;
-  out.height = FACE_SIZE;
-  const ctx = out.getContext('2d', { willReadFrequently: true });
-  if (!ctx) return expressionSrc;
-  ctx.drawImage(img, 0, 0, FACE_SIZE, FACE_SIZE);
-  const face = ctx.getImageData(0, 0, FACE_SIZE, FACE_SIZE);
-  const cleanCtx = cleanCanvas.getContext('2d', { willReadFrequently: true });
-  if (!cleanCtx) return expressionSrc;
-  const clean = cleanCtx.getImageData(0, 0, FACE_SIZE, FACE_SIZE);
-  for (let i = 3; i < face.data.length; i += 4) {
-    face.data[i] = Math.min(face.data[i]!, clean.data[i]!);
-  }
-  ctx.putImageData(face, 0, 0);
-  return out.toDataURL('image/png');
-}
-
 export function FaceCleanupAnnotateView({
   cleanSrc,
-  oohSrc,
-  knockoutSrc,
   onComplete,
   onCancel,
 }: Props) {
@@ -375,25 +348,16 @@ export function FaceCleanupAnnotateView({
       const cleaned = face.toDataURL('image/png');
       const features = buildFeatures();
 
-      setStatus('Building expressions…');
-      let ooh = oohSrc;
-      let knockout = knockoutSrc;
-      if (!ooh || !knockout) {
-        const synth = await synthesizeFaceExpressions(cleaned);
-        ooh = synth.ooh;
-        knockout = synth.knockout;
-      } else {
-        ooh = await applyCleanAlpha(ooh, face);
-        knockout = await applyCleanAlpha(knockout, face);
-      }
+      setStatus('Making ooh & sad faces…');
+      const synth = await synthesizeFaceExpressions(cleaned);
 
       setStatus('Placing damage marks…');
-      const baked = await bakePhotoDamageStages(cleaned, features, knockout);
+      const baked = await bakePhotoDamageStages(cleaned, features, synth.knockout);
 
       onComplete({
         clean: cleaned,
-        ooh,
-        knockout,
+        ooh: synth.ooh,
+        knockout: synth.knockout,
         features,
         damageStages: baked.stages,
         damageKnockout: baked.knockout,
