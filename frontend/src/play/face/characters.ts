@@ -1,5 +1,5 @@
 import { assetUrl } from '../../assetUrl';
-import { isPhotoCharacterId } from '../../face-capture/customFace';
+import { isPhotoCharacterId, type FaceFeatureMark } from '../../face-capture/customFace';
 
 /**
  * Playable face packs live under `public/faces/characters/<id>/`.
@@ -33,6 +33,8 @@ export interface CharacterDef {
   boboKoSrc: string;
   /** True for user photo faces (can be deleted). */
   isPhotoFace?: boolean;
+  /** Highlighter eye marks — animate pop-out eyes on punch when set. */
+  popEyes?: { left: FaceFeatureMark; right: FaceFeatureMark };
 }
 
 const DAMAGE_STEP_NAMES = [

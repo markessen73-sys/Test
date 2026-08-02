@@ -53,7 +53,9 @@ const CharacterContext = createContext<CharacterContextValue | null>(null);
 /** Photo faces use the shared buzz-cut damage HUD ladder. */
 function characterFromPhoto(entry: CustomFaceEntry): CharacterDef {
   const stock = CHARACTERS.default;
-  return {
+  const left = entry.features?.leftEye;
+  const right = entry.features?.rightEye;
+  const next: CharacterDef = {
     ...stock,
     id: entry.id,
     name: entry.name,
@@ -66,6 +68,8 @@ function characterFromPhoto(entry: CustomFaceEntry): CharacterDef {
     damageStageKnockoutSrc: DAMAGE_STAGE_KNOCKOUT_SRC,
     isPhotoFace: true,
   };
+  if (left && right) next.popEyes = { left, right };
+  return next;
 }
 
 function resolveCharacter(

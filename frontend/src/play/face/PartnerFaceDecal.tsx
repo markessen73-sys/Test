@@ -13,6 +13,8 @@ import {
   scalePlacementFromPoint,
   spriteNormRectToLocal,
 } from './spriteFacePlacement';
+import { paintOohReaction, skinFromFaceImage, type PopEyePair } from './paintOohReaction';
+import type { Rgb } from '../../face-capture/popEyes';
 
 const CANVAS_SIZE = 512;
 /** Prior calibration: top-right pinned, +25%. */
@@ -24,8 +26,8 @@ const PARTNER_FACE_SCALE_NOSE = 1.1;
 const PARTNER_FACE_NOSE_SCALE_STEPS = 2;
 /** Final overall boost — active head ~20% larger. */
 const PARTNER_FACE_SCALE_OVERALL = 1.2;
-/** How long the pre-authored "ooh!" face stays up (ms). */
-const OOH_MS = 380;
+/** How long the "ooh!" face stays up (ms); eyes zoom for most of this. */
+const OOH_MS = 480;
 
 function scaleFromNose(
   placement: ReturnType<typeof spriteNormRectToLocal>,
@@ -60,6 +62,7 @@ interface PartnerFaceDecalProps {
 /**
  * Clean 2D caricature on the moving sparring partner.
  * Injuries live on the HUD damage meter. On hit, swap to ooh; at 100% show KO.
+ * Photo faces with eye marks animate pop-eyes zooming ½→full.
  */
 export function PartnerFaceDecal({
   spriteWidth,
@@ -74,6 +77,8 @@ export function PartnerFaceDecal({
   const koRef = useRef<HTMLImageElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const texRef = useRef<THREE.CanvasTexture | null>(null);
+  const popEyesRef = useRef<PopEyePair | null>(null);
+  const skinRef = useRef<Rgb | null>(null);
   const knockedOutRef = useRef(knockedOut);
   knockedOutRef.current = knockedOut;
 
@@ -91,13 +96,22 @@ export function PartnerFaceDecal({
   }, [spriteWidth, spriteHeight]);
   const [fw, fh] = placement.size;
 
-  const paint = (img: HTMLImageElement) => {
+  const paint = (img: HTMLImageElement, hitAgeMs?: number) => {
     const canvas = canvasRef.current;
     const tex = texRef.current;
     if (!canvas || !tex) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE);
+    if (hitAgeMs != null && popEyesRef.current) {
+      paintOohReaction(ctx, CANVAS_SIZE, img, {
+        popEyes: popEyesRef.current,
+        skin: skinRef.current,
+        hitAgeMs,
+        oohMs: OOH_MS,
+      });
+    } else {
+      drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE);
+    }
     tex.needsUpdate = true;
   };
 
@@ -112,6 +126,9 @@ export function PartnerFaceDecal({
     texRef.current = tex;
     setTexture(tex);
 
+    popEyesRef.current = character.popEyes ?? null;
+    skinRef.current = null;
+
     Promise.all([
       loadFaceImage(character.cleanSrc),
       loadFaceImage(character.oohSrc),
@@ -121,6 +138,9 @@ export function PartnerFaceDecal({
       normalRef.current = normal;
       oohRef.current = ooh;
       koRef.current = ko;
+      if (character.popEyes) {
+        skinRef.current = skinFromFaceImage(ooh, character.popEyes);
+      }
       paint(knockedOutRef.current ? ko : normal);
     });
 
@@ -141,7 +161,7 @@ export function PartnerFaceDecal({
     if (normal) paint(normal);
   }, [knockedOut]);
 
-  // Swap to authored ooh face for a short window on each hit (unless already KO).
+  // Ooh reaction: mouth swap + zooming pop eyes when marks exist.
   useEffect(() => {
     if (!lastHitTime || knockedOutRef.current) return;
     let frame = 0;
@@ -158,10 +178,10 @@ export function PartnerFaceDecal({
       if (!normal || !ooh) return;
 
       const age = performance.now() - lastHitTime;
-      const showOoh = age >= 0 && age < OOH_MS;
-      paint(showOoh ? ooh : normal);
-
-      if (!showOoh && age >= OOH_MS) {
+      if (age >= 0 && age < OOH_MS) {
+        paint(ooh, popEyesRef.current ? age : undefined);
+      } else {
+        paint(normal);
         cancelAnimationFrame(frame);
       }
     };

@@ -7,6 +7,11 @@ import {
 } from './faceDetect';
 import { addCustomFace, type CustomFaceSet } from './customFace';
 import { FaceCleanupAnnotateView } from './FaceCleanupAnnotateView';
+import {
+  drawPopEyesZoom,
+  popEyeScaleForHit,
+  sampleSkinNearEyes,
+} from './popEyes';
 import './FaceCaptureView.css';
 
 type Mode = 'choose' | 'camera' | 'pick-face' | 'annotate' | 'saving' | 'done' | 'error';
@@ -14,6 +19,8 @@ type Mode = 'choose' | 'camera' | 'pick-face' | 'annotate' | 'saving' | 'done' |
 type Props = {
   onClose: () => void;
 };
+
+const PREVIEW_OOH_MS = 900;
 
 function selectCharacter(id: string) {
   try {
@@ -31,6 +38,67 @@ function loadImage(src: string) {
     img.onerror = () => reject(new Error(`Failed to load ${src}`));
     img.src = src;
   });
+}
+
+/** Looping preview of ooh mouth + eyes zooming ½→full. */
+function OohPopPreview({ faces }: { faces: CustomFaceSet }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const left = faces.features?.leftEye;
+  const right = faces.features?.rightEye;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    let cancelled = false;
+    let frame = 0;
+    let start = performance.now();
+
+    void (async () => {
+      const img = await loadImage(faces.ooh);
+      if (cancelled) return;
+      const size = 256;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      let skin = { r: 180, g: 140, b: 120 };
+      if (left && right) {
+        const tmp = document.createElement('canvas');
+        tmp.width = img.naturalWidth || img.width;
+        tmp.height = img.naturalHeight || img.height;
+        const tctx = tmp.getContext('2d', { willReadFrequently: true });
+        if (tctx) {
+          tctx.drawImage(img, 0, 0);
+          skin = sampleSkinNearEyes(
+            tctx.getImageData(0, 0, tmp.width, tmp.height),
+            left,
+            right,
+          );
+        }
+      }
+
+      const tick = (now: number) => {
+        frame = requestAnimationFrame(tick);
+        const age = (now - start) % PREVIEW_OOH_MS;
+        ctx.clearRect(0, 0, size, size);
+        ctx.drawImage(img, 0, 0, size, size);
+        if (left && right) {
+          const scale = popEyeScaleForHit(age, PREVIEW_OOH_MS) ?? 1;
+          drawPopEyesZoom(ctx, left, right, size, size, scale, skin);
+        }
+      };
+      start = performance.now();
+      frame = requestAnimationFrame(tick);
+    })();
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
+  }, [faces.ooh, left, right]);
+
+  return <canvas ref={canvasRef} className="face-capture-result" aria-label="Ooh!" />;
 }
 
 export function FaceCaptureView({ onClose }: Props) {
@@ -316,22 +384,22 @@ export function FaceCaptureView({ onClose }: Props) {
       {mode === 'done' && previewSet && (
         <div className="face-capture-done">
           <div className="face-capture-result-row">
-            {(
-              [
-                ['Smile', previewSet.clean],
-                ['Ooh!', previewSet.ooh],
-                ['Sad', previewSet.knockout],
-              ] as const
-            ).map(([label, src]) => (
-              <figure key={label} className="face-capture-result-fig">
-                <img src={src} alt={label} className="face-capture-result" />
-                <figcaption>{label}</figcaption>
-              </figure>
-            ))}
+            <figure className="face-capture-result-fig">
+              <img src={previewSet.clean} alt="Smile" className="face-capture-result" />
+              <figcaption>Smile</figcaption>
+            </figure>
+            <figure className="face-capture-result-fig">
+              <OohPopPreview faces={previewSet} />
+              <figcaption>Ooh!</figcaption>
+            </figure>
+            <figure className="face-capture-result-fig">
+              <img src={previewSet.knockout} alt="Sad" className="face-capture-result" />
+              <figcaption>Sad</figcaption>
+            </figure>
           </div>
           <p className="face-capture-hint">
-            Saved as a new photo face — smile is normal, ooh! is punched, sad is knockout. Pick or
-            delete faces anytime in Options.
+            Saved as a new photo face — on a punch, eyes zoom forward from half size. Pick or delete
+            faces anytime in Options.
           </p>
           <button type="button" className="face-capture-primary" onClick={goGymWithFace}>
             Back to gym
