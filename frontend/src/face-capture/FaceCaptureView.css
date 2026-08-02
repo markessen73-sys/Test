@@ -131,7 +131,7 @@
   inset: 0;
   pointer-events: none;
   background: radial-gradient(
-    ellipse 68% 72% at 50% 49%,
+    ellipse 52% 68% at 50% 49%,
     transparent 48%,
     rgba(0, 0, 0, 0.5) 70%,
     rgba(0, 0, 0, 0.78) 100%

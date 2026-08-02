@@ -251,7 +251,7 @@ export function FaceCaptureView({ onClose }: Props) {
         <div className="face-capture-titles">
           <h1 className="face-capture-title">Fit your face</h1>
           <p className="face-capture-sub">
-            Line up your head, eyes, and nose with the yellow wireframe — then save.
+            Line up your head inside the yellow outline — then save.
           </p>
         </div>
       </header>
@@ -316,7 +316,7 @@ export function FaceCaptureView({ onClose }: Props) {
                   onChange={(e) => setScale(Number(e.target.value))}
                 />
               </label>
-              <p className="face-capture-hint">Drag the photo to move it. Zoom until eyes and nose sit in the marks.</p>
+              <p className="face-capture-hint">Drag the photo to move it. Zoom until your head fills the outline.</p>
             </div>
           )}
 
