@@ -198,7 +198,9 @@ export function FaceCaptureView({ onClose }: Props) {
   const showCameraChrome = cameraActive && (mode === 'camera' || mode === 'saving');
 
   return (
-    <div className={`face-capture ${showCameraChrome ? 'has-confirm-bar' : ''}`}>
+    <div
+      className={`face-capture ${showCameraChrome ? 'has-confirm-bar' : ''} ${mode === 'annotate' ? 'is-annotating' : ''}`}
+    >
       <header className="face-capture-header">
         <button type="button" className="face-capture-back" onClick={onClose}>
           ← Back to gym

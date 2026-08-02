@@ -58,8 +58,8 @@ const STEPS: Array<{
 ];
 
 const FACE_SIZE = 1024;
-const ERASER_MIN = 12;
-const ERASER_MAX = 96;
+const BRUSH_MIN = 8;
+const BRUSH_MAX = 96;
 
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -135,6 +135,7 @@ export function FaceCleanupAnnotateView({ cleanSrc, onComplete, onCancel }: Prop
   const faceRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const strokeRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
   const lastPt = useRef<{ x: number; y: number } | null>(null);
@@ -145,8 +146,11 @@ export function FaceCleanupAnnotateView({ cleanSrc, onComplete, onCancel }: Prop
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('Loading face…');
   const [ready, setReady] = useState(false);
-  const [eraserSize, setEraserSize] = useState(STEPS[0]!.brush);
-  const [wrapWidth, setWrapWidth] = useState(420);
+  const [brushSizes, setBrushSizes] = useState<Record<AnnotateStep, number>>(() =>
+    Object.fromEntries(STEPS.map((s) => [s.id, s.brush])) as Record<AnnotateStep, number>,
+  );
+  const [wrapWidth, setWrapWidth] = useState(320);
+  const [canvasCssSize, setCanvasCssSize] = useState(320);
   const [cursor, setCursor] = useState<{ x: number; y: number; visible: boolean }>({
     x: 0,
     y: 0,
@@ -158,7 +162,11 @@ export function FaceCleanupAnnotateView({ cleanSrc, onComplete, onCancel }: Prop
 
   const step = STEPS[stepIndex]!;
   const isErase = step.id === 'erase';
-  const brushSize = isErase ? eraserSize : step.brush;
+  const brushSize = brushSizes[step.id] ?? step.brush;
+
+  const setBrushSize = (value: number) => {
+    setBrushSizes((prev) => ({ ...prev, [step.id]: value }));
+  };
 
   const ensureStrokeCanvas = useCallback((id: AnnotateStep) => {
     let c = stepMasks.current[id];
@@ -227,14 +235,18 @@ export function FaceCleanupAnnotateView({ cleanSrc, onComplete, onCancel }: Prop
   }, [cleanSrc]);
 
   useEffect(() => {
-    const wrap = wrapRef.current;
-    if (!wrap) return;
-    const sync = () => setWrapWidth(wrap.clientWidth || 420);
+    const stage = stageRef.current;
+    if (!stage) return;
+    const sync = () => {
+      const size = Math.max(160, Math.floor(Math.min(stage.clientWidth, stage.clientHeight, 520)));
+      setCanvasCssSize(size);
+      setWrapWidth(size);
+    };
     sync();
     const ro = new ResizeObserver(sync);
-    ro.observe(wrap);
+    ro.observe(stage);
     return () => ro.disconnect();
-  }, [ready]);
+  }, [ready, stepIndex]);
 
   useEffect(() => {
     ensureStrokeCanvas(step.id);
@@ -442,27 +454,30 @@ export function FaceCleanupAnnotateView({ cleanSrc, onComplete, onCancel }: Prop
             Marker ready — drag to colour
           </p>
         )}
-        {isErase && (
-          <div className="face-annotate-eraser-controls">
-            <label className="face-annotate-eraser-label" htmlFor="eraser-size">
-              Eraser size
-            </label>
-            <input
-              id="eraser-size"
-              className="face-annotate-eraser-range"
-              type="range"
-              min={ERASER_MIN}
-              max={ERASER_MAX}
-              value={eraserSize}
-              onChange={(e) => setEraserSize(Number(e.target.value))}
-            />
-            <span className="face-annotate-eraser-value">{eraserSize}</span>
-          </div>
-        )}
+        <div className="face-annotate-brush-controls">
+          <label className="face-annotate-brush-label" htmlFor="brush-size">
+            {isErase ? 'Eraser size' : 'Highlighter size'}
+          </label>
+          <input
+            id="brush-size"
+            className="face-annotate-brush-range"
+            type="range"
+            min={BRUSH_MIN}
+            max={BRUSH_MAX}
+            value={brushSize}
+            onChange={(e) => setBrushSize(Number(e.target.value))}
+            style={step.color ? { accentColor: step.color } : undefined}
+          />
+          <span className="face-annotate-brush-value">{brushSize}</span>
+        </div>
       </div>
 
-      <div className="face-annotate-stage">
-        <div ref={wrapRef} className="face-annotate-canvas-wrap">
+      <div ref={stageRef} className="face-annotate-stage">
+        <div
+          ref={wrapRef}
+          className="face-annotate-canvas-wrap"
+          style={{ width: canvasCssSize, height: canvasCssSize }}
+        >
           <canvas ref={faceRef} className="face-annotate-face" />
           <canvas
             ref={overlayRef}
