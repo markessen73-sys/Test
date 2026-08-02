@@ -1,49 +1,15 @@
 {
-  "source": "faces/characters/default/clean.png",
+  "source": "file_00000000178081f48b8c802f02b638c3.png",
   "size": [
     1024,
     1024
   ],
   "faceOval": [
-    0.1436,
-    0.0947,
-    0.8545,
-    0.8496
+    0.0938,
+    0.0586,
+    0.9023,
+    0.9258
   ],
-  "regions": {
-    "leftEye": [
-      0.2715,
-      0.3061,
-      0.4279,
-      0.3967
-    ],
-    "rightEye": [
-      0.5701,
-      0.3061,
-      0.7265,
-      0.3967
-    ],
-    "nose": [
-      0.3995,
-      0.3967,
-      0.5986,
-      0.5175
-    ]
-  },
-  "landmarks": {
-    "leftEye": [
-      0.3497,
-      0.3514
-    ],
-    "rightEye": [
-      0.6483,
-      0.3514
-    ],
-    "nose": [
-      0.499,
-      0.4571
-    ]
-  },
   "outline": "faces/guide/face-guide-outline.png",
   "mask": "faces/guide/face-guide-mask.png"
 }
