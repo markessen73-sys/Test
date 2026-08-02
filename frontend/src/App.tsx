@@ -1,4 +1,4 @@
-import { BuildFaceApp } from './build-face/BuildFaceApp';
+import { FaceCaptureApp } from './face-capture/FaceCaptureApp';
 import { GymApp } from './GymApp';
 import { CharacterProvider } from './play/face/CharacterContext';
 import { useBackgroundMusic } from './useBackgroundMusic';
@@ -11,9 +11,11 @@ function App() {
 
   if (builder === 'face' || builder === 'character') {
     return (
-      <div className="app">
-        <BuildFaceApp />
-      </div>
+      <CharacterProvider>
+        <div className="app">
+          <FaceCaptureApp />
+        </div>
+      </CharacterProvider>
     );
   }
 

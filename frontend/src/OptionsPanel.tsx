@@ -49,12 +49,13 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
         </header>
 
         <section className="options-section">
-          <h3 className="options-section-title">Build a face</h3>
+          <h3 className="options-section-title">Fit your face</h3>
           <p className="options-section-hint">
-            Start from a blank gym face and pick a hair style from the catalogue.
+            Take a selfie or upload a photo, then line it up with the head, eyes, and nose
+            outline. What sits inside the outline is saved as your boxer face.
           </p>
           <a className="options-link-btn" href="?builder=face">
-            Open face builder
+            Open face capture
           </a>
         </section>
 

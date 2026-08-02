@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { BAG_FACE_MESH, FACE_TEMPLATE_SRC } from './faceTemplate';
+import { BAG_FACE_MESH } from './faceTemplate';
 import { drawFaceOnCanvas, loadFaceImage, warpForPunch } from './composeFaceTexture';
+import { useCharacter } from './CharacterContext';
 
 const CANVAS_SIZE = 512;
 
@@ -10,8 +11,9 @@ interface BagFaceDecalProps {
   lastPunchTime?: number;
 }
 
-/** Caricature / template face decal on the heavy bag cylinder. */
+/** Face decal on the heavy bag cylinder. */
 export function BagFaceDecal({ lastPunchTime = 0 }: BagFaceDecalProps) {
+  const { character } = useCharacter();
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -28,7 +30,7 @@ export function BagFaceDecal({ lastPunchTime = 0 }: BagFaceDecalProps) {
     texRef.current = tex;
     setTexture(tex);
 
-    loadFaceImage(FACE_TEMPLATE_SRC).then((img) => {
+    loadFaceImage(character.cleanSrc).then((img) => {
       if (!cancelled) imgRef.current = img;
     });
 
@@ -36,7 +38,7 @@ export function BagFaceDecal({ lastPunchTime = 0 }: BagFaceDecalProps) {
       cancelled = true;
       tex.dispose();
     };
-  }, []);
+  }, [character.cleanSrc]);
 
   useEffect(() => {
     let frame = 0;
