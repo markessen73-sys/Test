@@ -164,33 +164,38 @@ function drawComedyPopEyes(
     const sockRx = Math.max(10, eye.rx * w * 1.15);
     const sockRy = Math.max(8, eye.ry * h * 1.25);
 
-    // Cover original eye with skin (socket)
+    // Cover original eye with a soft skin ring under the bulge
     ctx.fillStyle = `rgb(${skin.r}, ${skin.g}, ${skin.b})`;
     ctx.beginPath();
-    ctx.ellipse(sx, sy, sockRx * 1.15, sockRy * 1.2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = `rgba(${Math.max(0, skin.r - 35)}, ${Math.max(0, skin.g - 40)}, ${Math.max(0, skin.b - 40)}, 0.35)`;
-    ctx.beginPath();
-    ctx.ellipse(sx, sy, sockRx * 0.7, sockRy * 0.65, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx, sy, sockRx * 1.2, sockRy * 1.25, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    const popRx = sockRx * 1.35;
-    const popRy = sockRy * 1.45;
-    const px = sx + outward * sockRx * 0.85;
-    const py = sy - sockRy * 1.55;
+    // Bulging eyeball centred on the highlighter mark
+    const popRx = sockRx * 1.45;
+    const popRy = sockRy * 1.55;
+    const px = sx;
+    const py = sy;
 
-    ctx.strokeStyle = 'rgba(90, 90, 100, 0.85)';
-    ctx.lineWidth = Math.max(1.5, sockRx * 0.12);
+    // Short comedy spring squiggles around the rim (centre stays on the mark)
+    ctx.strokeStyle = 'rgba(90, 90, 100, 0.75)';
+    ctx.lineWidth = Math.max(1.5, sockRx * 0.1);
     ctx.lineCap = 'round';
-    const coils = 4;
-    ctx.beginPath();
-    ctx.moveTo(sx, sy);
-    for (let i = 1; i <= coils; i++) {
-      const t = i / coils;
-      const wx = Math.sin(t * Math.PI * coils) * sockRx * 0.28;
-      ctx.lineTo(sx + (px - sx) * t + wx * outward, sy + (py - sy) * t);
+    for (let k = 0; k < 3; k++) {
+      const ang = outward * (0.35 + k * 0.55) - Math.PI * 0.15;
+      const x0 = sx + Math.cos(ang) * sockRx * 0.35;
+      const y0 = sy + Math.sin(ang) * sockRy * 0.35;
+      const x1 = sx + Math.cos(ang) * popRx * 1.05;
+      const y1 = sy + Math.sin(ang) * popRy * 1.05;
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.quadraticCurveTo(
+        (x0 + x1) / 2 + Math.cos(ang + Math.PI / 2) * sockRx * 0.2,
+        (y0 + y1) / 2 + Math.sin(ang + Math.PI / 2) * sockRy * 0.2,
+        x1,
+        y1,
+      );
+      ctx.stroke();
     }
-    ctx.stroke();
 
     ctx.fillStyle = '#fffef8';
     ctx.beginPath();
@@ -201,8 +206,8 @@ function drawComedyPopEyes(
     ctx.stroke();
 
     const irisR = Math.min(popRx, popRy) * 0.42;
-    const irisX = px + outward * popRx * 0.12;
-    const irisY = py + popRy * 0.05;
+    const irisX = px + outward * popRx * 0.08;
+    const irisY = py;
     const iris = ctx.createRadialGradient(
       irisX - irisR * 0.2,
       irisY - irisR * 0.2,
