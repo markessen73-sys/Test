@@ -404,7 +404,7 @@ export function FaceCleanupAnnotateView({ cleanSrc, onComplete, onCancel }: Prop
       const features = buildFeatures();
 
       setStatus('Making ooh & sad faces…');
-      const synth = await synthesizeFaceExpressions(cleaned);
+      const synth = await synthesizeFaceExpressions(cleaned, features);
 
       setStatus('Placing damage marks…');
       const baked = await bakePhotoDamageStages(cleaned, features, synth.knockout);
@@ -437,8 +437,9 @@ export function FaceCleanupAnnotateView({ cleanSrc, onComplete, onCancel }: Prop
     else onCancel();
   };
 
-  // Cursor ring size in CSS pixels (scale from canvas coords)
-  const cursorPx = (brushSize / FACE_SIZE) * wrapWidth * 2;
+  // Cursor ring size in CSS pixels (scale from canvas coords); keep a readable minimum
+  const cursorPx = Math.max(22, (brushSize / FACE_SIZE) * wrapWidth * 2);
+  const previewPx = Math.max(18, Math.min(72, brushSize * 0.85));
 
   return (
     <div className="face-annotate">
@@ -455,6 +456,22 @@ export function FaceCleanupAnnotateView({ cleanSrc, onComplete, onCancel }: Prop
           </p>
         )}
         <div className="face-annotate-brush-controls">
+          <span
+            className={`face-annotate-brush-preview ${isErase ? 'is-eraser' : 'is-marker'}`}
+            style={{
+              width: previewPx,
+              height: previewPx,
+              borderColor: isErase ? 'rgba(255,255,255,0.95)' : step.color || '#fff',
+              background: isErase
+                ? 'rgba(255, 80, 80, 0.28)'
+                : step.color
+                  ? `${step.color}55`
+                  : 'rgba(255,255,255,0.2)',
+              boxShadow: step.color ? `0 0 0 2px ${step.color}88` : undefined,
+            }}
+            title={`Brush size ${brushSize}`}
+            aria-hidden
+          />
           <label className="face-annotate-brush-label" htmlFor="brush-size">
             {isErase ? 'Eraser size' : 'Highlighter size'}
           </label>

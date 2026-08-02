@@ -57,7 +57,25 @@
   justify-content: center;
   gap: 0.65rem;
   margin: 0.55rem auto 0;
-  max-width: 22rem;
+  max-width: 24rem;
+}
+
+.face-annotate-brush-preview {
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2.5px solid #fff;
+  box-sizing: border-box;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+
+.face-annotate-brush-preview.is-eraser {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+.face-annotate-brush-preview.is-marker {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
 }
 
 .face-annotate-brush-label {
@@ -124,7 +142,7 @@
 .face-annotate-cursor {
   position: absolute;
   border-radius: 50%;
-  border: 2px solid #fff;
+  border: 2.5px solid #fff;
   pointer-events: none;
   transform: translate(-50%, -50%);
   box-sizing: border-box;
@@ -138,7 +156,9 @@
 }
 
 .face-annotate-cursor.is-marker {
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 0 0 2px rgba(0, 0, 0, 0.45),
+    0 0 8px rgba(255, 255, 255, 0.25);
 }
 
 .face-annotate-bar {

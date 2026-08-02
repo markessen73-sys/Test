@@ -30,7 +30,7 @@ interface CharacterContextValue {
 const CharacterContext = createContext<CharacterContextValue | null>(null);
 
 /** When the user has fitted photos, use them for the Default boxer live faces.
- * Damage meter uses baked photo damage stages when available. */
+ * Damage meter uses baked photo damage from marked features when available. */
 function applyCustomFace(def: CharacterDef, custom: CustomFaceSet | null): CharacterDef {
   if (!custom || def.id !== 'default') return def;
   const next: CharacterDef = {
@@ -39,12 +39,15 @@ function applyCustomFace(def: CharacterDef, custom: CustomFaceSet | null): Chara
     oohSrc: custom.ooh,
     knockoutSrc: custom.knockout,
     name: 'My face',
+    damageStageCleanSrc: custom.clean,
+    damageStageHoldSrc: custom.ooh,
+    damageStageKnockoutSrc: custom.damageKnockout ?? custom.knockout,
   };
+  if (custom.features) {
+    next.photoFeatures = custom.features;
+  }
   if (custom.damageStages?.length) {
-    next.damageStageCleanSrc = custom.clean;
     next.damageStageSrcs = custom.damageStages;
-    next.damageStageHoldSrc = custom.ooh;
-    next.damageStageKnockoutSrc = custom.damageKnockout ?? custom.knockout;
   }
   return next;
 }

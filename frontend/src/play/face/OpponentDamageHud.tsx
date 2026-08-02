@@ -5,8 +5,8 @@ import {
   type DamagedFaceAssets,
 } from './renderDamagedFace';
 
-/** Compact corner HUD — big enough to read injuries, small enough not to clash. */
-const FACE_PX = 104;
+/** Compact corner HUD — big enough to read photo injuries. */
+const FACE_PX = 132;
 
 interface OpponentDamageHudProps {
   /** Damage meter stage 0–10 (each step = 10%). */

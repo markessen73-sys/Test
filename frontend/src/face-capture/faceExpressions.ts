@@ -4,7 +4,7 @@
  */
 import { FaceLandmarker, FilesetResolver, type NormalizedLandmark } from '@mediapipe/tasks-vision';
 import { FACE_OUT_SIZE } from './faceDetect';
-import type { CustomFaceSet } from './customFace';
+import type { CustomFaceFeatures, CustomFaceSet, FaceFeatureMark } from './customFace';
 
 const WASM_PATH = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm';
 const LANDMARKER_MODEL =
@@ -111,11 +111,137 @@ function averageSamples(
   return { r: Math.round(r / n), g: Math.round(g / n), b: Math.round(b / n) };
 }
 
+function eyeMarkFromLandmarks(
+  landmarks: NormalizedLandmark[],
+  w: number,
+  h: number,
+  side: 'left' | 'right',
+): FaceFeatureMark {
+  // MediaPipe: image-left eye uses 33/133, image-right 362/263
+  const ids = side === 'left' ? [33, 133, 159, 145] : [362, 263, 386, 374];
+  const pts = ids.map((i) => toPx(landmarks[i]!, w, h));
+  const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length / w;
+  const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length / h;
+  const minX = Math.min(...pts.map((p) => p.x));
+  const maxX = Math.max(...pts.map((p) => p.x));
+  const minY = Math.min(...pts.map((p) => p.y));
+  const maxY = Math.max(...pts.map((p) => p.y));
+  return {
+    cx,
+    cy,
+    rx: Math.max(0.04, ((maxX - minX) / w) * 0.55),
+    ry: Math.max(0.03, ((maxY - minY) / h) * 0.65),
+  };
+}
+
+/** Classic comedy: eyes pop out of their sockets on little springs. */
+function drawComedyPopEyes(
+  ctx: CanvasRenderingContext2D,
+  imgData: ImageData,
+  left: FaceFeatureMark,
+  right: FaceFeatureMark,
+  w: number,
+  h: number,
+) {
+  const skinSamples: Array<{ r: number; g: number; b: number }> = [];
+  for (const eye of [left, right]) {
+    const offsets = [
+      { x: 0, y: -eye.ry * h * 1.8 },
+      { x: -eye.rx * w * 1.2, y: 0 },
+      { x: eye.rx * w * 1.2, y: 0 },
+      { x: 0, y: eye.ry * h * 1.6 },
+    ];
+    for (const o of offsets) {
+      const s = sampleRgb(imgData.data, w, h, eye.cx * w + o.x, eye.cy * h + o.y);
+      if (s) skinSamples.push(s);
+    }
+  }
+  const skin = averageSamples(skinSamples);
+
+  const paintOne = (eye: FaceFeatureMark, outward: number) => {
+    const sx = eye.cx * w;
+    const sy = eye.cy * h;
+    const sockRx = Math.max(10, eye.rx * w * 1.15);
+    const sockRy = Math.max(8, eye.ry * h * 1.25);
+
+    // Cover original eye with skin (socket)
+    ctx.fillStyle = `rgb(${skin.r}, ${skin.g}, ${skin.b})`;
+    ctx.beginPath();
+    ctx.ellipse(sx, sy, sockRx * 1.15, sockRy * 1.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(${Math.max(0, skin.r - 35)}, ${Math.max(0, skin.g - 40)}, ${Math.max(0, skin.b - 40)}, 0.35)`;
+    ctx.beginPath();
+    ctx.ellipse(sx, sy, sockRx * 0.7, sockRy * 0.65, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const popRx = sockRx * 1.35;
+    const popRy = sockRy * 1.45;
+    const px = sx + outward * sockRx * 0.85;
+    const py = sy - sockRy * 1.55;
+
+    ctx.strokeStyle = 'rgba(90, 90, 100, 0.85)';
+    ctx.lineWidth = Math.max(1.5, sockRx * 0.12);
+    ctx.lineCap = 'round';
+    const coils = 4;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    for (let i = 1; i <= coils; i++) {
+      const t = i / coils;
+      const wx = Math.sin(t * Math.PI * coils) * sockRx * 0.28;
+      ctx.lineTo(sx + (px - sx) * t + wx * outward, sy + (py - sy) * t);
+    }
+    ctx.stroke();
+
+    ctx.fillStyle = '#fffef8';
+    ctx.beginPath();
+    ctx.ellipse(px, py, popRx, popRy, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(40, 40, 50, 0.55)';
+    ctx.lineWidth = Math.max(1.5, popRx * 0.08);
+    ctx.stroke();
+
+    const irisR = Math.min(popRx, popRy) * 0.42;
+    const irisX = px + outward * popRx * 0.12;
+    const irisY = py + popRy * 0.05;
+    const iris = ctx.createRadialGradient(
+      irisX - irisR * 0.2,
+      irisY - irisR * 0.2,
+      0,
+      irisX,
+      irisY,
+      irisR,
+    );
+    iris.addColorStop(0, '#5a9fd4');
+    iris.addColorStop(0.65, '#2a5f8f');
+    iris.addColorStop(1, '#1a3348');
+    ctx.fillStyle = iris;
+    ctx.beginPath();
+    ctx.arc(irisX, irisY, irisR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0a0a0c';
+    ctx.beginPath();
+    ctx.arc(irisX, irisY, irisR * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.beginPath();
+    ctx.arc(irisX - irisR * 0.28, irisY - irisR * 0.3, irisR * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  paintOne(left, -1);
+  paintOne(right, 1);
+}
+
 /**
  * Open-mouth "ooh": cover the full original smile (including corners) with skin,
  * then paint a clean oval cavity so leftover smile sides don't remain.
+ * Comedy pop-out eyes use highlighted eye marks when available.
  */
-function makeOoh(img: HTMLImageElement, landmarks: NormalizedLandmark[]): string {
+function makeOoh(
+  img: HTMLImageElement,
+  landmarks: NormalizedLandmark[],
+  features?: CustomFaceFeatures,
+): string {
   const w = img.naturalWidth || img.width || FACE_OUT_SIZE;
   const h = img.naturalHeight || img.height || FACE_OUT_SIZE;
   const canvas = document.createElement('canvas');
@@ -224,6 +350,12 @@ function makeOoh(img: HTMLImageElement, landmarks: NormalizedLandmark[]): string
   ctx.fillStyle = g;
   ctx.fill();
   ctx.restore();
+
+  // Comedy pop-out eyes — prefer user highlighter marks
+  const leftEye = features?.leftEye ?? eyeMarkFromLandmarks(landmarks, w, h, 'left');
+  const rightEye = features?.rightEye ?? eyeMarkFromLandmarks(landmarks, w, h, 'right');
+  const afterMouth = ctx.getImageData(0, 0, w, h);
+  drawComedyPopEyes(ctx, afterMouth, leftEye, rightEye, w, h);
 
   return canvas.toDataURL('image/png');
 }
@@ -335,8 +467,12 @@ function makeSad(img: HTMLImageElement, landmarks: NormalizedLandmark[]): string
 /**
  * From one cutout PNG, produce smile (as-is) + synthesized ooh + sad.
  * Falls back to cloning the clean face if landmarks cannot be found.
+ * Pass feature marks (from highlighter pass) for comedy pop-out eye placement.
  */
-export async function synthesizeFaceExpressions(cleanDataUrl: string): Promise<CustomFaceSet> {
+export async function synthesizeFaceExpressions(
+  cleanDataUrl: string,
+  features?: CustomFaceFeatures,
+): Promise<CustomFaceSet> {
   const img = await loadImage(cleanDataUrl);
   try {
     const landmarker = await getLandmarker();
@@ -349,7 +485,7 @@ export async function synthesizeFaceExpressions(cleanDataUrl: string): Promise<C
     }
     return {
       clean: cleanDataUrl,
-      ooh: makeOoh(img, face),
+      ooh: makeOoh(img, face, features),
       knockout: makeSad(img, face),
     };
   } catch {

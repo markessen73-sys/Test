@@ -1414,7 +1414,7 @@ html, body, #root, .app {
 }
 
 .play-damage-hud-frame {
-  width: 6.5rem;
+  width: 8.25rem;
   padding: 0.28rem;
   border-radius: 0.35rem;
   background: linear-gradient(160deg, rgba(28, 18, 10, 0.88), rgba(10, 8, 6, 0.92));

@@ -5,7 +5,7 @@
 import type { CustomFaceFeatures, FaceFeatureMark } from './customFace';
 import { DAMAGE_FACE_SEQUENCE, type FaceDamageId } from '../play/face/faceDamage';
 
-const SIZE = 512; // HUD is tiny — bake smaller to fit localStorage
+const SIZE = 384; // HUD is small; keep stages compact for localStorage / runtime bake
 
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -62,19 +62,25 @@ function drawBlackEye(
 ) {
   const x = eye.cx * w;
   const y = eye.cy * h;
-  const rx = Math.max(10, eye.rx * w * 1.6);
-  const ry = Math.max(8, eye.ry * h * 1.8);
+  const rx = Math.max(14, eye.rx * w * 2.1);
+  const ry = Math.max(12, eye.ry * h * 2.4);
   const g = ctx.createRadialGradient(x, y, 0, x, y, rx);
-  g.addColorStop(0, 'rgba(40, 20, 50, 0.75)');
-  g.addColorStop(0.45, 'rgba(90, 40, 70, 0.55)');
+  g.addColorStop(0, 'rgba(25, 10, 35, 0.92)');
+  g.addColorStop(0.35, 'rgba(70, 25, 55, 0.8)');
+  g.addColorStop(0.7, 'rgba(110, 40, 50, 0.55)');
   g.addColorStop(1, 'rgba(120, 50, 40, 0)');
   ctx.fillStyle = g;
   ctx.beginPath();
   ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = 'rgba(30, 15, 25, 0.45)';
+  ctx.fillStyle = 'rgba(20, 8, 18, 0.65)';
   ctx.beginPath();
-  ctx.ellipse(x, y - ry * 0.35, rx * 0.9, ry * 0.35, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, y - ry * 0.35, rx * 0.95, ry * 0.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Reddish rim under brow
+  ctx.fillStyle = 'rgba(160, 45, 55, 0.45)';
+  ctx.beginPath();
+  ctx.ellipse(x, y + ry * 0.25, rx * 0.85, ry * 0.35, 0, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -86,16 +92,23 @@ function drawSwollenEye(
 ) {
   const x = eye.cx * w;
   const y = eye.cy * h;
-  const rx = Math.max(12, eye.rx * w * 1.7);
-  const ry = Math.max(10, eye.ry * h * 2);
+  const rx = Math.max(16, eye.rx * w * 2.2);
+  const ry = Math.max(14, eye.ry * h * 2.5);
   const g = ctx.createRadialGradient(x, y - ry * 0.1, 0, x, y, rx);
-  g.addColorStop(0, 'rgba(200, 90, 80, 0.55)');
-  g.addColorStop(0.6, 'rgba(160, 60, 70, 0.4)');
+  g.addColorStop(0, 'rgba(220, 90, 80, 0.75)');
+  g.addColorStop(0.45, 'rgba(180, 55, 65, 0.6)');
+  g.addColorStop(0.8, 'rgba(150, 45, 50, 0.35)');
   g.addColorStop(1, 'rgba(140, 50, 50, 0)');
   ctx.fillStyle = g;
   ctx.beginPath();
   ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
   ctx.fill();
+  // Puffy lid crease
+  ctx.strokeStyle = 'rgba(90, 30, 40, 0.55)';
+  ctx.lineWidth = Math.max(2, rx * 0.08);
+  ctx.beginPath();
+  ctx.ellipse(x, y - ry * 0.15, rx * 0.75, ry * 0.35, 0, Math.PI * 1.1, Math.PI * 1.9);
+  ctx.stroke();
 }
 
 function drawCauliflowerEar(
@@ -107,20 +120,24 @@ function drawCauliflowerEar(
 ) {
   const x = ear.cx * w;
   const y = ear.cy * h;
-  const rx = Math.max(8, ear.rx * w * 1.35);
-  const ry = Math.max(14, ear.ry * h * 1.25);
-  const out = side === 'left' ? -1 : 1; // image-left = subject's right visually for mirrored? use geometric
+  const rx = Math.max(12, ear.rx * w * 1.7);
+  const ry = Math.max(18, ear.ry * h * 1.45);
+  const out = side === 'left' ? -1 : 1;
   const g = ctx.createRadialGradient(x + out * rx * 0.1, y, 0, x, y, Math.max(rx, ry));
-  g.addColorStop(0, 'rgba(210, 100, 90, 0.7)');
-  g.addColorStop(0.55, 'rgba(180, 70, 70, 0.5)');
+  g.addColorStop(0, 'rgba(230, 110, 95, 0.88)');
+  g.addColorStop(0.45, 'rgba(190, 70, 70, 0.7)');
   g.addColorStop(1, 'rgba(160, 60, 50, 0)');
   ctx.fillStyle = g;
   ctx.beginPath();
   ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = 'rgba(190, 80, 70, 0.45)';
+  ctx.fillStyle = 'rgba(200, 75, 70, 0.6)';
   ctx.beginPath();
-  ctx.ellipse(x + out * rx * 0.15, y - ry * 0.2, rx * 0.45, ry * 0.35, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + out * rx * 0.15, y - ry * 0.2, rx * 0.5, ry * 0.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(170, 55, 60, 0.5)';
+  ctx.beginPath();
+  ctx.ellipse(x + out * rx * 0.05, y + ry * 0.15, rx * 0.4, ry * 0.3, 0, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -132,17 +149,18 @@ function drawChinPlaster(
 ) {
   const x = chin.cx * w;
   const y = chin.cy * h;
-  const s = Math.max(14, chin.rx * w * 1.2);
+  const s = Math.max(18, chin.rx * w * 1.45);
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-0.2);
-  ctx.fillStyle = 'rgba(245, 240, 230, 0.92)';
-  ctx.fillRect(-s * 0.15, -s * 0.55, s * 0.3, s * 1.1);
+  ctx.fillStyle = 'rgba(250, 246, 235, 0.97)';
+  ctx.strokeStyle = 'rgba(160, 150, 130, 0.9)';
+  ctx.lineWidth = 1.5;
+  ctx.fillRect(-s * 0.18, -s * 0.6, s * 0.36, s * 1.2);
+  ctx.strokeRect(-s * 0.18, -s * 0.6, s * 0.36, s * 1.2);
   ctx.rotate(Math.PI / 2);
-  ctx.fillRect(-s * 0.15, -s * 0.55, s * 0.3, s * 1.1);
-  ctx.strokeStyle = 'rgba(180, 170, 150, 0.8)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(-s * 0.15, -s * 0.55, s * 0.3, s * 1.1);
+  ctx.fillRect(-s * 0.18, -s * 0.6, s * 0.36, s * 1.2);
+  ctx.strokeRect(-s * 0.18, -s * 0.6, s * 0.36, s * 1.2);
   ctx.restore();
 }
 
@@ -152,12 +170,19 @@ function drawMissingTooth(
   w: number,
   h: number
 ) {
-  const x = mouth.cx * w + mouth.rx * w * 0.15;
-  const y = mouth.cy * h - mouth.ry * h * 0.15;
-  ctx.fillStyle = 'rgba(25, 15, 20, 0.85)';
+  const x = mouth.cx * w + mouth.rx * w * 0.18;
+  const y = mouth.cy * h - mouth.ry * h * 0.1;
+  // Dark gap in the smile
+  ctx.fillStyle = 'rgba(15, 8, 12, 0.92)';
   ctx.beginPath();
-  ctx.ellipse(x, y, Math.max(4, mouth.rx * w * 0.18), Math.max(6, mouth.ry * h * 0.55), 0, 0, Math.PI * 2);
+  ctx.ellipse(x, y, Math.max(5, mouth.rx * w * 0.22), Math.max(8, mouth.ry * h * 0.7), 0, 0, Math.PI * 2);
   ctx.fill();
+  // Lip shadow around gap
+  ctx.strokeStyle = 'rgba(120, 50, 55, 0.55)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(x, y, Math.max(6, mouth.rx * w * 0.26), Math.max(9, mouth.ry * h * 0.8), 0, 0, Math.PI * 2);
+  ctx.stroke();
 }
 
 function drawBrokenNose(
@@ -168,20 +193,23 @@ function drawBrokenNose(
 ) {
   const x = nose.cx * w;
   const y = nose.cy * h;
-  const rx = Math.max(10, nose.rx * w * 1.4);
-  const ry = Math.max(12, nose.ry * h * 1.3);
-  const g = ctx.createRadialGradient(x, y, 0, x, y, rx);
-  g.addColorStop(0, 'rgba(200, 80, 90, 0.55)');
+  const rx = Math.max(14, nose.rx * w * 1.75);
+  const ry = Math.max(16, nose.ry * h * 1.55);
+  const g = ctx.createRadialGradient(x + rx * 0.15, y, 0, x, y, rx);
+  g.addColorStop(0, 'rgba(210, 70, 85, 0.75)');
+  g.addColorStop(0.55, 'rgba(170, 50, 60, 0.5)');
   g.addColorStop(1, 'rgba(160, 50, 50, 0)');
   ctx.fillStyle = g;
   ctx.beginPath();
   ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(80, 30, 35, 0.55)';
-  ctx.lineWidth = 2;
+  // Crooked bridge line
+  ctx.strokeStyle = 'rgba(60, 20, 28, 0.75)';
+  ctx.lineWidth = Math.max(2.5, rx * 0.12);
+  ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(x - rx * 0.2, y - ry * 0.3);
-  ctx.lineTo(x + rx * 0.35, y + ry * 0.4);
+  ctx.moveTo(x - rx * 0.15, y - ry * 0.45);
+  ctx.quadraticCurveTo(x + rx * 0.45, y, x + rx * 0.2, y + ry * 0.5);
   ctx.stroke();
 }
 
@@ -193,21 +221,27 @@ function drawForeheadBandage(
 ) {
   const x = forehead.cx * w;
   const y = forehead.cy * h;
-  const rw = Math.max(40, forehead.rx * w * 1.5);
-  const rh = Math.max(12, forehead.ry * h * 1.4);
+  const rw = Math.max(48, forehead.rx * w * 1.65);
+  const rh = Math.max(16, forehead.ry * h * 1.65);
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-0.08);
-  ctx.fillStyle = 'rgba(248, 245, 238, 0.95)';
+  ctx.fillStyle = 'rgba(252, 248, 240, 0.97)';
   ctx.beginPath();
   ctx.ellipse(0, 0, rw, rh, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(190, 180, 160, 0.7)';
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = 'rgba(170, 160, 140, 0.85)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
   ctx.beginPath();
   ctx.moveTo(-rw * 0.85, -rh * 0.15);
-  ctx.lineTo(rw * 0.85, rh * 0.1);
+  ctx.lineTo(rw * 0.85, rh * 0.12);
   ctx.stroke();
+  // Small blood speck under bandage edge
+  ctx.fillStyle = 'rgba(140, 30, 40, 0.45)';
+  ctx.beginPath();
+  ctx.ellipse(rw * 0.25, rh * 0.55, rw * 0.08, rh * 0.2, 0, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -220,7 +254,6 @@ function applyInjury(
 ) {
   switch (id) {
     case 'cauliflowerLeftEar':
-      // image-right ear ≈ subject's left when face is mirrored selfie-style; use leftEar mark as painted
       drawCauliflowerEar(ctx, f.leftEar, w, h, 'left');
       break;
     case 'blackRightEye':
@@ -249,6 +282,7 @@ function applyInjury(
 
 /**
  * Returns 8 cumulative damage-stage data URLs + knockout URL for the HUD.
+ * Injuries are placed from user-highlighted feature marks.
  */
 export async function bakePhotoDamageStages(
   cleanDataUrl: string,
@@ -264,7 +298,6 @@ export async function bakePhotoDamageStages(
   if (!ctx) throw new Error('No canvas');
 
   const stages: string[] = [];
-  // Start from clean each time and re-apply cumulative injuries for stability
   for (let i = 0; i < DAMAGE_FACE_SEQUENCE.length; i++) {
     ctx.clearRect(0, 0, SIZE, SIZE);
     ctx.drawImage(img, 0, 0, SIZE, SIZE);
