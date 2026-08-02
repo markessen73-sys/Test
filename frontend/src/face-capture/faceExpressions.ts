@@ -134,7 +134,7 @@ function eyeMarkFromLandmarks(
   };
 }
 
-/** Classic comedy: eyes pop out of their sockets on little springs. */
+/** Classic comedy: eyes bulge, centred exactly on highlighter marks. */
 function drawComedyPopEyes(
   ctx: CanvasRenderingContext2D,
   imgData: ImageData,
@@ -146,10 +146,10 @@ function drawComedyPopEyes(
   const skinSamples: Array<{ r: number; g: number; b: number }> = [];
   for (const eye of [left, right]) {
     const offsets = [
-      { x: 0, y: -eye.ry * h * 1.8 },
-      { x: -eye.rx * w * 1.2, y: 0 },
-      { x: eye.rx * w * 1.2, y: 0 },
-      { x: 0, y: eye.ry * h * 1.6 },
+      { x: 0, y: -eye.ry * h * 1.6 },
+      { x: -eye.rx * w * 1.3, y: 0 },
+      { x: eye.rx * w * 1.3, y: 0 },
+      { x: 0, y: eye.ry * h * 1.5 },
     ];
     for (const o of offsets) {
       const s = sampleRgb(imgData.data, w, h, eye.cx * w + o.x, eye.cy * h + o.y);
@@ -158,62 +158,36 @@ function drawComedyPopEyes(
   }
   const skin = averageSamples(skinSamples);
 
-  const paintOne = (eye: FaceFeatureMark, outward: number) => {
-    const sx = eye.cx * w;
-    const sy = eye.cy * h;
-    const sockRx = Math.max(10, eye.rx * w * 1.15);
-    const sockRy = Math.max(8, eye.ry * h * 1.25);
+  const paintOne = (eye: FaceFeatureMark) => {
+    // Exact centre of the highlighted eye area
+    const cx = eye.cx * w;
+    const cy = eye.cy * h;
+    // Eyeball sized to the highlight ellipse
+    const popRx = Math.max(14, eye.rx * w * 1.05);
+    const popRy = Math.max(12, eye.ry * h * 1.05);
 
-    // Cover original eye with a soft skin ring under the bulge
+    // Soft skin cover under / around the bulge (same centre)
     ctx.fillStyle = `rgb(${skin.r}, ${skin.g}, ${skin.b})`;
     ctx.beginPath();
-    ctx.ellipse(sx, sy, sockRx * 1.2, sockRy * 1.25, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy, popRx * 1.12, popRy * 1.12, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Bulging eyeball centred on the highlighter mark
-    const popRx = sockRx * 1.45;
-    const popRy = sockRy * 1.55;
-    const px = sx;
-    const py = sy;
-
-    // Short comedy spring squiggles around the rim (centre stays on the mark)
-    ctx.strokeStyle = 'rgba(90, 90, 100, 0.75)';
-    ctx.lineWidth = Math.max(1.5, sockRx * 0.1);
-    ctx.lineCap = 'round';
-    for (let k = 0; k < 3; k++) {
-      const ang = outward * (0.35 + k * 0.55) - Math.PI * 0.15;
-      const x0 = sx + Math.cos(ang) * sockRx * 0.35;
-      const y0 = sy + Math.sin(ang) * sockRy * 0.35;
-      const x1 = sx + Math.cos(ang) * popRx * 1.05;
-      const y1 = sy + Math.sin(ang) * popRy * 1.05;
-      ctx.beginPath();
-      ctx.moveTo(x0, y0);
-      ctx.quadraticCurveTo(
-        (x0 + x1) / 2 + Math.cos(ang + Math.PI / 2) * sockRx * 0.2,
-        (y0 + y1) / 2 + Math.sin(ang + Math.PI / 2) * sockRy * 0.2,
-        x1,
-        y1,
-      );
-      ctx.stroke();
-    }
-
+    // White bulging eyeball — centre locked to highlight centre
     ctx.fillStyle = '#fffef8';
     ctx.beginPath();
-    ctx.ellipse(px, py, popRx, popRy, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy, popRx, popRy, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = 'rgba(40, 40, 50, 0.55)';
     ctx.lineWidth = Math.max(1.5, popRx * 0.08);
     ctx.stroke();
 
-    const irisR = Math.min(popRx, popRy) * 0.42;
-    const irisX = px + outward * popRx * 0.08;
-    const irisY = py;
+    const irisR = Math.min(popRx, popRy) * 0.45;
     const iris = ctx.createRadialGradient(
-      irisX - irisR * 0.2,
-      irisY - irisR * 0.2,
+      cx - irisR * 0.2,
+      cy - irisR * 0.2,
       0,
-      irisX,
-      irisY,
+      cx,
+      cy,
       irisR,
     );
     iris.addColorStop(0, '#5a9fd4');
@@ -221,20 +195,20 @@ function drawComedyPopEyes(
     iris.addColorStop(1, '#1a3348');
     ctx.fillStyle = iris;
     ctx.beginPath();
-    ctx.arc(irisX, irisY, irisR, 0, Math.PI * 2);
+    ctx.arc(cx, cy, irisR, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#0a0a0c';
     ctx.beginPath();
-    ctx.arc(irisX, irisY, irisR * 0.45, 0, Math.PI * 2);
+    ctx.arc(cx, cy, irisR * 0.45, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.beginPath();
-    ctx.arc(irisX - irisR * 0.28, irisY - irisR * 0.3, irisR * 0.22, 0, Math.PI * 2);
+    ctx.arc(cx - irisR * 0.28, cy - irisR * 0.3, irisR * 0.22, 0, Math.PI * 2);
     ctx.fill();
   };
 
-  paintOne(left, -1);
-  paintOne(right, 1);
+  paintOne(left);
+  paintOne(right);
 }
 
 /**

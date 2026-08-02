@@ -71,8 +71,6 @@ function loadImage(src: string) {
 
 function markFromMask(mask: ImageData): FaceFeatureMark | null {
   const { width: w, height: h, data } = mask;
-  let sumX = 0;
-  let sumY = 0;
   let n = 0;
   let minX = w;
   let minY = h;
@@ -82,8 +80,6 @@ function markFromMask(mask: ImageData): FaceFeatureMark | null {
     for (let x = 0; x < w; x++) {
       const a = data[(y * w + x) * 4 + 3] ?? 0;
       if (a < 40) continue;
-      sumX += x;
-      sumY += y;
       n++;
       if (x < minX) minX = x;
       if (y < minY) minY = y;
@@ -92,40 +88,65 @@ function markFromMask(mask: ImageData): FaceFeatureMark | null {
     }
   }
   if (n < 8) return null;
-  const cx = sumX / n / w;
-  const cy = sumY / n / h;
-  const rx = Math.max(0.03, ((maxX - minX) / w) * 0.55);
-  const ry = Math.max(0.025, ((maxY - minY) / h) * 0.55);
+  // Use the geometric centre of the highlighted area (not alpha-weighted centroid)
+  const cx = (minX + maxX) / 2 / w;
+  const cy = (minY + maxY) / 2 / h;
+  const rx = Math.max(0.03, ((maxX - minX) / w) * 0.5);
+  const ry = Math.max(0.025, ((maxY - minY) / h) * 0.5);
   return { cx, cy, rx, ry };
 }
 
-/** Split a stroke mask into left/right clusters by x. */
+/** Split a stroke mask into left/right eye clusters (2-means on x). */
 function splitLeftRight(mask: ImageData): { left: FaceFeatureMark | null; right: FaceFeatureMark | null } {
   const { width: w, height: h, data } = mask;
-  let sumX = 0;
-  let n = 0;
-  for (let i = 3; i < data.length; i += 4) {
-    if ((data[i] ?? 0) < 40) continue;
-    const idx = (i - 3) / 4;
-    sumX += idx % w;
-    n++;
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if ((data[(y * w + x) * 4 + 3] ?? 0) < 40) continue;
+      xs.push(x);
+      ys.push(y);
+    }
   }
-  if (n < 8) return { left: null, right: null };
-  const midX = sumX / n;
+  if (xs.length < 8) return { left: null, right: null };
+
+  let c0 = Math.min(...xs);
+  let c1 = Math.max(...xs);
+  for (let iter = 0; iter < 8; iter++) {
+    let s0 = 0;
+    let n0 = 0;
+    let s1 = 0;
+    let n1 = 0;
+    for (const x of xs) {
+      if (Math.abs(x - c0) <= Math.abs(x - c1)) {
+        s0 += x;
+        n0++;
+      } else {
+        s1 += x;
+        n1++;
+      }
+    }
+    if (n0) c0 = s0 / n0;
+    if (n1) c1 = s1 / n1;
+  }
+  const leftCenter = Math.min(c0, c1);
+  const rightCenter = Math.max(c0, c1);
+  // If both eyes collapsed to one cluster, fall back to mid split
+  const sep = rightCenter - leftCenter;
+  const useMid = sep < w * 0.06;
+  const midX = useMid ? xs.reduce((a, b) => a + b, 0) / xs.length : (leftCenter + rightCenter) / 2;
 
   const leftData = new ImageData(w, h);
   const rightData = new ImageData(w, h);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4;
-      const a = data[i + 3] ?? 0;
-      if (a < 40) continue;
-      const dest = x < midX ? leftData.data : rightData.data;
-      dest[i] = data[i]!;
-      dest[i + 1] = data[i + 1]!;
-      dest[i + 2] = data[i + 2]!;
-      dest[i + 3] = a;
-    }
+  for (let i = 0; i < xs.length; i++) {
+    const x = xs[i]!;
+    const y = ys[i]!;
+    const dest = x < midX ? leftData.data : rightData.data;
+    const pi = (y * w + x) * 4;
+    dest[pi] = data[pi]!;
+    dest[pi + 1] = data[pi + 1]!;
+    dest[pi + 2] = data[pi + 2]!;
+    dest[pi + 3] = data[pi + 3]!;
   }
   return { left: markFromMask(leftData), right: markFromMask(rightData) };
 }
