@@ -134,7 +134,10 @@ def main() -> None:
   oa[oa[:, :, 3] > 20] = [255, 214, 0, 245]
   out_img = Image.fromarray(oa)
 
-  mask_img = Image.fromarray((sil.astype(np.uint8) * 255)).filter(ImageFilter.GaussianBlur(0.8))
+  # Hard RGBA alpha mask — outside the outline must be fully transparent when captured.
+  mask_rgba = np.zeros((h, w, 4), dtype=np.uint8)
+  mask_rgba[sil, 3] = 255
+  mask_img = Image.fromarray(mask_rgba, 'RGBA')
 
   ys, xs = np.where(sil)
   if not len(ys):

@@ -65,8 +65,9 @@ function drawPhotoTransformed(
 
 async function applyHeadMask(canvas: HTMLCanvasElement): Promise<string> {
   const mask = await loadImage(FACE_GUIDE_MASK_SRC);
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('No canvas context');
+  // Keep only pixels inside the head outline; everything else → clear alpha.
   ctx.globalCompositeOperation = 'destination-in';
   ctx.drawImage(mask, 0, 0, FACE_GUIDE_SIZE, FACE_GUIDE_SIZE);
   ctx.globalCompositeOperation = 'source-over';
@@ -158,8 +159,9 @@ export function FaceCaptureView({ onClose }: Props) {
       const canvas = document.createElement('canvas');
       canvas.width = FACE_GUIDE_SIZE;
       canvas.height = FACE_GUIDE_SIZE;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { alpha: true });
       if (!ctx) throw new Error('No canvas');
+      ctx.clearRect(0, 0, FACE_GUIDE_SIZE, FACE_GUIDE_SIZE);
       const vw = video.videoWidth || 640;
       const vh = video.videoHeight || 480;
       drawCoverMirrored(ctx, video, vw, vh, FACE_GUIDE_SIZE);
@@ -187,8 +189,9 @@ export function FaceCaptureView({ onClose }: Props) {
       const canvas = document.createElement('canvas');
       canvas.width = FACE_GUIDE_SIZE;
       canvas.height = FACE_GUIDE_SIZE;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { alpha: true });
       if (!ctx) throw new Error('No canvas');
+      ctx.clearRect(0, 0, FACE_GUIDE_SIZE, FACE_GUIDE_SIZE);
       drawPhotoTransformed(ctx, img, FACE_GUIDE_SIZE, scale, panX, panY);
       const dataUrl = await applyHeadMask(canvas);
       writeCustomFaceDataUrl(dataUrl);
@@ -353,7 +356,7 @@ export function FaceCaptureView({ onClose }: Props) {
       {mode === 'done' && previewUrl && (
         <div className="face-capture-done">
           <img src={previewUrl} alt="Saved face" className="face-capture-result" />
-          <p className="face-capture-hint">Saved. Your face will show on the gym boxer.</p>
+          <p className="face-capture-hint">Saved — only the head inside the outline is kept (background is clear).</p>
           <button type="button" className="face-capture-primary" onClick={goGymWithFace}>
             Back to gym
           </button>
