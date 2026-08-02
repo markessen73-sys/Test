@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { type CustomFaceFeatures, type CustomFaceSet, type FaceFeatureMark } from './customFace';
-import { bakePhotoDamageStages } from './bakePhotoDamage';
 import { synthesizeFaceExpressions } from './faceExpressions';
 import './FaceCleanupAnnotateView.css';
 
@@ -406,16 +405,11 @@ export function FaceCleanupAnnotateView({ cleanSrc, onComplete, onCancel }: Prop
       setStatus('Making ooh & sad faces…');
       const synth = await synthesizeFaceExpressions(cleaned, features);
 
-      setStatus('Placing damage marks…');
-      const baked = await bakePhotoDamageStages(cleaned, features, synth.knockout);
-
       onComplete({
         clean: cleaned,
         ooh: synth.ooh,
         knockout: synth.knockout,
         features,
-        damageStages: baked.stages,
-        damageKnockout: baked.knockout,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not finish face');

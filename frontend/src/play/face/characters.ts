@@ -1,5 +1,4 @@
 import { assetUrl } from '../../assetUrl';
-import type { CustomFaceFeatures } from '../../face-capture/customFace';
 
 /**
  * Playable face packs live under `public/faces/characters/<id>/`.
@@ -28,8 +27,6 @@ export interface CharacterDef {
   boboDamageStageSrcs: readonly string[];
   boboHoldSrc: string;
   boboKoSrc: string;
-  /** Photo-upload feature marks — when set, HUD bakes injuries onto the photo. */
-  photoFeatures?: CustomFaceFeatures;
 }
 
 const DAMAGE_STEP_NAMES = [

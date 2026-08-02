@@ -15,6 +15,12 @@ import {
   readStoredCharacterId,
   writeStoredCharacterId,
 } from './characters';
+import {
+  DAMAGE_STAGE_CLEAN_SRC,
+  DAMAGE_STAGE_HOLD_SRC,
+  DAMAGE_STAGE_KNOCKOUT_SRC,
+  DAMAGE_STAGE_SRCS,
+} from './damageStageAssets';
 
 interface CharacterContextValue {
   characterId: CharacterId;
@@ -29,27 +35,25 @@ interface CharacterContextValue {
 
 const CharacterContext = createContext<CharacterContextValue | null>(null);
 
-/** When the user has fitted photos, use them for the Default boxer live faces.
- * Damage meter uses baked photo damage from marked features when available. */
+/**
+ * When the user has fitted photos, use them for the Default slot live faces.
+ * Damage HUD always keeps the original shared boxer ladder
+ * (`/faces/damage-stages/`) — not the photo bake, and not the later
+ * `characters/default` pack path.
+ */
 function applyCustomFace(def: CharacterDef, custom: CustomFaceSet | null): CharacterDef {
   if (!custom || def.id !== 'default') return def;
-  const next: CharacterDef = {
+  return {
     ...def,
     cleanSrc: custom.clean,
     oohSrc: custom.ooh,
     knockoutSrc: custom.knockout,
     name: 'My face',
-    damageStageCleanSrc: custom.clean,
-    damageStageHoldSrc: custom.ooh,
-    damageStageKnockoutSrc: custom.damageKnockout ?? custom.knockout,
+    damageStageCleanSrc: DAMAGE_STAGE_CLEAN_SRC,
+    damageStageSrcs: DAMAGE_STAGE_SRCS,
+    damageStageHoldSrc: DAMAGE_STAGE_HOLD_SRC,
+    damageStageKnockoutSrc: DAMAGE_STAGE_KNOCKOUT_SRC,
   };
-  if (custom.features) {
-    next.photoFeatures = custom.features;
-  }
-  if (custom.damageStages?.length) {
-    next.damageStageSrcs = custom.damageStages;
-  }
-  return next;
 }
 
 export function CharacterProvider({ children }: { children: ReactNode }) {
