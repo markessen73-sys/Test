@@ -144,25 +144,116 @@ def detect_template_ears(blank: np.ndarray) -> dict:
 
 
 def write_blank_no_ears(blank: np.ndarray, ears: dict) -> np.ndarray:
-  """Remove protruding template ears so selected overlays replace them."""
+  """Rebuild a smooth earless head — trim flares and redraw cheek outlines.
+
+  Zeroing tip→attach left notches and a vertical attach scar; the head oval
+  was drawn with ears baked into the silhouette, so we reshape the mid-head
+  to a face-width curve and paint a clean outline.
+  """
   out = blank.copy()
   a = blank[:, :, 3] > 10
-  lum = blank[:, :, :3].mean(2)
-  outline = a & (lum < 55)
 
-  for y in range(max(0, ears['L']['top'] - 8), min(1024, ears['L']['bot'] + 8)):
-    # Left
-    cs = _clusters(np.where(outline[y, :350])[0])
-    if len(cs) >= 2:
-      tip, attach = cs[0][0], cs[-1][0]
-      if attach - tip >= 20:
-        out[y, tip:attach + 1] = 0
-    # Right
-    cs = _clusters(np.where(outline[y, 674:])[0] + 674)
-    if len(cs) >= 2:
-      attach, tip = cs[0][1], cs[-1][1]
-      if tip - attach >= 20:
-        out[y, attach:tip + 1] = 0
+  # Interior skin + outline colours from the template
+  skin = blank[450, 512].copy()
+  outline_rgba = np.array([10, 12, 18, 255], dtype=np.uint8)
+
+  # Pre-ear temple edges and post-ear neck edges frame the reshape.
+  pre_y = min(ears['L']['top'] - 10, 410)
+  while pre_y > 200 and not a[pre_y].any():
+    pre_y -= 1
+  pre_xs = np.where(a[pre_y])[0]
+  pre_L, pre_R = int(pre_xs.min()), int(pre_xs.max())
+
+  post_y = 690
+  while post_y < 850 and a[post_y].any():
+    xs = np.where(a[post_y])[0]
+    # Neck jump: left edge moves inward sharply vs ear-inclusive oval
+    if xs.min() > 200:
+      break
+    post_y += 1
+  post_xs = np.where(a[post_y])[0]
+  post_L, post_R = int(post_xs.min()), int(post_xs.max())
+
+  # Face width without ears ≈ temple, slightly eased outward.
+  mid_L = pre_L - 4
+  mid_R = pre_R + 4
+
+  y_lo = pre_y + 1
+  y_hi = post_y - 1
+  print(f'Reshape ears y={y_lo}-{y_hi} temple={pre_L}-{pre_R} mid={mid_L}-{mid_R} neck={post_L}-{post_R} @{post_y}')
+
+  def smoothstep(t: float) -> float:
+    t = max(0.0, min(1.0, t))
+    return t * t * (3.0 - 2.0 * t)
+
+  for y in range(y_lo, y_hi + 1):
+    t = (y - y_lo) / max(1, y_hi - y_lo)
+    if t < 0.12:
+      u = smoothstep(t / 0.12)
+      tL = pre_L * (1 - u) + mid_L * u
+      tR = pre_R * (1 - u) + mid_R * u
+    elif t < 0.82:
+      tL, tR = float(mid_L), float(mid_R)
+    else:
+      u = smoothstep((t - 0.82) / 0.18)
+      tL = mid_L * (1 - u) + post_L * u
+      tR = mid_R * (1 - u) + post_R * u
+    tL_i, tR_i = int(round(tL)), int(round(tR))
+    if tR_i - tL_i < 40:
+      continue
+
+    xs = np.where(out[y, :, 3] > 10)[0]
+    if not len(xs):
+      continue
+    cur_L, cur_R = int(xs.min()), int(xs.max())
+
+    # Trim ear flare outside the face curve
+    if cur_L < tL_i:
+      out[y, cur_L:tL_i] = 0
+    if cur_R > tR_i:
+      out[y, tR_i + 1:cur_R + 1] = 0
+
+    # Replace leftover dark attach scars just inside the new cheek with skin
+    for x in range(tL_i, min(tL_i + 10, tR_i)):
+      pix = out[y, x]
+      if pix[3] > 10 and float(pix[:3].mean()) < 55:
+        out[y, x] = skin
+    for x in range(max(tL_i, tR_i - 9), tR_i + 1):
+      pix = out[y, x]
+      if pix[3] > 10 and float(pix[:3].mean()) < 55:
+        out[y, x] = skin
+
+    # Ensure fill exists just inside the cheek, then stamp a clean outline
+    if out[y, min(tL_i + 3, tR_i), 3] < 10:
+      out[y, tL_i + 2:tL_i + 6] = skin
+    if out[y, max(tR_i - 3, tL_i), 3] < 10:
+      out[y, tR_i - 5:tR_i - 1] = skin
+    out[y, tL_i] = outline_rgba
+    if tL_i + 1 < tR_i:
+      out[y, tL_i + 1] = outline_rgba
+    out[y, tR_i] = outline_rgba
+    if tR_i - 1 > tL_i:
+      out[y, tR_i - 1] = outline_rgba
+
+  # Scrub leftover ear-cavity / attach strokes just inside the cheeks.
+  # Keep only the 2px outer outline; anything darker further in becomes skin.
+  a2 = out[:, :, 3] > 10
+  for y in range(y_lo, y_hi + 1):
+    xs = np.where(a2[y])[0]
+    if not len(xs):
+      continue
+    tL_i, tR_i = int(xs.min()), int(xs.max())
+    for x in range(tL_i + 2, min(tL_i + 55, tR_i - 2)):
+      if float(out[y, x, :3].mean()) < 90:
+        out[y, x] = skin
+    for x in range(max(tL_i + 2, tR_i - 54), tR_i - 1):
+      if float(out[y, x, :3].mean()) < 90:
+        out[y, x] = skin
+    # Re-stamp outline after scrub
+    out[y, tL_i] = outline_rgba
+    out[y, min(tL_i + 1, tR_i)] = outline_rgba
+    out[y, tR_i] = outline_rgba
+    out[y, max(tR_i - 1, tL_i)] = outline_rgba
 
   Image.fromarray(out).save(BLANK_NO_EARS)
   return out
