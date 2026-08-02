@@ -5,7 +5,7 @@ import {
   detectFacesInImage,
   type DetectedFace,
 } from './faceDetect';
-import { writeCustomFaceSet, type CustomFaceSet } from './customFace';
+import { addCustomFace, type CustomFaceSet } from './customFace';
 import { FaceCleanupAnnotateView } from './FaceCleanupAnnotateView';
 import './FaceCaptureView.css';
 
@@ -15,9 +15,9 @@ type Props = {
   onClose: () => void;
 };
 
-function selectDefaultCharacter() {
+function selectCharacter(id: string) {
   try {
-    localStorage.setItem('mickeys-gym-character', 'default');
+    localStorage.setItem('mickeys-gym-character', id);
   } catch {
     /* ignore */
   }
@@ -99,8 +99,8 @@ export function FaceCaptureView({ onClose }: Props) {
 
   const finishWithFaces = useCallback(
     (faces: CustomFaceSet) => {
-      writeCustomFaceSet(faces);
-      selectDefaultCharacter();
+      const entry = addCustomFace(faces);
+      selectCharacter(entry.id);
       stopCamera();
       setAnnotateClean(null);
       setPreviewSet(faces);
@@ -330,8 +330,8 @@ export function FaceCaptureView({ onClose }: Props) {
             ))}
           </div>
           <p className="face-capture-hint">
-            Saved — smile is normal, ooh! is punched, sad is knockout. Damage meter uses your marked
-            features.
+            Saved as a new photo face — smile is normal, ooh! is punched, sad is knockout. Pick or
+            delete faces anytime in Options.
           </p>
           <button type="button" className="face-capture-primary" onClick={goGymWithFace}>
             Back to gym

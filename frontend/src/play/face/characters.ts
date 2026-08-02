@@ -1,4 +1,5 @@
 import { assetUrl } from '../../assetUrl';
+import { isPhotoCharacterId } from '../../face-capture/customFace';
 
 /**
  * Playable face packs live under `public/faces/characters/<id>/`.
@@ -6,7 +7,10 @@ import { assetUrl } from '../../assetUrl';
  * `public/faces/README.md`) so LM alignment, Default head size, KO scale,
  * natural-skin clown + curly wig, and pupils match pack conventions.
  */
-export type CharacterId = 'default' | 'byson' | 'tin-mick' | 'the-don';
+export type StockCharacterId = 'default' | 'byson' | 'tin-mick' | 'the-don';
+
+/** Stock pack id, or `photo-<uuid>` for a user-uploaded face. */
+export type CharacterId = StockCharacterId | (string & {});
 
 export interface CharacterDef {
   id: CharacterId;
@@ -27,6 +31,8 @@ export interface CharacterDef {
   boboDamageStageSrcs: readonly string[];
   boboHoldSrc: string;
   boboKoSrc: string;
+  /** True for user photo faces (can be deleted). */
+  isPhotoFace?: boolean;
 }
 
 const DAMAGE_STEP_NAMES = [
@@ -40,11 +46,11 @@ const DAMAGE_STEP_NAMES = [
   '08-foreheadBandage.png',
 ] as const;
 
-function characterFaceRoot(id: CharacterId): string {
+function characterFaceRoot(id: StockCharacterId): string {
   return `/faces/characters/${id}`;
 }
 
-function makeCharacter(id: CharacterId, name: string): CharacterDef {
+function makeCharacter(id: StockCharacterId, name: string): CharacterDef {
   const root = characterFaceRoot(id);
   const damage = `${root}/damage-stages`;
   const clown = `${root}/bobo-clown-stages`;
@@ -67,8 +73,8 @@ function makeCharacter(id: CharacterId, name: string): CharacterDef {
   };
 }
 
-export const CHARACTERS: Record<CharacterId, CharacterDef> = {
-  default: makeCharacter('default', 'Default'),
+export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
+  default: makeCharacter('default', 'Default Boxer'),
   byson: makeCharacter('byson', 'Byson'),
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick'),
   'the-don': makeCharacter('the-don', 'The Don'),
@@ -81,18 +87,23 @@ export const CHARACTER_LIST: CharacterDef[] = [
   CHARACTERS['the-don'],
 ];
 
-export const DEFAULT_CHARACTER_ID: CharacterId = 'default';
+export const DEFAULT_CHARACTER_ID: StockCharacterId = 'default';
 
 export const CHARACTER_STORAGE_KEY = 'mickeys-gym-character';
 
-export function isCharacterId(value: string | null | undefined): value is CharacterId {
+export function isStockCharacterId(value: string | null | undefined): value is StockCharacterId {
   return value === 'default' || value === 'byson' || value === 'tin-mick' || value === 'the-don';
+}
+
+/** @deprecated Prefer isStockCharacterId — photo ids are also valid CharacterIds. */
+export function isCharacterId(value: string | null | undefined): value is CharacterId {
+  return isStockCharacterId(value) || isPhotoCharacterId(value);
 }
 
 export function readStoredCharacterId(): CharacterId {
   try {
     const raw = localStorage.getItem(CHARACTER_STORAGE_KEY);
-    if (isCharacterId(raw)) return raw;
+    if (isStockCharacterId(raw) || isPhotoCharacterId(raw)) return raw;
   } catch {
     /* ignore */
   }

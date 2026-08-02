@@ -162,9 +162,9 @@ function drawComedyPopEyes(
     // Exact centre of the highlighted eye area
     const cx = eye.cx * w;
     const cy = eye.cy * h;
-    // Eyeball sized to the highlight ellipse
-    const popRx = Math.max(14, eye.rx * w * 1.05);
-    const popRy = Math.max(12, eye.ry * h * 1.05);
+    // Eyeball sized to 2× the highlight ellipse
+    const popRx = Math.max(14, eye.rx * w * 2);
+    const popRy = Math.max(12, eye.ry * h * 2);
 
     // Soft skin cover under / around the bulge (same centre)
     ctx.fillStyle = `rgb(${skin.r}, ${skin.g}, ${skin.b})`;
