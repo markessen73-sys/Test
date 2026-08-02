@@ -1,20 +1,18 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  FACE_GUIDE_MASK_SRC,
-  FACE_GUIDE_OUTLINE_SRC,
-  FACE_GUIDE_SIZE,
-} from './guide';
+  captureMirroredVideoFrame,
+  cutOutFace,
+  detectFacesInImage,
+  type DetectedFace,
+} from './faceDetect';
 import { writeCustomFaceDataUrl, writeCustomFaceSet, type CustomFaceSet } from './customFace';
 import './FaceCaptureView.css';
 
-type Mode = 'choose' | 'camera' | 'upload' | 'saving' | 'done' | 'error';
+type Mode = 'choose' | 'camera' | 'pick-face' | 'saving' | 'done' | 'error';
 
 type Props = {
   onClose: () => void;
 };
-
-const MIN_SCALE = 0.6;
-const MAX_SCALE = 2.4;
 
 const SELFIE_STEPS = [
   {
@@ -45,10 +43,6 @@ function selectDefaultCharacter() {
   }
 }
 
-function clamp(n: number, lo: number, hi: number) {
-  return Math.min(hi, Math.max(lo, n));
-}
-
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
@@ -59,126 +53,28 @@ function loadImage(src: string) {
   });
 }
 
-function pointerDist(a: { x: number; y: number }, b: { x: number; y: number }) {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  return Math.hypot(dx, dy);
-}
-
-function pointerAngle(a: { x: number; y: number }, b: { x: number; y: number }) {
-  return Math.atan2(b.y - a.y, b.x - a.x);
-}
-
-/** Cover-fit source into a square (mirrors selfie display). */
-function drawCoverMirrored(
-  ctx: CanvasRenderingContext2D,
-  source: CanvasImageSource,
-  sw: number,
-  sh: number,
-  size: number
-) {
-  const scale = Math.max(size / sw, size / sh);
-  const dw = sw * scale;
-  const dh = sh * scale;
-  const dx = (size - dw) / 2;
-  const dy = (size - dh) / 2;
-  ctx.save();
-  ctx.translate(size, 0);
-  ctx.scale(-1, 1);
-  ctx.drawImage(source, 0, 0, sw, sh, size - dx - dw, dy, dw, dh);
-  ctx.restore();
-}
-
-/** Draw photo with pan/zoom/rotate into square guide space. */
-function drawPhotoTransformed(
-  ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
-  size: number,
-  scale: number,
-  panX: number,
-  panY: number,
-  rotation: number
-) {
-  const iw = img.naturalWidth;
-  const ih = img.naturalHeight;
-  const base = Math.max(size / iw, size / ih);
-  const s = base * scale;
-  const dw = iw * s;
-  const dh = ih * s;
-  ctx.save();
-  ctx.translate(size / 2 + panX * size, size / 2 + panY * size);
-  ctx.rotate(rotation);
-  ctx.drawImage(img, 0, 0, iw, ih, -dw / 2, -dh / 2, dw, dh);
-  ctx.restore();
-}
-
-async function applyHeadMask(canvas: HTMLCanvasElement): Promise<string> {
-  const mask = await loadImage(FACE_GUIDE_MASK_SRC);
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) throw new Error('No canvas context');
-  ctx.globalCompositeOperation = 'destination-in';
-  ctx.drawImage(mask, 0, 0, FACE_GUIDE_SIZE, FACE_GUIDE_SIZE);
-  ctx.globalCompositeOperation = 'source-over';
-  return canvas.toDataURL('image/png');
-}
-
-type GestureSnapshot = {
-  scale: number;
-  panX: number;
-  panY: number;
-  rotation: number;
-  /** One-finger pan origin */
-  panOrigin?: { x: number; y: number };
-  /** Two-finger pinch/rotate origin */
-  pinch?: {
-    dist: number;
-    angle: number;
-    midX: number;
-    midY: number;
-  };
-};
-
 export function FaceCaptureView({ onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const photoRef = useRef<HTMLImageElement | null>(null);
-  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
-  const gestureRef = useRef<GestureSnapshot | null>(null);
+  const uploadImgRef = useRef<HTMLImageElement | null>(null);
 
   const [mode, setMode] = useState<Mode>('choose');
   const [error, setError] = useState<string | null>(null);
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSet, setPreviewSet] = useState<CustomFaceSet | null>(null);
   const [selfieStep, setSelfieStep] = useState(0);
   const [selfieShots, setSelfieShots] = useState<Partial<CustomFaceSet>>({});
-  const [scale, setScale] = useState(1);
-  const [panX, setPanX] = useState(0);
-  const [panY, setPanY] = useState(0);
-  const [rotation, setRotation] = useState(0);
+  const [candidateFaces, setCandidateFaces] = useState<DetectedFace[]>([]);
+  const [status, setStatus] = useState('');
+  const [cameraActive, setCameraActive] = useState(false);
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
+    setCameraActive(false);
   }, []);
 
   useEffect(() => () => stopCamera(), [stopCamera]);
-
-  useEffect(() => {
-    return () => {
-      if (photoUrl) URL.revokeObjectURL(photoUrl);
-      if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
-    };
-  }, [photoUrl, previewUrl]);
-
-  const resetTransform = () => {
-    setScale(1);
-    setPanX(0);
-    setPanY(0);
-    setRotation(0);
-  };
 
   const startCamera = useCallback(async () => {
     setError(null);
@@ -186,13 +82,16 @@ export function FaceCaptureView({ onClose }: Props) {
     setSelfieStep(0);
     setSelfieShots({});
     setPreviewSet(null);
+    setStatus('Starting camera…');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
       streamRef.current = stream;
+      setCameraActive(true);
       setMode('camera');
+      setStatus('');
       requestAnimationFrame(() => {
         const video = videoRef.current;
         if (!video) return;
@@ -209,25 +108,13 @@ export function FaceCaptureView({ onClose }: Props) {
     }
   }, [stopCamera]);
 
-  const onPickFile = useCallback(
-    (file: File | undefined) => {
-      if (!file) return;
-      stopCamera();
-      setError(null);
-      if (photoUrl) URL.revokeObjectURL(photoUrl);
-      const url = URL.createObjectURL(file);
-      setPhotoUrl(url);
-      resetTransform();
-      setPreviewSet(null);
-      setMode('upload');
-      const img = new Image();
-      img.onload = () => {
-        photoRef.current = img;
-      };
-      img.src = url;
-    },
-    [photoUrl, stopCamera]
-  );
+  const finishWithFaces = useCallback((faces: CustomFaceSet) => {
+    writeCustomFaceSet(faces);
+    selectDefaultCharacter();
+    stopCamera();
+    setPreviewSet(faces);
+    setMode('done');
+  }, [stopCamera]);
 
   const captureSelfieShot = useCallback(async () => {
     const video = videoRef.current;
@@ -235,24 +122,18 @@ export function FaceCaptureView({ onClose }: Props) {
     const step = SELFIE_STEPS[selfieStep];
     if (!step) return;
     setMode('saving');
+    setStatus('Finding your face…');
+    setError(null);
     try {
-      const canvas = document.createElement('canvas');
-      canvas.width = FACE_GUIDE_SIZE;
-      canvas.height = FACE_GUIDE_SIZE;
-      const ctx = canvas.getContext('2d', { alpha: true });
-      if (!ctx) throw new Error('No canvas');
-      ctx.clearRect(0, 0, FACE_GUIDE_SIZE, FACE_GUIDE_SIZE);
-      const vw = video.videoWidth || 640;
-      const vh = video.videoHeight || 480;
-      drawCoverMirrored(ctx, video, vw, vh, FACE_GUIDE_SIZE);
-      const dataUrl = await applyHeadMask(canvas);
+      const frame = captureMirroredVideoFrame(video);
+      const dataUrl = await cutOutFace(frame);
       const nextShots: Partial<CustomFaceSet> = { ...selfieShots, [step.key]: dataUrl };
       setSelfieShots(nextShots);
 
       if (selfieStep < SELFIE_STEPS.length - 1) {
         setSelfieStep(selfieStep + 1);
+        setStatus('');
         setMode('camera');
-        // Keep the stream attached — re-bind if needed after mode flip
         requestAnimationFrame(() => {
           const v = videoRef.current;
           if (v && streamRef.current) {
@@ -263,118 +144,88 @@ export function FaceCaptureView({ onClose }: Props) {
         return;
       }
 
-      const faces: CustomFaceSet = {
+      finishWithFaces({
         clean: nextShots.clean!,
         ooh: nextShots.ooh!,
         knockout: nextShots.knockout!,
-      };
-      writeCustomFaceSet(faces);
-      selectDefaultCharacter();
+      });
+    } catch (err) {
+      setMode('camera');
+      setStatus('');
+      setError(err instanceof Error ? err.message : 'Could not capture face');
+      requestAnimationFrame(() => {
+        const v = videoRef.current;
+        if (v && streamRef.current) {
+          v.srcObject = streamRef.current;
+          void v.play();
+        }
+      });
+    }
+  }, [finishWithFaces, selfieShots, selfieStep]);
+
+  const onPickFile = useCallback(
+    async (file: File | undefined) => {
+      if (!file) return;
       stopCamera();
-      setPreviewSet(faces);
-      setPreviewUrl(faces.clean);
-      setMode('done');
-    } catch (err) {
-      setMode('error');
-      setError(err instanceof Error ? err.message : 'Could not save face');
-    }
-  }, [selfieShots, selfieStep, stopCamera]);
+      setError(null);
+      setPreviewSet(null);
+      setMode('saving');
+      setStatus('Looking for faces…');
+      try {
+        const url = URL.createObjectURL(file);
+        const img = await loadImage(url);
+        URL.revokeObjectURL(url);
+        uploadImgRef.current = img;
+        const faces = await detectFacesInImage(img);
+        if (!faces.length) {
+          throw new Error('No face found in that photo. Try another one.');
+        }
+        if (faces.length === 1) {
+          setStatus('Cutting out face…');
+          const cut = await cutOutFace(img, faces[0]);
+          writeCustomFaceDataUrl(cut);
+          selectDefaultCharacter();
+          const set = { clean: cut, ooh: cut, knockout: cut };
+          setPreviewSet(set);
+          setMode('done');
+          setStatus('');
+          return;
+        }
+        setCandidateFaces(faces);
+        setStatus('');
+        setMode('pick-face');
+      } catch (err) {
+        setMode('error');
+        setError(err instanceof Error ? err.message : 'Could not read that photo');
+        setStatus('');
+      }
+    },
+    [stopCamera]
+  );
 
-  const saveFromUpload = useCallback(async () => {
-    const img = photoRef.current;
-    if (!img) return;
-    setMode('saving');
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = FACE_GUIDE_SIZE;
-      canvas.height = FACE_GUIDE_SIZE;
-      const ctx = canvas.getContext('2d', { alpha: true });
-      if (!ctx) throw new Error('No canvas');
-      ctx.clearRect(0, 0, FACE_GUIDE_SIZE, FACE_GUIDE_SIZE);
-      drawPhotoTransformed(ctx, img, FACE_GUIDE_SIZE, scale, panX, panY, rotation);
-      const dataUrl = await applyHeadMask(canvas);
-      writeCustomFaceDataUrl(dataUrl);
-      selectDefaultCharacter();
-      const faces = { clean: dataUrl, ooh: dataUrl, knockout: dataUrl };
-      setPreviewSet(faces);
-      setPreviewUrl(dataUrl);
-      setMode('done');
-    } catch (err) {
-      setMode('error');
-      setError(err instanceof Error ? err.message : 'Could not save face');
-    }
-  }, [panX, panY, rotation, scale]);
-
-  const beginGesture = () => {
-    const pts = [...pointersRef.current.values()];
-    const snap: GestureSnapshot = { scale, panX, panY, rotation };
-    if (pts.length >= 2) {
-      snap.pinch = {
-        dist: Math.max(1, pointerDist(pts[0], pts[1])),
-        angle: pointerAngle(pts[0], pts[1]),
-        midX: (pts[0].x + pts[1].x) / 2,
-        midY: (pts[0].y + pts[1].y) / 2,
-      };
-    } else if (pts.length === 1) {
-      snap.panOrigin = { x: pts[0].x, y: pts[0].y };
-    }
-    gestureRef.current = snap;
-  };
-
-  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (mode !== 'upload') return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    beginGesture();
-  };
-
-  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (mode !== 'upload') return;
-    if (!pointersRef.current.has(e.pointerId)) return;
-    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    const stage = stageRef.current;
-    const snap = gestureRef.current;
-    if (!stage || !snap) return;
-    const rect = stage.getBoundingClientRect();
-    const pts = [...pointersRef.current.values()];
-
-    if (pts.length >= 2 && snap.pinch) {
-      const dist = Math.max(1, pointerDist(pts[0], pts[1]));
-      const angle = pointerAngle(pts[0], pts[1]);
-      const midX = (pts[0].x + pts[1].x) / 2;
-      const midY = (pts[0].y + pts[1].y) / 2;
-      const nextScale = clamp(snap.scale * (dist / snap.pinch.dist), MIN_SCALE, MAX_SCALE);
-      const nextRotation = snap.rotation + (angle - snap.pinch.angle);
-      const dMidX = (midX - snap.pinch.midX) / rect.width;
-      const dMidY = (midY - snap.pinch.midY) / rect.height;
-      setScale(nextScale);
-      setRotation(nextRotation);
-      setPanX(snap.panX + dMidX);
-      setPanY(snap.panY + dMidY);
-      return;
-    }
-
-    if (pts.length === 1 && snap.panOrigin && !snap.pinch) {
-      const dx = (pts[0].x - snap.panOrigin.x) / rect.width;
-      const dy = (pts[0].y - snap.panOrigin.y) / rect.height;
-      setPanX(snap.panX + dx);
-      setPanY(snap.panY + dy);
-    }
-  };
-
-  const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
-    pointersRef.current.delete(e.pointerId);
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
-    if (pointersRef.current.size === 0) {
-      gestureRef.current = null;
-    } else {
-      beginGesture();
-    }
-  };
+  const chooseUploadFace = useCallback(
+    async (face: DetectedFace) => {
+      const img = uploadImgRef.current;
+      if (!img) return;
+      setMode('saving');
+      setStatus('Cutting out face…');
+      try {
+        const cut = await cutOutFace(img, face);
+        writeCustomFaceDataUrl(cut);
+        selectDefaultCharacter();
+        const set = { clean: cut, ooh: cut, knockout: cut };
+        setPreviewSet(set);
+        setCandidateFaces([]);
+        setMode('done');
+        setStatus('');
+      } catch (err) {
+        setMode('error');
+        setError(err instanceof Error ? err.message : 'Could not cut out that face');
+        setStatus('');
+      }
+    },
+    []
+  );
 
   const goGymWithFace = () => {
     const url = new URL(window.location.href);
@@ -382,23 +233,19 @@ export function FaceCaptureView({ onClose }: Props) {
     window.location.href = url.pathname + url.search + url.hash;
   };
 
-  const photoTransform =
-    photoUrl && (mode === 'upload' || mode === 'saving')
-      ? `translate(${panX * 100}%, ${panY * 100}%) rotate(${rotation}rad) scale(${scale})`
-      : undefined;
-
-  const rotationDeg = Math.round((rotation * 180) / Math.PI);
+  const showCameraChrome = cameraActive && (mode === 'camera' || mode === 'saving');
 
   return (
-    <div className={`face-capture ${mode === 'upload' ? 'has-confirm-bar' : ''}`}>
+    <div className={`face-capture ${showCameraChrome ? 'has-confirm-bar' : ''}`}>
       <header className="face-capture-header">
         <button type="button" className="face-capture-back" onClick={onClose}>
           ← Back to gym
         </button>
         <div className="face-capture-titles">
-          <h1 className="face-capture-title">Fit your face</h1>
+          <h1 className="face-capture-title">Your face</h1>
           <p className="face-capture-sub">
-            Selfie: smile, say ooh!, then look sad. Upload: line up one photo and tap OK.
+            Selfie: smile, say ooh!, then look sad — we cut out your face automatically. Upload a photo
+            and pick a face if more than one is found.
           </p>
         </div>
       </header>
@@ -415,7 +262,7 @@ export function FaceCaptureView({ onClose }: Props) {
               accept="image/*"
               className="face-capture-file"
               onChange={(e) => {
-                onPickFile(e.target.files?.[0]);
+                void onPickFile(e.target.files?.[0]);
                 e.target.value = '';
               }}
             />
@@ -423,126 +270,55 @@ export function FaceCaptureView({ onClose }: Props) {
         </div>
       )}
 
-      {(mode === 'camera' || mode === 'upload' || mode === 'saving') && (
+      {showCameraChrome && (
         <>
-          <div
-            ref={stageRef}
-            className={`face-capture-stage ${mode === 'upload' ? 'is-draggable' : ''}`}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-          >
-            {mode === 'camera' || (mode === 'saving' && !photoUrl) ? (
-              <video ref={videoRef} className="face-capture-video" playsInline muted autoPlay />
-            ) : (
-              photoUrl && (
-                <img
-                  src={photoUrl}
-                  alt=""
-                  className="face-capture-photo"
-                  style={{ transform: photoTransform }}
-                  draggable={false}
-                />
-              )
-            )}
-            <div className="face-capture-vignette" aria-hidden />
-            <img src={FACE_GUIDE_OUTLINE_SRC} alt="" className="face-capture-guide" draggable={false} />
+          <div className="face-capture-stage">
+            <video ref={videoRef} className="face-capture-video" playsInline muted autoPlay />
           </div>
 
-          {mode === 'upload' && (
-            <div className="face-capture-zoom">
-              <label className="face-capture-zoom-label">
-                Zoom
-                <input
-                  type="range"
-                  min={MIN_SCALE}
-                  max={MAX_SCALE}
-                  step={0.01}
-                  value={scale}
-                  onChange={(e) => setScale(Number(e.target.value))}
-                />
-              </label>
-              <label className="face-capture-zoom-label">
-                Rotate ({rotationDeg}°)
-                <input
-                  type="range"
-                  min={-180}
-                  max={180}
-                  step={1}
-                  value={rotationDeg}
-                  onChange={(e) => setRotation((Number(e.target.value) * Math.PI) / 180)}
-                />
-              </label>
-              <p className="face-capture-hint">
-                Drag to move. Pinch to zoom, twist to rotate — or use the sliders. Tap OK when it fits.
-              </p>
+          <div className="face-capture-selfie-steps">
+            <div className="face-capture-step-pills" aria-label={`Photo ${selfieStep + 1} of 3`}>
+              {SELFIE_STEPS.map((s, i) => (
+                <span
+                  key={s.key}
+                  className={`face-capture-step-pill ${i === selfieStep ? 'is-current' : ''} ${
+                    selfieShots[s.key] ? 'is-done' : ''
+                  }`}
+                >
+                  {i + 1}. {s.label}
+                </span>
+              ))}
             </div>
-          )}
+            <p className="face-capture-hint face-capture-selfie-prompt">
+              {mode === 'saving'
+                ? status || 'Saving…'
+                : (SELFIE_STEPS[selfieStep]?.prompt ?? 'Look at the camera.')}
+            </p>
+            {error && mode === 'camera' && <p className="face-capture-error">{error}</p>}
+          </div>
 
-          {(mode === 'camera' || (mode === 'saving' && !photoUrl)) && (
-            <div className="face-capture-selfie-steps">
-              <div className="face-capture-step-pills" aria-label={`Photo ${selfieStep + 1} of 3`}>
-                {SELFIE_STEPS.map((s, i) => (
-                  <span
-                    key={s.key}
-                    className={`face-capture-step-pill ${i === selfieStep ? 'is-current' : ''} ${
-                      selfieShots[s.key] ? 'is-done' : ''
-                    }`}
-                  >
-                    {i + 1}. {s.label}
-                  </span>
-                ))}
-              </div>
-              <p className="face-capture-hint face-capture-selfie-prompt">
-                {SELFIE_STEPS[selfieStep]?.prompt ?? 'Fit your face inside the outline.'}
-              </p>
-              {Object.keys(selfieShots).length > 0 && (
-                <div className="face-capture-shot-thumbs">
-                  {SELFIE_STEPS.map((s) =>
-                    selfieShots[s.key] ? (
-                      <img key={s.key} src={selfieShots[s.key]} alt={s.label} className="face-capture-shot-thumb" />
-                    ) : null
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {mode === 'camera' && (
-            <div className="face-capture-actions">
-              <button type="button" className="face-capture-primary" onClick={() => void captureSelfieShot()}>
-                {SELFIE_STEPS[selfieStep]?.button ?? 'Capture'} ({selfieStep + 1}/3)
-              </button>
+          {showCameraChrome && (
+            <div className="face-capture-confirm-bar">
               <button
                 type="button"
-                className="face-capture-secondary"
-                onClick={() => {
-                  stopCamera();
-                  setSelfieStep(0);
-                  setSelfieShots({});
-                  setMode('choose');
-                }}
+                className="face-capture-ok"
+                disabled={mode === 'saving'}
+                onClick={() => void captureSelfieShot()}
               >
-                Start over
-              </button>
-            </div>
-          )}
-
-          {mode === 'upload' && (
-            <div className="face-capture-confirm-bar">
-              <button type="button" className="face-capture-ok" onClick={() => void saveFromUpload()}>
-                OK
+                {mode === 'saving'
+                  ? status || 'Working…'
+                  : `${SELFIE_STEPS[selfieStep]?.button ?? 'Capture'} (${selfieStep + 1}/3)`}
               </button>
               <div className="face-capture-confirm-secondary">
-                <button type="button" className="face-capture-secondary" onClick={resetTransform}>
-                  Reset
-                </button>
                 <button
                   type="button"
                   className="face-capture-secondary"
+                  disabled={mode === 'saving'}
                   onClick={() => {
                     stopCamera();
+                    setSelfieStep(0);
+                    setSelfieShots({});
+                    setError(null);
                     setMode('choose');
                   }}
                 >
@@ -551,37 +327,55 @@ export function FaceCaptureView({ onClose }: Props) {
               </div>
             </div>
           )}
-
-          {mode === 'saving' && (
-            <div className="face-capture-actions">
-              <span className="face-capture-hint">Saving…</span>
-            </div>
-          )}
         </>
       )}
 
-      {mode === 'done' && previewUrl && (
+      {mode === 'pick-face' && (
+        <div className="face-capture-pick">
+          <p className="face-capture-selfie-prompt">We found {candidateFaces.length} faces — tap yours.</p>
+          <div className="face-capture-pick-grid">
+            {candidateFaces.map((face, i) => (
+              <button
+                key={`${face.x}-${face.y}-${i}`}
+                type="button"
+                className="face-capture-pick-card"
+                onClick={() => void chooseUploadFace(face)}
+              >
+                <img src={face.previewUrl} alt={`Face ${i + 1}`} />
+                <span>Face {i + 1}</span>
+              </button>
+            ))}
+          </div>
+          <button type="button" className="face-capture-secondary" onClick={() => setMode('choose')}>
+            Start over
+          </button>
+        </div>
+      )}
+
+      {mode === 'saving' && !cameraActive && (
+        <div className="face-capture-actions">
+          <span className="face-capture-hint">{status || 'Saving…'}</span>
+        </div>
+      )}
+
+      {mode === 'done' && previewSet && (
         <div className="face-capture-done">
-          {previewSet ? (
-            <div className="face-capture-result-row">
-              {(
-                [
-                  ['Smile', previewSet.clean],
-                  ['Ooh!', previewSet.ooh],
-                  ['Sad', previewSet.knockout],
-                ] as const
-              ).map(([label, src]) => (
-                <figure key={label} className="face-capture-result-fig">
-                  <img src={src} alt={label} className="face-capture-result" />
-                  <figcaption>{label}</figcaption>
-                </figure>
-              ))}
-            </div>
-          ) : (
-            <img src={previewUrl} alt="Saved face" className="face-capture-result" />
-          )}
+          <div className="face-capture-result-row">
+            {(
+              [
+                ['Smile', previewSet.clean],
+                ['Ooh!', previewSet.ooh],
+                ['Sad', previewSet.knockout],
+              ] as const
+            ).map(([label, src]) => (
+              <figure key={label} className="face-capture-result-fig">
+                <img src={src} alt={label} className="face-capture-result" />
+                <figcaption>{label}</figcaption>
+              </figure>
+            ))}
+          </div>
           <p className="face-capture-hint">
-            Saved — smile is normal, ooh! is punched, sad is knockout. Outside the outline stays clear.
+            Saved — smile is normal, ooh! is punched, sad is knockout. Background stays clear.
           </p>
           <button type="button" className="face-capture-primary" onClick={goGymWithFace}>
             Back to gym

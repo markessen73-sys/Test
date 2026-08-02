@@ -51,8 +51,8 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
         <section className="options-section">
           <h3 className="options-section-title">Fit your face</h3>
           <p className="options-section-hint">
-            Take three selfies (smile, ooh!, sad) or upload a photo and line it up with the yellow
-            outline. What sits inside is saved as your boxer faces.
+            Take three selfies (smile, ooh!, sad) or upload a photo — we detect and cut out the face
+            automatically (pick which face if the photo has more than one).
           </p>
           <a className="options-link-btn" href="?builder=face">
             Open face capture
