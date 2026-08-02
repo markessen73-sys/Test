@@ -15,7 +15,7 @@ export async function createDamageFaceVariants(
 }> {
   const [cleanFace, knockoutFace, ...damageFaces] = await Promise.all([
     loadFaceImage(character.damageStageCleanSrc),
-    loadFaceImage(character.knockoutSrc),
+    loadFaceImage(character.damageStageKnockoutSrc),
     ...character.damageStageSrcs.map(loadFaceImage),
   ]);
   return { cleanFace, damageFaces, knockoutFace };

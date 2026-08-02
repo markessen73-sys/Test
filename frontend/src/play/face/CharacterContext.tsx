@@ -29,7 +29,8 @@ interface CharacterContextValue {
 
 const CharacterContext = createContext<CharacterContextValue | null>(null);
 
-/** When the user has fitted photos, use them for the Default boxer expressions. */
+/** When the user has fitted photos, use them for the Default boxer live faces.
+ * Damage meter keeps the original generic boxer injury ladder. */
 function applyCustomFace(def: CharacterDef, custom: CustomFaceSet | null): CharacterDef {
   if (!custom || def.id !== 'default') return def;
   return {
@@ -37,9 +38,6 @@ function applyCustomFace(def: CharacterDef, custom: CustomFaceSet | null): Chara
     cleanSrc: custom.clean,
     oohSrc: custom.ooh,
     knockoutSrc: custom.knockout,
-    damageStageCleanSrc: custom.clean,
-    damageStageHoldSrc: custom.ooh,
-    damageStageKnockoutSrc: custom.knockout,
     name: 'My face',
   };
 }

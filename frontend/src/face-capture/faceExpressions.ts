@@ -166,21 +166,30 @@ function makeSad(img: HTMLImageElement, landmarks: NormalizedLandmark[]): string
   ctx.drawImage(img, 0, 0, w, h);
 
   const m = mouthMetrics(landmarks, w, h);
-  const drop = m.width * 0.32;
-  const padX = m.width * 0.85;
-  const padY = m.width * 0.7;
+  const drop = m.width * 0.55;
+  // Keep warp local to the mouth — large pads were twisting glasses
+  const padX = m.width * 0.72;
+  const padY = m.width * 0.55;
   const x0 = Math.max(0, Math.floor(m.cx - padX));
   const x1 = Math.min(w, Math.ceil(m.cx + padX));
   const y0 = Math.max(0, Math.floor(m.cy - padY));
-  const y1 = Math.min(h, Math.ceil(m.cy + padY * 1.2));
+  const y1 = Math.min(h, Math.ceil(m.cy + padY * 1.35));
 
-  // Brow region
+  // Brow region — pull inner brows down harder for a sadder look
   const browY = toPx(landmarks[55] ?? landmarks[105] ?? landmarks[10]!, w, h).y;
-  const browPad = m.width * 0.45;
-  const bx0 = Math.max(0, Math.floor(m.cx - m.width * 0.85));
-  const bx1 = Math.min(w, Math.ceil(m.cx + m.width * 0.85));
+  const browPad = m.width * 0.55;
+  const bx0 = Math.max(0, Math.floor(m.cx - m.width * 0.95));
+  const bx1 = Math.min(w, Math.ceil(m.cx + m.width * 0.95));
   const by0 = Math.max(0, Math.floor(browY - browPad));
-  const by1 = Math.min(h, Math.ceil(browY + browPad * 0.6));
+  const by1 = Math.min(h, Math.ceil(browY + browPad * 0.75));
+
+  // Lower lids — slight droop
+  const eyeY = toPx(landmarks[145] ?? landmarks[159]!, w, h).y;
+  const eyePad = m.width * 0.35;
+  const ex0 = Math.max(0, Math.floor(m.cx - m.width * 0.75));
+  const ex1 = Math.min(w, Math.ceil(m.cx + m.width * 0.75));
+  const ey0 = Math.max(0, Math.floor(eyeY - eyePad * 0.4));
+  const ey1 = Math.min(h, Math.ceil(eyeY + eyePad));
 
   const src = ctx.getImageData(0, 0, w, h);
   const dst = ctx.createImageData(w, h);
@@ -197,6 +206,11 @@ function makeSad(img: HTMLImageElement, landmarks: NormalizedLandmark[]): string
     const i10 = i00 + 4;
     const i01 = i00 + w * 4;
     const i11 = i01 + 4;
+    const a =
+      (src.data[i00 + 3]! * (1 - fx) + src.data[i10 + 3]! * fx) * (1 - fy) +
+      (src.data[i01 + 3]! * (1 - fx) + src.data[i11 + 3]! * fx) * fy;
+    // Don't pull transparent edge pixels into the face (creates black holes)
+    if (a < 32) return;
     for (let c = 0; c < 4; c++) {
       dst.data[di + c] =
         (src.data[i00 + c]! * (1 - fx) + src.data[i10 + c]! * fx) * (1 - fy) +
@@ -208,24 +222,35 @@ function makeSad(img: HTMLImageElement, landmarks: NormalizedLandmark[]): string
     for (let x = x0; x < x1; x++) {
       const nx = (x - m.cx) / padX;
       const ny = (y - m.cy) / padY;
-      const gate = Math.max(0, 1 - (nx * nx * 0.7 + ny * ny));
+      const gate = Math.max(0, 1 - (nx * nx * 0.65 + ny * ny));
       if (gate <= 0.01) continue;
-      // Corners drop more than center (frown)
-      const corner = Math.min(1, Math.abs(nx) * 1.35);
-      const dy = drop * corner * corner * gate;
-      sample(x, y - dy, (y * w + x) * 4);
+      // Corners drop hard; center also drops to flatten a smile into a frown
+      const corner = Math.min(1, Math.abs(nx) * 1.55);
+      const dy = drop * (0.35 + 0.65 * corner * corner) * gate;
+      // Slight inward pinch at corners for a tighter frown
+      const dx = -Math.sign(nx || 1) * m.width * 0.04 * corner * gate;
+      sample(x - dx, y - dy, (y * w + x) * 4);
     }
   }
 
   for (let y = by0; y < by1; y++) {
     for (let x = bx0; x < bx1; x++) {
-      const nx = (x - m.cx) / (m.width * 0.85);
+      const nx = (x - m.cx) / (m.width * 0.95);
       const ny = (y - browY) / browPad;
-      const gate = Math.max(0, 1 - (nx * nx + ny * ny * 1.4));
+      const gate = Math.max(0, 1 - (nx * nx + ny * ny * 1.3));
       if (gate <= 0.01) continue;
-      // Inner brows down a touch
-      const inward = Math.max(0, 1 - Math.abs(nx) * 1.2);
-      sample(x, y - m.width * 0.06 * inward * gate, (y * w + x) * 4);
+      const inward = Math.max(0, 1 - Math.abs(nx) * 1.05);
+      sample(x, y - m.width * 0.16 * inward * gate, (y * w + x) * 4);
+    }
+  }
+
+  for (let y = ey0; y < ey1; y++) {
+    for (let x = ex0; x < ex1; x++) {
+      const nx = (x - m.cx) / (m.width * 0.75);
+      const ny = (y - eyeY) / eyePad;
+      const gate = Math.max(0, 1 - (nx * nx * 0.8 + ny * ny * 1.6));
+      if (gate <= 0.01) continue;
+      sample(x, y - m.width * 0.045 * gate, (y * w + x) * 4);
     }
   }
 
