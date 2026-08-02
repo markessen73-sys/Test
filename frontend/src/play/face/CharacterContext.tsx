@@ -30,16 +30,23 @@ interface CharacterContextValue {
 const CharacterContext = createContext<CharacterContextValue | null>(null);
 
 /** When the user has fitted photos, use them for the Default boxer live faces.
- * Damage meter keeps the original generic boxer injury ladder. */
+ * Damage meter uses baked photo damage stages when available. */
 function applyCustomFace(def: CharacterDef, custom: CustomFaceSet | null): CharacterDef {
   if (!custom || def.id !== 'default') return def;
-  return {
+  const next: CharacterDef = {
     ...def,
     cleanSrc: custom.clean,
     oohSrc: custom.ooh,
     knockoutSrc: custom.knockout,
     name: 'My face',
   };
+  if (custom.damageStages?.length) {
+    next.damageStageCleanSrc = custom.clean;
+    next.damageStageSrcs = custom.damageStages;
+    next.damageStageHoldSrc = custom.ooh;
+    next.damageStageKnockoutSrc = custom.damageKnockout ?? custom.knockout;
+  }
+  return next;
 }
 
 export function CharacterProvider({ children }: { children: ReactNode }) {

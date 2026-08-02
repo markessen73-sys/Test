@@ -7,9 +7,10 @@ import {
 } from './faceDetect';
 import { synthesizeFaceExpressions } from './faceExpressions';
 import { writeCustomFaceSet, type CustomFaceSet } from './customFace';
+import { FaceCleanupAnnotateView } from './FaceCleanupAnnotateView';
 import './FaceCaptureView.css';
 
-type Mode = 'choose' | 'camera' | 'pick-face' | 'saving' | 'done' | 'error';
+type Mode = 'choose' | 'camera' | 'pick-face' | 'annotate' | 'saving' | 'done' | 'error';
 
 type Props = {
   onClose: () => void;
@@ -67,6 +68,8 @@ export function FaceCaptureView({ onClose }: Props) {
   const [candidateFaces, setCandidateFaces] = useState<DetectedFace[]>([]);
   const [status, setStatus] = useState('');
   const [cameraActive, setCameraActive] = useState(false);
+  /** Faces ready for erase + marker annotate pass */
+  const [annotateDraft, setAnnotateDraft] = useState<CustomFaceSet | null>(null);
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -83,6 +86,7 @@ export function FaceCaptureView({ onClose }: Props) {
     setSelfieStep(0);
     setSelfieShots({});
     setPreviewSet(null);
+    setAnnotateDraft(null);
     setStatus('Starting camera…');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -109,13 +113,27 @@ export function FaceCaptureView({ onClose }: Props) {
     }
   }, [stopCamera]);
 
-  const finishWithFaces = useCallback((faces: CustomFaceSet) => {
-    writeCustomFaceSet(faces);
-    selectDefaultCharacter();
-    stopCamera();
-    setPreviewSet(faces);
-    setMode('done');
-  }, [stopCamera]);
+  const beginAnnotate = useCallback(
+    (faces: CustomFaceSet) => {
+      stopCamera();
+      setAnnotateDraft(faces);
+      setMode('annotate');
+      setStatus('');
+    },
+    [stopCamera]
+  );
+
+  const finishWithFaces = useCallback(
+    (faces: CustomFaceSet) => {
+      writeCustomFaceSet(faces);
+      selectDefaultCharacter();
+      stopCamera();
+      setAnnotateDraft(null);
+      setPreviewSet(faces);
+      setMode('done');
+    },
+    [stopCamera]
+  );
 
   const captureSelfieShot = useCallback(async () => {
     const video = videoRef.current;
@@ -146,7 +164,7 @@ export function FaceCaptureView({ onClose }: Props) {
         return;
       }
 
-      finishWithFaces({
+      beginAnnotate({
         clean: nextShots.clean!,
         ooh: nextShots.ooh!,
         knockout: nextShots.knockout!,
@@ -163,7 +181,7 @@ export function FaceCaptureView({ onClose }: Props) {
         }
       });
     }
-  }, [finishWithFaces, selfieShots, selfieStep]);
+  }, [beginAnnotate, selfieShots, selfieStep]);
 
   const onPickFile = useCallback(
     async (file: File | undefined) => {
@@ -171,6 +189,7 @@ export function FaceCaptureView({ onClose }: Props) {
       stopCamera();
       setError(null);
       setPreviewSet(null);
+      setAnnotateDraft(null);
       setMode('saving');
       setStatus('Looking for faces…');
       try {
@@ -187,11 +206,7 @@ export function FaceCaptureView({ onClose }: Props) {
           const cut = await cutOutFace(img, faces[0]);
           setStatus('Making ooh & sad faces…');
           const set = await synthesizeFaceExpressions(cut);
-          writeCustomFaceSet(set);
-          selectDefaultCharacter();
-          setPreviewSet(set);
-          setMode('done');
-          setStatus('');
+          beginAnnotate(set);
           return;
         }
         setCandidateFaces(faces);
@@ -203,7 +218,7 @@ export function FaceCaptureView({ onClose }: Props) {
         setStatus('');
       }
     },
-    [stopCamera]
+    [beginAnnotate, stopCamera]
   );
 
   const chooseUploadFace = useCallback(
@@ -216,19 +231,15 @@ export function FaceCaptureView({ onClose }: Props) {
         const cut = await cutOutFace(img, face);
         setStatus('Making ooh & sad faces…');
         const set = await synthesizeFaceExpressions(cut);
-        writeCustomFaceSet(set);
-        selectDefaultCharacter();
-        setPreviewSet(set);
         setCandidateFaces([]);
-        setMode('done');
-        setStatus('');
+        beginAnnotate(set);
       } catch (err) {
         setMode('error');
         setError(err instanceof Error ? err.message : 'Could not cut out that face');
         setStatus('');
       }
     },
-    []
+    [beginAnnotate]
   );
 
   const goGymWithFace = () => {
@@ -248,9 +259,8 @@ export function FaceCaptureView({ onClose }: Props) {
         <div className="face-capture-titles">
           <h1 className="face-capture-title">Your face</h1>
           <p className="face-capture-sub">
-            Selfie: smile, say ooh!, then look sad — we cut you out from the background. Upload one
-            photo and we remove the background, then edit ooh! and sad from that face (pick yours if
-            several people are in the shot).
+            Selfie or upload — we cut out your head, then you erase leftovers and mark eyes, nose,
+            mouth, and ears so damage lands in the right place.
           </p>
         </div>
       </header>
@@ -302,36 +312,34 @@ export function FaceCaptureView({ onClose }: Props) {
             {error && mode === 'camera' && <p className="face-capture-error">{error}</p>}
           </div>
 
-          {showCameraChrome && (
-            <div className="face-capture-confirm-bar">
+          <div className="face-capture-confirm-bar">
+            <button
+              type="button"
+              className="face-capture-ok"
+              disabled={mode === 'saving'}
+              onClick={() => void captureSelfieShot()}
+            >
+              {mode === 'saving'
+                ? status || 'Working…'
+                : `${SELFIE_STEPS[selfieStep]?.button ?? 'Capture'} (${selfieStep + 1}/3)`}
+            </button>
+            <div className="face-capture-confirm-secondary">
               <button
                 type="button"
-                className="face-capture-ok"
+                className="face-capture-secondary"
                 disabled={mode === 'saving'}
-                onClick={() => void captureSelfieShot()}
+                onClick={() => {
+                  stopCamera();
+                  setSelfieStep(0);
+                  setSelfieShots({});
+                  setError(null);
+                  setMode('choose');
+                }}
               >
-                {mode === 'saving'
-                  ? status || 'Working…'
-                  : `${SELFIE_STEPS[selfieStep]?.button ?? 'Capture'} (${selfieStep + 1}/3)`}
+                Start over
               </button>
-              <div className="face-capture-confirm-secondary">
-                <button
-                  type="button"
-                  className="face-capture-secondary"
-                  disabled={mode === 'saving'}
-                  onClick={() => {
-                    stopCamera();
-                    setSelfieStep(0);
-                    setSelfieShots({});
-                    setError(null);
-                    setMode('choose');
-                  }}
-                >
-                  Start over
-                </button>
-              </div>
             </div>
-          )}
+          </div>
         </>
       )}
 
@@ -357,6 +365,19 @@ export function FaceCaptureView({ onClose }: Props) {
         </div>
       )}
 
+      {mode === 'annotate' && annotateDraft && (
+        <FaceCleanupAnnotateView
+          cleanSrc={annotateDraft.clean}
+          oohSrc={annotateDraft.ooh}
+          knockoutSrc={annotateDraft.knockout}
+          onComplete={finishWithFaces}
+          onCancel={() => {
+            setAnnotateDraft(null);
+            setMode('choose');
+          }}
+        />
+      )}
+
       {mode === 'saving' && !cameraActive && (
         <div className="face-capture-actions">
           <span className="face-capture-hint">{status || 'Saving…'}</span>
@@ -380,7 +401,8 @@ export function FaceCaptureView({ onClose }: Props) {
             ))}
           </div>
           <p className="face-capture-hint">
-            Saved — smile is normal, ooh! is punched, sad is knockout. Background is removed.
+            Saved — smile is normal, ooh! is punched, sad is knockout. Damage meter uses your marked
+            features.
           </p>
           <button type="button" className="face-capture-primary" onClick={goGymWithFace}>
             Back to gym
