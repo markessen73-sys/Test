@@ -5,11 +5,12 @@
     1024
   ],
   "faceOval": [
-    0.0938,
+    0.2402,
     0.0586,
-    0.9023,
+    0.7617,
     0.9258
   ],
   "outline": "faces/guide/face-guide-outline.png",
-  "mask": "faces/guide/face-guide-mask.png"
+  "mask": "faces/guide/face-guide-mask.png",
+  "notes": "Outer head outline only \u2014 ears, eyes, and nose removed from wireframe"
 }
