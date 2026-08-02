@@ -25,7 +25,7 @@ const STEPS: Array<{
     title: 'Erase leftover background',
     hint: 'Rub out any room, neck, or fringe you don’t want. Leave head and hair.',
     color: null,
-    brush: 28,
+    brush: 36,
   },
   {
     id: 'eyes',
@@ -58,6 +58,8 @@ const STEPS: Array<{
 ];
 
 const FACE_SIZE = 1024;
+const ERASER_MIN = 12;
+const ERASER_MAX = 96;
 
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -129,27 +131,34 @@ function splitLeftRight(mask: ImageData): { left: FaceFeatureMark | null; right:
   return { left: markFromMask(leftData), right: markFromMask(rightData) };
 }
 
-export function FaceCleanupAnnotateView({
-  cleanSrc,
-  onComplete,
-  onCancel,
-}: Props) {
+export function FaceCleanupAnnotateView({ cleanSrc, onComplete, onCancel }: Props) {
   const faceRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const strokeRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
   const lastPt = useRef<{ x: number; y: number } | null>(null);
+  const loadedSrc = useRef<string | null>(null);
 
   const [stepIndex, setStepIndex] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('Loading face…');
   const [ready, setReady] = useState(false);
+  const [eraserSize, setEraserSize] = useState(STEPS[0]!.brush);
+  const [wrapWidth, setWrapWidth] = useState(420);
+  const [cursor, setCursor] = useState<{ x: number; y: number; visible: boolean }>({
+    x: 0,
+    y: 0,
+    visible: false,
+  });
 
   // Per-step stroke canvases (offscreen)
   const stepMasks = useRef<Partial<Record<AnnotateStep, HTMLCanvasElement>>>({});
 
   const step = STEPS[stepIndex]!;
+  const isErase = step.id === 'erase';
+  const brushSize = isErase ? eraserSize : step.brush;
 
   const ensureStrokeCanvas = useCallback((id: AnnotateStep) => {
     let c = stepMasks.current[id];
@@ -169,7 +178,6 @@ export function FaceCleanupAnnotateView({
     const ctx = overlay.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, FACE_SIZE, FACE_SIZE);
-    // Draw all completed + current marker layers
     for (const s of STEPS) {
       if (!s.color) continue;
       const m = stepMasks.current[s.id];
@@ -180,9 +188,15 @@ export function FaceCleanupAnnotateView({
     ctx.globalAlpha = 1;
   }, [step.id]);
 
+  // Load face ONCE per cleanSrc — do not reload when step/overlay changes (that wiped erasures).
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (loadedSrc.current === cleanSrc && faceRef.current) {
+        setReady(true);
+        setStatus('');
+        return;
+      }
       try {
         const img = await loadImage(cleanSrc);
         if (cancelled) return;
@@ -196,6 +210,7 @@ export function FaceCleanupAnnotateView({
         const ctx = face.getContext('2d');
         ctx?.clearRect(0, 0, FACE_SIZE, FACE_SIZE);
         ctx?.drawImage(img, 0, 0, FACE_SIZE, FACE_SIZE);
+        loadedSrc.current = cleanSrc;
         ensureStrokeCanvas('erase');
         setReady(true);
         setStatus('');
@@ -207,7 +222,19 @@ export function FaceCleanupAnnotateView({
     return () => {
       cancelled = true;
     };
-  }, [cleanSrc, ensureStrokeCanvas, redrawOverlay]);
+    // intentionally only cleanSrc — redrawOverlay/ensureStrokeCanvas must not retrigger a reload
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cleanSrc]);
+
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const sync = () => setWrapWidth(wrap.clientWidth || 420);
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, [ready]);
 
   useEffect(() => {
     ensureStrokeCanvas(step.id);
@@ -222,9 +249,20 @@ export function FaceCleanupAnnotateView({
     return { x, y };
   };
 
+  const updateCursorFromEvent = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const rect = wrap.getBoundingClientRect();
+    setCursor({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      visible: true,
+    });
+  };
+
   const paintAt = (x: number, y: number) => {
-    const brush = step.brush;
-    if (step.id === 'erase') {
+    const brush = brushSize;
+    if (isErase) {
       const face = faceRef.current;
       const ctx = face?.getContext('2d');
       if (!ctx) return;
@@ -273,12 +311,14 @@ export function FaceCleanupAnnotateView({
   const onPointerDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     drawing.current = true;
+    updateCursorFromEvent(e);
     const p = canvasPoint(e);
     lastPt.current = p;
     paintAt(p.x, p.y);
   };
 
   const onPointerMove = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    updateCursorFromEvent(e);
     if (!drawing.current) return;
     const p = canvasPoint(e);
     paintAt(p.x, p.y);
@@ -295,8 +335,12 @@ export function FaceCleanupAnnotateView({
     }
   };
 
+  const onPointerLeave = () => {
+    if (!drawing.current) setCursor((c) => ({ ...c, visible: false }));
+  };
+
   const clearCurrentStroke = () => {
-    if (step.id === 'erase') return;
+    if (isErase) return;
     const stroke = ensureStrokeCanvas(step.id);
     stroke.getContext('2d')?.clearRect(0, 0, FACE_SIZE, FACE_SIZE);
     redrawOverlay();
@@ -309,7 +353,6 @@ export function FaceCleanupAnnotateView({
       const ctx = eyes.getContext('2d', { willReadFrequently: true });
       if (ctx) {
         const { left, right } = splitLeftRight(ctx.getImageData(0, 0, FACE_SIZE, FACE_SIZE));
-        // image-left → leftEye, image-right → rightEye
         if (left) features.leftEye = left;
         if (right) features.rightEye = right;
       }
@@ -382,6 +425,9 @@ export function FaceCleanupAnnotateView({
     else onCancel();
   };
 
+  // Cursor ring size in CSS pixels (scale from canvas coords)
+  const cursorPx = (brushSize / FACE_SIZE) * wrapWidth * 2;
+
   return (
     <div className="face-annotate">
       <div className="face-annotate-copy">
@@ -396,10 +442,27 @@ export function FaceCleanupAnnotateView({
             Marker ready — drag to colour
           </p>
         )}
+        {isErase && (
+          <div className="face-annotate-eraser-controls">
+            <label className="face-annotate-eraser-label" htmlFor="eraser-size">
+              Eraser size
+            </label>
+            <input
+              id="eraser-size"
+              className="face-annotate-eraser-range"
+              type="range"
+              min={ERASER_MIN}
+              max={ERASER_MAX}
+              value={eraserSize}
+              onChange={(e) => setEraserSize(Number(e.target.value))}
+            />
+            <span className="face-annotate-eraser-value">{eraserSize}</span>
+          </div>
+        )}
       </div>
 
       <div className="face-annotate-stage">
-        <div className="face-annotate-canvas-wrap">
+        <div ref={wrapRef} className="face-annotate-canvas-wrap">
           <canvas ref={faceRef} className="face-annotate-face" />
           <canvas
             ref={overlayRef}
@@ -408,7 +471,27 @@ export function FaceCleanupAnnotateView({
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
+            onPointerLeave={onPointerLeave}
+            onPointerEnter={updateCursorFromEvent}
           />
+          {cursor.visible && (
+            <div
+              className={`face-annotate-cursor ${isErase ? 'is-eraser' : 'is-marker'}`}
+              style={{
+                width: cursorPx,
+                height: cursorPx,
+                left: cursor.x,
+                top: cursor.y,
+                borderColor: isErase ? 'rgba(255,255,255,0.95)' : step.color || '#fff',
+                background: isErase
+                  ? 'rgba(255, 80, 80, 0.18)'
+                  : step.color
+                    ? `${step.color}33`
+                    : 'transparent',
+              }}
+              aria-hidden
+            />
+          )}
         </div>
       </div>
 
