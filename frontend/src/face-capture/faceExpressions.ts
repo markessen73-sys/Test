@@ -134,7 +134,7 @@ function eyeMarkFromLandmarks(
   };
 }
 
-/** Classic comedy: eyes bulge, centred exactly on highlighter marks. */
+/** Classic comedy: eyes bulge out in 3D, centred on highlighter marks. */
 function drawComedyPopEyes(
   ctx: CanvasRenderingContext2D,
   imgData: ImageData,
@@ -157,58 +157,159 @@ function drawComedyPopEyes(
     }
   }
   const skin = averageSamples(skinSamples);
+  const skinDark = {
+    r: Math.max(0, skin.r - 55),
+    g: Math.max(0, skin.g - 60),
+    b: Math.max(0, skin.b - 55),
+  };
 
-  const paintOne = (eye: FaceFeatureMark) => {
-    // Exact centre of the highlighted eye area
+  const paintOne = (eye: FaceFeatureMark, outward: number) => {
     const cx = eye.cx * w;
     const cy = eye.cy * h;
-    // Eyeball sized to 2× the highlight ellipse
+    // Eyeball 2× highlight; socket is the original eye opening
     const popRx = Math.max(14, eye.rx * w * 2);
     const popRy = Math.max(12, eye.ry * h * 2);
+    const sockRx = Math.max(8, eye.rx * w * 0.95);
+    const sockRy = Math.max(7, eye.ry * h * 0.95);
+    // Slight lift so the sphere reads as coming toward the camera
+    const lift = Math.min(popRy, popRx) * 0.12;
+    const ex = cx;
+    const ey = cy - lift;
 
-    // Soft skin cover under / around the bulge (same centre)
+    // Cast shadow on the face (behind / below the popping sphere)
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+    ctx.beginPath();
+    ctx.ellipse(cx + popRx * 0.08, cy + popRy * 0.35, popRx * 1.05, popRy * 0.55, 0.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Skin plate + dark socket hollow (recess in the face)
     ctx.fillStyle = `rgb(${skin.r}, ${skin.g}, ${skin.b})`;
     ctx.beginPath();
-    ctx.ellipse(cx, cy, popRx * 1.12, popRy * 1.12, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy, sockRx * 1.35, sockRy * 1.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+    const socketGrad = ctx.createRadialGradient(cx, cy - sockRy * 0.2, 0, cx, cy, Math.max(sockRx, sockRy) * 1.15);
+    socketGrad.addColorStop(0, `rgba(${skinDark.r}, ${skinDark.g}, ${skinDark.b}, 0.92)`);
+    socketGrad.addColorStop(0.55, `rgba(${skinDark.r}, ${skinDark.g}, ${skinDark.b}, 0.7)`);
+    socketGrad.addColorStop(1, `rgba(${skin.r}, ${skin.g}, ${skin.b}, 0)`);
+    ctx.fillStyle = socketGrad;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, sockRx * 1.15, sockRy * 1.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Inner void
+    ctx.fillStyle = 'rgba(20, 10, 12, 0.88)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, sockRx * 0.72, sockRy * 0.7, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // White bulging eyeball — centre locked to highlight centre
-    ctx.fillStyle = '#fffef8';
+    // Optic-nerve / spring coils from socket to floating eyeball
+    ctx.save();
+    ctx.strokeStyle = 'rgba(70, 55, 60, 0.85)';
+    ctx.lineWidth = Math.max(1.8, Math.min(popRx, popRy) * 0.07);
+    ctx.lineCap = 'round';
+    const coils = 5;
+    for (let s = -1; s <= 1; s += 2) {
+      ctx.beginPath();
+      ctx.moveTo(cx + s * sockRx * 0.25, cy);
+      for (let i = 1; i <= coils; i++) {
+        const t = i / coils;
+        const wx = Math.sin(t * Math.PI * coils) * sockRx * 0.22 * s;
+        const x = cx + (ex - cx) * t + wx + outward * popRx * 0.02 * t;
+        const y = cy + (ey - cy) * t;
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Soft contact shadow under the sphere where it meets the face
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
     ctx.beginPath();
-    ctx.ellipse(cx, cy, popRx, popRy, 0, 0, Math.PI * 2);
+    ctx.ellipse(ex, ey + popRy * 0.55, popRx * 0.85, popRy * 0.28, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(40, 40, 50, 0.55)';
-    ctx.lineWidth = Math.max(1.5, popRx * 0.08);
+
+    // 3D eyeball sphere — radial light from upper-left
+    const sphere = ctx.createRadialGradient(
+      ex - popRx * 0.35,
+      ey - popRy * 0.4,
+      popRx * 0.05,
+      ex + popRx * 0.15,
+      ey + popRy * 0.25,
+      Math.max(popRx, popRy) * 1.15,
+    );
+    sphere.addColorStop(0, '#ffffff');
+    sphere.addColorStop(0.35, '#f7f4ea');
+    sphere.addColorStop(0.72, '#e4ddd0');
+    sphere.addColorStop(0.9, '#c8bfb0');
+    sphere.addColorStop(1, '#8a8278');
+    ctx.fillStyle = sphere;
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, popRx, popRy, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Rim occlusion (dark crescent at bottom-right for roundness)
+    const rim = ctx.createRadialGradient(
+      ex + popRx * 0.35,
+      ey + popRy * 0.45,
+      0,
+      ex,
+      ey,
+      Math.max(popRx, popRy),
+    );
+    rim.addColorStop(0, 'rgba(40, 30, 35, 0.35)');
+    rim.addColorStop(0.55, 'rgba(40, 30, 35, 0)');
+    ctx.fillStyle = rim;
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, popRx, popRy, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(50, 40, 45, 0.45)';
+    ctx.lineWidth = Math.max(1.5, popRx * 0.045);
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, popRx, popRy, 0, 0, Math.PI * 2);
     ctx.stroke();
 
-    const irisR = Math.min(popRx, popRy) * 0.45;
+    // Iris disc with depth (slightly inset on the sphere)
+    const irisR = Math.min(popRx, popRy) * 0.42;
+    const irisX = ex + outward * popRx * 0.04;
+    const irisY = ey + popRy * 0.02;
     const iris = ctx.createRadialGradient(
-      cx - irisR * 0.2,
-      cy - irisR * 0.2,
-      0,
-      cx,
-      cy,
+      irisX - irisR * 0.25,
+      irisY - irisR * 0.3,
+      irisR * 0.08,
+      irisX,
+      irisY,
       irisR,
     );
-    iris.addColorStop(0, '#5a9fd4');
-    iris.addColorStop(0.65, '#2a5f8f');
-    iris.addColorStop(1, '#1a3348');
+    iris.addColorStop(0, '#7ec4ef');
+    iris.addColorStop(0.35, '#3a87c4');
+    iris.addColorStop(0.75, '#1e4f7a');
+    iris.addColorStop(1, '#0c2238');
     ctx.fillStyle = iris;
     ctx.beginPath();
-    ctx.arc(cx, cy, irisR, 0, Math.PI * 2);
+    ctx.arc(irisX, irisY, irisR, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#0a0a0c';
+
+    // Pupil
+    ctx.fillStyle = '#050508';
     ctx.beginPath();
-    ctx.arc(cx, cy, irisR * 0.45, 0, Math.PI * 2);
+    ctx.arc(irisX, irisY, irisR * 0.42, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+
+    // Specular glints (wet sphere look)
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
     ctx.beginPath();
-    ctx.arc(cx - irisR * 0.28, cy - irisR * 0.3, irisR * 0.22, 0, Math.PI * 2);
+    ctx.ellipse(ex - popRx * 0.32, ey - popRy * 0.38, popRx * 0.18, popRy * 0.14, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath();
+    ctx.arc(irisX + irisR * 0.2, irisY - irisR * 0.25, irisR * 0.16, 0, Math.PI * 2);
     ctx.fill();
   };
 
-  paintOne(left);
-  paintOne(right);
+  paintOne(left, -1);
+  paintOne(right, 1);
 }
 
 /**
