@@ -9,8 +9,6 @@ import {
   type Detection,
 } from '@mediapipe/tasks-vision';
 
-type WasmFileset = Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>;
-
 export const FACE_OUT_SIZE = 1024;
 
 export type DetectedFace = {
@@ -29,6 +27,8 @@ const FACE_MODEL =
   'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
 const SELFIE_MODEL =
   'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
+
+type WasmFileset = Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>;
 
 let visionPromise: Promise<WasmFileset> | null = null;
 let detectorPromise: Promise<FaceDetector> | null = null;
@@ -73,22 +73,14 @@ async function getSegmenter(): Promise<ImageSegmenter> {
   if (!segmenterPromise) {
     segmenterPromise = (async () => {
       const vision = await getVision();
-      const opts = {
-        runningMode: 'IMAGE' as const,
+      // CPU is more reliable across browsers for selfie segmentation;
+      // GPU delegate often fails silently and we were falling back to oval crops.
+      return ImageSegmenter.createFromOptions(vision, {
+        baseOptions: { modelAssetPath: SELFIE_MODEL, delegate: 'CPU' },
+        runningMode: 'IMAGE',
         outputConfidenceMasks: true,
-        outputCategoryMask: false,
-      };
-      try {
-        return await ImageSegmenter.createFromOptions(vision, {
-          baseOptions: { modelAssetPath: SELFIE_MODEL, delegate: 'GPU' },
-          ...opts,
-        });
-      } catch {
-        return ImageSegmenter.createFromOptions(vision, {
-          baseOptions: { modelAssetPath: SELFIE_MODEL, delegate: 'CPU' },
-          ...opts,
-        });
-      }
+        outputCategoryMask: true,
+      });
     })().catch((err) => {
       segmenterPromise = null;
       throw err;
@@ -136,58 +128,35 @@ export function expandFaceBox(
 }
 
 /**
- * Person confidence mask for the full image (Float32, length ≈ w*h, ~0..1).
- * Selfie segmenter may return one person mask or [background, person].
+ * Person alpha mask aligned to the source image size (0..1 float per pixel).
+ * Selfie segmenter: confidence high = person; category 0 = person, 255 = background.
  */
-async function personConfidenceMask(
-  source: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement,
-  focus?: { x: number; y: number; width: number; height: number }
+async function personAlphaMask(
+  source: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement
 ): Promise<{ data: Float32Array; width: number; height: number }> {
-  const { w: imgW, h: imgH } = sourceSize(source);
   const segmenter = await getSegmenter();
   const result = segmenter.segment(source);
   try {
-    const masks = result.confidenceMasks;
-    if (!masks?.length) {
-      throw new Error('Segmentation returned no mask');
+    // Prefer confidence mask (1 = person). Category mask uses 0=person, 255=background.
+    const conf = result.confidenceMasks?.[0];
+    if (conf) {
+      return {
+        data: new Float32Array(conf.getAsFloat32Array()),
+        width: conf.width,
+        height: conf.height,
+      };
     }
-
-    const meanInFocus = (data: Float32Array, mw: number, mh: number) => {
-      const fx = focus ? (focus.x + focus.width / 2) / imgW : 0.5;
-      const fy = focus ? (focus.y + focus.height / 2) / imgH : 0.5;
-      const fw = focus ? focus.width / imgW : 0.25;
-      const fh = focus ? focus.height / imgH : 0.35;
-      const x0 = Math.max(0, Math.floor((fx - fw / 2) * mw));
-      const x1 = Math.min(mw, Math.ceil((fx + fw / 2) * mw));
-      const y0 = Math.max(0, Math.floor((fy - fh / 2) * mh));
-      const y1 = Math.min(mh, Math.ceil((fy + fh / 2) * mh));
-      let sum = 0;
-      let n = 0;
-      for (let y = y0; y < y1; y++) {
-        for (let x = x0; x < x1; x++) {
-          sum += data[y * mw + x] ?? 0;
-          n++;
-        }
+    if (result.categoryMask) {
+      const cat = result.categoryMask;
+      const bytes = cat.getAsUint8Array();
+      const data = new Float32Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) {
+        // 0 = selfie/person, 255 = background for this model
+        data[i] = (bytes[i] ?? 255) < 128 ? 1 : 0;
       }
-      return n ? sum / n : 0;
-    };
-
-    let best = masks[0]!;
-    let bestData = new Float32Array(best.getAsFloat32Array());
-    let bestMean = meanInFocus(bestData, best.width, best.height);
-
-    for (let i = 1; i < masks.length; i++) {
-      const m = masks[i]!;
-      const data = new Float32Array(m.getAsFloat32Array());
-      const mean = meanInFocus(data, m.width, m.height);
-      if (mean > bestMean) {
-        best = m;
-        bestData = data;
-        bestMean = mean;
-      }
+      return { data, width: cat.width, height: cat.height };
     }
-
-    return { data: bestData, width: best.width, height: best.height };
+    throw new Error('Segmentation returned no mask');
   } finally {
     result.close();
   }
@@ -215,11 +184,32 @@ function sampleMask(
   return v00 * (1 - fx) * (1 - fy) + v10 * fx * (1 - fy) + v01 * (1 - fx) * fy + v11 * fx * fy;
 }
 
-/** Soft person alpha: keep person, kill background. */
+/** Min of 3×3 neighborhood — slight erode to kill background fringe on hair. */
+function sampleMaskEroded(
+  mask: Float32Array,
+  mw: number,
+  mh: number,
+  nx: number,
+  ny: number
+): number {
+  const ox = 1.25 / mw;
+  const oy = 1.25 / mh;
+  let m = 1;
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      m = Math.min(m, sampleMask(mask, mw, mh, nx + dx * ox, ny + dy * oy));
+    }
+  }
+  return m;
+}
+
+/** Soft person alpha so cut edges feather. Bias toward killing background fringe. */
 function softPersonAlpha(confidence: number): number {
-  // Smoothstep around ~0.4–0.55 so edges feather instead of hard cut.
-  const t = Math.min(1, Math.max(0, (confidence - 0.35) / 0.25));
-  return t * t * (3 - 2 * t);
+  // Higher floor than before — wall near hair often sits ~0.2–0.4
+  const t = Math.min(1, Math.max(0, (confidence - 0.45) / 0.3));
+  const s = t * t * (3 - 2 * t);
+  // Extra punch so mid-confidence fringe dies
+  return s * s;
 }
 
 /**
@@ -258,20 +248,49 @@ function drawSegmentedCutout(
   for (let py = 0; py < outSize; py++) {
     for (let px_ = 0; px_ < outSize; px_++) {
       const i = (py * outSize + px_) * 4;
-      // Map output pixel → source image normalized coords
       const srcX = sx + (px_ - dx) / scale;
       const srcY = sy + (py - dy) / scale;
       if (srcX < 0 || srcY < 0 || srcX >= imgW || srcY >= imgH) {
         px[i + 3] = 0;
         continue;
       }
-      const conf = sampleMask(mask, mw, mh, srcX / imgW, srcY / imgH);
+      const conf = sampleMaskEroded(mask, mw, mh, srcX / imgW, srcY / imgH);
       const a = softPersonAlpha(conf);
       px[i + 3] = Math.round((px[i + 3] ?? 255) * a);
     }
   }
 
   ctx.putImageData(imageData, 0, 0);
+  return canvas.toDataURL('image/png');
+}
+
+function drawOvalFallback(
+  source: CanvasImageSource,
+  sx: number,
+  sy: number,
+  sw: number,
+  sh: number,
+  outSize: number
+): string {
+  const canvas = document.createElement('canvas');
+  canvas.width = outSize;
+  canvas.height = outSize;
+  const ctx = canvas.getContext('2d', { alpha: true });
+  if (!ctx) throw new Error('No canvas');
+  ctx.clearRect(0, 0, outSize, outSize);
+  const scale = Math.max(outSize / sw, outSize / sh);
+  const dw = sw * scale;
+  const dh = sh * scale;
+  const dx = (outSize - dw) / 2;
+  const dy = (outSize - dh) / 2;
+  ctx.drawImage(source, sx, sy, sw, sh, dx, dy, dw, dh);
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.beginPath();
+  ctx.ellipse(outSize / 2, outSize / 2, outSize * 0.46, outSize * 0.48, 0, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
   return canvas.toDataURL('image/png');
 }
 
@@ -294,7 +313,7 @@ export async function detectFacesInImage(
   let mw = 0;
   let mh = 0;
   try {
-    const m = await personConfidenceMask(source, rawBoxes[0]);
+    const m = await personAlphaMask(source);
     mask = m.data;
     mw = m.width;
     mh = m.height;
@@ -334,36 +353,6 @@ export async function detectFacesInImage(
   return faces;
 }
 
-function drawOvalFallback(
-  source: CanvasImageSource,
-  sx: number,
-  sy: number,
-  sw: number,
-  sh: number,
-  outSize: number
-): string {
-  const canvas = document.createElement('canvas');
-  canvas.width = outSize;
-  canvas.height = outSize;
-  const ctx = canvas.getContext('2d', { alpha: true });
-  if (!ctx) throw new Error('No canvas');
-  ctx.clearRect(0, 0, outSize, outSize);
-  const scale = Math.max(outSize / sw, outSize / sh);
-  const dw = sw * scale;
-  const dh = sh * scale;
-  const dx = (outSize - dw) / 2;
-  const dy = (outSize - dh) / 2;
-  ctx.drawImage(source, sx, sy, sw, sh, dx, dy, dw, dh);
-  ctx.globalCompositeOperation = 'destination-in';
-  ctx.beginPath();
-  ctx.ellipse(outSize / 2, outSize / 2, outSize * 0.46, outSize * 0.48, 0, 0, Math.PI * 2);
-  ctx.closePath();
-  ctx.fillStyle = '#fff';
-  ctx.fill();
-  ctx.globalCompositeOperation = 'source-over';
-  return canvas.toDataURL('image/png');
-}
-
 /** Cut the chosen face (or largest) into a 1024 transparent PNG with background removed. */
 export async function cutOutFace(
   source: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement,
@@ -379,7 +368,7 @@ export async function cutOutFace(
   }
   const { w: imgW, h: imgH } = sourceSize(source);
   try {
-    const { data, width, height } = await personConfidenceMask(source, box);
+    const { data, width, height } = await personAlphaMask(source);
     return drawSegmentedCutout(
       source,
       box.x,
@@ -393,7 +382,8 @@ export async function cutOutFace(
       height,
       FACE_OUT_SIZE
     );
-  } catch {
+  } catch (err) {
+    console.warn('Person segmentation failed, using oval fallback', err);
     return drawOvalFallback(source, box.x, box.y, box.width, box.height, FACE_OUT_SIZE);
   }
 }
