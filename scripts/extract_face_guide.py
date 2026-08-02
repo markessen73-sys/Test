@@ -1,119 +1,103 @@
 #!/usr/bin/env python3
-"""Build a selfie/upload face-alignment guide from the default boxer face.
+"""Build the face-alignment guide from the yellow wireframe reference image.
 
-Reads faces/characters/default/clean.png + face-template-map.json and writes:
-  - faces/guide/face-guide-outline.png  (head + eyes + nose strokes)
-  - faces/guide/face-guide-mask.png     (opaque head fill for cropping)
-  - faces/guide/face-guide.json         (normalized geometry)
+Source: file_00000000178081f48b8c802f02b638c3.png
+Writes:
+  - faces/guide/face-guide-outline.png  (yellow wireframe only)
+  - faces/guide/face-guide-mask.png     (head fill for cropping)
+  - faces/guide/face-guide.json
 """
 from __future__ import annotations
 
 import json
-import math
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / 'frontend/public/faces/characters/default/clean.png'
-MAP_PATH = ROOT / 'frontend/public/faces/face-template-map.json'
+SRC = ROOT / 'file_00000000178081f48b8c802f02b638c3.png'
 OUT = ROOT / 'frontend/public/faces/guide'
 
 
-def oval_bbox(rect: list[float], w: int, h: int) -> tuple[int, int, int, int]:
-  x0, y0, x1, y1 = rect
-  return (
-    int(round(x0 * w)),
-    int(round(y0 * h)),
-    int(round(x1 * w)),
-    int(round(y1 * h)),
-  )
+def yellow_mask(arr: np.ndarray) -> np.ndarray:
+  r, g, b, a = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2], arr[:, :, 3]
+  return (a > 10) & (r > 160) & (g > 120) & (b < 150) & (r + g > b + 80)
+
+
+def white_fill(arr: np.ndarray) -> np.ndarray:
+  r, g, b, a = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2], arr[:, :, 3]
+  return (a > 10) & (r > 200) & (g > 200) & (b > 200)
 
 
 def main() -> None:
   if not SRC.exists():
-    raise SystemExit(f'Missing default boxer face: {SRC}')
-  meta_in = json.loads(MAP_PATH.read_text())
+    raise SystemExit(f'Missing wireframe source: {SRC}')
   img = Image.open(SRC).convert('RGBA')
-  w, h = img.size
+  arr = np.array(img)
+  h, w = arr.shape[:2]
 
-  face = oval_bbox(meta_in['faceOval'], w, h)
-  left_eye = oval_bbox(meta_in['regions']['leftEye'], w, h)
-  right_eye = oval_bbox(meta_in['regions']['rightEye'], w, h)
-  nose = oval_bbox(meta_in['regions']['nose'], w, h)
+  yel = yellow_mask(arr)
+  fill = white_fill(arr)
 
-  # Smooth head oval from the template map (proportions of the default boxer).
-  outline = Image.new('RGBA', (w, h), (0, 0, 0, 0))
-  draw = ImageDraw.Draw(outline)
+  # Outline: keep the yellow strokes (slightly thickened for screen visibility)
+  outline = np.zeros((h, w, 4), dtype=np.uint8)
+  outline[yel] = [255, 214, 0, 255]
+  out_img = Image.fromarray(outline).filter(ImageFilter.MaxFilter(3))
+  # Re-apply pure yellow after thicken
+  oa = np.array(out_img)
+  oa[(oa[:, :, 3] > 20)] = [255, 214, 0, 245]
+  out_img = Image.fromarray(oa)
 
-  # Head — thick white stroke
-  for i in range(5):
-    inset = i
-    box = (face[0] + inset, face[1] + inset, face[2] - inset, face[3] - inset)
-    draw.ellipse(box, outline=(255, 255, 255, 230 - i * 20), width=2)
+  # Mask: white fill + yellow strokes, then flood-close gaps and keep largest blob
+  mask_bin = fill | yel
+  mask_img = Image.fromarray((mask_bin.astype(np.uint8) * 255)).filter(ImageFilter.MaxFilter(5))
+  mask_img = mask_img.filter(ImageFilter.MinFilter(3))
+  mb = np.array(mask_img) > 127
 
-  # Eyes — light cyan ovals
-  eye_color = (140, 210, 255, 240)
-  for box in (left_eye, right_eye):
-    for i in range(3):
-      b = (box[0] + i, box[1] + i, box[2] - i, box[3] - i)
-      draw.ellipse(b, outline=eye_color, width=2)
+  # Bounding box of head for guide meta
+  ys, xs = np.where(mb)
+  if not len(ys):
+    raise SystemExit('No head region found in wireframe')
+  x0, x1 = int(xs.min()), int(xs.max())
+  y0, y1 = int(ys.min()), int(ys.max())
 
-  # Nose — rounded rect / capsule from the nose region
-  nose_color = (140, 210, 255, 240)
-  nx0, ny0, nx1, ny1 = nose
-  # Bridge line + bulb tip oval
-  cx = (nx0 + nx1) / 2
-  draw.line([(cx, ny0), (cx, ny1 - (ny1 - ny0) * 0.35)], fill=nose_color, width=3)
-  tip = (
-    nx0 + 4,
-    int(ny0 + (ny1 - ny0) * 0.35),
-    nx1 - 4,
-    ny1,
+  # Soft elliptical crop mask from silhouette bbox (slight inset)
+  pad_x = int((x1 - x0) * 0.02)
+  pad_y = int((y1 - y0) * 0.02)
+  ellipse = Image.new('L', (w, h), 0)
+  ImageDraw.Draw(ellipse).ellipse(
+    (x0 + pad_x, y0 + pad_y, x1 - pad_x, y1 - pad_y),
+    fill=255,
   )
-  for i in range(3):
-    b = (tip[0] + i, tip[1] + i, tip[2] - i, tip[3] - i)
-    draw.ellipse(b, outline=nose_color, width=2)
-
-  # Crosshair marks at eye/nose landmarks (subtle)
-  lm = meta_in['landmarks']
-  mark = (255, 255, 255, 160)
-  for key in ('leftEye', 'rightEye', 'nose'):
-    lx, ly = lm[key]
-    x, y = int(round(lx * w)), int(round(ly * h))
-    draw.line([(x - 8, y), (x + 8, y)], fill=mark, width=2)
-    draw.line([(x, y - 8), (x, y + 8)], fill=mark, width=2)
-
-  # Opaque elliptical mask for saving the fitted face
-  mask = Image.new('L', (w, h), 0)
-  ImageDraw.Draw(mask).ellipse(face, fill=255)
+  # Prefer actual silhouette for crop — cleaner ears/neck
+  sil = Image.fromarray((mb.astype(np.uint8) * 255))
+  # Combine: silhouette, lightly feathered
+  sil = sil.filter(ImageFilter.GaussianBlur(0.8))
 
   OUT.mkdir(parents=True, exist_ok=True)
-  outline.save(OUT / 'face-guide-outline.png')
-  mask.save(OUT / 'face-guide-mask.png')
+  out_img.save(OUT / 'face-guide-outline.png')
+  sil.save(OUT / 'face-guide-mask.png')
 
-  guide_meta = {
-    'source': 'faces/characters/default/clean.png',
+  # Also keep a copy of the source in public for reference
+  pub_src = ROOT / 'frontend/public/faces/guide/wireframe-source.png'
+  img.save(pub_src)
+
+  meta = {
+    'source': SRC.name,
     'size': [w, h],
-    'faceOval': meta_in['faceOval'],
-    'regions': {
-      'leftEye': meta_in['regions']['leftEye'],
-      'rightEye': meta_in['regions']['rightEye'],
-      'nose': meta_in['regions']['nose'],
-    },
-    'landmarks': {
-      'leftEye': meta_in['landmarks']['leftEye'],
-      'rightEye': meta_in['landmarks']['rightEye'],
-      'nose': meta_in['landmarks']['nose'],
-    },
+    'faceOval': [
+      round(x0 / w, 4),
+      round(y0 / h, 4),
+      round(x1 / w, 4),
+      round(y1 / h, 4),
+    ],
     'outline': 'faces/guide/face-guide-outline.png',
     'mask': 'faces/guide/face-guide-mask.png',
   }
-  (OUT / 'face-guide.json').write_text(json.dumps(guide_meta, indent=2) + '\n')
-  print(f'Wrote guide → {OUT}')
-  print(f'  head oval px={face}')
-  print(f'  eyes L={left_eye} R={right_eye} nose={nose}')
+  (OUT / 'face-guide.json').write_text(json.dumps(meta, indent=2) + '\n')
+  print(f'Wrote yellow wireframe guide → {OUT}')
+  print(f'  yellow px={int(yel.sum())} fill px={int(fill.sum())} oval={meta["faceOval"]}')
 
 
 if __name__ == '__main__':
