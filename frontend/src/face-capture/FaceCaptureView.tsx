@@ -5,7 +5,8 @@ import {
   detectFacesInImage,
   type DetectedFace,
 } from './faceDetect';
-import { writeCustomFaceDataUrl, writeCustomFaceSet, type CustomFaceSet } from './customFace';
+import { synthesizeFaceExpressions } from './faceExpressions';
+import { writeCustomFaceSet, type CustomFaceSet } from './customFace';
 import './FaceCaptureView.css';
 
 type Mode = 'choose' | 'camera' | 'pick-face' | 'saving' | 'done' | 'error';
@@ -126,6 +127,7 @@ export function FaceCaptureView({ onClose }: Props) {
     setError(null);
     try {
       const frame = captureMirroredVideoFrame(video);
+      setStatus('Removing background…');
       const dataUrl = await cutOutFace(frame);
       const nextShots: Partial<CustomFaceSet> = { ...selfieShots, [step.key]: dataUrl };
       setSelfieShots(nextShots);
@@ -181,11 +183,12 @@ export function FaceCaptureView({ onClose }: Props) {
           throw new Error('No face found in that photo. Try another one.');
         }
         if (faces.length === 1) {
-          setStatus('Cutting out face…');
+          setStatus('Removing background…');
           const cut = await cutOutFace(img, faces[0]);
-          writeCustomFaceDataUrl(cut);
+          setStatus('Making ooh & sad faces…');
+          const set = await synthesizeFaceExpressions(cut);
+          writeCustomFaceSet(set);
           selectDefaultCharacter();
-          const set = { clean: cut, ooh: cut, knockout: cut };
           setPreviewSet(set);
           setMode('done');
           setStatus('');
@@ -208,12 +211,13 @@ export function FaceCaptureView({ onClose }: Props) {
       const img = uploadImgRef.current;
       if (!img) return;
       setMode('saving');
-      setStatus('Cutting out face…');
+      setStatus('Removing background…');
       try {
         const cut = await cutOutFace(img, face);
-        writeCustomFaceDataUrl(cut);
+        setStatus('Making ooh & sad faces…');
+        const set = await synthesizeFaceExpressions(cut);
+        writeCustomFaceSet(set);
         selectDefaultCharacter();
-        const set = { clean: cut, ooh: cut, knockout: cut };
         setPreviewSet(set);
         setCandidateFaces([]);
         setMode('done');
@@ -244,8 +248,9 @@ export function FaceCaptureView({ onClose }: Props) {
         <div className="face-capture-titles">
           <h1 className="face-capture-title">Your face</h1>
           <p className="face-capture-sub">
-            Selfie: smile, say ooh!, then look sad — we cut out your face automatically. Upload a photo
-            and pick a face if more than one is found.
+            Selfie: smile, say ooh!, then look sad — we cut you out from the background. Upload one
+            photo and we remove the background, then edit ooh! and sad from that face (pick yours if
+            several people are in the shot).
           </p>
         </div>
       </header>
@@ -375,7 +380,7 @@ export function FaceCaptureView({ onClose }: Props) {
             ))}
           </div>
           <p className="face-capture-hint">
-            Saved — smile is normal, ooh! is punched, sad is knockout. Background stays clear.
+            Saved — smile is normal, ooh! is punched, sad is knockout. Background is removed.
           </p>
           <button type="button" className="face-capture-primary" onClick={goGymWithFace}>
             Back to gym
