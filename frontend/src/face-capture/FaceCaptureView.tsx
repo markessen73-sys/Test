@@ -335,7 +335,7 @@ export function FaceCaptureView({ onClose }: Props) {
   const rotationDeg = Math.round((rotation * 180) / Math.PI);
 
   return (
-    <div className="face-capture">
+    <div className={`face-capture ${mode === 'upload' ? 'has-confirm-bar' : ''}`}>
       <header className="face-capture-header">
         <button type="button" className="face-capture-back" onClick={onClose}>
           ← Back to gym
@@ -343,7 +343,7 @@ export function FaceCaptureView({ onClose }: Props) {
         <div className="face-capture-titles">
           <h1 className="face-capture-title">Fit your face</h1>
           <p className="face-capture-sub">
-            Line up your head inside the yellow outline — then save.
+            Line up your head inside the yellow outline — then tap OK.
           </p>
         </div>
       </header>
@@ -420,8 +420,7 @@ export function FaceCaptureView({ onClose }: Props) {
                 />
               </label>
               <p className="face-capture-hint">
-                Drag with one finger to move. Pinch with two fingers to zoom, twist to rotate — or use the
-                sliders.
+                Drag to move. Pinch to zoom, twist to rotate — or use the sliders. Tap OK when it fits.
               </p>
             </div>
           )}
@@ -430,34 +429,52 @@ export function FaceCaptureView({ onClose }: Props) {
             <p className="face-capture-hint">Fit your face inside the outline, then capture.</p>
           )}
 
-          <div className="face-capture-actions">
-            {mode === 'camera' && (
+          {mode === 'camera' && (
+            <div className="face-capture-actions">
               <button type="button" className="face-capture-primary" onClick={() => void saveFromCamera()}>
                 Capture &amp; save
               </button>
-            )}
-            {mode === 'upload' && (
-              <>
-                <button type="button" className="face-capture-primary" onClick={() => void saveFromUpload()}>
-                  Save face
-                </button>
+              <button
+                type="button"
+                className="face-capture-secondary"
+                onClick={() => {
+                  stopCamera();
+                  setMode('choose');
+                }}
+              >
+                Start over
+              </button>
+            </div>
+          )}
+
+          {mode === 'upload' && (
+            <div className="face-capture-confirm-bar">
+              <button type="button" className="face-capture-ok" onClick={() => void saveFromUpload()}>
+                OK
+              </button>
+              <div className="face-capture-confirm-secondary">
                 <button type="button" className="face-capture-secondary" onClick={resetTransform}>
-                  Reset position
+                  Reset
                 </button>
-              </>
-            )}
-            {mode === 'saving' && <span className="face-capture-hint">Saving…</span>}
-            <button
-              type="button"
-              className="face-capture-secondary"
-              onClick={() => {
-                stopCamera();
-                setMode('choose');
-              }}
-            >
-              Start over
-            </button>
-          </div>
+                <button
+                  type="button"
+                  className="face-capture-secondary"
+                  onClick={() => {
+                    stopCamera();
+                    setMode('choose');
+                  }}
+                >
+                  Start over
+                </button>
+              </div>
+            </div>
+          )}
+
+          {mode === 'saving' && (
+            <div className="face-capture-actions">
+              <span className="face-capture-hint">Saving…</span>
+            </div>
+          )}
         </>
       )}
 
