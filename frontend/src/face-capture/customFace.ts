@@ -2,6 +2,8 @@
 
 export const CUSTOM_FACE_STORAGE_KEY = 'mickeys-gym-custom-face';
 export const CUSTOM_FACE_LIBRARY_KEY = 'mickeys-gym-custom-faces';
+/** Lightweight eye/feature marks keyed by photo id — survives image quota pressure. */
+export const CUSTOM_FACE_META_KEY = 'mickeys-gym-custom-face-meta';
 
 /** Normalized ellipse on the 1024 face image (0–1, top-left origin). */
 export type FaceFeatureMark = {
@@ -92,12 +94,71 @@ function parseFaceSet(parsed: Partial<CustomFaceSet>): CustomFaceSet | null {
 }
 
 function slimSet(faces: CustomFaceSet): CustomFaceSet {
-  return {
+  const set: CustomFaceSet = {
     clean: faces.clean,
     ooh: faces.ooh,
     knockout: faces.knockout,
-    features: faces.features,
   };
+  if (faces.features && Object.keys(faces.features).length) {
+    set.features = faces.features;
+  }
+  return set;
+}
+
+type FaceMetaMap = Record<string, CustomFaceFeatures>;
+
+function readFaceMetaMap(): FaceMetaMap {
+  try {
+    const raw = localStorage.getItem(CUSTOM_FACE_META_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return {};
+    const out: FaceMetaMap = {};
+    for (const [id, value] of Object.entries(parsed as Record<string, unknown>)) {
+      const features = readFeatures(value);
+      if (features) out[id] = features;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function writeFaceMetaMap(map: FaceMetaMap) {
+  try {
+    localStorage.setItem(CUSTOM_FACE_META_KEY, JSON.stringify(map));
+  } catch {
+    /* ignore — marks are tiny; failure is rare */
+  }
+}
+
+/** Persist / merge highlighter marks for a photo face (separate from image blobs). */
+export function writeFaceFeatures(id: string, features: CustomFaceFeatures | undefined) {
+  if (!features || !Object.keys(features).length) return;
+  const map = readFaceMetaMap();
+  map[id] = features;
+  writeFaceMetaMap(map);
+}
+
+export function readFaceFeatures(id: string): CustomFaceFeatures | undefined {
+  return readFaceMetaMap()[id];
+}
+
+function deleteFaceFeatures(id: string) {
+  const map = readFaceMetaMap();
+  if (!(id in map)) return;
+  delete map[id];
+  writeFaceMetaMap(map);
+}
+
+/** Merge library features with the lightweight meta store (meta wins on conflict). */
+export function resolveFaceFeatures(entry: {
+  id: string;
+  features?: CustomFaceFeatures;
+}): CustomFaceFeatures | undefined {
+  const meta = readFaceFeatures(entry.id);
+  if (!meta && !entry.features) return undefined;
+  return { ...entry.features, ...meta };
 }
 
 function newPhotoId(): string {
@@ -157,7 +218,10 @@ export function readCustomFaceLibrary(): CustomFaceLibrary {
       const id = typeof item.id === 'string' && item.id.startsWith('photo-') ? item.id : newPhotoId();
       const name = typeof item.name === 'string' && item.name.trim() ? item.name.trim() : 'My face';
       const createdAt = typeof item.createdAt === 'number' ? item.createdAt : Date.now();
-      faces.push({ ...slimSet(set), id, name, createdAt });
+      const entry: CustomFaceEntry = { ...slimSet(set), id, name, createdAt };
+      const resolved = resolveFaceFeatures(entry);
+      if (resolved) entry.features = resolved;
+      faces.push(entry);
     }
     return { faces };
   } catch {
@@ -201,7 +265,24 @@ export function addCustomFace(faces: CustomFaceSet, name?: string): CustomFaceEn
     createdAt: Date.now(),
   };
   const next = [...lib.faces, entry].slice(-MAX_PHOTO_FACES);
+  // Drop meta for faces that fall off the library cap
+  const kept = new Set(next.map((f) => f.id));
+  const meta = readFaceMetaMap();
+  let metaChanged = false;
+  for (const id of Object.keys(meta)) {
+    if (!kept.has(id)) {
+      delete meta[id];
+      metaChanged = true;
+    }
+  }
+  if (metaChanged) writeFaceMetaMap(meta);
+
   writeCustomFaceLibrary({ faces: next });
+  // Always store marks in the tiny meta key so pop-eyes survive even if image write trims.
+  writeFaceFeatures(entry.id, faces.features);
+  // Re-attach features onto the returned entry from the resolved merge.
+  const resolved = resolveFaceFeatures(entry);
+  if (resolved) entry.features = resolved;
   return entry;
 }
 
@@ -209,6 +290,7 @@ export function deleteCustomFace(id: string): CustomFaceLibrary {
   const lib = readCustomFaceLibrary();
   const faces = lib.faces.filter((f) => f.id !== id);
   writeCustomFaceLibrary({ faces });
+  deleteFaceFeatures(id);
   return { faces };
 }
 
@@ -241,9 +323,24 @@ export function clearCustomFaceDataUrl() {
   try {
     localStorage.removeItem(CUSTOM_FACE_STORAGE_KEY);
     localStorage.removeItem(CUSTOM_FACE_LIBRARY_KEY);
+    localStorage.removeItem(CUSTOM_FACE_META_KEY);
   } catch {
     /* ignore */
   }
+}
+
+/** Ensure every library face with eye marks also has a meta entry (tiny, durable). */
+export function syncFaceFeaturesMeta(lib?: CustomFaceLibrary) {
+  const faces = (lib ?? readCustomFaceLibrary()).faces;
+  const map = readFaceMetaMap();
+  let changed = false;
+  for (const face of faces) {
+    if (!face.features) continue;
+    if (map[face.id]) continue;
+    map[face.id] = face.features;
+    changed = true;
+  }
+  if (changed) writeFaceMetaMap(map);
 }
 
 export function isPhotoCharacterId(id: string | null | undefined): boolean {

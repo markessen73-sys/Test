@@ -1,5 +1,7 @@
 /**
  * Shared ooh hit-reaction painter: base face + optional zooming pop eyes.
+ * Eye marks stay in source-image space (same as capture preview), then the
+ * eye layer is contain-fitted with the face so game + preview align.
  */
 import { FACE_CONTAIN_PAD, drawFullFaceOnCanvas } from './composeFaceTexture';
 import type { FaceFeatureMark } from '../../face-capture/customFace';
@@ -12,25 +14,16 @@ import {
 
 export type PopEyePair = { left: FaceFeatureMark; right: FaceFeatureMark };
 
-/** Map normalized marks from the source image into contain-fitted canvas space. */
-function remapMarkToContainCanvas(
-  m: FaceFeatureMark,
-  canvasW: number,
-  canvasH: number,
-  imgW: number,
-  imgH: number,
-): FaceFeatureMark {
-  const contain = Math.min(canvasW / imgW, canvasH / imgH) * FACE_CONTAIN_PAD;
-  const drawW = imgW * contain;
-  const drawH = imgH * contain;
-  const ox = (canvasW - drawW) / 2;
-  const oy = (canvasH - drawH) / 2;
-  return {
-    cx: (ox + m.cx * drawW) / canvasW,
-    cy: (oy + m.cy * drawH) / canvasH,
-    rx: m.rx * (drawW / canvasW),
-    ry: m.ry * (drawH / canvasH),
-  };
+/** Scratch canvas so we can draw eyes in image pixels, then contain-blit. */
+let eyeLayer: HTMLCanvasElement | null = null;
+
+function getEyeLayer(w: number, h: number): CanvasRenderingContext2D | null {
+  if (!eyeLayer) eyeLayer = document.createElement('canvas');
+  if (eyeLayer.width !== w || eyeLayer.height !== h) {
+    eyeLayer.width = w;
+    eyeLayer.height = h;
+  }
+  return eyeLayer.getContext('2d');
 }
 
 export function paintOohReaction(
@@ -53,9 +46,35 @@ export function paintOohReaction(
   const skin = opts.skin ?? { r: 180, g: 140, b: 120 };
   const iw = baseImg.naturalWidth || baseImg.width || canvasSize;
   const ih = baseImg.naturalHeight || baseImg.height || canvasSize;
-  const left = remapMarkToContainCanvas(marks.left, canvasSize, canvasSize, iw, ih);
-  const right = remapMarkToContainCanvas(marks.right, canvasSize, canvasSize, iw, ih);
-  drawPopEyesZoom(ctx, left, right, canvasSize, canvasSize, scale, skin);
+
+  // Draw in source-image space (identical to OohPopPreview), then contain-fit.
+  const ect = getEyeLayer(iw, ih);
+  if (!ect || !eyeLayer) {
+    // Fallback: remap into canvas space if scratch canvas unavailable
+    const contain = Math.min(canvasSize / iw, canvasSize / ih) * FACE_CONTAIN_PAD;
+    const drawW = iw * contain;
+    const drawH = ih * contain;
+    const ox = (canvasSize - drawW) / 2;
+    const oy = (canvasSize - drawH) / 2;
+    const remap = (m: FaceFeatureMark): FaceFeatureMark => ({
+      cx: (ox + m.cx * drawW) / canvasSize,
+      cy: (oy + m.cy * drawH) / canvasSize,
+      rx: m.rx * (drawW / canvasSize),
+      ry: m.ry * (drawH / canvasSize),
+    });
+    drawPopEyesZoom(ctx, remap(marks.left), remap(marks.right), canvasSize, canvasSize, scale, skin);
+    return;
+  }
+
+  ect.clearRect(0, 0, iw, ih);
+  drawPopEyesZoom(ect, marks.left, marks.right, iw, ih, scale, skin);
+
+  const contain = Math.min(canvasSize / iw, canvasSize / ih) * FACE_CONTAIN_PAD;
+  const drawW = iw * contain;
+  const drawH = ih * contain;
+  const ox = (canvasSize - drawW) / 2;
+  const oy = (canvasSize - drawH) / 2;
+  ctx.drawImage(eyeLayer, 0, 0, iw, ih, ox, oy, drawW, drawH);
 }
 
 /** Sample skin once from a loaded face image for pop-eye shading. */

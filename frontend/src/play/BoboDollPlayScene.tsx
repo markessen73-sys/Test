@@ -98,7 +98,7 @@ function PlayBoboDoll({
     lastImpactIdRef.current = latest.id;
 
     applyBoboHitImpulse(swingRef.current, latest.glove);
-    setLastHitTime(latest.time);
+    setLastHitTime(performance.now());
     setFlashes((prev) => [
       ...prev,
       { id: latest.id, pos: [0, 1.35, 0.46], time: latest.time },

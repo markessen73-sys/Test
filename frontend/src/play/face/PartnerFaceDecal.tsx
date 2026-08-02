@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { FACE_CONTAIN_PAD, drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture';
 import { useCharacter } from './CharacterContext';
@@ -27,7 +28,7 @@ const PARTNER_FACE_NOSE_SCALE_STEPS = 2;
 /** Final overall boost — active head ~20% larger. */
 const PARTNER_FACE_SCALE_OVERALL = 1.2;
 /** How long the "ooh!" face stays up (ms); eyes zoom for most of this. */
-const OOH_MS = 480;
+const OOH_MS = 720;
 
 function scaleFromNose(
   placement: ReturnType<typeof spriteNormRectToLocal>,
@@ -81,6 +82,12 @@ export function PartnerFaceDecal({
   const skinRef = useRef<Rgb | null>(null);
   const knockedOutRef = useRef(knockedOut);
   knockedOutRef.current = knockedOut;
+  const lastPaintedAgeRef = useRef(-1);
+  const hitTimeRef = useRef(lastHitTime);
+  if (hitTimeRef.current !== lastHitTime) {
+    hitTimeRef.current = lastHitTime;
+    lastPaintedAgeRef.current = -1;
+  }
 
   const placement = useMemo(() => {
     const base = spriteNormRectToLocal(RING_PARTNER_FACE, spriteWidth, spriteHeight, {
@@ -115,6 +122,9 @@ export function PartnerFaceDecal({
     tex.needsUpdate = true;
   };
 
+  // Keep marks in sync every render (not only on image reload).
+  popEyesRef.current = character.popEyes ?? null;
+
   useEffect(() => {
     let cancelled = false;
     const canvas = document.createElement('canvas');
@@ -126,8 +136,9 @@ export function PartnerFaceDecal({
     texRef.current = tex;
     setTexture(tex);
 
-    popEyesRef.current = character.popEyes ?? null;
     skinRef.current = null;
+    const marks = character.popEyes ?? null;
+    popEyesRef.current = marks;
 
     Promise.all([
       loadFaceImage(character.cleanSrc),
@@ -138,8 +149,8 @@ export function PartnerFaceDecal({
       normalRef.current = normal;
       oohRef.current = ooh;
       koRef.current = ko;
-      if (character.popEyes) {
-        skinRef.current = skinFromFaceImage(ooh, character.popEyes);
+      if (marks) {
+        skinRef.current = skinFromFaceImage(ooh, marks);
       }
       paint(knockedOutRef.current ? ko : normal);
     });
@@ -148,7 +159,7 @@ export function PartnerFaceDecal({
       cancelled = true;
       tex.dispose();
     };
-  }, [character]);
+  }, [character.id, character.cleanSrc, character.oohSrc, character.knockoutSrc, character.popEyes]);
 
   // Hold knockout face once the meter hits 100%.
   useEffect(() => {
@@ -161,33 +172,27 @@ export function PartnerFaceDecal({
     if (normal) paint(normal);
   }, [knockedOut]);
 
-  // Ooh reaction: mouth swap + zooming pop eyes when marks exist.
-  useEffect(() => {
-    if (!lastHitTime || knockedOutRef.current) return;
-    let frame = 0;
-    const tick = () => {
-      frame = requestAnimationFrame(tick);
-      if (knockedOutRef.current) {
-        const ko = koRef.current;
-        if (ko) paint(ko);
-        cancelAnimationFrame(frame);
-        return;
-      }
-      const normal = normalRef.current;
-      const ooh = oohRef.current;
-      if (!normal || !ooh) return;
+  // Ooh + pop-eye zoom driven by the R3F frame loop so the CanvasTexture uploads.
+  useFrame(() => {
+    if (knockedOutRef.current) return;
+    const hitT = hitTimeRef.current;
+    if (!hitT) return;
+    const normal = normalRef.current;
+    const ooh = oohRef.current;
+    if (!normal || !ooh) return;
 
-      const age = performance.now() - lastHitTime;
-      if (age >= 0 && age < OOH_MS) {
-        paint(ooh, popEyesRef.current ? age : undefined);
-      } else {
-        paint(normal);
-        cancelAnimationFrame(frame);
-      }
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [lastHitTime]);
+    const age = performance.now() - hitT;
+    if (age >= 0 && age < OOH_MS) {
+      // Throttle redraws slightly but keep zoom smooth (~every frame while zooming)
+      const bucket = Math.floor(age / 16);
+      if (bucket === lastPaintedAgeRef.current) return;
+      lastPaintedAgeRef.current = bucket;
+      paint(ooh, popEyesRef.current ? age : undefined);
+    } else if (lastPaintedAgeRef.current !== -2) {
+      lastPaintedAgeRef.current = -2;
+      paint(normal);
+    }
+  });
 
   if (!texture) return null;
 

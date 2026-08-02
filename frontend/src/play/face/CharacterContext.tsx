@@ -11,6 +11,8 @@ import {
   getCustomFace,
   isPhotoCharacterId,
   readCustomFaceLibrary,
+  resolveFaceFeatures,
+  syncFaceFeaturesMeta,
   type CustomFaceEntry,
   type CustomFaceLibrary,
   type CustomFaceSet,
@@ -53,8 +55,9 @@ const CharacterContext = createContext<CharacterContextValue | null>(null);
 /** Photo faces use the shared buzz-cut damage HUD ladder. */
 function characterFromPhoto(entry: CustomFaceEntry): CharacterDef {
   const stock = CHARACTERS.default;
-  const left = entry.features?.leftEye;
-  const right = entry.features?.rightEye;
+  const features = resolveFaceFeatures(entry);
+  const left = features?.leftEye;
+  const right = features?.rightEye;
   const next: CharacterDef = {
     ...stock,
     id: entry.id,
@@ -62,6 +65,10 @@ function characterFromPhoto(entry: CustomFaceEntry): CharacterDef {
     cleanSrc: entry.clean,
     oohSrc: entry.ooh,
     knockoutSrc: entry.knockout,
+    // Live bobo head uses the photo too (HUD clown ladder stays stock).
+    boboCleanSrc: entry.clean,
+    boboOohSrc: entry.ooh,
+    boboLiveKoSrc: entry.knockout,
     damageStageCleanSrc: DAMAGE_STAGE_CLEAN_SRC,
     damageStageSrcs: DAMAGE_STAGE_SRCS,
     damageStageHoldSrc: DAMAGE_STAGE_HOLD_SRC,
@@ -86,7 +93,11 @@ function resolveCharacter(
 
 export function CharacterProvider({ children }: { children: ReactNode }) {
   const [characterId, setCharacterIdState] = useState<CharacterId>(() => readStoredCharacterId());
-  const [library, setLibrary] = useState<CustomFaceLibrary>(() => readCustomFaceLibrary());
+  const [library, setLibrary] = useState<CustomFaceLibrary>(() => {
+    const lib = readCustomFaceLibrary();
+    syncFaceFeaturesMeta(lib);
+    return lib;
+  });
 
   const setCharacterId = useCallback((id: CharacterId) => {
     setCharacterIdState(id);
@@ -95,6 +106,7 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
 
   const refreshPhotoFaces = useCallback(() => {
     const next = readCustomFaceLibrary();
+    syncFaceFeaturesMeta(next);
     setLibrary(next);
     setCharacterIdState((current) => {
       if (isPhotoCharacterId(current) && !next.faces.some((f) => f.id === current)) {

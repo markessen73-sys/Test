@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture'
 import { useCharacter } from './CharacterContext'
@@ -8,7 +9,7 @@ import type { Rgb } from '../../face-capture/popEyes'
 
 const CANVAS_SIZE = 512
 /** Match ring partner hit-face window (eyes zoom during this). */
-const OOH_MS = 480
+const OOH_MS = 720
 
 /**
  * Front-hemisphere shell. Default SphereGeometry UVs already stretch the
@@ -59,6 +60,12 @@ export function SpeedballFaceDecal({
   const skinRef = useRef<Rgb | null>(null)
   const knockedOutRef = useRef(knockedOut)
   knockedOutRef.current = knockedOut
+  const lastPaintedAgeRef = useRef(-1)
+  const hitTimeRef = useRef(lastHitTime)
+  if (hitTimeRef.current !== lastHitTime) {
+    hitTimeRef.current = lastHitTime
+    lastPaintedAgeRef.current = -1
+  }
 
   const geometry = useMemo(() => createFrontWrapGeometry(SPEEDBALL_FACE_RADIUS), [])
 
@@ -83,6 +90,8 @@ export function SpeedballFaceDecal({
     tex.needsUpdate = true
   }
 
+  popEyesRef.current = character.popEyes ?? null
+
   useEffect(() => {
     let cancelled = false
     const canvas = document.createElement('canvas')
@@ -94,8 +103,9 @@ export function SpeedballFaceDecal({
     texRef.current = tex
     setTexture(tex)
 
-    popEyesRef.current = character.popEyes ?? null
     skinRef.current = null
+    const marks = character.popEyes ?? null
+    popEyesRef.current = marks
 
     Promise.all([
       loadFaceImage(character.cleanSrc),
@@ -106,8 +116,8 @@ export function SpeedballFaceDecal({
       normalRef.current = normal
       oohRef.current = ooh
       koRef.current = ko
-      if (character.popEyes) {
-        skinRef.current = skinFromFaceImage(ooh, character.popEyes)
+      if (marks) {
+        skinRef.current = skinFromFaceImage(ooh, marks)
       }
       paint(knockedOutRef.current ? ko : normal)
     })
@@ -116,7 +126,7 @@ export function SpeedballFaceDecal({
       cancelled = true
       tex.dispose()
     }
-  }, [character])
+  }, [character.id, character.cleanSrc, character.oohSrc, character.knockoutSrc, character.popEyes])
 
   useEffect(() => {
     const ko = koRef.current
@@ -128,32 +138,25 @@ export function SpeedballFaceDecal({
     if (normal) paint(normal)
   }, [knockedOut])
 
-  useEffect(() => {
-    if (!lastHitTime || knockedOutRef.current) return
-    let frame = 0
-    const tick = () => {
-      frame = requestAnimationFrame(tick)
-      if (knockedOutRef.current) {
-        const ko = koRef.current
-        if (ko) paint(ko)
-        cancelAnimationFrame(frame)
-        return
-      }
-      const normal = normalRef.current
-      const ooh = oohRef.current
-      if (!normal || !ooh) return
+  useFrame(() => {
+    if (knockedOutRef.current) return
+    const hitT = hitTimeRef.current
+    if (!hitT) return
+    const normal = normalRef.current
+    const ooh = oohRef.current
+    if (!normal || !ooh) return
 
-      const age = performance.now() - lastHitTime
-      if (age >= 0 && age < OOH_MS) {
-        paint(ooh, popEyesRef.current ? age : undefined)
-      } else {
-        paint(normal)
-        cancelAnimationFrame(frame)
-      }
+    const age = performance.now() - hitT
+    if (age >= 0 && age < OOH_MS) {
+      const bucket = Math.floor(age / 16)
+      if (bucket === lastPaintedAgeRef.current) return
+      lastPaintedAgeRef.current = bucket
+      paint(ooh, popEyesRef.current ? age : undefined)
+    } else if (lastPaintedAgeRef.current !== -2) {
+      lastPaintedAgeRef.current = -2
+      paint(normal)
     }
-    frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
-  }, [lastHitTime])
+  })
 
   if (!texture) return null
 

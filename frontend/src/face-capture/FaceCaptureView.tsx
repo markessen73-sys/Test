@@ -12,6 +12,7 @@ import {
   popEyeScaleForHit,
   sampleSkinNearEyes,
 } from './popEyes';
+import { useCharacter } from '../play/face/CharacterContext';
 import './FaceCaptureView.css';
 
 type Mode = 'choose' | 'camera' | 'pick-face' | 'annotate' | 'saving' | 'done' | 'error';
@@ -21,14 +22,6 @@ type Props = {
 };
 
 const PREVIEW_OOH_MS = 900;
-
-function selectCharacter(id: string) {
-  try {
-    localStorage.setItem('mickeys-gym-character', id);
-  } catch {
-    /* ignore */
-  }
-}
 
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -105,6 +98,7 @@ export function FaceCaptureView({ onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const uploadImgRef = useRef<HTMLImageElement | null>(null);
+  const { setCharacterId, refreshPhotoFaces } = useCharacter();
 
   const [mode, setMode] = useState<Mode>('choose');
   const [error, setError] = useState<string | null>(null);
@@ -168,13 +162,15 @@ export function FaceCaptureView({ onClose }: Props) {
   const finishWithFaces = useCallback(
     (faces: CustomFaceSet) => {
       const entry = addCustomFace(faces);
-      selectCharacter(entry.id);
+      // Select in React state + storage, then reload library so popEyes are live.
+      setCharacterId(entry.id);
+      refreshPhotoFaces();
       stopCamera();
       setAnnotateClean(null);
       setPreviewSet(faces);
       setMode('done');
     },
-    [stopCamera]
+    [stopCamera, setCharacterId, refreshPhotoFaces]
   );
 
   const captureSelfie = useCallback(async () => {

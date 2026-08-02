@@ -32,8 +32,9 @@ function PlaySpeedball({
     lastImpactIdRef.current = latest.id;
 
     applySpeedballHitImpulse(swingRef.current, latest.glove);
-    setHitFlash(performance.now());
-    setLastHitTime(latest.time);
+    const now = performance.now();
+    setHitFlash(now);
+    setLastHitTime(now);
   }, [impacts]);
 
   useFrame((_, delta) => {
