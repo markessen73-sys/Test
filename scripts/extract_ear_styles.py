@@ -50,13 +50,12 @@ TWEAKS = {
   '08-prominent': {'scale': 1.15, 'dy': 0},
   '09-folded': {'scale': 0.92, 'dy': 4},
 }
-# Fit to template box, then enlarge (feedback: too small) and drop (too high).
-# Non-uniform: sheet ears are much taller than the template lobes.
-# Vertical placement uses target cy + BASE_DY (not tip-y) so growth doesn't
-# shove the tops upward when we enlarge.
-BASE_SCALE_W = 2.35
-BASE_SCALE_H = 2.10
-BASE_DY = 105
+# Tall sheet ears (~0.5 w/h). Scale uniformly from height (no wide stretch).
+# Inner edge docks to the cheek; tip sticks outside the head.
+BASE_SCALE_H = 2.00
+BASE_DY = 40
+# How many px the ear overlaps onto the head so the seam isn't a gap.
+ATTACH_INSET = 8
 
 
 def _clusters(xs: np.ndarray, gap: int = 3) -> list[tuple[int, int]]:
@@ -221,29 +220,48 @@ def ear_rgba(cell_rgb: np.ndarray, ear: dict) -> np.ndarray:
   return np.dstack([crop, alpha])
 
 
+def measure_cheeks(noears: np.ndarray, ears: dict) -> None:
+  """Cheek = head silhouette edge after template ears are removed."""
+  a = noears[:, :, 3] > 10
+  y0 = max(0, ears['L']['top'])
+  y1 = min(1023, ears['L']['bot'])
+  lefts, rights = [], []
+  for y in range(y0, y1 + 1):
+    xs = np.where(a[y])[0]
+    if len(xs):
+      lefts.append(int(xs.min()))
+      rights.append(int(xs.max()))
+  ears['L']['cheek'] = int(np.median(lefts)) if lefts else ears['L']['attach']
+  ears['R']['cheek'] = int(np.median(rights)) if rights else ears['R']['attach']
+  print(f"Cheek L={ears['L']['cheek']} R={ears['R']['cheek']}")
+
+
 def place_ear(canvas: Image.Image, rgba: np.ndarray, target: dict, tw: dict) -> None:
-  """Fit one sheet ear onto the template ear box — larger and a bit lower."""
+  """Place ear on the outside of the head — uniform scale, cheek-docked."""
   ys0, xs0 = np.where(rgba[:, :, 3] > 20)
   if not len(ys0):
     return
   rgba = rgba[ys0.min():ys0.max() + 1, xs0.min():xs0.max() + 1]
+  src_h = rgba.shape[0]
+  src_w = rgba.shape[1]
 
   s = float(tw['scale'])
-  nw = max(1, int(round(target['w'] * BASE_SCALE_W * s)))
   nh = max(1, int(round(target['h'] * BASE_SCALE_H * s)))
+  scale = nh / max(1, src_h)
+  nw = max(1, int(round(src_w * scale)))
   img = Image.fromarray(rgba, 'RGBA').resize((nw, nh), Image.Resampling.LANCZOS)
   arr = np.array(img)
   ys, xs = np.where(arr[:, :, 3] > 20)
   if not len(ys):
     return
   content_h = int(ys.max() - ys.min() + 1)
-  content_w = int(xs.max() - xs.min() + 1)
   cy = target['cy'] + BASE_DY + float(tw['dy'])
-  # Outer tip stays on the template tip; extra width grows over the cheek.
+  cheek = float(target['cheek'])
+  # Inner edge docks to cheek (slight inset); tip sticks outward.
   if target['side'] == 'L':
-    px = int(round(target['tip'] - xs.min()))
+    px = int(round(cheek + ATTACH_INSET - xs.max()))
   else:
-    px = int(round(target['tip'] - xs.max()))
+    px = int(round(cheek - ATTACH_INSET - xs.min()))
   py = int(round(cy - content_h / 2.0 - ys.min()))
   canvas.paste(img, (px, py), img)
 
@@ -254,7 +272,8 @@ def main() -> None:
   sheet = np.array(Image.open(SHEET).convert('RGB'))
   blank = np.array(Image.open(BLANK).convert('RGBA'))
   targets = detect_template_ears(blank)
-  write_blank_no_ears(blank, targets)
+  noears = write_blank_no_ears(blank, targets)
+  measure_cheeks(noears, targets)
   OUT.mkdir(parents=True, exist_ok=True)
   for p in OUT.glob('*.png'):
     p.unlink()
