@@ -14,7 +14,11 @@ export const RING_PARTNER_REST_WORLD = new THREE.Vector3(
 );
 
 export function ringPartnerCenterAtSwing(state: RingSwingState): THREE.Vector3 {
-  const delta = ringWeaveWorldDelta(state.offsetX, state.offsetY, state.offsetZ);
+  const delta = ringWeaveWorldDelta(
+    state.worldOffsetX,
+    state.worldOffsetY,
+    state.worldOffsetZ
+  );
   return new THREE.Vector3(
     RING_PLAY_TARGET[0] + delta.x,
     RING_PLAY_TARGET[1] + delta.y,
