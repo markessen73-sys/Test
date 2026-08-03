@@ -43,8 +43,8 @@ export const RING_ROPE_HEIGHTS = [0.5, 0.95, 1.4].map((h) => h * RING_SCALE);
 export const RING_POST_HEIGHT = 1.5 * RING_SCALE;
 export const RING_CORNER_PAD_SIZE = 0.58 * RING_SCALE;
 
-/** Ring-local Z of partner feet — negative moves toward the player corner. */
-export const RING_PARTNER_FORWARD = -1.4;
+/** Ring-local Z of partner feet — slightly toward the player vs the original 0.8. */
+export const RING_PARTNER_FORWARD = 0.4;
 /** Soles anchor on the canvas via SparringPartner spriteCenterY — no extra lift. */
 export const RING_PARTNER_LIFT = 0;
 export const RING_PARTNER_TARGET: PlayTarget = [
