@@ -3,7 +3,7 @@ import type { GlovePosition } from '../types/game';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SparringPartner, RING_CANVAS_SURFACE_Y, RING_SPRITE_SCALE } from '../gym/SparringPartner';
-import { ringZoneScreenOffset } from './ringImpact';
+import { RING_PARTNER_REST_WORLD, ringZoneScreenOffset } from './ringImpact';
 import { applyRingHitImpulse, createRingSwingState, stepRingSwing } from './ringSwing';
 import { RING_PARTNER_FORWARD, RING_PARTNER_LIFT, RING_PARTNER_YAW, RING_PLAY_CAMERA } from './playCamera';
 import type { PunchImpact } from './punchImpact';
@@ -29,7 +29,7 @@ function PlayRing({
   knockedOut: boolean;
 }) {
   const swingRef = useRef(createRingSwingState());
-  const partnerRef = useRef<THREE.Group>(null);
+  const weaveRef = useRef<THREE.Group>(null);
   const [hitFlash, setHitFlash] = useState(0);
   const lastImpactIdRef = useRef(0);
   const { camera } = useThree();
@@ -45,11 +45,17 @@ function PlayRing({
   }, [impacts]);
 
   useFrame((_, delta) => {
-    stepRingSwing(swingRef.current, delta);
-    if (partnerRef.current) {
-      partnerRef.current.position.x = swingRef.current.offsetX;
+    stepRingSwing(swingRef.current, delta, RING_SPRITE_SCALE, {
+      knockedOut,
+      camera,
+      restWorld: RING_PARTNER_REST_WORLD,
+    });
+    const s = swingRef.current;
+    if (weaveRef.current) {
+      weaveRef.current.position.set(s.offsetX, s.offsetY, s.offsetZ);
+      weaveRef.current.rotation.z = s.leanZ;
     }
-    const zoneOffset = ringZoneScreenOffset(swingRef.current, camera);
+    const zoneOffset = ringZoneScreenOffset(s, camera);
     ringZoneOffsetRef.current.x = zoneOffset.x;
     ringZoneOffsetRef.current.y = zoneOffset.y;
   });
@@ -107,15 +113,16 @@ function PlayRing({
         <meshStandardMaterial color="#B80000" roughness={0.85} />
       </mesh>
 
-      <group ref={partnerRef} position={[0, RING_CANVAS_SURFACE_Y + RING_PARTNER_LIFT, RING_PARTNER_FORWARD]} rotation={[0, RING_PARTNER_YAW, 0]}>
-        <SparringPartner
-          hitFlashAge={flashAge}
-          animate
-          scale={RING_SPRITE_SCALE}
-          showFace
-          lastHitTime={hitFlash}
-          knockedOut={knockedOut}
-        />
+      <group position={[0, RING_CANVAS_SURFACE_Y + RING_PARTNER_LIFT, RING_PARTNER_FORWARD]} rotation={[0, RING_PARTNER_YAW, 0]}>
+        <group ref={weaveRef}>
+          <SparringPartner
+            hitFlashAge={flashAge}
+            scale={RING_SPRITE_SCALE}
+            showFace
+            lastHitTime={hitFlash}
+            knockedOut={knockedOut}
+          />
+        </group>
       </group>
     </group>
   );
