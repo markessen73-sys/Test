@@ -30,7 +30,18 @@ export const SPEEDBALL_PLAY_TARGET: PlayTarget = [0, SPEEDBALL_BALL_Y, -3.8];
 const SPEEDBALL_CAMERA_LOOK_AT: PlayTarget = [0, 1.35, -3.8];
 
 /** Ring group origin in world space — pulled back so the player corner sits behind max weave reach. */
-export const RING_GROUP_ORIGIN_Z = -4.2;
+export const RING_GROUP_ORIGIN_Z = -6.0;
+
+/** Play-mode ring size multiplier (base canvas half-width was 2.2 m). */
+export const RING_SCALE = 1.5;
+const RING_BASE_HALF = 2.2;
+export const RING_HALF = RING_BASE_HALF * RING_SCALE;
+export const RING_FLOOR_SIZE = 5.2 * RING_SCALE;
+export const RING_CANVAS_SIZE = 4.6 * RING_SCALE;
+export const RING_ROPE_SPAN = 4.4 * RING_SCALE;
+export const RING_ROPE_HEIGHTS = [0.5, 0.95, 1.4].map((h) => h * RING_SCALE);
+export const RING_POST_HEIGHT = 1.5 * RING_SCALE;
+export const RING_CORNER_PAD_SIZE = 0.58 * RING_SCALE;
 
 /** Sparring partner chest height in ring play mode (world space). */
 export const RING_PARTNER_FORWARD = 0.8;
@@ -42,14 +53,21 @@ export const RING_PARTNER_TARGET: PlayTarget = [
   RING_GROUP_ORIGIN_Z + RING_PARTNER_FORWARD,
 ];
 
-/** Player / camera corner in world space (fixed — does not move with ring group shifts). */
-export const RING_PLAYER_CORNER: PlayTarget = [3.44, 1.44, -5.84];
+/** Back-right corner pad on the canvas (ring-local). */
+const RING_CORNER_PAD_INSET = 0.92;
 
-/** Red corner pad on the canvas (ring-local coordinates, derived from world corner). */
+/** Player / camera corner in world space. */
+export const RING_PLAYER_CORNER: PlayTarget = [
+  RING_HALF * RING_CORNER_PAD_INSET,
+  1.44,
+  RING_GROUP_ORIGIN_Z - RING_HALF * RING_CORNER_PAD_INSET,
+];
+
+/** Red corner pad on the canvas (ring-local coordinates). */
 export const RING_PLAYER_CORNER_PAD: [number, number, number] = [
-  RING_PLAYER_CORNER[0],
+  RING_HALF * RING_CORNER_PAD_INSET,
   RING_CANVAS_SURFACE_Y,
-  RING_PLAYER_CORNER[2] - RING_GROUP_ORIGIN_Z,
+  -RING_HALF * RING_CORNER_PAD_INSET,
 ];
 
 /** Clearance between weave foot line and the corner pad (metres, toward camera). */

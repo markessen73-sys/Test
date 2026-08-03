@@ -5,7 +5,21 @@ import * as THREE from 'three';
 import { SparringPartner, RING_CANVAS_SURFACE_Y, RING_SPRITE_SCALE } from '../gym/SparringPartner';
 import { ringZoneScreenOffset } from './ringImpact';
 import { applyRingHitImpulse, createRingSwingState, stepRingSwing } from './ringSwing';
-import { RING_GROUP_ORIGIN_Z, RING_PARTNER_FORWARD, RING_PARTNER_LIFT, RING_PARTNER_YAW, RING_PLAY_CAMERA, RING_PLAYER_CORNER_PAD } from './playCamera';
+import {
+  RING_CANVAS_SIZE,
+  RING_CORNER_PAD_SIZE,
+  RING_FLOOR_SIZE,
+  RING_GROUP_ORIGIN_Z,
+  RING_HALF,
+  RING_PARTNER_FORWARD,
+  RING_PARTNER_LIFT,
+  RING_PARTNER_YAW,
+  RING_PLAY_CAMERA,
+  RING_PLAYER_CORNER_PAD,
+  RING_POST_HEIGHT,
+  RING_ROPE_HEIGHTS,
+  RING_ROPE_SPAN,
+} from './playCamera';
 import type { PunchImpact } from './punchImpact';
 
 function RingPlayEnvironment() {
@@ -13,8 +27,8 @@ function RingPlayEnvironment() {
     <>
       <ambientLight intensity={0.52} color="#FFE4B5" />
       <directionalLight position={[0, 7, -1]} intensity={1.15} color="#FFD699" castShadow />
-      <pointLight position={[0, 4, RING_GROUP_ORIGIN_Z]} intensity={9} color="#FFF0D0" distance={14} />
-      <fog attach="fog" args={['#1a1208', 6, 20]} />
+      <pointLight position={[0, 4, RING_GROUP_ORIGIN_Z]} intensity={9} color="#FFF0D0" distance={22} />
+      <fog attach="fog" args={['#1a1208', 8, 28]} />
     </>
   );
 }
@@ -62,45 +76,47 @@ function PlayRing({
   const flashAge = hitFlash > 0 ? (performance.now() - hitFlash) / 300 : 1;
   const rope = '#CC0000';
   const post = '#F0EAD6';
+  const postInset = RING_HALF;
+  const postPositions = [-postInset, postInset] as const;
 
   return (
     <group position={[0, 0, RING_GROUP_ORIGIN_Z]}>
       <mesh position={[0, 0.1, 0]} receiveShadow castShadow>
-        <boxGeometry args={[5.2, 0.2, 5.2]} />
+        <boxGeometry args={[RING_FLOOR_SIZE, 0.2, RING_FLOOR_SIZE]} />
         <meshStandardMaterial color="#3D3428" roughness={0.9} />
       </mesh>
       <mesh position={[0, 0.22, 0]} receiveShadow>
-        <boxGeometry args={[4.6, 0.04, 4.6]} />
+        <boxGeometry args={[RING_CANVAS_SIZE, 0.04, RING_CANVAS_SIZE]} />
         <meshStandardMaterial color="#4A5568" roughness={0.95} />
       </mesh>
 
-      {([-2.2, 2.2] as const).flatMap((x) =>
-        ([-2.2, 2.2] as const).map((z) => (
+      {postPositions.flatMap((x) =>
+        postPositions.map((z) => (
           <group key={`${x}-${z}`} position={[x, 0.22, z]}>
-            <mesh position={[0, 0.75, 0]} castShadow>
-              <cylinderGeometry args={[0.08, 0.1, 1.5, 8]} />
+            <mesh position={[0, RING_POST_HEIGHT * 0.5, 0]} castShadow>
+              <cylinderGeometry args={[0.08 * (RING_HALF / 2.2), 0.1 * (RING_HALF / 2.2), RING_POST_HEIGHT, 8]} />
               <meshStandardMaterial color={post} roughness={0.5} />
             </mesh>
           </group>
         ))
       )}
 
-      {[0.5, 0.95, 1.4].map((y, li) => (
+      {RING_ROPE_HEIGHTS.map((y, li) => (
         <group key={li} position={[0, y, 0]}>
-          <mesh position={[0, 0, 2.2]}>
-            <boxGeometry args={[4.4, 0.055, 0.055]} />
+          <mesh position={[0, 0, postInset]}>
+            <boxGeometry args={[RING_ROPE_SPAN, 0.055, 0.055]} />
             <meshStandardMaterial color={li === 1 ? rope : '#990000'} />
           </mesh>
-          <mesh position={[0, 0, -2.2]}>
-            <boxGeometry args={[4.4, 0.055, 0.055]} />
+          <mesh position={[0, 0, -postInset]}>
+            <boxGeometry args={[RING_ROPE_SPAN, 0.055, 0.055]} />
             <meshStandardMaterial color={li === 1 ? rope : '#990000'} />
           </mesh>
-          <mesh position={[2.2, 0, 0]}>
-            <boxGeometry args={[0.055, 0.055, 4.4]} />
+          <mesh position={[postInset, 0, 0]}>
+            <boxGeometry args={[0.055, 0.055, RING_ROPE_SPAN]} />
             <meshStandardMaterial color={li === 1 ? rope : '#990000'} />
           </mesh>
-          <mesh position={[-2.2, 0, 0]}>
-            <boxGeometry args={[0.055, 0.055, 4.4]} />
+          <mesh position={[-postInset, 0, 0]}>
+            <boxGeometry args={[0.055, 0.055, RING_ROPE_SPAN]} />
             <meshStandardMaterial color={li === 1 ? rope : '#990000'} />
           </mesh>
         </group>
@@ -108,12 +124,11 @@ function PlayRing({
 
       {/* Player corner pad (back-right) */}
       <mesh position={[...RING_PLAYER_CORNER_PAD]} rotation={[0, RING_PARTNER_YAW, 0]}>
-        <boxGeometry args={[0.58, 0.035, 0.58]} />
+        <boxGeometry args={[RING_CORNER_PAD_SIZE, 0.035, RING_CORNER_PAD_SIZE]} />
         <meshStandardMaterial color="#B80000" roughness={0.85} />
       </mesh>
 
       <group position={[0, RING_CANVAS_SURFACE_Y + RING_PARTNER_LIFT, RING_PARTNER_FORWARD]}>
-        {/* Shuffle in ring/world X — outside yaw so motion reads across the screen */}
         <group ref={weaveRef}>
           <group rotation={[0, RING_PARTNER_YAW, 0]}>
             <SparringPartner
@@ -145,7 +160,7 @@ export function RingPlayScene({
   return (
     <Canvas
       shadows
-      camera={{ position: cam.position, fov: cam.fov, near: 0.1, far: 30 }}
+      camera={{ position: cam.position, fov: cam.fov, near: 0.1, far: 40 }}
       onCreated={({ camera }) => {
         camera.lookAt(...cam.lookAt);
       }}
