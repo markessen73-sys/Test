@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { assetUrl } from '../assetUrl';
 import { CeilingChain } from '../play/CeilingChain';
 import { BAG_CHAIN_LENGTH } from '../play/bagSwing';
 import { BOBO_FACE_CENTER, createBoboFacePatchGeometry } from '../play/face/boboFacePlacement';
+import { BoboDollDecor } from '../play/face/BoboDollDecor';
+import { useCharacter } from '../play/face/CharacterContext';
 import { SpeedballFaceDecal } from '../play/face/SpeedballFaceDecal';
 import { BagPolaroid } from '../play/face/BagPolaroid';
 import { SPEEDBALL_BALL_Y } from '../play/playCamera';
-
-const BOBO_CLOWN_CLEAN = assetUrl('/faces/bobo-clown-stages/00-clean.png');
 
 interface EquipmentProps {
   highlighted: boolean;
@@ -119,13 +118,14 @@ export function HeavyBag({ highlighted, position = [0, 0, 0] }: EquipmentProps) 
   );
 }
 
-function BoboBrowseClownFace({ opacity }: { opacity: number }) {
+function BoboBrowseFace({ opacity }: { opacity: number }) {
+  const { character } = useCharacter();
   const [map, setMap] = useState<THREE.Texture | null>(null);
   const geometry = useMemo(() => createBoboFacePatchGeometry(), []);
   useEffect(() => {
     const loader = new THREE.TextureLoader();
     let tex: THREE.Texture | null = null;
-    loader.load(BOBO_CLOWN_CLEAN, (t) => {
+    loader.load(character.cleanSrc, (t) => {
       t.colorSpace = THREE.SRGBColorSpace;
       tex = t;
       setMap(t);
@@ -133,7 +133,7 @@ function BoboBrowseClownFace({ opacity }: { opacity: number }) {
     return () => {
       tex?.dispose();
     };
-  }, []);
+  }, [character.cleanSrc]);
   useEffect(() => {
     return () => {
       geometry.dispose();
@@ -188,7 +188,8 @@ export function BoboDoll({ highlighted, position = [0, 0, 0] }: EquipmentProps) 
         <mesh position={[0, 2.28, 0]} castShadow material={material}>
           <sphereGeometry args={[0.44, 24, 24]} />
         </mesh>
-        <BoboBrowseClownFace opacity={highlighted ? 1 : DIM} />
+        <BoboDollDecor opacity={highlighted ? 1 : DIM} />
+        <BoboBrowseFace opacity={highlighted ? 1 : DIM} />
       </group>
 
       {highlighted && (

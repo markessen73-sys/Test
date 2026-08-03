@@ -59,8 +59,8 @@ export const GYM_STATIONS: StationInfo[] = [
   {
     id: 'bobo-doll',
     name: 'Bobo Doll',
-    description: 'Knock down the bobo doll',
-    emoji: '🤡',
+    description: 'Rock the carnival bobo with your selected face',
+    emoji: '🎪',
     equipmentPos: [5.8, 0, 1.8],
     overview: { position: [8.5, 3.5, 5.5], lookAt: [5.8, 1.2, 1.8], fov: 50 },
     close: playCameraForTarget(GYM_AIM['bobo-doll']),

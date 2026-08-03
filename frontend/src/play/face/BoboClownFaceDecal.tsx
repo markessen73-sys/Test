@@ -13,14 +13,15 @@ const CANVAS_SIZE = 512;
 const OOH_MS = 720;
 
 interface BoboClownFaceDecalProps {
-  /** Latest landed punch — swaps to the clown ooh face. */
+  /** Latest landed punch — swaps to the ooh face. */
   lastHitTime?: number;
-  /** Damage meter at 100% — hold the clown knockout face. */
+  /** Damage meter at 100% — hold the knockout face. */
   knockedOut?: boolean;
 }
 
 /**
- * Clean comedy-clown (or photo face) on the bobo doll head.
+ * Standard character face (or photo face) wrapped on the bobo doll head.
+ * No clown makeup/wig — carnival look comes from the hat + body band.
  * Injuries stay in the damage HUD. On hit → ooh; at 100% → KO.
  * Photo faces with eye marks animate pop-eyes zooming ½→full.
  */
@@ -94,9 +95,9 @@ export function BoboClownFaceDecal({
     popEyesRef.current = marks;
 
     Promise.all([
-      loadFaceImage(character.boboCleanSrc),
-      loadFaceImage(character.boboOohSrc),
-      loadFaceImage(character.boboLiveKoSrc),
+      loadFaceImage(character.cleanSrc),
+      loadFaceImage(character.oohSrc),
+      loadFaceImage(character.knockoutSrc),
     ]).then(([normal, ooh, ko]) => {
       if (cancelled) return;
       normalRef.current = normal;
@@ -114,9 +115,9 @@ export function BoboClownFaceDecal({
     };
   }, [
     character.id,
-    character.boboCleanSrc,
-    character.boboOohSrc,
-    character.boboLiveKoSrc,
+    character.cleanSrc,
+    character.oohSrc,
+    character.knockoutSrc,
     character.popEyes,
   ]);
 

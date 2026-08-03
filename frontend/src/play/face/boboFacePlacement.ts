@@ -11,13 +11,13 @@ export const BOBO_FACE_CENTER: [number, number, number] = [
   BOBO_HEAD_RADIUS + 0.04,
 ];
 
-/** Head diameter × 1.3 — clown face reads big on the ball. */
+/** Head diameter × 1.25 — wraps the standard / photo face around the ball. */
 export const BOBO_FACE_SIZE: [number, number] = [
-  BOBO_HEAD_RADIUS * 2 * 1.3,
-  BOBO_HEAD_RADIUS * 2 * 1.3,
+  BOBO_HEAD_RADIUS * 2 * 1.25,
+  BOBO_HEAD_RADIUS * 2 * 1.25,
 ];
 
-/** Spherical front patch: wraps the caricature around the bobo head surface. */
+/** Spherical front patch: bends the caricature around the bobo head surface. */
 export function createBoboFacePatchGeometry() {
   const columns = 36;
   const rows = 36;
@@ -25,8 +25,9 @@ export function createBoboFacePatchGeometry() {
   const uvs: number[] = [];
   const indices: number[] = [];
   const radius = BOBO_HEAD_RADIUS + 0.045;
-  const horizontalHalfAngle = 1.14;
-  const verticalHalfAngle = 1.06;
+  // Slightly tighter than the old clown (wig) coverage so standard faces read clean.
+  const horizontalHalfAngle = 1.05;
+  const verticalHalfAngle = 1.0;
 
   for (let row = 0; row <= rows; row += 1) {
     const v = row / rows;

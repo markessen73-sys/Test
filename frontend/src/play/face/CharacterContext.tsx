@@ -68,7 +68,7 @@ function characterFromPhoto(entry: CustomFaceEntry): CharacterDef {
     cleanSrc: entry.clean,
     oohSrc: entry.ooh,
     knockoutSrc: entry.knockout,
-    // Live bobo head uses the photo too (HUD clown ladder stays stock).
+    // Live bobo + HUD use the photo / shared damage ladder (no clown makeup).
     boboCleanSrc: entry.clean,
     boboOohSrc: entry.ooh,
     boboLiveKoSrc: entry.knockout,

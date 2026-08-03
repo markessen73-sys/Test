@@ -8,7 +8,7 @@ import { useFaceDamage } from './face/useFaceDamage';
 import { OpponentDamageHud } from './face/OpponentDamageHud';
 import { KnockoutBellOverlay } from './face/KnockoutBellOverlay';
 import { useCharacter } from './face/CharacterContext';
-import { loadBoboClownFaceAssets } from './face/renderDamagedFace';
+import { loadDamagedFaceAssets } from './face/renderDamagedFace';
 import type { PunchImpact } from './punchImpact';
 import type { GloveId, GlovePosition } from '../types/game';
 
@@ -60,15 +60,15 @@ export function BoboDollPlayView({ onBack }: BoboDollPlayViewProps) {
     isKnuckleOnTarget: isKnuckleOnBoboDoll,
   });
 
-  const loadClownHud = useCallback(
-    () => loadBoboClownFaceAssets(character),
+  const loadHud = useCallback(
+    () => loadDamagedFaceAssets(character),
     [character]
   );
 
   return (
     <GlovesPlayShell
       onBack={onBack}
-      title="🤡 Bobo Doll"
+      title="Bobo Doll"
       punchCount={punchCount}
       hint={
         <>
@@ -78,7 +78,7 @@ export function BoboDollPlayView({ onBack }: BoboDollPlayViewProps) {
       hudExtra={
         <>
           <KnockoutBellOverlay active={knockedOut} onRestart={onRestart} />
-          <OpponentDamageHud stage={damageStage} loadAssets={loadClownHud} />
+          <OpponentDamageHud stage={damageStage} loadAssets={loadHud} />
         </>
       }
       canvas={

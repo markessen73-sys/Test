@@ -24,10 +24,11 @@ export interface CharacterDef {
   damageStageSrcs: readonly string[];
   damageStageHoldSrc: string;
   damageStageKnockoutSrc: string;
-  /** Bobo clown set. */
+  /** Bobo live head (same as clean/ooh/KO — carnival look is hat + band). */
   boboCleanSrc: string;
   boboOohSrc: string;
   boboLiveKoSrc: string;
+  /** Bobo HUD damage ladder (same injury faces as the ring). */
   boboDamageStageSrcs: readonly string[];
   boboHoldSrc: string;
   boboKoSrc: string;
@@ -55,23 +56,27 @@ function characterFaceRoot(id: StockCharacterId): string {
 function makeCharacter(id: StockCharacterId, name: string): CharacterDef {
   const root = characterFaceRoot(id);
   const damage = `${root}/damage-stages`;
-  const clown = `${root}/bobo-clown-stages`;
+  const cleanSrc = assetUrl(`${root}/clean.png`);
+  const oohSrc = assetUrl(`${root}/ooh.png`);
+  const knockoutSrc = assetUrl(`${root}/knockout.png`);
+  const damageStageSrcs = DAMAGE_STEP_NAMES.map((n) => assetUrl(`${damage}/${n}`));
   return {
     id,
     name,
-    cleanSrc: assetUrl(`${root}/clean.png`),
-    oohSrc: assetUrl(`${root}/ooh.png`),
-    knockoutSrc: assetUrl(`${root}/knockout.png`),
+    cleanSrc,
+    oohSrc,
+    knockoutSrc,
     damageStageCleanSrc: assetUrl(`${damage}/00-clean.png`),
-    damageStageSrcs: DAMAGE_STEP_NAMES.map((n) => assetUrl(`${damage}/${n}`)),
+    damageStageSrcs,
     damageStageHoldSrc: assetUrl(`${damage}/09-hold.png`),
     damageStageKnockoutSrc: assetUrl(`${damage}/10-knockout.png`),
-    boboCleanSrc: assetUrl(`${clown}/00-clean.png`),
-    boboOohSrc: assetUrl(`${clown}/ooh.png`),
-    boboLiveKoSrc: assetUrl(`${clown}/knockout-clean.png`),
-    boboDamageStageSrcs: DAMAGE_STEP_NAMES.map((n) => assetUrl(`${clown}/${n}`)),
-    boboHoldSrc: assetUrl(`${clown}/09-hold.png`),
-    boboKoSrc: assetUrl(`${clown}/10-knockout.png`),
+    // Bobo doll uses the same standard face / damage ladder (no clown makeup).
+    boboCleanSrc: cleanSrc,
+    boboOohSrc: oohSrc,
+    boboLiveKoSrc: knockoutSrc,
+    boboDamageStageSrcs: damageStageSrcs,
+    boboHoldSrc: assetUrl(`${damage}/09-hold.png`),
+    boboKoSrc: assetUrl(`${damage}/10-knockout.png`),
   };
 }
 

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { boboZoneScreenOffset } from './boboImpact';
 import { applyBoboHitImpulse, createBoboSwingState, stepBoboSwing } from './boboSwing';
 import { BoboClownFaceDecal } from './face/BoboClownFaceDecal';
+import { BoboDollDecor } from './face/BoboDollDecor';
 import { BOBO_PLAY_CAMERA } from './playCamera';
 import { PlayEnvironment } from './PlayEnvironment';
 import type { PunchImpact } from './punchImpact';
@@ -126,6 +127,7 @@ function PlayBoboDoll({
 
       <group ref={dollRef}>
         <BoboDollBody material={material} />
+        <BoboDollDecor />
         <BoboClownFaceDecal lastHitTime={lastHitTime} knockedOut={knockedOut} />
         {flashes.map((flash) => (
           <ImpactFlash

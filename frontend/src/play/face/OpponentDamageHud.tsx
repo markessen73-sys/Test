@@ -11,7 +11,7 @@ const FACE_PX = 132;
 interface OpponentDamageHudProps {
   /** Damage meter stage 0–10 (each step = 10%). */
   stage: number;
-  /** Asset loader — defaults to ring damage faces; bobo passes clown faces. */
+  /** Asset loader — defaults to ring damage faces; bobo uses the same. */
   loadAssets?: () => Promise<DamagedFaceAssets>;
 }
 
