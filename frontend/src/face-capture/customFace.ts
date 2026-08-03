@@ -34,6 +34,8 @@ export type CustomFaceSet = {
   knockout: string;
   /** User-highlighted feature anchors (from marker pass). */
   features?: CustomFaceFeatures;
+  /** How the face was captured — selfie has no pop eyes. */
+  captureSource?: 'selfie' | 'upload';
   /** Baked cumulative injury faces for the damage HUD (8 PNGs). */
   damageStages?: string[];
   /** KO face for the damage HUD (usually same as knockout expression). */
@@ -86,6 +88,9 @@ function parseFaceSet(parsed: Partial<CustomFaceSet>): CustomFaceSet | null {
   };
   const features = readFeatures(parsed.features);
   if (features) set.features = features;
+  if (parsed.captureSource === 'selfie' || parsed.captureSource === 'upload') {
+    set.captureSource = parsed.captureSource;
+  }
   if (Array.isArray(parsed.damageStages) && parsed.damageStages.every(isDataUrl)) {
     set.damageStages = parsed.damageStages;
   }
@@ -102,6 +107,7 @@ function slimSet(faces: CustomFaceSet): CustomFaceSet {
   if (faces.features && Object.keys(faces.features).length) {
     set.features = faces.features;
   }
+  if (faces.captureSource) set.captureSource = faces.captureSource;
   return set;
 }
 

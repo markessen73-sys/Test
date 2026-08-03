@@ -13,7 +13,7 @@ import {
   sampleSkinNearEyes,
 } from './popEyes';
 import { drawKoStars } from './koStars';
-import { detectFaceFeatures } from './faceExpressions';
+import { applyBottomFadeToFaceSet } from './faceFade';
 import { useCharacter } from '../play/face/CharacterContext';
 import './FaceCaptureView.css';
 
@@ -247,7 +247,7 @@ export function FaceCaptureView({ onClose }: Props) {
     [stopCamera, setCharacterId, refreshPhotoFaces]
   );
 
-  /** Selfie: capture smile → ooh → sad, auto-detect eyes, save (no highlighter). */
+  /** Selfie: capture smile → ooh → sad, neck-fade, save (no pop eyes / highlighter). */
   const captureSelfieShot = useCallback(async () => {
     const video = videoRef.current;
     if (!video) return;
@@ -283,9 +283,9 @@ export function FaceCaptureView({ onClose }: Props) {
       if (!clean || !ooh || !knockout) {
         throw new Error('Missing a selfie shot — try again.');
       }
-      setStatus('Finding your eyes…');
-      const features = await detectFaceFeatures(clean);
-      finishWithFaces({ clean, ooh, knockout, features });
+      setStatus('Blending into the body…');
+      const faded = await applyBottomFadeToFaceSet({ clean, ooh, knockout });
+      finishWithFaces({ ...faded, captureSource: 'selfie' });
     } catch (err) {
       setMode('camera');
       setStatus('');
@@ -378,8 +378,8 @@ export function FaceCaptureView({ onClose }: Props) {
         <div className="face-capture-titles">
           <h1 className="face-capture-title">Your face</h1>
           <p className="face-capture-sub">
-            Selfie: smile, ooh, then sad — we place the eyes automatically. Upload: one photo, then
-            erase leftovers and highlight eyes and mouth.
+            Selfie: smile, ooh, then sad (real expressions, no pop eyes). Upload: one photo, erase
+            leftovers, highlight eyes and mouth — then we build punched and knockout faces.
           </p>
         </div>
       </header>
@@ -528,7 +528,11 @@ export function FaceCaptureView({ onClose }: Props) {
               <figcaption>Smile</figcaption>
             </figure>
             <figure className="face-capture-result-fig">
-              <OohPopPreview faces={previewSet} />
+              {previewSet.captureSource === 'selfie' || !previewSet.features?.leftEye ? (
+                <img src={previewSet.ooh} alt="Ooh!" className="face-capture-result" />
+              ) : (
+                <OohPopPreview faces={previewSet} />
+              )}
               <figcaption>Ooh!</figcaption>
             </figure>
             <figure className="face-capture-result-fig">
@@ -537,8 +541,11 @@ export function FaceCaptureView({ onClose }: Props) {
             </figure>
           </div>
           <p className="face-capture-hint">
-            Saved as a new photo face — on a punch, eyes zoom forward without overlapping; at
-            knockout, stars spin around your head. Pick or delete faces anytime in Options.
+            Saved as a new photo face
+            {previewSet.captureSource === 'selfie'
+              ? ' — selfie uses your real ooh and sad shots.'
+              : ' — on a punch, eyes zoom forward without overlapping.'}{' '}
+            At knockout, stars spin around your head. Pick or delete faces anytime in Options.
           </p>
           <button type="button" className="face-capture-primary" onClick={goGymWithFace}>
             Back to gym

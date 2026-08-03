@@ -75,7 +75,10 @@ function characterFromPhoto(entry: CustomFaceEntry): CharacterDef {
     damageStageKnockoutSrc: DAMAGE_STAGE_KNOCKOUT_SRC,
     isPhotoFace: true,
   };
-  if (left && right) next.popEyes = { left, right };
+  // Pop eyes only for upload faces (user marked eyes). Selfie uses real expressions.
+  if (entry.captureSource !== 'selfie' && left && right) {
+    next.popEyes = { left, right };
+  }
   return next;
 }
 

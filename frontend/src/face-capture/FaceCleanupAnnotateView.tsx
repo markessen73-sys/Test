@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { type CustomFaceFeatures, type CustomFaceSet, type FaceFeatureMark } from './customFace';
 import { synthesizeFaceExpressions } from './faceExpressions';
+import { applyBottomFadeToFaceSet } from './faceFade';
 import './FaceCleanupAnnotateView.css';
 
 type AnnotateStep = 'erase' | 'eyes' | 'nose' | 'mouth' | 'ears';
@@ -449,26 +450,26 @@ export function FaceCleanupAnnotateView({
       const cleaned = face.toDataURL('image/png');
       const features = buildFeatures();
 
-      // Selfie three-shot path: use real captured ooh / sad; upload path synthesizes.
+      let ooh: string;
+      let knockout: string;
+      // Selfie three-shot path (legacy): use real captured ooh / sad; upload synthesizes.
       if (capturedOoh && capturedKnockout) {
         setStatus('Saving expressions…');
-        onComplete({
-          clean: cleaned,
-          ooh: capturedOoh,
-          knockout: capturedKnockout,
-          features,
-        });
-        return;
+        ooh = capturedOoh;
+        knockout = capturedKnockout;
+      } else {
+        setStatus('Making ooh & sad faces…');
+        const synth = await synthesizeFaceExpressions(cleaned, features);
+        ooh = synth.ooh;
+        knockout = synth.knockout;
       }
 
-      setStatus('Making ooh & sad faces…');
-      const synth = await synthesizeFaceExpressions(cleaned, features);
-
+      setStatus('Blending into the body…');
+      const faded = await applyBottomFadeToFaceSet({ clean: cleaned, ooh, knockout });
       onComplete({
-        clean: cleaned,
-        ooh: synth.ooh,
-        knockout: synth.knockout,
+        ...faded,
         features,
+        captureSource: capturedOoh && capturedKnockout ? 'selfie' : 'upload',
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not finish face');
