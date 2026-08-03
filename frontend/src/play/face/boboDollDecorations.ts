@@ -3,8 +3,11 @@ import { BOBO_HEAD_Y, BOBO_HEAD_RADIUS } from './boboFacePlacement';
 
 /** Mid-torso band centre (world y on the doll). */
 export const BOBO_BAND_Y = 1.42;
-/** Band sits slightly proud of the tapered torso. */
-export const BOBO_BAND_RADIUS = 0.47;
+/**
+ * Band radius must clear the torso after the diagonal Z tilt — at the front
+ * the hoop sits at R·cos(tilt), which was clipping inside the torso at 0.47.
+ */
+export const BOBO_BAND_RADIUS = 0.55;
 export const BOBO_BAND_HEIGHT = 0.26;
 /** Tilt the sash across the torso (radians around Z). */
 export const BOBO_BAND_TILT_Z = 0.52;
