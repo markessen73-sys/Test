@@ -13,6 +13,7 @@ import {
   sampleSkinNearEyes,
 } from './popEyes';
 import { drawKoStars } from './koStars';
+import { detectFaceFeatures } from './faceExpressions';
 import { useCharacter } from '../play/face/CharacterContext';
 import './FaceCaptureView.css';
 
@@ -246,7 +247,7 @@ export function FaceCaptureView({ onClose }: Props) {
     [stopCamera, setCharacterId, refreshPhotoFaces]
   );
 
-  /** Selfie: capture smile → ooh → sad, then annotate the smile for erase + eye marks. */
+  /** Selfie: capture smile → ooh → sad, auto-detect eyes, save (no highlighter). */
   const captureSelfieShot = useCallback(async () => {
     const video = videoRef.current;
     if (!video) return;
@@ -282,7 +283,9 @@ export function FaceCaptureView({ onClose }: Props) {
       if (!clean || !ooh || !knockout) {
         throw new Error('Missing a selfie shot — try again.');
       }
-      beginAnnotate(clean, { ooh, knockout });
+      setStatus('Finding your eyes…');
+      const features = await detectFaceFeatures(clean);
+      finishWithFaces({ clean, ooh, knockout, features });
     } catch (err) {
       setMode('camera');
       setStatus('');
@@ -295,7 +298,7 @@ export function FaceCaptureView({ onClose }: Props) {
         }
       });
     }
-  }, [beginAnnotate, selfieShots, selfieStep]);
+  }, [finishWithFaces, selfieShots, selfieStep]);
 
   const onPickFile = useCallback(
     async (file: File | undefined) => {
@@ -375,8 +378,8 @@ export function FaceCaptureView({ onClose }: Props) {
         <div className="face-capture-titles">
           <h1 className="face-capture-title">Your face</h1>
           <p className="face-capture-sub">
-            Selfie: smile, ooh, then sad. Upload: one photo — we build punched and knockout faces.
-            Then erase leftovers and mark eyes, nose, mouth, and ears.
+            Selfie: smile, ooh, then sad — we place the eyes automatically. Upload: one photo, then
+            erase leftovers and highlight eyes and mouth.
           </p>
         </div>
       </header>
@@ -499,6 +502,7 @@ export function FaceCaptureView({ onClose }: Props) {
           cleanSrc={annotateClean}
           capturedOoh={capturedExpressions?.ooh}
           capturedKnockout={capturedExpressions?.knockout}
+          stepMode="eyes-mouth"
           onComplete={finishWithFaces}
           onCancel={() => {
             setAnnotateClean(null);
@@ -533,8 +537,8 @@ export function FaceCaptureView({ onClose }: Props) {
             </figure>
           </div>
           <p className="face-capture-hint">
-            Saved as a new photo face — on a punch, eyes zoom forward; at knockout, stars spin around
-            your head. Pick or delete faces anytime in Options.
+            Saved as a new photo face — on a punch, eyes zoom forward without overlapping; at
+            knockout, stars spin around your head. Pick or delete faces anytime in Options.
           </p>
           <button type="button" className="face-capture-primary" onClick={goGymWithFace}>
             Back to gym

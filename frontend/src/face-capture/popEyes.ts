@@ -82,7 +82,7 @@ export function popEyeScaleForHit(ageMs: number, oohMs: number): number | null {
 
 /**
  * Shared circular radius for both eyes: round (max axis per eye), then the
- * larger of the two so left and right always match.
+ * larger of the two — but never large enough that the spheres touch.
  */
 export function sharedPopEyeRadiusPx(
   left: FaceFeatureMark,
@@ -93,7 +93,15 @@ export function sharedPopEyeRadiusPx(
   const leftR = Math.max(left.rx * w, left.ry * h);
   const rightR = Math.max(right.rx * w, right.ry * h);
   // 1.5 × prior 2×-highlighter bulge, floored so tiny marks still read
-  return Math.max(14, Math.max(leftR, rightR) * 2 * 1.5);
+  const desired = Math.max(14, Math.max(leftR, rightR) * 2 * 1.5);
+
+  const dx = (right.cx - left.cx) * w;
+  const dy = (right.cy - left.cy) * h;
+  const dist = Math.hypot(dx, dy);
+  // Keep a clear gap between outer edges at full size (scale = 1)
+  const gap = Math.max(8, dist * 0.1);
+  const maxNoTouch = dist > 1 ? Math.max(8, dist / 2 - gap) : 8;
+  return Math.min(desired, maxNoTouch);
 }
 
 /**

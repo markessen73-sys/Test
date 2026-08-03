@@ -5,6 +5,9 @@ import './FaceCleanupAnnotateView.css';
 
 type AnnotateStep = 'erase' | 'eyes' | 'nose' | 'mouth' | 'ears';
 
+/** Upload: erase + eyes + mouth. (Selfie skips annotate entirely.) */
+export type AnnotateStepMode = 'eyes-mouth';
+
 type Props = {
   /** Initial clean cutout (after auto background removal). */
   cleanSrc: string;
@@ -14,11 +17,13 @@ type Props = {
    */
   capturedOoh?: string;
   capturedKnockout?: string;
+  /** Which highlighter steps to show. Default: eyes + mouth (+ erase). */
+  stepMode?: AnnotateStepMode;
   onComplete: (faces: CustomFaceSet) => void;
   onCancel: () => void;
 };
 
-const STEPS: Array<{
+const ALL_STEPS: Array<{
   id: AnnotateStep;
   title: string;
   hint: string;
@@ -61,6 +66,13 @@ const STEPS: Array<{
     brush: 20,
   },
 ];
+
+/** Upload path: erase leftovers, then only eyes + mouth. */
+const UPLOAD_STEPS = ALL_STEPS.filter((s) => s.id === 'erase' || s.id === 'eyes' || s.id === 'mouth');
+
+function stepsForMode(_mode?: AnnotateStepMode) {
+  return UPLOAD_STEPS;
+}
 
 const FACE_SIZE = 1024;
 const BRUSH_MIN = 8;
@@ -161,9 +173,11 @@ export function FaceCleanupAnnotateView({
   cleanSrc,
   capturedOoh,
   capturedKnockout,
+  stepMode = 'eyes-mouth',
   onComplete,
   onCancel,
 }: Props) {
+  const STEPS = stepsForMode(stepMode);
   const faceRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -178,8 +192,8 @@ export function FaceCleanupAnnotateView({
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('Loading face…');
   const [ready, setReady] = useState(false);
-  const [brushSizes, setBrushSizes] = useState<Record<AnnotateStep, number>>(() =>
-    Object.fromEntries(STEPS.map((s) => [s.id, s.brush])) as Record<AnnotateStep, number>,
+  const [brushSizes, setBrushSizes] = useState<Partial<Record<AnnotateStep, number>>>(() =>
+    Object.fromEntries(ALL_STEPS.map((s) => [s.id, s.brush])),
   );
   const [wrapWidth, setWrapWidth] = useState(320);
   const [canvasCssSize, setCanvasCssSize] = useState(320);
