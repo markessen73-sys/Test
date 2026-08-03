@@ -2,17 +2,17 @@ import { Vector3, type Camera } from 'three';
 import { RING_PARTNER_YAW } from './playCamera';
 import { projectWorldToScreenNorm } from './punchImpact';
 
-/** Sparring partner lateral weave and punch-recoil motion. */
+/** Sparring partner lateral shuffle and punch-recoil motion. */
 export interface RingSwingState {
   time: number;
-  /** Punch-driven lateral recoil (added on top of idle weave). */
+  /** Punch-driven lateral recoil (added on top of shuffle). */
   punchOffsetX: number;
   punchVelX: number;
   /** Combined world-space weave offsets in partner-local axes. */
   offsetX: number;
   offsetY: number;
   offsetZ: number;
-  /** Lean into slips (radians, partner-local Z). */
+  /** Unused — kept for hit-zone compat; shuffle is pure translation. */
   leanZ: number;
 }
 
@@ -22,7 +22,7 @@ const PUNCH_SPRING = 14;
 const PUNCH_DAMPING = 4;
 
 /** Keep the sprite torso on screen — tuned for ring play camera. */
-const SCREEN_MARGIN = 0.07;
+const SCREEN_MARGIN = 0.08;
 const SCREEN_MAX = 1 - SCREEN_MARGIN;
 
 const _local = { x: 0, y: 0, z: 0 };
@@ -56,16 +56,6 @@ function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
 
-/** Layered lateral slips and leans — scale with ring sprite size. */
-function idleWeave(t: number, scale: number, intensity: number) {
-  const slipX =
-    (Math.sin(t * 1.35) * 0.22 + Math.sin(t * 2.2 + 1.15) * 0.1 + Math.sin(t * 0.72 + 2.4) * 0.05) *
-    scale *
-    intensity;
-  const leanZ = slipX * 0.58 + Math.sin(t * 1.48 + 0.8) * 0.06 * intensity;
-  return { slipX, leanZ };
-}
-
 /** Transform partner-local offset to world-space delta from rest aim point. */
 export function ringWeaveWorldDelta(
   offsetX: number,
@@ -84,21 +74,52 @@ export function ringWeaveWorldDelta(
   };
 }
 
+function lateralScreenX(offsetX: number, restWorld: Vector3, camera: Camera): number {
+  const delta = ringWeaveWorldDelta(offsetX, 0, 0);
+  _probeWorld.set(
+    restWorld.x + delta.x,
+    restWorld.y + delta.y,
+    restWorld.z + delta.z
+  );
+  return projectWorldToScreenNorm(_probeWorld, camera).x;
+}
+
+/** Binary-search partner-local X so the chest aim point lands at a screen X. */
+function solveOffsetXForScreenX(
+  targetScreenX: number,
+  restWorld: Vector3,
+  camera: Camera,
+  scale: number
+): number {
+  let lo = -1.4 * scale;
+  let hi = 1.4 * scale;
+  for (let i = 0; i < 14; i++) {
+    const mid = (lo + hi) * 0.5;
+    if (lateralScreenX(mid, restWorld, camera) < targetScreenX) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) * 0.5;
+}
+
+/** Target screen X for a slow side-to-side shuffle (0 = left edge, 1 = right). */
+function shuffleTargetScreenX(t: number, intensity: number): number {
+  const span = SCREEN_MAX - SCREEN_MARGIN;
+  const inset = span * 0.06;
+  const usable = span - inset * 2;
+  const phase = (Math.sin(t * 0.68) + 1) * 0.5;
+  const center = SCREEN_MARGIN + inset + usable * 0.5;
+  const amplitude = (usable * 0.5) * intensity;
+  return center + (phase - 0.5) * 2 * amplitude;
+}
+
 /**
- * Scale weave down if the partner aim point would leave the viewport.
- * Uses the rest chest position as anchor.
+ * Pull lateral offset back if the combined shuffle + punch recoil leaves the viewport.
  */
 export function clampWeaveToScreen(
   state: RingSwingState,
   restWorld: Vector3,
-  camera: Camera,
-  scale: number
+  camera: Camera
 ): void {
-  const maxX = 0.34 * scale;
-  state.offsetX = clamp(state.offsetX, -maxX, maxX);
-  state.offsetY = 0;
-  state.offsetZ = 0;
-
   let fit = 1;
   for (let i = 0; i < 8; i++) {
     const delta = ringWeaveWorldDelta(state.offsetX * fit, 0, 0);
@@ -115,7 +136,7 @@ export function clampWeaveToScreen(
 
   if (fit < 1) {
     state.offsetX *= fit;
-    state.leanZ *= fit;
+    state.punchOffsetX *= fit;
   }
 }
 
@@ -127,17 +148,22 @@ export function stepRingSwing(
 ): void {
   const dt = Math.min(delta, 0.05);
   state.time += dt;
-  const intensity = options.knockedOut ? 0.12 : 1;
+  const intensity = options.knockedOut ? 0.2 : 1;
 
   stepPunchRecoil(state, dt);
-  const idle = idleWeave(state.time, scale, intensity);
 
-  state.offsetX = idle.slipX + state.punchOffsetX;
+  let shuffleX = 0;
+  if (options.camera && options.restWorld) {
+    const targetX = shuffleTargetScreenX(state.time, intensity);
+    shuffleX = solveOffsetXForScreenX(targetX, options.restWorld, options.camera, scale);
+  }
+
+  state.offsetX = shuffleX + state.punchOffsetX;
   state.offsetY = 0;
   state.offsetZ = 0;
-  state.leanZ = idle.leanZ;
+  state.leanZ = 0;
 
   if (options.camera && options.restWorld) {
-    clampWeaveToScreen(state, options.restWorld, options.camera, scale);
+    clampWeaveToScreen(state, options.restWorld, options.camera);
   }
 }

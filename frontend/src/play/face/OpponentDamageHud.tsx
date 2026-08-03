@@ -13,15 +13,18 @@ interface OpponentDamageHudProps {
   stage: number;
   /** Asset loader — defaults to ring damage faces; bobo uses the same. */
   loadAssets?: () => Promise<DamagedFaceAssets>;
+  /** Corner placement — ring play uses bottom-left. */
+  placement?: 'top-right' | 'bottom-left';
 }
 
 /**
- * Top-right portrait that swaps through the pre-baked cumulative injury
- * caricatures every 10% damage, then the knockout face at 100%.
+ * Corner portrait that swaps through cumulative injury caricatures every 10%
+ * damage, then the knockout face at 100%.
  */
 export function OpponentDamageHud({
   stage,
   loadAssets = loadDamagedFaceAssets,
+  placement = 'top-right',
 }: OpponentDamageHudProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const assetsRef = useRef<DamagedFaceAssets | null>(null);
@@ -57,7 +60,10 @@ export function OpponentDamageHud({
   }, [stage]);
 
   return (
-    <aside className="play-damage-hud" aria-label={`Damage meter ${pct} percent`}>
+    <aside
+      className={`play-damage-hud${placement === 'bottom-left' ? ' play-damage-hud--bottom-left' : ''}`}
+      aria-label={`Damage meter ${pct} percent`}
+    >
       <div className="play-damage-hud-frame">
         <canvas
           ref={canvasRef}

@@ -53,7 +53,6 @@ function PlayRing({
     const s = swingRef.current;
     if (weaveRef.current) {
       weaveRef.current.position.set(s.offsetX, s.offsetY, s.offsetZ);
-      weaveRef.current.rotation.z = s.leanZ;
     }
     const zoneOffset = ringZoneScreenOffset(s, camera);
     ringZoneOffsetRef.current.x = zoneOffset.x;

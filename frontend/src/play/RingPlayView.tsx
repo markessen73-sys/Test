@@ -75,7 +75,7 @@ export function RingPlayView({ onBack }: RingPlayViewProps) {
       hudExtra={
         <>
           <KnockoutBellOverlay active={knockedOut} onRestart={onRestart} />
-          <OpponentDamageHud stage={damageStage} loadAssets={loadHud} />
+          <OpponentDamageHud stage={damageStage} loadAssets={loadHud} placement="bottom-left" />
         </>
       }
       canvas={

@@ -1404,13 +1404,20 @@ html, body, #root, .app {
   transform: translateY(1px);
 }
 
-/* Ring opponent damage portrait + meter (top-right). */
+/* Ring opponent damage portrait + meter (top-right by default). */
 .play-damage-hud {
   position: absolute;
   top: max(3.6rem, calc(env(safe-area-inset-top) + 3.1rem));
   right: max(0.75rem, env(safe-area-inset-right));
   pointer-events: none;
   z-index: 7;
+}
+
+.play-damage-hud--bottom-left {
+  top: auto;
+  right: auto;
+  bottom: max(4.75rem, calc(env(safe-area-inset-bottom) + 4.25rem));
+  left: max(0.75rem, env(safe-area-inset-left));
 }
 
 .play-damage-hud-frame {
