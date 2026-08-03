@@ -17,8 +17,6 @@ export interface RingSwingState {
   worldOffsetX: number;
   worldOffsetY: number;
   worldOffsetZ: number;
-  /** Subtle lean into the shuffle (radians). */
-  leanZ: number;
 }
 
 const HIT_IMPULSE = 0.22;
@@ -32,9 +30,6 @@ const LATERAL_AMPLITUDE = 1.55;
 const DEPTH_AMPLITUDE = 0.72;
 const SHUFFLE_SPEED = 0.68;
 
-const LEAN_INTO_SHUFFLE = 0.29;
-const LEAN_WOBBLE = 0.03;
-
 /** Inset from the true screen edge — small so the sprite can use full width at rest. */
 const SCREEN_EDGE_MARGIN = 0.008;
 
@@ -46,7 +41,6 @@ const _cameraRight = new Vector3();
 const _cameraUp = new Vector3();
 const _cameraForward = new Vector3();
 const _corner = new Vector3();
-const _axisZ = new Vector3(0, 0, 1);
 const _axisY = new Vector3(0, 1, 0);
 
 interface RingSwingClampContext {
@@ -65,7 +59,6 @@ export function createRingSwingState(): RingSwingState {
     worldOffsetX: 0,
     worldOffsetY: 0,
     worldOffsetZ: 0,
-    leanZ: 0,
   };
 }
 
@@ -113,12 +106,10 @@ function spriteCornerWorld(
   offsetX: number,
   offsetY: number,
   offsetZ: number,
-  leanZ: number,
   ctx: RingSwingClampContext,
   out: Vector3
 ): Vector3 {
   out.set(cornerLocalX, cornerLocalY, SPRITE_PLANE_Z);
-  out.applyAxisAngle(_axisZ, leanZ);
   out.applyAxisAngle(_axisY, ctx.partnerYaw);
   out.x += offsetX + ctx.partnerBaseWorld[0];
   out.y += offsetY + ctx.partnerBaseWorld[1];
@@ -132,7 +123,6 @@ function spriteFitsOnScreen(
   offsetX: number,
   offsetY: number,
   offsetZ: number,
-  leanZ: number,
   margin = SCREEN_EDGE_MARGIN
 ): boolean {
   const halfW = ctx.spriteWidth * 0.5;
@@ -149,7 +139,7 @@ function spriteFitsOnScreen(
   const max = 1 - margin;
 
   for (const [lx, ly] of corners) {
-    spriteCornerWorld(lx, ly, offsetX, offsetY, offsetZ, leanZ, ctx, _corner);
+    spriteCornerWorld(lx, ly, offsetX, offsetY, offsetZ, ctx, _corner);
     const screen = projectWorldToScreenNorm(_corner, camera);
     if (screen.x < min || screen.x > max || screen.y < min || screen.y > max) {
       return false;
@@ -159,7 +149,7 @@ function spriteFitsOnScreen(
 }
 
 function screenEdgeMargin(camera: Camera, ctx: RingSwingClampContext): number {
-  if (spriteFitsOnScreen(camera, ctx, 0, 0, 0, 0, SCREEN_EDGE_MARGIN)) {
+  if (spriteFitsOnScreen(camera, ctx, 0, 0, 0, SCREEN_EDGE_MARGIN)) {
     return SCREEN_EDGE_MARGIN;
   }
   return 0;
@@ -171,11 +161,10 @@ function clampOffsetToScreen(
   ctx: RingSwingClampContext,
   offsetX: number,
   offsetY: number,
-  offsetZ: number,
-  leanZ: number
+  offsetZ: number
 ): { x: number; y: number; z: number } {
   const margin = screenEdgeMargin(camera, ctx);
-  if (spriteFitsOnScreen(camera, ctx, offsetX, offsetY, offsetZ, leanZ, margin)) {
+  if (spriteFitsOnScreen(camera, ctx, offsetX, offsetY, offsetZ, margin)) {
     return { x: offsetX, y: offsetY, z: offsetZ };
   }
 
@@ -183,7 +172,7 @@ function clampOffsetToScreen(
   let hi = 1;
   for (let i = 0; i < 14; i++) {
     const mid = (lo + hi) * 0.5;
-    if (spriteFitsOnScreen(camera, ctx, offsetX * mid, offsetY * mid, offsetZ * mid, leanZ, margin)) {
+    if (spriteFitsOnScreen(camera, ctx, offsetX * mid, offsetY * mid, offsetZ * mid, margin)) {
       lo = mid;
     } else {
       hi = mid;
@@ -222,10 +211,6 @@ export function stepRingSwing(
     Math.sin(phase) * LATERAL_AMPLITUDE * scale * intensity + state.punchOffset;
   const depth = Math.sin(phase * 2) * DEPTH_AMPLITUDE * scale * intensity;
 
-  const leanZ =
-    lateral * LEAN_INTO_SHUFFLE +
-    Math.sin(state.time * 1.48 + 0.8) * LEAN_WOBBLE * intensity;
-
   if (options.camera) {
     const { right, forward } = cameraBasis(options.camera);
     const unclampedX = right.x * lateral + forward.x * depth;
@@ -233,14 +218,12 @@ export function stepRingSwing(
     const unclampedZ = right.z * lateral + forward.z * depth;
 
     const ctx = buildClampContext(scale);
-    // Clamp rigid translation only — lean pivots at the chest, not the feet.
     const clamped = clampOffsetToScreen(
       options.camera,
       ctx,
       unclampedX,
       unclampedY,
-      unclampedZ,
-      0
+      unclampedZ
     );
     state.worldOffsetX = clamped.x;
     state.worldOffsetY = clamped.y;
@@ -250,6 +233,4 @@ export function stepRingSwing(
     state.worldOffsetY = 0;
     state.worldOffsetZ = depth;
   }
-
-  state.leanZ = leanZ;
 }
