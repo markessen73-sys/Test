@@ -44,7 +44,7 @@ export const RING_POST_HEIGHT = 1.5 * RING_SCALE;
 export const RING_CORNER_PAD_SIZE = 0.58 * RING_SCALE;
 
 /** Ring-local Z of partner feet — toward player corner (lower = closer to camera). */
-export const RING_PARTNER_FORWARD = -1;
+export const RING_PARTNER_FORWARD = -4;
 /** Drop soles onto the grey canvas (fine-tune below RING_CANVAS_SURFACE_Y). */
 export const RING_PARTNER_LIFT = -0.16;
 const RING_PARTNER_CHEST_ABOVE_FEET = 2.33;
