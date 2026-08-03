@@ -42,6 +42,18 @@ const _cameraUp = new Vector3();
 const _cameraForward = new Vector3();
 const _corner = new Vector3();
 const _axisY = new Vector3(0, 1, 0);
+const _restScreens: { x: number; y: number }[] = [
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+];
+const _curScreens: { x: number; y: number }[] = [
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+];
 
 interface RingSwingClampContext {
   partnerBaseWorld: [number, number, number];
@@ -117,54 +129,95 @@ function spriteCornerWorld(
   return out;
 }
 
-function spriteFitsOnScreen(
+function spriteCornerScreens(
   camera: Camera,
   ctx: RingSwingClampContext,
   offsetX: number,
   offsetY: number,
   offsetZ: number,
-  margin = SCREEN_EDGE_MARGIN
-): boolean {
+  out: { x: number; y: number }[]
+): void {
   const halfW = ctx.spriteWidth * 0.5;
   const halfH = ctx.spriteHeight * 0.5;
   const cy = ctx.spriteCenterY;
-  const corners: [number, number][] = [
+  const locals: [number, number][] = [
     [-halfW, cy - halfH],
     [halfW, cy - halfH],
     [-halfW, cy + halfH],
     [halfW, cy + halfH],
   ];
 
-  const min = margin;
-  const max = 1 - margin;
-
-  for (const [lx, ly] of corners) {
+  for (let i = 0; i < 4; i++) {
+    const [lx, ly] = locals[i];
     spriteCornerWorld(lx, ly, offsetX, offsetY, offsetZ, ctx, _corner);
     const screen = projectWorldToScreenNorm(_corner, camera);
-    if (screen.x < min || screen.x > max || screen.y < min || screen.y > max) {
-      return false;
-    }
+    out[i].x = screen.x;
+    out[i].y = screen.y;
   }
+}
+
+function spriteOffsetAllowedAtScale(
+  camera: Camera,
+  ctx: RingSwingClampContext,
+  offsetX: number,
+  offsetY: number,
+  offsetZ: number,
+  scale: number,
+  portrait: boolean
+): boolean {
+  if (scale <= 1e-9) return true;
+
+  spriteCornerScreens(camera, ctx, 0, 0, 0, _restScreens);
+  spriteCornerScreens(camera, ctx, offsetX * scale, offsetY * scale, offsetZ * scale, _curScreens);
+
+  let restMinX = 1;
+  let restMaxX = 0;
+  let restMinY = 1;
+  let restMaxY = 0;
+  for (let i = 0; i < 4; i++) {
+    restMinX = Math.min(restMinX, _restScreens[i].x);
+    restMaxX = Math.max(restMaxX, _restScreens[i].x);
+    restMinY = Math.min(restMinY, _restScreens[i].y);
+    restMaxY = Math.max(restMaxY, _restScreens[i].y);
+  }
+
+  let curMinX = 1;
+  let curMaxX = 0;
+  let curMinY = 1;
+  let curMaxY = 0;
+  for (let i = 0; i < 4; i++) {
+    curMinX = Math.min(curMinX, _curScreens[i].x);
+    curMaxX = Math.max(curMaxX, _curScreens[i].x);
+    curMinY = Math.min(curMinY, _curScreens[i].y);
+    curMaxY = Math.max(curMaxY, _curScreens[i].y);
+  }
+
+  const min = SCREEN_EDGE_MARGIN;
+  const max = 1 - SCREEN_EDGE_MARGIN;
+  const leftLimit = Math.min(restMinX, min);
+  const rightLimit = Math.max(restMaxX, max);
+
+  if (curMinX < leftLimit || curMaxX > rightLimit) return false;
+
+  if (!portrait) {
+    const bottomLimit = Math.min(restMinY, min);
+    const topLimit = Math.max(restMaxY, max);
+    if (curMinY < bottomLimit || curMaxY > topLimit) return false;
+  }
+
   return true;
 }
 
-function screenEdgeMargin(camera: Camera, ctx: RingSwingClampContext): number {
-  if (spriteFitsOnScreen(camera, ctx, 0, 0, 0, SCREEN_EDGE_MARGIN)) {
-    return SCREEN_EDGE_MARGIN;
-  }
-  return 0;
-}
-
-/** Scale offset down until all sprite corners stay inside the viewport. */
+/** Scale offset down until sprite corners stay inside the viewport. */
 function clampOffsetToScreen(
   camera: Camera,
   ctx: RingSwingClampContext,
   offsetX: number,
   offsetY: number,
-  offsetZ: number
+  offsetZ: number,
+  portrait: boolean
 ): { x: number; y: number; z: number } {
-  const margin = screenEdgeMargin(camera, ctx);
-  if (spriteFitsOnScreen(camera, ctx, offsetX, offsetY, offsetZ, margin)) {
+  if (spriteOffsetAllowedAtScale(camera, ctx, offsetX, offsetY, offsetZ, 1, portrait)) {
     return { x: offsetX, y: offsetY, z: offsetZ };
   }
 
@@ -172,7 +225,7 @@ function clampOffsetToScreen(
   let hi = 1;
   for (let i = 0; i < 14; i++) {
     const mid = (lo + hi) * 0.5;
-    if (spriteFitsOnScreen(camera, ctx, offsetX * mid, offsetY * mid, offsetZ * mid, margin)) {
+    if (spriteOffsetAllowedAtScale(camera, ctx, offsetX, offsetY, offsetZ, mid, portrait)) {
       lo = mid;
     } else {
       hi = mid;
@@ -198,7 +251,7 @@ export function stepRingSwing(
   state: RingSwingState,
   delta: number,
   scale = RING_SPRITE_SCALE,
-  options: { knockedOut?: boolean; camera?: Camera } = {}
+  options: { knockedOut?: boolean; camera?: Camera; portrait?: boolean } = {}
 ): void {
   const dt = Math.min(delta, 0.05);
   state.time += dt;
@@ -223,7 +276,8 @@ export function stepRingSwing(
       ctx,
       unclampedX,
       unclampedY,
-      unclampedZ
+      unclampedZ,
+      options.portrait ?? false
     );
     state.worldOffsetX = clamped.x;
     state.worldOffsetY = clamped.y;

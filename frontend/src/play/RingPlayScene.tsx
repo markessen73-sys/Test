@@ -32,7 +32,7 @@ function PlayRing({
   const weaveRef = useRef<THREE.Group>(null);
   const [hitFlash, setHitFlash] = useState(0);
   const lastImpactIdRef = useRef(0);
-  const { camera } = useThree();
+  const { camera, size } = useThree();
 
   useEffect(() => {
     if (!impacts.length) return;
@@ -48,6 +48,7 @@ function PlayRing({
     stepRingSwing(swingRef.current, delta, RING_SPRITE_SCALE, {
       knockedOut,
       camera,
+      portrait: size.height > size.width,
     });
     const s = swingRef.current;
     if (weaveRef.current) {
