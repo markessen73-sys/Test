@@ -34,8 +34,21 @@ export const RING_PARTNER_FORWARD = 0.8;
 export const RING_PARTNER_LIFT = 0;
 export const RING_PARTNER_TARGET: PlayTarget = [0, 2.57, -2.2 + RING_PARTNER_FORWARD];
 
-/** Back-right corner — player stands here inside the ring. */
-export const RING_PLAYER_CORNER: PlayTarget = [1.72, 1.44, -4.02];
+/** Ring group origin in world space (matches RingPlayScene). */
+const RING_GROUP_ORIGIN_Z = -2.2;
+
+/** Player corner offset from ring centre — 2× for play framing so the partner stays inside the ropes. */
+const RING_PLAYER_CORNER_OFFSET_XZ: [number, number] = [1.72 * 2, -1.82 * 2];
+
+/** Back-right corner — player / camera stands here inside the ring. */
+export const RING_PLAYER_CORNER: PlayTarget = [
+  RING_PLAYER_CORNER_OFFSET_XZ[0],
+  1.44,
+  RING_GROUP_ORIGIN_Z + RING_PLAYER_CORNER_OFFSET_XZ[1],
+];
+
+/** Red corner pad on the canvas (ring-local coordinates). */
+export const RING_PLAYER_CORNER_PAD: [number, number, number] = [1.75 * 2, 0.24, -1.85 * 2];
 
 /** Eye height for ring sparring camera (raised so view is level with the partner, not upward). */
 const RING_CAMERA_Y = 2.45;
