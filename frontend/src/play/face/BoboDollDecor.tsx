@@ -105,7 +105,7 @@ export function BoboDollDecor({ opacity = 1 }: { opacity?: number }) {
 
       {/* Diagonal sash + odd stars above / below (local Y = across the sash) */}
       <group position={[0, BOBO_BAND_Y, 0]} rotation={[0, 0, BOBO_BAND_TILT_Z]}>
-        <mesh rotation={[0, Math.PI, 0]} castShadow>
+        <mesh rotation={[0, Math.PI, 0]} castShadow renderOrder={2}>
           <cylinderGeometry
             args={[BOBO_BAND_RADIUS, BOBO_BAND_RADIUS * 1.04, BOBO_BAND_HEIGHT, 48, 1, true]}
           />
@@ -113,9 +113,12 @@ export function BoboDollDecor({ opacity = 1 }: { opacity?: number }) {
             map={bandMap}
             roughness={0.55}
             metalness={0.05}
-            transparent
+            transparent={opacity < 1}
             opacity={opacity}
             side={THREE.DoubleSide}
+            polygonOffset
+            polygonOffsetFactor={-1}
+            polygonOffsetUnits={-1}
           />
         </mesh>
         <StarRow
