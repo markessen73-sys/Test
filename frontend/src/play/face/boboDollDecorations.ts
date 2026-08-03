@@ -32,23 +32,28 @@ export function createBoboBandTexture(): THREE.CanvasTexture {
     ctx.fillRect(i * stripeW, 0, stripeW + 1, h);
   }
 
-  // Soft dark band behind the lettering so it stays readable on stripes.
-  const labelW = w * 0.52;
+  // Nameplate sized for the camera-facing arc (~90° ≈ ¼ of the belt).
+  // Texture u=0.5 faces the camera after the band mesh is yawed 180°.
+  const labelW = w * 0.26;
   const labelX = (w - labelW) / 2;
-  const labelY = h * 0.18;
-  const labelH = h * 0.64;
-  ctx.fillStyle = 'rgba(20, 12, 8, 0.55)';
-  roundRect(ctx, labelX, labelY, labelW, labelH, 18);
+  const labelY = h * 0.16;
+  const labelH = h * 0.68;
+  ctx.fillStyle = 'rgba(18, 10, 6, 0.92)';
+  roundRect(ctx, labelX, labelY, labelW, labelH, 16);
   ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 248, 220, 0.6)';
+  ctx.lineWidth = 3;
+  roundRect(ctx, labelX + 3, labelY + 3, labelW - 6, labelH - 6, 12);
+  ctx.stroke();
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = 'bold 72px "Arial Black", Impact, sans-serif';
-  ctx.lineWidth = 10;
-  ctx.strokeStyle = 'rgba(20, 10, 0, 0.85)';
-  ctx.fillStyle = '#fffef5';
+  ctx.font = 'bold 36px Impact, "Arial Black", sans-serif';
   const cx = w / 2;
-  const cy = h / 2 + 4;
+  const cy = h / 2 + 1;
+  ctx.lineWidth = 7;
+  ctx.strokeStyle = '#1a0a00';
+  ctx.fillStyle = '#fffef5';
   ctx.strokeText('BOBO THE CLOWN', cx, cy);
   ctx.fillText('BOBO THE CLOWN', cx, cy);
 

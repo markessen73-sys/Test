@@ -25,9 +25,9 @@ export function createBoboFacePatchGeometry() {
   const uvs: number[] = [];
   const indices: number[] = [];
   const radius = BOBO_HEAD_RADIUS + 0.045;
-  // Slightly tighter than the old clown (wig) coverage so standard faces read clean.
-  const horizontalHalfAngle = 1.05;
-  const verticalHalfAngle = 1.0;
+  // Wide enough wrap so photo / stock faces clearly bend around the ball.
+  const horizontalHalfAngle = 1.2;
+  const verticalHalfAngle = 1.12;
 
   for (let row = 0; row <= rows; row += 1) {
     const v = row / rows;
