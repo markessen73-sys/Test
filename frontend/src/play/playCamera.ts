@@ -46,7 +46,7 @@ export const RING_CORNER_PAD_SIZE = 0.58 * RING_SCALE;
 /** Ring-local Z of partner feet — slightly toward the player vs the original 0.8. */
 export const RING_PARTNER_FORWARD = 0.4;
 /** Drop soles onto the grey canvas (fine-tune below RING_CANVAS_SURFACE_Y). */
-export const RING_PARTNER_LIFT = -0.08;
+export const RING_PARTNER_LIFT = -0.16;
 const RING_PARTNER_CHEST_ABOVE_FEET = 2.33;
 export const RING_PARTNER_TARGET: PlayTarget = [
   0,
@@ -61,7 +61,7 @@ const RING_CORNER_PAD_INSET = 0.92;
 const RING_CAMERA_Y = 2.45;
 
 /** Nudge camera from the corner pad toward ring centre — keeps nearest ropes off-screen. */
-const RING_CAMERA_CORNER_INSET = 0.55;
+const RING_CAMERA_CORNER_INSET = 0.12;
 
 /** Player / camera corner in world space. */
 export const RING_PLAYER_CORNER: PlayTarget = [
@@ -109,5 +109,5 @@ export const SPEEDBALL_PLAY_CAMERA = playCameraForTarget(SPEEDBALL_CAMERA_LOOK_A
 export const RING_PLAY_CAMERA: CameraShot = {
   position: ringCameraPosition(),
   lookAt: RING_PARTNER_TARGET,
-  fov: 78,
+  fov: 82,
 };
