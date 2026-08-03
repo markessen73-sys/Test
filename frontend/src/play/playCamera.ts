@@ -45,11 +45,12 @@ export const RING_CORNER_PAD_SIZE = 0.58 * RING_SCALE;
 
 /** Ring-local Z of partner feet — slightly toward the player vs the original 0.8. */
 export const RING_PARTNER_FORWARD = 0.4;
-/** Soles anchor on the canvas via SparringPartner spriteCenterY — no extra lift. */
-export const RING_PARTNER_LIFT = 0;
+/** Drop soles onto the grey canvas (fine-tune below RING_CANVAS_SURFACE_Y). */
+export const RING_PARTNER_LIFT = -0.08;
+const RING_PARTNER_CHEST_ABOVE_FEET = 2.33;
 export const RING_PARTNER_TARGET: PlayTarget = [
   0,
-  2.57,
+  RING_CANVAS_SURFACE_Y + RING_PARTNER_LIFT + RING_PARTNER_CHEST_ABOVE_FEET,
   RING_GROUP_ORIGIN_Z + RING_PARTNER_FORWARD,
 ];
 
