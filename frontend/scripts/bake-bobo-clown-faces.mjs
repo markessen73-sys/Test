@@ -618,39 +618,76 @@ const steps = [
     name: '08-foreheadBandage',
     run: () => {
       // Shared painter uses a tight head-interior margin that fails on whiteface;
-      // paint a cream band directly for the clown HUD stages.
+      // paint a small crimson cut directly for the clown HUD stages.
       let n = 0;
       const fh = LM.forehead;
+      const cutCx = fh.x;
+      const cutCy = fh.y + 0.01;
+      const halfLen = 0.038;
+      const halfThick = 0.007;
+      const angle = -0.35;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
           const nx = (x + 0.5) / W;
           const ny = (y + 0.5) / H;
-          const d = ellipseDist(nx, ny, fh.x, fh.y, 0.2, 0.055);
-          if (d >= 1 || ny < 0.23 || ny > 0.35) continue;
+          const dx = nx - cutCx;
+          const dy = ny - cutCy;
+          const along = dx * cos + dy * sin;
+          const across = -dx * sin + dy * cos;
+          if (Math.abs(along) > halfLen || Math.abs(across) > halfThick * 2.2) continue;
+          if (ny < 0.24 || ny > 0.36) continue;
           const i = (y * W + x) * 4;
           if (face.data[i + 3] < 40) continue;
           if (isGlassesFrame(face.data[i], face.data[i + 1], face.data[i + 2], face.data[i + 3])) continue;
           if (isIris(face.data[i], face.data[i + 1], face.data[i + 2])) continue;
-          // Stay on face (white paint / skin), skip candy hair.
           const r0 = clownClean.data[i];
           const g0 = clownClean.data[i + 1];
           const b0 = clownClean.data[i + 2];
-          if (isBlondeHair(r0, g0, b0, clownClean.data[i + 3]) && ny < 0.24) continue;
+          if (isBlondeHair(r0, g0, b0, clownClean.data[i + 3]) && ny < 0.26) continue;
           if (Math.max(r0, g0, b0) - Math.min(r0, g0, b0) > 80 && ny < 0.26) continue;
-          const edge = softEdge(d, 0.85);
-          if (edge < 0.1) continue;
-          let cr = 245;
-          let cg = 232;
-          let cb = 200;
-          const fold = Math.abs(((nx * 36) % 1) - 0.5);
-          if (fold < 0.07) {
-            cr = mix(cr, 210, 0.3);
-            cg = mix(cg, 190, 0.3);
-            cb = mix(cb, 155, 0.3);
+
+          const u = Math.abs(along) / halfLen;
+          const v = Math.abs(across) / halfThick;
+          const core = Math.max(0, 1 - u * u) * Math.max(0, 1 - v * v);
+          if (core < 0.05) continue;
+
+          const edge = Math.max(0, 1 - Math.abs(v));
+          const isCore = Math.abs(across) < halfThick * 0.55;
+          const r = face.data[i];
+          const g = face.data[i + 1];
+          const b = face.data[i + 2];
+          let cr;
+          let cg;
+          let cb;
+          if (isCore) {
+            cr = mix(90, 40, core);
+            cg = mix(28, 8, core);
+            cb = mix(28, 10, core);
+          } else {
+            cr = mix(r, 160, 0.55 * edge);
+            cg = mix(g, 70, 0.55 * edge);
+            cb = mix(b, 60, 0.55 * edge);
           }
-          face.data[i] = clamp(mix(face.data[i], cr, edge));
-          face.data[i + 1] = clamp(mix(face.data[i + 1], cg, edge));
-          face.data[i + 2] = clamp(mix(face.data[i + 2], cb, edge));
+          const bead = ellipseDist(
+            nx,
+            ny,
+            cutCx + halfLen * cos * 0.55,
+            cutCy + halfLen * sin * 0.55 + 0.012,
+            0.01,
+            0.014,
+          );
+          if (bead < 1) {
+            const bt = (1 - bead) * 0.65;
+            cr = mix(cr, 150, bt);
+            cg = mix(cg, 35, bt);
+            cb = mix(cb, 35, bt);
+          }
+          const t = Math.min(1, isCore ? 0.92 * core + 0.35 : 0.7 * edge * core);
+          face.data[i] = clamp(mix(r, cr, t));
+          face.data[i + 1] = clamp(mix(g, cg, t));
+          face.data[i + 2] = clamp(mix(b, cb, t));
           n++;
         }
       }

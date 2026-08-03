@@ -213,34 +213,38 @@ function drawBrokenNose(
   ctx.stroke();
 }
 
-function drawForeheadBandage(
+function drawForeheadCut(
   ctx: CanvasRenderingContext2D,
   forehead: FaceFeatureMark,
   w: number,
   h: number
 ) {
   const x = forehead.cx * w;
-  const y = forehead.cy * h;
-  const rw = Math.max(48, forehead.rx * w * 1.65);
-  const rh = Math.max(16, forehead.ry * h * 1.65);
+  const y = forehead.cy * h + h * 0.01;
+  const len = Math.max(28, forehead.rx * w * 0.9);
+  const thick = Math.max(2.5, forehead.ry * h * 0.35);
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(-0.08);
-  ctx.fillStyle = 'rgba(252, 248, 240, 0.97)';
+  ctx.rotate(-0.35);
+  // Inflamed rim
+  ctx.strokeStyle = 'rgba(160, 60, 55, 0.55)';
+  ctx.lineWidth = thick * 2.2;
+  ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.ellipse(0, 0, rw, rh, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(170, 160, 140, 0.85)';
-  ctx.lineWidth = 2;
+  ctx.moveTo(-len, 0);
+  ctx.lineTo(len, 0);
   ctx.stroke();
+  // Dark cut core
+  ctx.strokeStyle = 'rgba(55, 12, 18, 0.92)';
+  ctx.lineWidth = thick;
   ctx.beginPath();
-  ctx.moveTo(-rw * 0.85, -rh * 0.15);
-  ctx.lineTo(rw * 0.85, rh * 0.12);
+  ctx.moveTo(-len, 0);
+  ctx.lineTo(len, 0);
   ctx.stroke();
-  // Small blood speck under bandage edge
-  ctx.fillStyle = 'rgba(140, 30, 40, 0.45)';
+  // Small blood bead
+  ctx.fillStyle = 'rgba(145, 30, 40, 0.7)';
   ctx.beginPath();
-  ctx.ellipse(rw * 0.25, rh * 0.55, rw * 0.08, rh * 0.2, 0, 0, Math.PI * 2);
+  ctx.ellipse(len * 0.45, thick * 1.6, thick * 0.9, thick * 1.4, 0.2, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -275,7 +279,7 @@ function applyInjury(
       drawBrokenNose(ctx, f.nose, w, h);
       break;
     case 'foreheadBandage':
-      drawForeheadBandage(ctx, f.forehead, w, h);
+      drawForeheadCut(ctx, f.forehead, w, h);
       break;
   }
 }

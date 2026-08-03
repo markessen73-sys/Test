@@ -23,7 +23,7 @@ export type FaceDamageId =
  * 5 + missing tooth
  * 6 + swollen left eye
  * 7 + broken nose
- * 8 + bandage across head
+ * 8 + small forehead cut
  */
 export const DAMAGE_FACE_SEQUENCE: readonly FaceDamageId[] = [
   'cauliflowerLeftEar',

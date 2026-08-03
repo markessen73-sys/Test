@@ -1,6 +1,7 @@
 /**
  * Fade the bottom edge of a cutout so the neck blends into the body.
- * Bottom tenth: transparent at the bottom → solid at the top of that band.
+ * Fades the bottom tenth of the *opaque content* (not empty canvas padding):
+ * transparent at the bottom → solid at the top of that band.
  */
 
 function loadImage(src: string) {
@@ -13,8 +14,15 @@ function loadImage(src: string) {
 }
 
 /**
- * Multiply alpha in the bottom `frac` of the image by a linear ramp
- * (0 at the bottom edge → 1 at the top of the fade band).
+ * Soft ease so the blend reads clearly on the body.
+ */
+function easeInQuad(t: number) {
+  return t * t;
+}
+
+/**
+ * Fade alpha in the bottom `frac` of opaque content.
+ * Bottom edge of the head/neck → nothing; top of that band → solid.
  */
 export async function applyBottomFade(
   dataUrl: string,
@@ -28,23 +36,48 @@ export async function applyBottomFade(
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: true });
   if (!ctx) return dataUrl;
+  ctx.clearRect(0, 0, w, h);
   ctx.drawImage(img, 0, 0);
 
   const imageData = ctx.getImageData(0, 0, w, h);
   const { data } = imageData;
-  const fadeStart = Math.floor(h * (1 - Math.min(0.45, Math.max(0.02, frac))));
-  const fadeH = Math.max(1, h - fadeStart);
 
-  for (let y = fadeStart; y < h; y++) {
-    // 1 at fadeStart (solid), 0 at bottom (nothing)
-    const t = (y - fadeStart) / fadeH;
-    const mul = 1 - t;
+  // Opaque content bounds — cutouts are often padded; fade the real neck edge.
+  let minY = h;
+  let maxY = -1;
+  for (let y = 0; y < h; y++) {
+    const row = y * w * 4;
+    for (let x = 0; x < w; x++) {
+      if ((data[row + x * 4 + 3] ?? 0) > 12) {
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+        break;
+      }
+    }
+  }
+  if (maxY < 0 || maxY <= minY) return dataUrl;
+
+  const contentH = maxY - minY + 1;
+  const fadeH = Math.max(12, Math.round(contentH * Math.min(0.35, Math.max(0.06, frac))));
+  const fadeStart = Math.max(minY, maxY - fadeH + 1);
+
+  for (let y = fadeStart; y <= maxY; y++) {
+    const t = (y - fadeStart) / Math.max(1, maxY - fadeStart);
+    // 1 at fadeStart (solid) → 0 at content bottom (nothing)
+    const mul = 1 - easeInQuad(t);
     const row = y * w * 4;
     for (let x = 0; x < w; x++) {
       const ai = row + x * 4 + 3;
       data[ai] = Math.round((data[ai] ?? 0) * mul);
+    }
+  }
+  // Clear any fringe below the content bottom
+  for (let y = maxY + 1; y < h; y++) {
+    const row = y * w * 4;
+    for (let x = 0; x < w; x++) {
+      data[row + x * 4 + 3] = 0;
     }
   }
 

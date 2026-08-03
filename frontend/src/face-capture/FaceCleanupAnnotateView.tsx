@@ -470,6 +470,7 @@ export function FaceCleanupAnnotateView({
         ...faded,
         features,
         captureSource: capturedOoh && capturedKnockout ? 'selfie' : 'upload',
+        neckFaded: true,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not finish face');

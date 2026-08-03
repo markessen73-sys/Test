@@ -36,6 +36,8 @@ export type CustomFaceSet = {
   features?: CustomFaceFeatures;
   /** How the face was captured — selfie has no pop eyes. */
   captureSource?: 'selfie' | 'upload';
+  /** Bottom neck alpha fade applied so the cutout blends into the body. */
+  neckFaded?: boolean;
   /** Baked cumulative injury faces for the damage HUD (8 PNGs). */
   damageStages?: string[];
   /** KO face for the damage HUD (usually same as knockout expression). */
@@ -91,6 +93,7 @@ function parseFaceSet(parsed: Partial<CustomFaceSet>): CustomFaceSet | null {
   if (parsed.captureSource === 'selfie' || parsed.captureSource === 'upload') {
     set.captureSource = parsed.captureSource;
   }
+  if (parsed.neckFaded === true) set.neckFaded = true;
   if (Array.isArray(parsed.damageStages) && parsed.damageStages.every(isDataUrl)) {
     set.damageStages = parsed.damageStages;
   }
@@ -108,6 +111,7 @@ function slimSet(faces: CustomFaceSet): CustomFaceSet {
     set.features = faces.features;
   }
   if (faces.captureSource) set.captureSource = faces.captureSource;
+  if (faces.neckFaded) set.neckFaded = true;
   return set;
 }
 
@@ -351,4 +355,31 @@ export function syncFaceFeaturesMeta(lib?: CustomFaceLibrary) {
 
 export function isPhotoCharacterId(id: string | null | undefined): boolean {
   return typeof id === 'string' && id.startsWith('photo-');
+}
+
+/**
+ * One-time: fade the neck on older saved photo faces that predate bottom blending.
+ * `applyFade` should return clean/ooh/knockout with the bottom fade applied.
+ */
+export async function migratePhotoNeckFade(
+  applyFade: (faces: CustomFaceSet) => Promise<Pick<CustomFaceSet, 'clean' | 'ooh' | 'knockout'>>,
+): Promise<boolean> {
+  const lib = readCustomFaceLibrary();
+  const needing = lib.faces.filter((f) => !f.neckFaded);
+  if (!needing.length) return false;
+  const updated: CustomFaceEntry[] = [];
+  for (const face of lib.faces) {
+    if (face.neckFaded) {
+      updated.push(face);
+      continue;
+    }
+    try {
+      const faded = await applyFade(face);
+      updated.push({ ...face, ...faded, neckFaded: true });
+    } catch {
+      updated.push(face);
+    }
+  }
+  writeCustomFaceLibrary({ faces: updated });
+  return updated.some((f, i) => f !== lib.faces[i]);
 }

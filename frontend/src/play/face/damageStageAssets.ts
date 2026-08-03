@@ -9,7 +9,7 @@ export const DAMAGE_STAGE_CLEAN_SRC = assetUrl('/faces/damage-stages/00-clean.pn
 
 /**
  * Pre-baked cumulative injury faces.
- * Index 0 = 10% (left cauliflower ear) … index 7 = 80% (bandage).
+ * Index 0 = 10% (left cauliflower ear) … index 7 = 80% (forehead cut).
  */
 export const DAMAGE_STAGE_SRCS: readonly string[] = [
   assetUrl('/faces/damage-stages/01-cauliflowerLeftEar.png'),

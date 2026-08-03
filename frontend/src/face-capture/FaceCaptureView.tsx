@@ -285,7 +285,7 @@ export function FaceCaptureView({ onClose }: Props) {
       }
       setStatus('Blending into the body…');
       const faded = await applyBottomFadeToFaceSet({ clean, ooh, knockout });
-      finishWithFaces({ ...faded, captureSource: 'selfie' });
+      finishWithFaces({ ...faded, captureSource: 'selfie', neckFaded: true });
     } catch (err) {
       setMode('camera');
       setStatus('');

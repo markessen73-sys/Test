@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -10,6 +11,7 @@ import {
   deleteCustomFace,
   getCustomFace,
   isPhotoCharacterId,
+  migratePhotoNeckFade,
   readCustomFaceLibrary,
   resolveFaceFeatures,
   syncFaceFeaturesMeta,
@@ -17,6 +19,7 @@ import {
   type CustomFaceLibrary,
   type CustomFaceSet,
 } from '../../face-capture/customFace';
+import { applyBottomFadeToFaceSet } from '../../face-capture/faceFade';
 import {
   CHARACTERS,
   CHARACTER_LIST,
@@ -101,6 +104,21 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
     syncFaceFeaturesMeta(lib);
     return lib;
   });
+
+  // Older photo faces saved before content-aware neck fade — apply once.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const changed = await migratePhotoNeckFade(applyBottomFadeToFaceSet);
+      if (cancelled || !changed) return;
+      const next = readCustomFaceLibrary();
+      syncFaceFeaturesMeta(next);
+      setLibrary(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const setCharacterId = useCallback((id: CharacterId) => {
     setCharacterIdState(id);

@@ -718,29 +718,39 @@ export function isBlondeHair(r, g, b, a) {
   return r > 150 && g > 120 && b < 130 && r + g > 300 && g > b + 25 && Math.abs(r - g) < 80;
 }
 
-/** Forehead bandage — clipped inside the head silhouette (no edge overflow). */
-export function applyForeheadBandage(face, clean) {
+/** Small forehead cut — thin crimson slit (replaces the old plaster bandage). */
+export function applyForeheadCut(face, clean) {
   const fh = LM.forehead;
   let painted = 0;
+  // Short diagonal cut centred on the forehead
+  const cutCx = fh.x;
+  const cutCy = fh.y + 0.01;
+  const halfLen = 0.038;
+  const halfThick = 0.007;
+  const angle = -0.35; // slight tilt
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const nx = (x + 0.5) / W;
       const ny = (y + 0.5) / H;
-      const d = ellipseDist(nx, ny, fh.x, fh.y, 0.22, 0.06);
-      if (d >= 1) continue;
-      // Keep bandage on the forehead band (not floating into side hair).
-      if (ny < 0.22 || ny > 0.36) continue;
-      const i = (y * W + x) * 4;
+      const dx = nx - cutCx;
+      const dy = ny - cutCy;
+      // Local coords along / across the cut
+      const along = dx * cos + dy * sin;
+      const across = -dx * sin + dy * cos;
+      if (Math.abs(along) > halfLen || Math.abs(across) > halfThick * 2.2) continue;
+      if (ny < 0.24 || ny > 0.36) continue;
 
-      // Stay well inside the head — never paint into/near the black void.
-      if (!isInteriorHead(clean, x, y, 7)) continue;
+      const i = (y * W + x) * 4;
+      if (!isInteriorHead(clean, x, y, 5)) continue;
 
       const cr0 = clean.data[i];
       const cg0 = clean.data[i + 1];
       const cb0 = clean.data[i + 2];
       const ca0 = clean.data[i + 3];
-      // Prefer forehead skin / soft hair fringe only near center.
-      if (isBlondeHair(cr0, cg0, cb0, ca0) && Math.abs(nx - fh.x) > 0.12) continue;
+      if (isBlondeHair(cr0, cg0, cb0, ca0) && Math.abs(nx - cutCx) > 0.08) continue;
       if (!isSkinTone(cr0, cg0, cb0, ca0) && !isBlondeHair(cr0, cg0, cb0, ca0) && !isLineArt(cr0, cg0, cb0)) {
         continue;
       }
@@ -751,27 +761,38 @@ export function applyForeheadBandage(face, clean) {
       const a = face.data[i + 3];
       if (a > 20 && (isGlassesFrame(r, g, b, a) || isIris(r, g, b))) continue;
 
-      const v = (ny - (fh.y - 0.065)) / 0.13;
-      let cr = mix(242, 228, Math.abs(v - 0.5) * 2);
-      let cg = mix(230, 212, Math.abs(v - 0.5) * 2);
-      let cb = mix(198, 175, Math.abs(v - 0.5) * 2);
-      const fold = Math.abs(((nx * 36) % 1) - 0.5);
-      if (fold < 0.07) {
-        cr = mix(cr, 205, 0.28);
-        cg = mix(cg, 185, 0.28);
-        cb = mix(cb, 150, 0.28);
+      // Soft capsule falloff along the slit
+      const u = Math.abs(along) / halfLen;
+      const v = Math.abs(across) / halfThick;
+      const core = Math.max(0, 1 - u * u) * Math.max(0, 1 - v * v);
+      if (core < 0.05) continue;
+
+      // Dark crimson cut + slightly lighter swollen lip edges
+      const edge = Math.max(0, 1 - Math.abs(v));
+      const isCore = Math.abs(across) < halfThick * 0.55;
+      let cr;
+      let cg;
+      let cb;
+      if (isCore) {
+        cr = mix(90, 40, core);
+        cg = mix(28, 8, core);
+        cb = mix(28, 10, core);
+      } else {
+        // Inflamed rim
+        cr = mix(r, 160, 0.55 * edge);
+        cg = mix(g, 70, 0.55 * edge);
+        cb = mix(b, 60, 0.55 * edge);
       }
-      const blood = ellipseDist(nx, ny, fh.x - 0.04, fh.y + 0.006, 0.014, 0.01);
-      if (blood < 1) {
-        const bt = (1 - blood) * 0.5;
-        cr = mix(cr, 170, bt);
-        cg = mix(cg, 70, bt);
-        cb = mix(cb, 55, bt);
+      // Tiny blood bead near the lower end
+      const bead = ellipseDist(nx, ny, cutCx + halfLen * cos * 0.55, cutCy + halfLen * sin * 0.55 + 0.012, 0.01, 0.014);
+      if (bead < 1) {
+        const bt = (1 - bead) * 0.65;
+        cr = mix(cr, 150, bt);
+        cg = mix(cg, 35, bt);
+        cb = mix(cb, 35, bt);
       }
-      // Harder edge so it doesn't glow past the head.
-      const edge = softEdge(d, 0.9);
-      const t = Math.min(1, edge);
-      if (t < 0.08) continue;
+
+      const t = Math.min(1, isCore ? 0.92 * core + 0.35 : 0.7 * edge * core);
       face.data[i] = clamp(mix(r, cr, t));
       face.data[i + 1] = clamp(mix(g, cg, t));
       face.data[i + 2] = clamp(mix(b, cb, t));
@@ -781,4 +802,10 @@ export function applyForeheadBandage(face, clean) {
   }
   return painted;
 }
+
+/** @deprecated Use applyForeheadCut — kept for bake script imports. */
+export function applyForeheadBandage(face, clean) {
+  return applyForeheadCut(face, clean);
+}
+
 

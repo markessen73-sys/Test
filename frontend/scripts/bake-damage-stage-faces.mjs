@@ -3,7 +3,7 @@
  *
  * Replicates each original-boxer injury change on the photo caricature:
  * grow/recolor cauliflower ears, purple black-eye + lid droop, chin cross
- * plaster, missing tooth, swollen-shut eye, broken-nose cut, forehead bandage.
+ * plaster, missing tooth, swollen-shut eye, broken-nose cut, small forehead cut.
  *
  * Usage: node scripts/bake-damage-stage-faces.mjs
  */
