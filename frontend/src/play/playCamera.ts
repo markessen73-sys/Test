@@ -1,5 +1,4 @@
 import type { CameraShot } from '../types/game';
-import { partnerFootAlignLift, RING_SPRITE_SCALE } from '../gym/SparringPartner';
 
 /** Matches HeavyBagPlayScene — camera sits back from the target so equipment is not too close. */
 export const PLAY_CAMERA_FORWARD = 4.25;
@@ -31,11 +30,9 @@ const SPEEDBALL_CAMERA_LOOK_AT: PlayTarget = [0, 1.35, -3.8];
 
 /** Sparring partner chest height in ring play mode (world space). */
 export const RING_PARTNER_FORWARD = 0.8;
-/** Extra raise for corner camera — feet foreshorten toward the canvas otherwise. */
-const RING_PLAY_EXTRA_LIFT = 0.32;
-/** Raise partner so boot soles meet the canvas (scales with 1.5× ring sprite). */
-export const RING_PARTNER_LIFT = partnerFootAlignLift(RING_SPRITE_SCALE) + RING_PLAY_EXTRA_LIFT;
-export const RING_PARTNER_TARGET: PlayTarget = [0, 2.55, -2.2 + RING_PARTNER_FORWARD];
+/** Soles anchor on the canvas via SparringPartner spriteCenterY — no extra lift. */
+export const RING_PARTNER_LIFT = 0;
+export const RING_PARTNER_TARGET: PlayTarget = [0, 2.57, -2.2 + RING_PARTNER_FORWARD];
 
 /** Back-right corner — player stands here inside the ring. */
 export const RING_PLAYER_CORNER: PlayTarget = [1.72, 1.44, -4.02];
