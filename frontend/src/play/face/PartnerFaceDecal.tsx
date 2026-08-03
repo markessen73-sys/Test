@@ -15,6 +15,7 @@ import {
   spriteNormRectToLocal,
 } from './spriteFacePlacement';
 import { paintOohReaction, skinFromFaceImage, type PopEyePair } from './paintOohReaction';
+import { paintKnockoutFace } from './paintKnockout';
 import type { Rgb } from '../../face-capture/popEyes';
 
 const CANVAS_SIZE = 512;
@@ -122,6 +123,16 @@ export function PartnerFaceDecal({
     tex.needsUpdate = true;
   };
 
+  const paintKo = (ko: HTMLImageElement, timeMs: number) => {
+    const canvas = canvasRef.current;
+    const tex = texRef.current;
+    if (!canvas || !tex) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    paintKnockoutFace(ctx, CANVAS_SIZE, ko, timeMs);
+    tex.needsUpdate = true;
+  };
+
   // Keep marks in sync every render (not only on image reload).
   popEyesRef.current = character.popEyes ?? null;
 
@@ -163,18 +174,31 @@ export function PartnerFaceDecal({
 
   // Hold knockout face once the meter hits 100%.
   useEffect(() => {
+    lastPaintedAgeRef.current = -1;
     const ko = koRef.current;
     const normal = normalRef.current;
     if (knockedOut) {
-      if (ko) paint(ko);
+      if (ko) {
+        if (character.isPhotoFace) paintKo(ko, performance.now());
+        else paint(ko);
+      }
       return;
     }
     if (normal) paint(normal);
-  }, [knockedOut]);
+  }, [knockedOut, character.isPhotoFace]);
 
-  // Ooh + pop-eye zoom driven by the R3F frame loop so the CanvasTexture uploads.
+  // Ooh + pop-eye zoom, or spinning KO stars — driven by the R3F frame loop.
   useFrame(() => {
-    if (knockedOutRef.current) return;
+    if (knockedOutRef.current) {
+      if (!character.isPhotoFace) return;
+      const ko = koRef.current;
+      if (!ko) return;
+      const bucket = Math.floor(performance.now() / 32);
+      if (bucket === lastPaintedAgeRef.current) return;
+      lastPaintedAgeRef.current = bucket;
+      paintKo(ko, performance.now());
+      return;
+    }
     const hitT = hitTimeRef.current;
     if (!hitT) return;
     const normal = normalRef.current;

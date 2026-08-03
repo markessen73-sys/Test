@@ -8,6 +8,12 @@ type AnnotateStep = 'erase' | 'eyes' | 'nose' | 'mouth' | 'ears';
 type Props = {
   /** Initial clean cutout (after auto background removal). */
   cleanSrc: string;
+  /**
+   * Selfie mode: real captured ooh / knockout cutouts.
+   * When set, skip synthesizing those expressions from the smile.
+   */
+  capturedOoh?: string;
+  capturedKnockout?: string;
   onComplete: (faces: CustomFaceSet) => void;
   onCancel: () => void;
 };
@@ -151,7 +157,13 @@ function splitLeftRight(mask: ImageData): { left: FaceFeatureMark | null; right:
   return { left: markFromMask(leftData), right: markFromMask(rightData) };
 }
 
-export function FaceCleanupAnnotateView({ cleanSrc, onComplete, onCancel }: Props) {
+export function FaceCleanupAnnotateView({
+  cleanSrc,
+  capturedOoh,
+  capturedKnockout,
+  onComplete,
+  onCancel,
+}: Props) {
   const faceRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -422,6 +434,18 @@ export function FaceCleanupAnnotateView({ cleanSrc, onComplete, onCancel }: Prop
     try {
       const cleaned = face.toDataURL('image/png');
       const features = buildFeatures();
+
+      // Selfie three-shot path: use real captured ooh / sad; upload path synthesizes.
+      if (capturedOoh && capturedKnockout) {
+        setStatus('Saving expressions…');
+        onComplete({
+          clean: cleaned,
+          ooh: capturedOoh,
+          knockout: capturedKnockout,
+          features,
+        });
+        return;
+      }
 
       setStatus('Making ooh & sad faces…');
       const synth = await synthesizeFaceExpressions(cleaned, features);

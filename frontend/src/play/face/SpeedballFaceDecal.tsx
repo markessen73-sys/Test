@@ -5,6 +5,7 @@ import { drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture'
 import { useCharacter } from './CharacterContext'
 import { SPEEDBALL_FACE_RADIUS } from './speedballFacePlacement'
 import { paintOohReaction, skinFromFaceImage, type PopEyePair } from './paintOohReaction'
+import { paintKnockoutFace } from './paintKnockout'
 import type { Rgb } from '../../face-capture/popEyes'
 
 const CANVAS_SIZE = 512
@@ -90,6 +91,16 @@ export function SpeedballFaceDecal({
     tex.needsUpdate = true
   }
 
+  const paintKo = (ko: HTMLImageElement, timeMs: number) => {
+    const canvas = canvasRef.current
+    const tex = texRef.current
+    if (!canvas || !tex) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    paintKnockoutFace(ctx, CANVAS_SIZE, ko, timeMs)
+    tex.needsUpdate = true
+  }
+
   popEyesRef.current = character.popEyes ?? null
 
   useEffect(() => {
@@ -129,17 +140,30 @@ export function SpeedballFaceDecal({
   }, [character.id, character.cleanSrc, character.oohSrc, character.knockoutSrc, character.popEyes])
 
   useEffect(() => {
+    lastPaintedAgeRef.current = -1
     const ko = koRef.current
     const normal = normalRef.current
     if (knockedOut) {
-      if (ko) paint(ko)
+      if (ko) {
+        if (character.isPhotoFace) paintKo(ko, performance.now())
+        else paint(ko)
+      }
       return
     }
     if (normal) paint(normal)
-  }, [knockedOut])
+  }, [knockedOut, character.isPhotoFace])
 
   useFrame(() => {
-    if (knockedOutRef.current) return
+    if (knockedOutRef.current) {
+      if (!character.isPhotoFace) return
+      const ko = koRef.current
+      if (!ko) return
+      const bucket = Math.floor(performance.now() / 32)
+      if (bucket === lastPaintedAgeRef.current) return
+      lastPaintedAgeRef.current = bucket
+      paintKo(ko, performance.now())
+      return
+    }
     const hitT = hitTimeRef.current
     if (!hitT) return
     const normal = normalRef.current
