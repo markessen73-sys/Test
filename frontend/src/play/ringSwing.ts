@@ -2,7 +2,7 @@ import { Vector3, type Camera } from 'three';
 import { RING_PARTNER_YAW } from './playCamera';
 import { projectWorldToScreenNorm } from './punchImpact';
 
-/** Sparring partner bob, weave, and punch-recoil motion. */
+/** Sparring partner lateral weave and punch-recoil motion. */
 export interface RingSwingState {
   time: number;
   /** Punch-driven lateral recoil (added on top of idle weave). */
@@ -56,20 +56,14 @@ function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
 
-/** Layered idle slips, ducks, and leans — scale with ring sprite size. */
+/** Layered lateral slips and leans — scale with ring sprite size. */
 function idleWeave(t: number, scale: number, intensity: number) {
   const slipX =
     (Math.sin(t * 1.35) * 0.22 + Math.sin(t * 2.2 + 1.15) * 0.1 + Math.sin(t * 0.72 + 2.4) * 0.05) *
     scale *
     intensity;
-  const duckY =
-    (Math.sin(t * 1.72 + 0.55) * 0.16 + Math.sin(t * 3.05 + 1.9) * 0.06 + Math.sin(t * 0.95) * 0.04) *
-    scale *
-    intensity;
-  const depthZ =
-    (Math.sin(t * 1.08 + 1.75) * 0.12 + Math.sin(t * 1.85 + 0.3) * 0.05) * scale * intensity;
   const leanZ = slipX * 0.58 + Math.sin(t * 1.48 + 0.8) * 0.06 * intensity;
-  return { slipX, duckY, depthZ, leanZ };
+  return { slipX, leanZ };
 }
 
 /** Transform partner-local offset to world-space delta from rest aim point. */
@@ -101,39 +95,26 @@ export function clampWeaveToScreen(
   scale: number
 ): void {
   const maxX = 0.34 * scale;
-  const maxY = 0.2 * scale;
-  const maxZ = 0.15 * scale;
   state.offsetX = clamp(state.offsetX, -maxX, maxX);
-  state.offsetY = clamp(state.offsetY, -maxY, maxY);
-  state.offsetZ = clamp(state.offsetZ, -maxZ, maxZ);
+  state.offsetY = 0;
+  state.offsetZ = 0;
 
   let fit = 1;
   for (let i = 0; i < 8; i++) {
-    const delta = ringWeaveWorldDelta(
-      state.offsetX * fit,
-      state.offsetY * fit,
-      state.offsetZ * fit
-    );
+    const delta = ringWeaveWorldDelta(state.offsetX * fit, 0, 0);
     _probeWorld.set(
       restWorld.x + delta.x,
       restWorld.y + delta.y,
       restWorld.z + delta.z
     );
     const screen = projectWorldToScreenNorm(_probeWorld, camera);
-    const worst = Math.max(
-      SCREEN_MARGIN - screen.x,
-      screen.x - SCREEN_MAX,
-      SCREEN_MARGIN - screen.y,
-      screen.y - SCREEN_MAX
-    );
+    const worst = Math.max(SCREEN_MARGIN - screen.x, screen.x - SCREEN_MAX);
     if (worst <= 0) break;
     fit *= clamp(1 - worst * 2.2, 0.45, 0.92);
   }
 
   if (fit < 1) {
     state.offsetX *= fit;
-    state.offsetY *= fit;
-    state.offsetZ *= fit;
     state.leanZ *= fit;
   }
 }
@@ -152,8 +133,8 @@ export function stepRingSwing(
   const idle = idleWeave(state.time, scale, intensity);
 
   state.offsetX = idle.slipX + state.punchOffsetX;
-  state.offsetY = idle.duckY;
-  state.offsetZ = idle.depthZ;
+  state.offsetY = 0;
+  state.offsetZ = 0;
   state.leanZ = idle.leanZ;
 
   if (options.camera && options.restWorld) {
