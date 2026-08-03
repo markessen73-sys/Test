@@ -92,3 +92,62 @@ export function drawFullFaceOnCanvas(
   ctx.drawImage(image, 0, 0, iw, ih, -drawW / 2, -drawH / 2, drawW, drawH);
   ctx.restore();
 }
+
+/**
+ * Paint transparent holes *inside* a cutout silhouette black (leave exterior clear).
+ * Used on stock boxer faces on the white bobo head so glasses / mouth gaps don't show white.
+ */
+export function fillClearInteriorBlack(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  alphaThreshold = 12,
+) {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const { data } = imageData;
+  const n = width * height;
+  const exterior = new Uint8Array(n);
+  const queue = new Int32Array(n);
+  let qh = 0;
+  let qt = 0;
+
+  const push = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+    const i = y * width + x;
+    if (exterior[i]) return;
+    if ((data[i * 4 + 3] ?? 0) > alphaThreshold) return;
+    exterior[i] = 1;
+    queue[qt++] = i;
+  };
+
+  for (let x = 0; x < width; x++) {
+    push(x, 0);
+    push(x, height - 1);
+  }
+  for (let y = 0; y < height; y++) {
+    push(0, y);
+    push(width - 1, y);
+  }
+
+  while (qh < qt) {
+    const i = queue[qh++]!;
+    const x = i % width;
+    const y = (i / width) | 0;
+    push(x - 1, y);
+    push(x + 1, y);
+    push(x, y - 1);
+    push(x, y + 1);
+  }
+
+  for (let i = 0; i < n; i++) {
+    const a = data[i * 4 + 3] ?? 0;
+    if (a > alphaThreshold) continue;
+    if (exterior[i]) continue;
+    const o = i * 4;
+    data[o] = 0;
+    data[o + 1] = 0;
+    data[o + 2] = 0;
+    data[o + 3] = 255;
+  }
+  ctx.putImageData(imageData, 0, 0);
+}

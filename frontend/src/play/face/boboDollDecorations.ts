@@ -4,8 +4,10 @@ import { BOBO_HEAD_Y, BOBO_HEAD_RADIUS } from './boboFacePlacement';
 /** Mid-torso band centre (world y on the doll). */
 export const BOBO_BAND_Y = 1.42;
 /** Band sits slightly proud of the tapered torso. */
-export const BOBO_BAND_RADIUS = 0.455;
-export const BOBO_BAND_HEIGHT = 0.28;
+export const BOBO_BAND_RADIUS = 0.47;
+export const BOBO_BAND_HEIGHT = 0.26;
+/** Tilt the sash across the torso (radians around Z). */
+export const BOBO_BAND_TILT_Z = 0.52;
 
 /** Hat sits on the crown; slight back tilt so the point reads. */
 export const BOBO_HAT_POS: [number, number, number] = [
@@ -16,6 +18,9 @@ export const BOBO_HAT_POS: [number, number, number] = [
 export const BOBO_HAT_ROT: [number, number, number] = [0.22, 0, 0];
 
 const STRIPE_COLORS = ['#e53935', '#fdd835', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa'];
+
+/** Odd-pointed carnival star colours (above / below the sash). */
+export const BOBO_STAR_COLORS = ['#ff1744', '#ffea00', '#2979ff', '#00e676', '#ff9100'];
 
 /** Canvas texture: vertical carnival stripes + “BOBO THE CLOWN” on the front. */
 export function createBoboBandTexture(): THREE.CanvasTexture {
@@ -79,7 +84,6 @@ export function createBoboHatTexture(): THREE.CanvasTexture {
     ctx.fillStyle = panels[i]!;
     ctx.fillRect(i * panelW, 0, panelW + 1, h);
   }
-  // Soft highlight toward the tip
   const g = ctx.createLinearGradient(0, h, 0, 0);
   g.addColorStop(0, 'rgba(255,255,255,0)');
   g.addColorStop(1, 'rgba(255,255,255,0.25)');
@@ -90,6 +94,26 @@ export function createBoboHatTexture(): THREE.CanvasTexture {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.needsUpdate = true;
   return tex;
+}
+
+/**
+ * Flat odd-pointed star (default 5 tips) for carnival accents.
+ * Shared geometry — dispose once from the parent component.
+ */
+export function createOddStarGeometry(points = 5, outerR = 0.055, innerR = 0.024) {
+  const shape = new THREE.Shape();
+  for (let i = 0; i < points * 2; i++) {
+    const r = i % 2 === 0 ? outerR : innerR;
+    const a = -Math.PI / 2 + (i * Math.PI) / points;
+    const x = Math.cos(a) * r;
+    const y = Math.sin(a) * r;
+    if (i === 0) shape.moveTo(x, y);
+    else shape.lineTo(x, y);
+  }
+  shape.closePath();
+  const geo = new THREE.ShapeGeometry(shape);
+  geo.computeVertexNormals();
+  return geo;
 }
 
 function roundRect(

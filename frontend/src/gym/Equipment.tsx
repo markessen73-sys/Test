@@ -6,6 +6,11 @@ import { BAG_CHAIN_LENGTH } from '../play/bagSwing';
 import { BOBO_FACE_CENTER, createBoboFacePatchGeometry } from '../play/face/boboFacePlacement';
 import { BoboDollDecor } from '../play/face/BoboDollDecor';
 import { useCharacter } from '../play/face/CharacterContext';
+import {
+  drawFullFaceOnCanvas,
+  fillClearInteriorBlack,
+  loadFaceImage,
+} from '../play/face/composeFaceTexture';
 import { SpeedballFaceDecal } from '../play/face/SpeedballFaceDecal';
 import { BagPolaroid } from '../play/face/BagPolaroid';
 import { SPEEDBALL_BALL_Y } from '../play/playCamera';
@@ -123,17 +128,27 @@ function BoboBrowseFace({ opacity }: { opacity: number }) {
   const [map, setMap] = useState<THREE.Texture | null>(null);
   const geometry = useMemo(() => createBoboFacePatchGeometry(), []);
   useEffect(() => {
-    const loader = new THREE.TextureLoader();
-    let tex: THREE.Texture | null = null;
-    loader.load(character.cleanSrc, (t) => {
-      t.colorSpace = THREE.SRGBColorSpace;
-      tex = t;
-      setMap(t);
+    let cancelled = false;
+    let tex: THREE.CanvasTexture | null = null;
+    const size = 512;
+    void loadFaceImage(character.cleanSrc).then((img) => {
+      if (cancelled) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      drawFullFaceOnCanvas(ctx, img, size, size);
+      if (!character.isPhotoFace) fillClearInteriorBlack(ctx, size, size);
+      tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      setMap(tex);
     });
     return () => {
+      cancelled = true;
       tex?.dispose();
     };
-  }, [character.cleanSrc]);
+  }, [character.cleanSrc, character.isPhotoFace]);
   useEffect(() => {
     return () => {
       geometry.dispose();

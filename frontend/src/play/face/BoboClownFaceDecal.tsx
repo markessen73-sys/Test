@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture';
+import { drawFullFaceOnCanvas, fillClearInteriorBlack, loadFaceImage } from './composeFaceTexture';
 import { useCharacter } from './CharacterContext';
 import { BOBO_FACE_CENTER, createBoboFacePatchGeometry } from './boboFacePlacement';
 import { paintOohReaction, skinFromFaceImage, type PopEyePair } from './paintOohReaction';
@@ -21,9 +21,9 @@ interface BoboClownFaceDecalProps {
 
 /**
  * Standard character face (or photo face) wrapped on the bobo doll head.
- * No clown makeup/wig — carnival look comes from the hat + body band.
- * Injuries stay in the damage HUD. On hit → ooh; at 100% → KO.
- * Photo faces with eye marks animate pop-eyes zooming ½→full.
+ * Stock boxers: clear holes inside the silhouette fill black so the white head
+ * doesn't show through. Photo faces keep their alpha.
+ * Carnival look comes from the hat + body band.
  */
 export function BoboClownFaceDecal({
   lastHitTime = 0,
@@ -38,15 +38,21 @@ export function BoboClownFaceDecal({
   const texRef = useRef<THREE.CanvasTexture | null>(null);
   const popEyesRef = useRef<PopEyePair | null>(null);
   const skinRef = useRef<Rgb | null>(null);
+  const stockFaceRef = useRef(!character.isPhotoFace);
   const knockedOutRef = useRef(knockedOut);
   const geometry = useMemo(() => createBoboFacePatchGeometry(), []);
   knockedOutRef.current = knockedOut;
+  stockFaceRef.current = !character.isPhotoFace;
   const lastPaintedAgeRef = useRef(-1);
   const hitTimeRef = useRef(lastHitTime);
   if (hitTimeRef.current !== lastHitTime) {
     hitTimeRef.current = lastHitTime;
     lastPaintedAgeRef.current = -1;
   }
+
+  const finishStock = (ctx: CanvasRenderingContext2D) => {
+    if (stockFaceRef.current) fillClearInteriorBlack(ctx, CANVAS_SIZE, CANVAS_SIZE);
+  };
 
   const paint = (img: HTMLImageElement, hitAgeMs?: number) => {
     const canvas = canvasRef.current;
@@ -64,6 +70,7 @@ export function BoboClownFaceDecal({
     } else {
       drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE);
     }
+    finishStock(ctx);
     tex.needsUpdate = true;
   };
 
@@ -74,6 +81,7 @@ export function BoboClownFaceDecal({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     paintKnockoutFace(ctx, CANVAS_SIZE, ko, timeMs);
+    finishStock(ctx);
     tex.needsUpdate = true;
   };
 
