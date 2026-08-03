@@ -56,12 +56,32 @@ export const RING_PARTNER_TARGET: PlayTarget = [
 /** Back-right corner pad on the canvas (ring-local). */
 const RING_CORNER_PAD_INSET = 0.92;
 
+/** Eye height for ring sparring camera (raised so view is level with the partner, not upward). */
+const RING_CAMERA_Y = 2.45;
+
+/** Nudge camera from the corner pad toward ring centre — keeps nearest ropes off-screen. */
+const RING_CAMERA_CORNER_INSET = 0.55;
+
 /** Player / camera corner in world space. */
 export const RING_PLAYER_CORNER: PlayTarget = [
   RING_HALF * RING_CORNER_PAD_INSET,
   1.44,
   RING_GROUP_ORIGIN_Z - RING_HALF * RING_CORNER_PAD_INSET,
 ];
+
+function ringCameraPosition(): [number, number, number] {
+  const cornerX = RING_PLAYER_CORNER[0];
+  const cornerZ = RING_PLAYER_CORNER[2];
+  const toCentreX = -cornerX;
+  const toCentreZ = RING_GROUP_ORIGIN_Z - cornerZ;
+  const len = Math.hypot(toCentreX, toCentreZ) || 1;
+  const inset = RING_CAMERA_CORNER_INSET;
+  return [
+    cornerX + (toCentreX / len) * inset,
+    RING_CAMERA_Y,
+    cornerZ + (toCentreZ / len) * inset,
+  ];
+}
 
 /** Red corner pad on the canvas (ring-local coordinates). */
 export const RING_PLAYER_CORNER_PAD: [number, number, number] = [
@@ -72,9 +92,6 @@ export const RING_PLAYER_CORNER_PAD: [number, number, number] = [
 
 /** Clearance between weave foot line and the corner pad (metres, toward camera). */
 export const RING_CORNER_FEET_CLEARANCE = 0.35;
-
-/** Eye height for ring sparring camera (raised so view is level with the partner, not upward). */
-const RING_CAMERA_Y = 2.45;
 
 /** Partner faces the player corner. */
 export const RING_PARTNER_YAW = Math.atan2(
@@ -89,7 +106,7 @@ export const HEAVY_BAG_PLAY_CAMERA = playCameraForTarget(HEAVY_BAG_PLAY_TARGET);
 export const BOBO_PLAY_CAMERA = playCameraForTarget(BOBO_PLAY_TARGET);
 export const SPEEDBALL_PLAY_CAMERA = playCameraForTarget(SPEEDBALL_CAMERA_LOOK_AT);
 export const RING_PLAY_CAMERA: CameraShot = {
-  position: [RING_PLAYER_CORNER[0], RING_CAMERA_Y, RING_PLAYER_CORNER[2]],
+  position: ringCameraPosition(),
   lookAt: RING_PARTNER_TARGET,
   fov: 78,
 };

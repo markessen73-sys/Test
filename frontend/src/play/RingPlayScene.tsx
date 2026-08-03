@@ -91,30 +91,28 @@ function PlayRing({
       </mesh>
 
       {postPositions.flatMap((x) =>
-        postPositions.map((z) => (
-          <group key={`${x}-${z}`} position={[x, 0.22, z]}>
-            <mesh position={[0, RING_POST_HEIGHT * 0.5, 0]} castShadow>
-              <cylinderGeometry args={[0.08 * (RING_HALF / 2.2), 0.1 * (RING_HALF / 2.2), RING_POST_HEIGHT, 8]} />
-              <meshStandardMaterial color={post} roughness={0.5} />
-            </mesh>
-          </group>
-        ))
+        postPositions.map((z) => {
+          // Back-right post sits in the player corner — keep it off-camera.
+          if (x > 0 && z < 0) return null;
+          return (
+            <group key={`${x}-${z}`} position={[x, 0.22, z]}>
+              <mesh position={[0, RING_POST_HEIGHT * 0.5, 0]} castShadow>
+                <cylinderGeometry args={[0.08 * (RING_HALF / 2.2), 0.1 * (RING_HALF / 2.2), RING_POST_HEIGHT, 8]} />
+                <meshStandardMaterial color={post} roughness={0.5} />
+              </mesh>
+            </group>
+          );
+        })
       )}
 
       {RING_ROPE_HEIGHTS.map((y, li) => (
         <group key={li} position={[0, y, 0]}>
+          {/* Far side (+Z) — visible across the ring */}
           <mesh position={[0, 0, postInset]}>
             <boxGeometry args={[RING_ROPE_SPAN, 0.055, 0.055]} />
             <meshStandardMaterial color={li === 1 ? rope : '#990000'} />
           </mesh>
-          <mesh position={[0, 0, -postInset]}>
-            <boxGeometry args={[RING_ROPE_SPAN, 0.055, 0.055]} />
-            <meshStandardMaterial color={li === 1 ? rope : '#990000'} />
-          </mesh>
-          <mesh position={[postInset, 0, 0]}>
-            <boxGeometry args={[0.055, 0.055, RING_ROPE_SPAN]} />
-            <meshStandardMaterial color={li === 1 ? rope : '#990000'} />
-          </mesh>
+          {/* Left side (-X) — visible from the player corner */}
           <mesh position={[-postInset, 0, 0]}>
             <boxGeometry args={[0.055, 0.055, RING_ROPE_SPAN]} />
             <meshStandardMaterial color={li === 1 ? rope : '#990000'} />
