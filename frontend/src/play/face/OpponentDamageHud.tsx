@@ -15,6 +15,8 @@ interface OpponentDamageHudProps {
   loadAssets?: () => Promise<DamagedFaceAssets>;
   /** Corner placement — ring play uses bottom-left. */
   placement?: 'top-right' | 'bottom-left';
+  /** Extra class names for play-mode-specific layout. */
+  className?: string;
 }
 
 /**
@@ -25,6 +27,7 @@ export function OpponentDamageHud({
   stage,
   loadAssets = loadDamagedFaceAssets,
   placement = 'top-right',
+  className = '',
 }: OpponentDamageHudProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const assetsRef = useRef<DamagedFaceAssets | null>(null);
@@ -61,7 +64,13 @@ export function OpponentDamageHud({
 
   return (
     <aside
-      className={`play-damage-hud${placement === 'bottom-left' ? ' play-damage-hud--bottom-left' : ''}`}
+      className={[
+        'play-damage-hud',
+        placement === 'bottom-left' ? 'play-damage-hud--bottom-left' : '',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
       aria-label={`Damage meter ${pct} percent`}
     >
       <div className="play-damage-hud-frame">

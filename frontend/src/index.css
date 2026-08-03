@@ -1414,10 +1414,12 @@ html, body, #root, .app {
 }
 
 .play-damage-hud--bottom-left {
-  top: auto;
-  right: auto;
-  bottom: max(4.75rem, calc(env(safe-area-inset-bottom) + 4.25rem));
+  position: fixed;
+  top: auto !important;
+  right: auto !important;
+  bottom: max(5rem, calc(env(safe-area-inset-bottom) + 4.5rem));
   left: max(0.75rem, env(safe-area-inset-left));
+  z-index: 12;
 }
 
 .play-damage-hud-frame {
