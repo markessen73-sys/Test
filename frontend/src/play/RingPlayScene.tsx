@@ -30,6 +30,7 @@ function PlayRing({
 }) {
   const swingRef = useRef(createRingSwingState());
   const weaveRef = useRef<THREE.Group>(null);
+  const leanZRef = useRef(0);
   const [hitFlash, setHitFlash] = useState(0);
   const lastImpactIdRef = useRef(0);
   const { camera } = useThree();
@@ -50,9 +51,9 @@ function PlayRing({
       camera,
     });
     const s = swingRef.current;
+    leanZRef.current = s.leanZ;
     if (weaveRef.current) {
       weaveRef.current.position.set(s.worldOffsetX, s.worldOffsetY, s.worldOffsetZ);
-      weaveRef.current.rotation.z = s.leanZ;
     }
     const zoneOffset = ringZoneScreenOffset(s, camera);
     ringZoneOffsetRef.current.x = zoneOffset.x;
@@ -122,6 +123,7 @@ function PlayRing({
               showFace
               lastHitTime={hitFlash}
               knockedOut={knockedOut}
+              leanZRef={leanZRef}
             />
           </group>
         </group>

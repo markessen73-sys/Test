@@ -52,6 +52,8 @@ interface SparringPartnerProps {
   /** Damage meter at 100% — show knockout face. */
   knockedOut?: boolean;
   innerRef?: RefObject<Group | null>;
+  /** Ring weave lean — applied at chest pivot, not the feet. */
+  leanZRef?: RefObject<number>;
 }
 
 function SparringPartnerSprite({
@@ -63,6 +65,7 @@ function SparringPartnerSprite({
   lastHitTime = 0,
   knockedOut = false,
   innerRef,
+  leanZRef,
 }: SparringPartnerProps) {
   const animRef = useRef<Group>(null);
   const texture = useTexture(SPARRING_BOXER_TEXTURE);
@@ -74,14 +77,20 @@ function SparringPartnerSprite({
   const motion = scale;
 
   useFrame((state) => {
-    if (!animate || !animRef.current) return;
-    const t = state.clock.elapsedTime;
-    animRef.current.position.set(
-      Math.sin(t * 1.15) * 0.09 * motion,
-      0,
-      Math.sin(t * 0.85 + 0.4) * 0.1 * motion
-    );
-    animRef.current.rotation.z = Math.sin(t * 1.05) * 0.065;
+    if (!animRef.current) return;
+    if (animate) {
+      const t = state.clock.elapsedTime;
+      animRef.current.position.set(
+        Math.sin(t * 1.15) * 0.09 * motion,
+        0,
+        Math.sin(t * 0.85 + 0.4) * 0.1 * motion
+      );
+      animRef.current.rotation.z = Math.sin(t * 1.05) * 0.065;
+      return;
+    }
+    if (leanZRef) {
+      animRef.current.rotation.z = leanZRef.current;
+    }
   });
 
   return (

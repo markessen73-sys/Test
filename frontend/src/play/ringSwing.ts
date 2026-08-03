@@ -35,8 +35,8 @@ const SHUFFLE_SPEED = 0.68;
 const LEAN_INTO_SHUFFLE = 0.29;
 const LEAN_WOBBLE = 0.03;
 
-/** Keep every projected sprite corner inside the viewport by this fraction. */
-const SCREEN_EDGE_MARGIN = 0.045;
+/** Inset from the true screen edge — small so the sprite can use full width at rest. */
+const SCREEN_EDGE_MARGIN = 0.008;
 
 const RING_GROUP_Z = -2.2;
 const FEET_SOLE_FRAC = 76 / 1536;
@@ -132,7 +132,8 @@ function spriteFitsOnScreen(
   offsetX: number,
   offsetY: number,
   offsetZ: number,
-  leanZ: number
+  leanZ: number,
+  margin = SCREEN_EDGE_MARGIN
 ): boolean {
   const halfW = ctx.spriteWidth * 0.5;
   const halfH = ctx.spriteHeight * 0.5;
@@ -144,8 +145,8 @@ function spriteFitsOnScreen(
     [halfW, cy + halfH],
   ];
 
-  const min = SCREEN_EDGE_MARGIN;
-  const max = 1 - SCREEN_EDGE_MARGIN;
+  const min = margin;
+  const max = 1 - margin;
 
   for (const [lx, ly] of corners) {
     spriteCornerWorld(lx, ly, offsetX, offsetY, offsetZ, leanZ, ctx, _corner);
@@ -157,6 +158,13 @@ function spriteFitsOnScreen(
   return true;
 }
 
+function screenEdgeMargin(camera: Camera, ctx: RingSwingClampContext): number {
+  if (spriteFitsOnScreen(camera, ctx, 0, 0, 0, 0, SCREEN_EDGE_MARGIN)) {
+    return SCREEN_EDGE_MARGIN;
+  }
+  return 0;
+}
+
 /** Scale offset down until all sprite corners stay inside the viewport. */
 function clampOffsetToScreen(
   camera: Camera,
@@ -166,7 +174,8 @@ function clampOffsetToScreen(
   offsetZ: number,
   leanZ: number
 ): { x: number; y: number; z: number } {
-  if (spriteFitsOnScreen(camera, ctx, offsetX, offsetY, offsetZ, leanZ)) {
+  const margin = screenEdgeMargin(camera, ctx);
+  if (spriteFitsOnScreen(camera, ctx, offsetX, offsetY, offsetZ, leanZ, margin)) {
     return { x: offsetX, y: offsetY, z: offsetZ };
   }
 
@@ -174,7 +183,7 @@ function clampOffsetToScreen(
   let hi = 1;
   for (let i = 0; i < 14; i++) {
     const mid = (lo + hi) * 0.5;
-    if (spriteFitsOnScreen(camera, ctx, offsetX * mid, offsetY * mid, offsetZ * mid, leanZ)) {
+    if (spriteFitsOnScreen(camera, ctx, offsetX * mid, offsetY * mid, offsetZ * mid, leanZ, margin)) {
       lo = mid;
     } else {
       hi = mid;
@@ -224,13 +233,14 @@ export function stepRingSwing(
     const unclampedZ = right.z * lateral + forward.z * depth;
 
     const ctx = buildClampContext(scale);
+    // Clamp rigid translation only — lean pivots at the chest, not the feet.
     const clamped = clampOffsetToScreen(
       options.camera,
       ctx,
       unclampedX,
       unclampedY,
       unclampedZ,
-      leanZ
+      0
     );
     state.worldOffsetX = clamped.x;
     state.worldOffsetY = clamped.y;
