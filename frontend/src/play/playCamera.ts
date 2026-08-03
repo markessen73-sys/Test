@@ -1,4 +1,5 @@
 import type { CameraShot } from '../types/game';
+import { RING_CANVAS_SURFACE_Y } from '../gym/SparringPartner';
 
 /** Matches HeavyBagPlayScene — camera sits back from the target so equipment is not too close. */
 export const PLAY_CAMERA_FORWARD = 4.25;
@@ -28,27 +29,31 @@ export const SPEEDBALL_PLAY_TARGET: PlayTarget = [0, SPEEDBALL_BALL_Y, -3.8];
 /** Fixed camera aim — same as heavy bag/bobo so a raised ball reads higher on screen. */
 const SPEEDBALL_CAMERA_LOOK_AT: PlayTarget = [0, 1.35, -3.8];
 
+/** Ring group origin in world space — pulled back so the player corner sits behind max weave reach. */
+export const RING_GROUP_ORIGIN_Z = -4.2;
+
 /** Sparring partner chest height in ring play mode (world space). */
 export const RING_PARTNER_FORWARD = 0.8;
 /** Soles anchor on the canvas via SparringPartner spriteCenterY — no extra lift. */
 export const RING_PARTNER_LIFT = 0;
-export const RING_PARTNER_TARGET: PlayTarget = [0, 2.57, -2.2 + RING_PARTNER_FORWARD];
-
-/** Ring group origin in world space (matches RingPlayScene). */
-const RING_GROUP_ORIGIN_Z = -2.2;
-
-/** Player corner offset from ring centre — 2× for play framing so the partner stays inside the ropes. */
-const RING_PLAYER_CORNER_OFFSET_XZ: [number, number] = [1.72 * 2, -1.82 * 2];
-
-/** Back-right corner — player / camera stands here inside the ring. */
-export const RING_PLAYER_CORNER: PlayTarget = [
-  RING_PLAYER_CORNER_OFFSET_XZ[0],
-  1.44,
-  RING_GROUP_ORIGIN_Z + RING_PLAYER_CORNER_OFFSET_XZ[1],
+export const RING_PARTNER_TARGET: PlayTarget = [
+  0,
+  2.57,
+  RING_GROUP_ORIGIN_Z + RING_PARTNER_FORWARD,
 ];
 
-/** Red corner pad on the canvas (ring-local coordinates). */
-export const RING_PLAYER_CORNER_PAD: [number, number, number] = [1.75 * 2, 0.24, -1.85 * 2];
+/** Player / camera corner in world space (fixed — does not move with ring group shifts). */
+export const RING_PLAYER_CORNER: PlayTarget = [3.44, 1.44, -5.84];
+
+/** Red corner pad on the canvas (ring-local coordinates, derived from world corner). */
+export const RING_PLAYER_CORNER_PAD: [number, number, number] = [
+  RING_PLAYER_CORNER[0],
+  RING_CANVAS_SURFACE_Y,
+  RING_PLAYER_CORNER[2] - RING_GROUP_ORIGIN_Z,
+];
+
+/** Clearance between weave foot line and the corner pad (metres, toward camera). */
+export const RING_CORNER_FEET_CLEARANCE = 0.35;
 
 /** Eye height for ring sparring camera (raised so view is level with the partner, not upward). */
 const RING_CAMERA_Y = 2.45;

@@ -5,7 +5,7 @@ import {
   SPARRING_SPRITE_BASE_HEIGHT,
 } from '../gym/SparringPartner';
 import { projectWorldToScreenNorm } from './punchImpact';
-import { RING_PARTNER_FORWARD, RING_PARTNER_LIFT, RING_PARTNER_YAW } from './playCamera';
+import { RING_CORNER_FEET_CLEARANCE, RING_GROUP_ORIGIN_Z, RING_PARTNER_FORWARD, RING_PARTNER_LIFT, RING_PARTNER_YAW, RING_PLAYER_CORNER } from './playCamera';
 
 /** Sparring partner lateral shuffle and punch-recoil motion. */
 export interface RingSwingState {
@@ -26,7 +26,7 @@ const PUNCH_DAMPING = 4;
 
 const SHUFFLE_SPEED = 0.68;
 
-const RING_GROUP_Z = -2.2;
+const RING_GROUP_Z = RING_GROUP_ORIGIN_Z;
 const FEET_SOLE_FRAC = 76 / 1536;
 const SPRITE_PLANE_Z = 0.02;
 
@@ -249,11 +249,29 @@ export function stepRingSwing(
     const baseZ = right.z * lateralScale;
 
     const maxToward = findMaxTowardDepth(options.camera, ctx, baseX, baseY, baseZ, forward);
-    const depthScale = depthWave * maxToward * intensity;
+    let depthScale = depthWave * maxToward * intensity;
 
-    state.worldOffsetX = baseX + forward.x * depthScale;
-    state.worldOffsetY = baseY + forward.y * depthScale;
-    state.worldOffsetZ = baseZ + forward.z * depthScale;
+    let ox = baseX + forward.x * depthScale;
+    let oy = baseY + forward.y * depthScale;
+    let oz = baseZ + forward.z * depthScale;
+
+    const minFeetZ = RING_PLAYER_CORNER[2] + RING_CORNER_FEET_CLEARANCE;
+    const minOz = minFeetZ - ctx.partnerBaseWorld[2];
+    if (oz < minOz) {
+      const allowedDepth = minOz - baseZ;
+      if (Math.abs(forward.z) > 1e-6) {
+        depthScale = Math.max(0, allowedDepth / forward.z);
+      } else {
+        depthScale = 0;
+      }
+      ox = baseX + forward.x * depthScale;
+      oy = baseY + forward.y * depthScale;
+      oz = baseZ + forward.z * depthScale;
+    }
+
+    state.worldOffsetX = ox;
+    state.worldOffsetY = oy;
+    state.worldOffsetZ = oz;
   } else {
     const lateral = (lateralWave * 2 - 1) * 1.55 * scale * intensity + state.punchOffset;
     const depth = depthWave * 0.72 * scale * intensity;

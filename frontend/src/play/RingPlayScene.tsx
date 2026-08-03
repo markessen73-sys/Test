@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { SparringPartner, RING_CANVAS_SURFACE_Y, RING_SPRITE_SCALE } from '../gym/SparringPartner';
 import { ringZoneScreenOffset } from './ringImpact';
 import { applyRingHitImpulse, createRingSwingState, stepRingSwing } from './ringSwing';
-import { RING_PARTNER_FORWARD, RING_PARTNER_LIFT, RING_PARTNER_YAW, RING_PLAY_CAMERA, RING_PLAYER_CORNER_PAD } from './playCamera';
+import { RING_GROUP_ORIGIN_Z, RING_PARTNER_FORWARD, RING_PARTNER_LIFT, RING_PARTNER_YAW, RING_PLAY_CAMERA, RING_PLAYER_CORNER_PAD } from './playCamera';
 import type { PunchImpact } from './punchImpact';
 
 function RingPlayEnvironment() {
@@ -13,7 +13,7 @@ function RingPlayEnvironment() {
     <>
       <ambientLight intensity={0.52} color="#FFE4B5" />
       <directionalLight position={[0, 7, -1]} intensity={1.15} color="#FFD699" castShadow />
-      <pointLight position={[0, 4, -2.2]} intensity={9} color="#FFF0D0" distance={14} />
+      <pointLight position={[0, 4, RING_GROUP_ORIGIN_Z]} intensity={9} color="#FFF0D0" distance={14} />
       <fog attach="fog" args={['#1a1208', 6, 20]} />
     </>
   );
@@ -64,7 +64,7 @@ function PlayRing({
   const post = '#F0EAD6';
 
   return (
-    <group position={[0, 0, -2.2]}>
+    <group position={[0, 0, RING_GROUP_ORIGIN_Z]}>
       <mesh position={[0, 0.1, 0]} receiveShadow castShadow>
         <boxGeometry args={[5.2, 0.2, 5.2]} />
         <meshStandardMaterial color="#3D3428" roughness={0.9} />
