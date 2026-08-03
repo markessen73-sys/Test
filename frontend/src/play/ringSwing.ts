@@ -24,14 +24,7 @@ const MAX_VEL = 1.2;
 const PUNCH_SPRING = 14;
 const PUNCH_DAMPING = 4;
 
-/** Metres of lateral travel each side of centre — clamped to screen edges. */
-const LATERAL_AMPLITUDE = 1.55;
-/** Toward/away travel for the figure-8 (second harmonic along camera forward). */
-const DEPTH_AMPLITUDE = 0.72;
 const SHUFFLE_SPEED = 0.68;
-
-/** Inset from the true screen edge — small so the sprite can use full width at rest. */
-const SCREEN_EDGE_MARGIN = 0.008;
 
 const RING_GROUP_Z = -2.2;
 const FEET_SOLE_FRAC = 76 / 1536;
@@ -42,18 +35,6 @@ const _cameraUp = new Vector3();
 const _cameraForward = new Vector3();
 const _corner = new Vector3();
 const _axisY = new Vector3(0, 1, 0);
-const _restScreens: { x: number; y: number }[] = [
-  { x: 0, y: 0 },
-  { x: 0, y: 0 },
-  { x: 0, y: 0 },
-  { x: 0, y: 0 },
-];
-const _curScreens: { x: number; y: number }[] = [
-  { x: 0, y: 0 },
-  { x: 0, y: 0 },
-  { x: 0, y: 0 },
-  { x: 0, y: 0 },
-];
 
 interface RingSwingClampContext {
   partnerBaseWorld: [number, number, number];
@@ -61,6 +42,13 @@ interface RingSwingClampContext {
   spriteWidth: number;
   spriteCenterY: number;
   spriteHeight: number;
+}
+
+interface ScreenBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
 }
 
 export function createRingSwingState(): RingSwingState {
@@ -129,14 +117,13 @@ function spriteCornerWorld(
   return out;
 }
 
-function spriteCornerScreens(
+function spriteScreenBounds(
   camera: Camera,
   ctx: RingSwingClampContext,
   offsetX: number,
   offsetY: number,
-  offsetZ: number,
-  out: { x: number; y: number }[]
-): void {
+  offsetZ: number
+): ScreenBounds {
   const halfW = ctx.spriteWidth * 0.5;
   const halfH = ctx.spriteHeight * 0.5;
   const cy = ctx.spriteCenterY;
@@ -147,92 +134,77 @@ function spriteCornerScreens(
     [halfW, cy + halfH],
   ];
 
-  for (let i = 0; i < 4; i++) {
-    const [lx, ly] = locals[i];
+  let minX = 1;
+  let maxX = 0;
+  let minY = 1;
+  let maxY = 0;
+
+  for (const [lx, ly] of locals) {
     spriteCornerWorld(lx, ly, offsetX, offsetY, offsetZ, ctx, _corner);
     const screen = projectWorldToScreenNorm(_corner, camera);
-    out[i].x = screen.x;
-    out[i].y = screen.y;
+    minX = Math.min(minX, screen.x);
+    maxX = Math.max(maxX, screen.x);
+    minY = Math.min(minY, screen.y);
+    maxY = Math.max(maxY, screen.y);
   }
+
+  return { minX, maxX, minY, maxY };
 }
 
-function spriteOffsetAllowedAtScale(
+/** World offset scale along axis where the left body edge touches the screen. */
+function findEdgeTouchScale(
   camera: Camera,
   ctx: RingSwingClampContext,
-  offsetX: number,
-  offsetY: number,
-  offsetZ: number,
-  scale: number,
-  portrait: boolean
-): boolean {
-  if (scale <= 1e-9) return true;
-
-  spriteCornerScreens(camera, ctx, 0, 0, 0, _restScreens);
-  spriteCornerScreens(camera, ctx, offsetX * scale, offsetY * scale, offsetZ * scale, _curScreens);
-
-  let restMinX = 1;
-  let restMaxX = 0;
-  let restMinY = 1;
-  let restMaxY = 0;
-  for (let i = 0; i < 4; i++) {
-    restMinX = Math.min(restMinX, _restScreens[i].x);
-    restMaxX = Math.max(restMaxX, _restScreens[i].x);
-    restMinY = Math.min(restMinY, _restScreens[i].y);
-    restMaxY = Math.max(restMaxY, _restScreens[i].y);
-  }
-
-  let curMinX = 1;
-  let curMaxX = 0;
-  let curMinY = 1;
-  let curMaxY = 0;
-  for (let i = 0; i < 4; i++) {
-    curMinX = Math.min(curMinX, _curScreens[i].x);
-    curMaxX = Math.max(curMaxX, _curScreens[i].x);
-    curMinY = Math.min(curMinY, _curScreens[i].y);
-    curMaxY = Math.max(curMaxY, _curScreens[i].y);
-  }
-
-  const min = SCREEN_EDGE_MARGIN;
-  const max = 1 - SCREEN_EDGE_MARGIN;
-  const leftLimit = Math.min(restMinX, min);
-  const rightLimit = Math.max(restMaxX, max);
-
-  if (curMinX < leftLimit || curMaxX > rightLimit) return false;
-
-  if (!portrait) {
-    const bottomLimit = Math.min(restMinY, min);
-    const topLimit = Math.max(restMaxY, max);
-    if (curMinY < bottomLimit || curMaxY > topLimit) return false;
-  }
-
-  return true;
-}
-
-/** Scale offset down until sprite corners stay inside the viewport. */
-function clampOffsetToScreen(
-  camera: Camera,
-  ctx: RingSwingClampContext,
-  offsetX: number,
-  offsetY: number,
-  offsetZ: number,
-  portrait: boolean
-): { x: number; y: number; z: number } {
-  if (spriteOffsetAllowedAtScale(camera, ctx, offsetX, offsetY, offsetZ, 1, portrait)) {
-    return { x: offsetX, y: offsetY, z: offsetZ };
-  }
-
-  let lo = 0;
-  let hi = 1;
-  for (let i = 0; i < 14; i++) {
+  axis: Vector3,
+  edge: 'left' | 'right'
+): number {
+  let lo = -6;
+  let hi = 6;
+  for (let i = 0; i < 22; i++) {
     const mid = (lo + hi) * 0.5;
-    if (spriteOffsetAllowedAtScale(camera, ctx, offsetX, offsetY, offsetZ, mid, portrait)) {
-      lo = mid;
-    } else {
+    const bounds = spriteScreenBounds(
+      camera,
+      ctx,
+      axis.x * mid,
+      axis.y * mid,
+      axis.z * mid
+    );
+    if (edge === 'left') {
+      if (bounds.minX < 0) lo = mid;
+      else hi = mid;
+    } else if (bounds.maxX > 1) {
       hi = mid;
+    } else {
+      lo = mid;
     }
   }
+  return (lo + hi) * 0.5;
+}
 
-  return { x: offsetX * lo, y: offsetY * lo, z: offsetZ * lo };
+/** Max toward-camera depth that keeps the sprite inside the horizontal screen edges. */
+function findMaxTowardDepth(
+  camera: Camera,
+  ctx: RingSwingClampContext,
+  baseX: number,
+  baseY: number,
+  baseZ: number,
+  forward: Vector3
+): number {
+  let lo = 0;
+  let hi = 4;
+  for (let i = 0; i < 20; i++) {
+    const mid = (lo + hi) * 0.5;
+    const bounds = spriteScreenBounds(
+      camera,
+      ctx,
+      baseX + forward.x * mid,
+      baseY + forward.y * mid,
+      baseZ + forward.z * mid
+    );
+    if (bounds.minX >= 0 && bounds.maxX <= 1) lo = mid;
+    else hi = mid;
+  }
+  return lo;
 }
 
 /** Unit vector pointing to the camera's right (screen-left → screen-right in world space). */
@@ -260,29 +232,31 @@ export function stepRingSwing(
   stepPunchRecoil(state, dt);
 
   const phase = state.time * SHUFFLE_SPEED;
-  const lateral =
-    Math.sin(phase) * LATERAL_AMPLITUDE * scale * intensity + state.punchOffset;
-  const depth = Math.sin(phase * 2) * DEPTH_AMPLITUDE * scale * intensity;
+  const lateralWave = (Math.sin(phase) + 1) * 0.5;
+  const depthWave = (Math.sin(phase * 2) + 1) * 0.5;
 
   if (options.camera) {
     const { right, forward } = cameraBasis(options.camera);
-    const unclampedX = right.x * lateral + forward.x * depth;
-    const unclampedY = right.y * lateral + forward.y * depth;
-    const unclampedZ = right.z * lateral + forward.z * depth;
-
     const ctx = buildClampContext(scale);
-    const clamped = clampOffsetToScreen(
-      options.camera,
-      ctx,
-      unclampedX,
-      unclampedY,
-      unclampedZ,
-      options.portrait ?? false
-    );
-    state.worldOffsetX = clamped.x;
-    state.worldOffsetY = clamped.y;
-    state.worldOffsetZ = clamped.z;
+
+    const leftScale = findEdgeTouchScale(options.camera, ctx, right, 'left');
+    const rightScale = findEdgeTouchScale(options.camera, ctx, right, 'right');
+    const lateralScale =
+      (rightScale + lateralWave * (leftScale - rightScale) + state.punchOffset) * intensity;
+
+    const baseX = right.x * lateralScale;
+    const baseY = right.y * lateralScale;
+    const baseZ = right.z * lateralScale;
+
+    const maxToward = findMaxTowardDepth(options.camera, ctx, baseX, baseY, baseZ, forward);
+    const depthScale = depthWave * maxToward * intensity;
+
+    state.worldOffsetX = baseX + forward.x * depthScale;
+    state.worldOffsetY = baseY + forward.y * depthScale;
+    state.worldOffsetZ = baseZ + forward.z * depthScale;
   } else {
+    const lateral = (lateralWave * 2 - 1) * 1.55 * scale * intensity + state.punchOffset;
+    const depth = depthWave * 0.72 * scale * intensity;
     state.worldOffsetX = lateral;
     state.worldOffsetY = 0;
     state.worldOffsetZ = depth;
