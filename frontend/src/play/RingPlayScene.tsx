@@ -113,15 +113,18 @@ function PlayRing({
         <meshStandardMaterial color="#B80000" roughness={0.85} />
       </mesh>
 
-      <group position={[0, RING_CANVAS_SURFACE_Y + RING_PARTNER_LIFT, RING_PARTNER_FORWARD]} rotation={[0, RING_PARTNER_YAW, 0]}>
+      <group position={[0, RING_CANVAS_SURFACE_Y + RING_PARTNER_LIFT, RING_PARTNER_FORWARD]}>
+        {/* Shuffle in ring/world X — outside yaw so motion reads across the screen */}
         <group ref={weaveRef}>
-          <SparringPartner
-            hitFlashAge={flashAge}
-            scale={RING_SPRITE_SCALE}
-            showFace
-            lastHitTime={hitFlash}
-            knockedOut={knockedOut}
-          />
+          <group rotation={[0, RING_PARTNER_YAW, 0]}>
+            <SparringPartner
+              hitFlashAge={flashAge}
+              scale={RING_SPRITE_SCALE}
+              showFace
+              lastHitTime={hitFlash}
+              knockedOut={knockedOut}
+            />
+          </group>
         </group>
       </group>
     </group>

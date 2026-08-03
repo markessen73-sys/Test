@@ -1,5 +1,4 @@
 import { Vector3, type Camera } from 'three';
-import { RING_PARTNER_YAW } from './playCamera';
 import { SPARRING_SPRITE_BASE_HEIGHT } from '../gym/SparringPartner';
 import { projectWorldToScreenNorm } from './punchImpact';
 
@@ -9,7 +8,7 @@ export interface RingSwingState {
   /** Punch-driven lateral recoil (added on top of shuffle). */
   punchOffsetX: number;
   punchVelX: number;
-  /** Combined world-space weave offsets in partner-local axes. */
+  /** World-space shuffle offset along ring X (applied outside partner yaw). */
   offsetX: number;
   offsetY: number;
   offsetZ: number;
@@ -22,15 +21,13 @@ const MAX_VEL = 1.05;
 const PUNCH_SPRING = 14;
 const PUNCH_DAMPING = 4;
 
-/** Screen edges — body centre targets inside these, accounting for sprite width. */
-const SCREEN_EDGE_MIN = 0.03;
-const SCREEN_EDGE_MAX = 0.97;
+const SCREEN_EDGE_MIN = 0.06;
+const SCREEN_EDGE_MAX = 0.94;
 
 const SPRITE_ASPECT = 1024 / 1536;
 const LEAN_INTO_SHUFFLE = 0.29;
 const LEAN_WOBBLE = 0.03;
 
-const _local = { x: 0, y: 0, z: 0 };
 const _probeWorld = new Vector3();
 
 export function createRingSwingState(): RingSwingState {
@@ -61,31 +58,17 @@ function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
 
-/** Transform partner-local offset to world-space delta from rest aim point. */
+/** World-space delta from shuffle offset (ring X). */
 export function ringWeaveWorldDelta(
   offsetX: number,
   offsetY: number,
   offsetZ: number
 ): { x: number; y: number; z: number } {
-  _local.x = offsetX;
-  _local.y = offsetY;
-  _local.z = offsetZ;
-  const cos = Math.cos(RING_PARTNER_YAW);
-  const sin = Math.sin(RING_PARTNER_YAW);
-  return {
-    x: _local.x * cos + _local.z * sin,
-    y: _local.y,
-    z: -_local.x * sin + _local.z * cos,
-  };
+  return { x: offsetX, y: offsetY, z: offsetZ };
 }
 
-function lateralScreenX(offsetX: number, restWorld: Vector3, camera: Camera): number {
-  const delta = ringWeaveWorldDelta(offsetX, 0, 0);
-  _probeWorld.set(
-    restWorld.x + delta.x,
-    restWorld.y + delta.y,
-    restWorld.z + delta.z
-  );
+function chestScreenX(worldOffsetX: number, restWorld: Vector3, camera: Camera): number {
+  _probeWorld.set(restWorld.x + worldOffsetX, restWorld.y, restWorld.z);
   return projectWorldToScreenNorm(_probeWorld, camera).x;
 }
 
@@ -93,31 +76,26 @@ function spriteHalfWidth(scale: number): number {
   return SPARRING_SPRITE_BASE_HEIGHT * scale * SPRITE_ASPECT * 0.5;
 }
 
-/** How wide half the boxer sprite is in screen space (for edge clamping). */
 function bodyHalfWidthScreen(restWorld: Vector3, camera: Camera, scale: number): number {
   const hw = spriteHalfWidth(scale);
-  const center = lateralScreenX(0, restWorld, camera);
-  const edge = lateralScreenX(hw, restWorld, camera);
-  return Math.abs(edge - center);
+  const center = chestScreenX(0, restWorld, camera);
+  const edge = chestScreenX(hw, restWorld, camera);
+  return Math.min(Math.abs(edge - center), 0.32);
 }
 
-/**
- * Find partner-local X that places the torso near a target screen X.
- * Scans then refines — robust regardless of camera yaw direction.
- */
 function solveOffsetXForScreenX(
   targetScreenX: number,
   restWorld: Vector3,
   camera: Camera,
   scale: number
 ): number {
-  const range = 3.2 * scale;
+  const range = 2.8 * scale;
   let best = 0;
   let bestErr = Infinity;
-  const scanSteps = 48;
+  const scanSteps = 56;
   for (let i = 0; i <= scanSteps; i++) {
     const ox = -range + (2 * range * i) / scanSteps;
-    const err = Math.abs(lateralScreenX(ox, restWorld, camera) - targetScreenX);
+    const err = Math.abs(chestScreenX(ox, restWorld, camera) - targetScreenX);
     if (err < bestErr) {
       bestErr = err;
       best = ox;
@@ -126,32 +104,24 @@ function solveOffsetXForScreenX(
 
   let lo = best - range / scanSteps;
   let hi = best + range / scanSteps;
-  const increasing = lateralScreenX(hi, restWorld, camera) > lateralScreenX(lo, restWorld, camera);
+  const increasing = chestScreenX(hi, restWorld, camera) > chestScreenX(lo, restWorld, camera);
   for (let i = 0; i < 16; i++) {
     const mid = (lo + hi) * 0.5;
-    const screen = lateralScreenX(mid, restWorld, camera);
+    const screen = chestScreenX(mid, restWorld, camera);
     if (increasing ? screen < targetScreenX : screen > targetScreenX) lo = mid;
     else hi = mid;
   }
   return (lo + hi) * 0.5;
 }
 
-/** Shuffle the body centre from the left screen edge to the right. */
-function shuffleTargetScreenX(
-  t: number,
-  intensity: number,
-  halfBodyScreen: number
-): number {
+/** Ping-pong target across the full screen width. */
+function shuffleTargetScreenX(t: number, intensity: number, halfBodyScreen: number): number {
   const phase = (Math.sin(t * 0.62) + 1) * 0.5;
   const left = SCREEN_EDGE_MIN + halfBodyScreen;
   const right = SCREEN_EDGE_MAX - halfBodyScreen;
-  const span = Math.max(0.12, right - left);
-  return left + phase * span * intensity;
+  return left + phase * (right - left) * intensity;
 }
 
-/**
- * Pull lateral offset back only when punch recoil pushes past the screen edge.
- */
 export function clampWeaveToScreen(
   state: RingSwingState,
   restWorld: Vector3,
@@ -161,13 +131,7 @@ export function clampWeaveToScreen(
   const halfBody = bodyHalfWidthScreen(restWorld, camera, scale);
   let fit = 1;
   for (let i = 0; i < 6; i++) {
-    const delta = ringWeaveWorldDelta(state.offsetX * fit, 0, 0);
-    _probeWorld.set(
-      restWorld.x + delta.x,
-      restWorld.y + delta.y,
-      restWorld.z + delta.z
-    );
-    const screen = projectWorldToScreenNorm(_probeWorld, camera).x;
+    const screen = chestScreenX(state.offsetX * fit, restWorld, camera);
     const worst = Math.max(
       SCREEN_EDGE_MIN + halfBody - screen,
       screen - (SCREEN_EDGE_MAX - halfBody)
