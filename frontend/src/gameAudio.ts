@@ -11,8 +11,10 @@ const MUSIC_BEDS: Record<BackgroundMusicBed, string> = {
 
 const BACKGROUND_MUSIC_VOLUME = 0.18;
 const BACKGROUND_MUSIC_PLAY_VOLUME = BACKGROUND_MUSIC_VOLUME * 0.5;
-const BOBO_MUSIC_VOLUME = 0.22;
-const SILENT_FILM_MUSIC_VOLUME = 0.2;
+/** Circus bed on bobo — a touch louder than the gym loop. */
+const BOBO_MUSIC_VOLUME = 0.28;
+/** Piano-roll bed for 1920s gloves. */
+const SILENT_FILM_MUSIC_VOLUME = 0.27;
 
 const PUNCH_SFX: Record<PunchSfxStation, string> = {
   'heavy-bag': assetUrl('/sounds/universfield-punch-03-352040.mp3'),
@@ -26,6 +28,19 @@ const BOBO_CLOWN_HORN_SFX = assetUrl('/sounds/freesound_community-clown-horn-445
 
 /** Alternate “ough” for bag / speedball / ring with normal gloves. */
 const GLOVE_OUGH_SFX = assetUrl('/sounds/freesound_community-ough-47202.mp3');
+
+/**
+ * Per-clip gain so alternating hit pairs land at the same loudness.
+ * Values normalize attack-window RMS toward ~0.16 (measured from source files).
+ */
+const PUNCH_SFX_GAIN: Record<string, number> = {
+  [PUNCH_SFX['heavy-bag']]: 0.81,
+  [PUNCH_SFX.speedball]: 1.05,
+  [PUNCH_SFX['bobo-doll']]: 1.02,
+  [PUNCH_SFX.ring]: 3.6,
+  [BOBO_CLOWN_HORN_SFX]: 0.99,
+  [GLOVE_OUGH_SFX]: 1.14,
+};
 
 /** Skip encoder/file silence so impact aligns with the punch. */
 const PUNCH_START_OFFSET: Record<PunchSfxStation, number> = {
@@ -249,6 +264,7 @@ function resolvePunchSfx(station: PunchSfxStation): { src: string; offset: numbe
 export function playPunchSfx(station: PunchSfxStation, volume = 0.85): void {
   const { src, offset } = resolvePunchSfx(station);
   const ctx = getAudioContext();
+  const clipGain = PUNCH_SFX_GAIN[src] ?? 1;
 
   if (ctx.state === 'suspended') {
     void ctx.resume();
@@ -258,7 +274,7 @@ export function playPunchSfx(station: PunchSfxStation, volume = 0.85): void {
     const source = ctx.createBufferSource();
     const gain = ctx.createGain();
     source.buffer = buffer;
-    gain.gain.value = volume;
+    gain.gain.value = volume * clipGain;
     source.connect(gain);
     gain.connect(ctx.destination);
     source.start(0, offset);
