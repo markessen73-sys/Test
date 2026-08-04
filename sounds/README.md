@@ -6,6 +6,7 @@
 |------|-----|--------|
 | `Boxing gym.mp3` | Looping gym ambience from title screen onward | [Freesound — Boxing gym atmosphere in California](https://freesound.org/people/freesound_community/sounds/18282/) |
 | `slimeyfox-circus-di-primosole-beach-541357.mp3` | Bobo doll play ambience (replaces gym bed) | [Pixabay — SlimeyFox / Circus di Primosole Beach](https://pixabay.com/music/search/circus%20di%20primosole/) |
+| `drift_sound-piano-roll-for-silent-film-377316.mp3` | Overrides all beds while 1920s gloves are equipped | Drift Sound — Piano roll for silent film (Pixabay / upload) |
 
 ## Punch impacts
 
