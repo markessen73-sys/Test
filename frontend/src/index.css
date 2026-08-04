@@ -78,11 +78,40 @@ html, body, #root, .app {
   animation: film-grain-drift 0.55s steps(4, end) infinite, film-scratch-jitter 1.8s steps(6, end) infinite;
 }
 
-/* Glove sprites stay full colour above the graded scene */
-.app.film-silent-era .play-gloves-layer,
-.app.film-silent-era .screen-glove {
-  filter: none !important;
-  animation: none !important;
+/*
+ * Glove sprites stay full colour above the graded scene.
+ * Keep them outside filtered layers (siblings of .play-canvas / .play-ui)
+ * and boost saturation so leather reads clearly against B&W film.
+ */
+.app.film-silent-era .play-gloves-layer {
+  filter: none;
+  animation: none;
+  isolation: isolate;
+  z-index: 8;
+}
+
+.app.film-silent-era .play-gloves-layer .screen-glove {
+  /* Preserve drop-shadow; do not inherit any film flicker/grade */
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55)) saturate(1.35) contrast(1.06);
+  animation: none;
+}
+
+.app.film-silent-era .play-gloves-layer .screen-glove.grabbed {
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.65)) saturate(1.35) contrast(1.06);
+}
+
+.app.film-silent-era .glove-select-thumb {
+  filter: none;
+  animation: none;
+}
+
+.app.film-silent-era .glove-select-thumb-gold {
+  filter: sepia(0.9) saturate(2.6) hue-rotate(2deg) brightness(1.2) contrast(1.08);
+}
+
+.app.film-silent-era .glove-power-fill {
+  filter: none;
+  animation: none;
 }
 
 @keyframes film-flicker {
@@ -1270,10 +1299,6 @@ html, body, #root, .app {
   z-index: 5;
   pointer-events: none;
   overflow: visible;
-}
-
-.app.film-silent-era .play-gloves-layer {
-  z-index: 8;
 }
 
 .screen-glove,
