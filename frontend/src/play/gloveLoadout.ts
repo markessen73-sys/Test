@@ -35,7 +35,7 @@ export const GLOVE_LOADOUTS: Record<GloveLoadoutId, GloveLoadout> = {
   'bare-knuckle': {
     id: 'bare-knuckle',
     name: 'Bare Knuckle',
-    power: 75,
+    power: 30,
     skin: 'bare-knuckle',
     zoneFolder: 'bare-knuckle-zones',
     thumbSrc: assetUrl('/gloves/bare-knuckle-zones/zone-r1-c2.png'),
