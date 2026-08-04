@@ -15,10 +15,15 @@ export function createSpeedballSwingState(): SpeedballSwingState {
   return { offsetX: 0, offsetZ: 0, velX: 0, velZ: 0 };
 }
 
-export function applySpeedballHitImpulse(state: SpeedballSwingState, glove: 'left' | 'right'): void {
-  const impulse = glove === 'left' ? HIT_IMPULSE : -HIT_IMPULSE;
-  state.velX = Math.max(-MAX_VEL, Math.min(MAX_VEL, state.velX + impulse));
-  state.velZ = Math.max(-MAX_VEL, Math.min(MAX_VEL, state.velZ + impulse * 0.35));
+export function applySpeedballHitImpulse(
+  state: SpeedballSwingState,
+  glove: 'left' | 'right',
+  powerScale = 1
+): void {
+  const impulse = (glove === 'left' ? HIT_IMPULSE : -HIT_IMPULSE) * powerScale;
+  const maxVel = MAX_VEL * powerScale;
+  state.velX = Math.max(-maxVel, Math.min(maxVel, state.velX + impulse));
+  state.velZ = Math.max(-maxVel, Math.min(maxVel, state.velZ + impulse * 0.35));
 }
 
 export function stepSpeedballSwing(state: SpeedballSwingState, delta: number): void {

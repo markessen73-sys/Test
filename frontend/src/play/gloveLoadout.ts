@@ -61,8 +61,13 @@ export const DEFAULT_GLOVE_LOADOUT_ID: GloveLoadoutId = 'default';
 
 export const GLOVE_STORAGE_KEY = 'mickeys-gym-gloves';
 
-/** Baseline power used so 50/100 = normal damage pace. */
+/** Baseline power used so 50/100 = normal damage pace and target motion. */
 export const BASELINE_GLOVE_POWER = 50;
+
+/** Multiplier for damage weight and punch-driven equipment motion. */
+export function glovePowerScale(power: number): number {
+  return Math.max(0.15, power / BASELINE_GLOVE_POWER);
+}
 
 export function isGloveLoadoutId(id: string): id is GloveLoadoutId {
   return id === 'default' || id === 'gold' || id === 'bare-knuckle' || id === 'vintage';

@@ -8,6 +8,8 @@ import { SPEEDBALL_BALL_Y, SPEEDBALL_PLAY_CAMERA } from './playCamera';
 import { PlayEnvironment } from './PlayEnvironment';
 import type { PunchImpact } from './punchImpact';
 import type { HitZoneCorners } from './targetZone';
+import { useGlove } from './GloveContext';
+import { glovePowerScale } from './gloveLoadout';
 
 function PlaySpeedball({
   impacts,
@@ -24,6 +26,8 @@ function PlaySpeedball({
   const [lastHitTime, setLastHitTime] = useState(0);
   const lastImpactIdRef = useRef(0);
   const { camera } = useThree();
+  const { glove } = useGlove();
+  const powerScale = glovePowerScale(glove.power);
 
   useEffect(() => {
     if (!impacts.length) return;
@@ -31,11 +35,11 @@ function PlaySpeedball({
     if (latest.id <= lastImpactIdRef.current) return;
     lastImpactIdRef.current = latest.id;
 
-    applySpeedballHitImpulse(swingRef.current, latest.glove);
+    applySpeedballHitImpulse(swingRef.current, latest.glove, powerScale);
     const now = performance.now();
     setHitFlash(now);
     setLastHitTime(now);
-  }, [impacts]);
+  }, [impacts, powerScale]);
 
   useFrame((_, delta) => {
     stepSpeedballSwing(swingRef.current, delta);

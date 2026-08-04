@@ -19,24 +19,27 @@ export function createBagSwingState(): BagSwingState {
 }
 
 /** Small impulse per hit; opposite-side hits subtract from current swing. */
-export function applyBagHitImpulse(state: BagSwingState, glove: 'left' | 'right'): void {
-  const impulse = glove === 'left' ? HIT_IMPULSE : -HIT_IMPULSE;
-  state.angularVelocity = Math.max(
-    -MAX_ANGULAR_VELOCITY,
-    Math.min(MAX_ANGULAR_VELOCITY, state.angularVelocity + impulse)
-  );
+export function applyBagHitImpulse(
+  state: BagSwingState,
+  glove: 'left' | 'right',
+  powerScale = 1
+): void {
+  const impulse = (glove === 'left' ? HIT_IMPULSE : -HIT_IMPULSE) * powerScale;
+  const maxVel = MAX_ANGULAR_VELOCITY * powerScale;
+  state.angularVelocity = Math.max(-maxVel, Math.min(maxVel, state.angularVelocity + impulse));
 }
 
-export function stepBagSwing(state: BagSwingState, delta: number): void {
+export function stepBagSwing(state: BagSwingState, delta: number, powerScale = 1): void {
   const dt = Math.min(delta, 0.05);
+  const maxAngle = MAX_ANGLE * powerScale;
 
   state.angularVelocity += -state.angle * RESTORE_STIFFNESS * dt;
   state.angularVelocity *= Math.exp(-DAMPING * dt);
 
   state.angle += state.angularVelocity * dt;
-  state.angle = Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, state.angle));
+  state.angle = Math.max(-maxAngle, Math.min(maxAngle, state.angle));
 
-  if (Math.abs(state.angle) >= MAX_ANGLE * 0.98) {
+  if (Math.abs(state.angle) >= maxAngle * 0.98) {
     state.angularVelocity *= 0.35;
   }
 }

@@ -9,6 +9,8 @@ import { BoboDollDecor } from './face/BoboDollDecor';
 import { BOBO_PLAY_CAMERA } from './playCamera';
 import { PlayEnvironment } from './PlayEnvironment';
 import type { PunchImpact } from './punchImpact';
+import { useGlove } from './GloveContext';
+import { glovePowerScale } from './gloveLoadout';
 
 function ImpactFlash({
   position,
@@ -80,6 +82,8 @@ function PlayBoboDoll({
   const [lastHitTime, setLastHitTime] = useState(0);
   const lastImpactIdRef = useRef(0);
   const { camera } = useThree();
+  const { glove } = useGlove();
+  const powerScale = glovePowerScale(glove.power);
 
   const material = useMemo(
     () =>
@@ -98,16 +102,16 @@ function PlayBoboDoll({
     if (latest.id <= lastImpactIdRef.current) return;
     lastImpactIdRef.current = latest.id;
 
-    applyBoboHitImpulse(swingRef.current, latest.glove);
+    applyBoboHitImpulse(swingRef.current, latest.glove, powerScale);
     setLastHitTime(performance.now());
     setFlashes((prev) => [
       ...prev,
       { id: latest.id, pos: [0, 1.35, 0.46], time: latest.time },
     ]);
-  }, [impacts]);
+  }, [impacts, powerScale]);
 
   useFrame((_, delta) => {
-    stepBoboSwing(swingRef.current, delta);
+    stepBoboSwing(swingRef.current, delta, powerScale);
     const { tiltX, tiltZ } = swingRef.current;
     if (dollRef.current) {
       dollRef.current.rotation.x = tiltX;

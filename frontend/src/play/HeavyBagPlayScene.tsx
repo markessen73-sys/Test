@@ -22,6 +22,8 @@ import {
   stepBagSwing,
 } from './bagSwing';
 import { BagPolaroid } from './face/BagPolaroid';
+import { useGlove } from './GloveContext';
+import { glovePowerScale } from './gloveLoadout';
 
 export const BAG_WORLD_Z = -3.8;
 const BAG_Z = BAG_WORLD_Z;
@@ -103,6 +105,8 @@ function PlayHeavyBag({
   const [lastHitTime, setLastHitTime] = useState(0);
   const lastImpactIdRef = useRef(0);
   const { camera } = useThree();
+  const { glove } = useGlove();
+  const powerScale = glovePowerScale(glove.power);
 
   useEffect(() => {
     if (!impacts.length) return;
@@ -110,7 +114,7 @@ function PlayHeavyBag({
     if (latest.id <= lastImpactIdRef.current) return;
     lastImpactIdRef.current = latest.id;
 
-    applyBagHitImpulse(swingRef.current, latest.glove);
+    applyBagHitImpulse(swingRef.current, latest.glove, powerScale);
     setLastHitTime(latest.time);
 
     const body = bodyRef.current;
@@ -122,7 +126,7 @@ function PlayHeavyBag({
 
     dentsRef.current.push({
       localPoint: hit.localPoint,
-      depth: DENT_ADD_DEPTH,
+      depth: DENT_ADD_DEPTH * powerScale,
       radius: DENT_RADIUS,
     });
     if (dentsRef.current.length > 6) dentsRef.current.shift();
@@ -131,14 +135,14 @@ function PlayHeavyBag({
       ...prev,
       { id: latest.id, point: hit.localPoint.clone(), normal: hit.localNormal, time: latest.time },
     ]);
-  }, [impacts, camera]);
+  }, [impacts, camera, powerScale]);
 
   useFrame((_, delta) => {
     const body = bodyRef.current;
     const pivot = pivotRef.current;
     if (!body || !pivot) return;
 
-    stepBagSwing(swingRef.current, delta);
+    stepBagSwing(swingRef.current, delta, powerScale);
     pivot.rotation.z = swingRef.current.angle;
 
     const zoneOffset = bagZoneScreenOffset(swingRef.current.angle, camera);
