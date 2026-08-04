@@ -19,8 +19,8 @@ function ScreenGlove({
   transform: GloveTransform;
   /** Per-zone sprite (right glove grid art) */
   zoneSrc?: string;
-  /** Visual skin — gold recolors the red zone art. */
-  skin?: 'default' | 'gold';
+  /** Visual skin — gold recolors the red zone art; bare-knuckle uses wrap art. */
+  skin?: 'default' | 'gold' | 'bare-knuckle';
   showImpactDot?: boolean;
 }) {
   const candidates = gloveImageCandidates(side);

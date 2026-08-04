@@ -1,14 +1,16 @@
 import { assetUrl } from '../assetUrl';
 
-export type GloveLoadoutId = 'default' | 'gold';
+export type GloveLoadoutId = 'default' | 'gold' | 'bare-knuckle';
 
 export interface GloveLoadout {
   id: GloveLoadoutId;
   name: string;
-  /** Punch power rating out of 100. */
+  /** Punch power rating out of 100 — higher fills the damage bar faster. */
   power: number;
   /** CSS skin class suffix (`screen-glove-skin-*`). */
-  skin: 'default' | 'gold';
+  skin: 'default' | 'gold' | 'bare-knuckle';
+  /** Zone art folder under /gloves/ (without trailing slash). */
+  zoneFolder: string;
   /** Options thumbnail (right-hand zone art). */
   thumbSrc: string;
 }
@@ -19,6 +21,7 @@ export const GLOVE_LOADOUTS: Record<GloveLoadoutId, GloveLoadout> = {
     name: 'Default',
     power: 50,
     skin: 'default',
+    zoneFolder: 'right-zones',
     thumbSrc: assetUrl('/gloves/right-zones/zone-r1-c2.png'),
   },
   gold: {
@@ -26,11 +29,24 @@ export const GLOVE_LOADOUTS: Record<GloveLoadoutId, GloveLoadout> = {
     name: 'Gold',
     power: 60,
     skin: 'gold',
+    zoneFolder: 'right-zones',
     thumbSrc: assetUrl('/gloves/right-zones/zone-r1-c2.png'),
+  },
+  'bare-knuckle': {
+    id: 'bare-knuckle',
+    name: 'Bare Knuckle',
+    power: 75,
+    skin: 'bare-knuckle',
+    zoneFolder: 'bare-knuckle-zones',
+    thumbSrc: assetUrl('/gloves/bare-knuckle-zones/zone-r1-c2.png'),
   },
 };
 
-export const GLOVE_LOADOUT_LIST: GloveLoadout[] = [GLOVE_LOADOUTS.default, GLOVE_LOADOUTS.gold];
+export const GLOVE_LOADOUT_LIST: GloveLoadout[] = [
+  GLOVE_LOADOUTS.default,
+  GLOVE_LOADOUTS.gold,
+  GLOVE_LOADOUTS['bare-knuckle'],
+];
 
 export const DEFAULT_GLOVE_LOADOUT_ID: GloveLoadoutId = 'default';
 
@@ -40,7 +56,7 @@ export const GLOVE_STORAGE_KEY = 'mickeys-gym-gloves';
 export const BASELINE_GLOVE_POWER = 50;
 
 export function isGloveLoadoutId(id: string): id is GloveLoadoutId {
-  return id === 'default' || id === 'gold';
+  return id === 'default' || id === 'gold' || id === 'bare-knuckle';
 }
 
 export function readStoredGloveLoadoutId(): GloveLoadoutId {

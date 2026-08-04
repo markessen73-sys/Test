@@ -6,6 +6,8 @@ Drop your realistic glove photos here to replace the built-in SVGs.
 |------|----------|
 | `boxing-glove-left.png` (or `.webp`) | Left glove — overrides SVG if present |
 | `boxing-glove-right.png` (or `.webp`) | Right glove — overrides SVG if present |
+| `right-zones/zone-r*-c*.png` | Default / gold padded glove zone pack |
+| `bare-knuckle-zones/zone-r*-c*.png` | Bare knuckle hand-wrap zone pack |
 
 **Tips for best results**
 - Transparent background (PNG/WebP)

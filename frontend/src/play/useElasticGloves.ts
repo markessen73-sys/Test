@@ -24,6 +24,7 @@ import {
   gloveKnuckleNorm,
   ZONE_GLOVE_W,
 } from './gloveGeometry';
+import { useGlove } from './GloveContext';
 
 const TRAIL_MAX = 56;
 const TRAIL_FADE_MS = 520;
@@ -182,6 +183,7 @@ export function useElasticGloves({
   targetZoneOffsetRef,
   isKnuckleOnTarget,
 }: UseElasticGlovesOptions) {
+  const { glove: loadout } = useGlove();
   const [left, setLeft] = useState<GloveState>(() => makeGlove(GLOVE_ANCHORS.left));
   const [right, setRight] = useState<GloveState>(() => makeGlove(GLOVE_ANCHORS.right));
   const [leftAim, setLeftAim] = useState(-INWARD_GLOVE_TILT);
@@ -441,8 +443,8 @@ export function useElasticGloves({
     [syncRootSize, tryPunchOnRelease]
   );
 
-  const leftZoneSrc = leftGloveZoneSrc(left.position);
-  const rightZoneSrc = rightGloveZoneSrc(right.position);
+  const leftZoneSrc = leftGloveZoneSrc(left.position, loadout.zoneFolder);
+  const rightZoneSrc = rightGloveZoneSrc(right.position, loadout.zoneFolder);
   const leftTransform = gloveVisual(left.position, GLOVE_ANCHORS.left, 'left', true, leftAim);
   const rightTransform = gloveVisual(right.position, GLOVE_ANCHORS.right, 'right', true, rightAim);
 

@@ -43,17 +43,17 @@ export function positionToGridCell(pos: GlovePosition): GridCell {
 }
 
 /** Zone art covers screen columns 1–3 (remaining 12 squares). */
-export function rightGloveZoneSrc(pos: GlovePosition): string {
+export function rightGloveZoneSrc(pos: GlovePosition, zoneFolder = 'right-zones'): string {
   const { row, col } = positionToGridCell(pos);
   const zoneCol = Math.max(1, Math.min(3, col));
-  return assetUrl(`/gloves/right-zones/zone-r${row}-c${zoneCol}.png`);
+  return assetUrl(`/gloves/${zoneFolder}/zone-r${row}-c${zoneCol}.png`);
 }
 
 /** Left glove reuses right zone art, mirrored horizontally (col 0→c3, col 2→c1). */
-export function leftGloveZoneSrc(pos: GlovePosition): string {
+export function leftGloveZoneSrc(pos: GlovePosition, zoneFolder = 'right-zones'): string {
   const { row, col } = positionToGridCell(pos);
   const zoneCol = Math.max(1, Math.min(3, 3 - col));
-  return assetUrl(`/gloves/right-zones/zone-r${row}-c${zoneCol}.png`);
+  return assetUrl(`/gloves/${zoneFolder}/zone-r${row}-c${zoneCol}.png`);
 }
 
 function clampY(y: number): number {
