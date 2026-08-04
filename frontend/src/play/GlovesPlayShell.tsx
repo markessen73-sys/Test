@@ -3,6 +3,7 @@ import { ScreenGlove } from './ScreenGlove';
 import { SlugTrailCanvas } from './SlugTrailCanvas';
 import { unlockGameAudio } from '../gameAudio';
 import { useBuildSha } from '../useBuildSha';
+import { useGlove } from './GloveContext';
 import type { GloveState } from '../types/game';
 import type { GloveTransform } from './skeleton/types';
 
@@ -45,6 +46,7 @@ export function GlovesPlayShell({
   onRootUp,
 }: GlovesPlayShellProps) {
   const buildSha = useBuildSha(__APP_GIT_SHA__);
+  const { glove } = useGlove();
 
   const handlePointerDown = (e: PointerEvent) => {
     unlockGameAudio();
@@ -71,6 +73,7 @@ export function GlovesPlayShell({
           grabbed={left.pointerId !== null}
           transform={leftTransform}
           zoneSrc={leftZoneSrc}
+          skin={glove.skin}
         />
         <ScreenGlove
           side="right"
@@ -78,6 +81,7 @@ export function GlovesPlayShell({
           grabbed={right.pointerId !== null}
           transform={rightTransform}
           zoneSrc={rightZoneSrc}
+          skin={glove.skin}
         />
       </div>
 

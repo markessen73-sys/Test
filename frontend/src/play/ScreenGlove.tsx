@@ -10,6 +10,7 @@ function ScreenGlove({
   grabbed,
   transform,
   zoneSrc,
+  skin = 'default',
   showImpactDot = false,
 }: {
   side: GloveId;
@@ -18,6 +19,8 @@ function ScreenGlove({
   transform: GloveTransform;
   /** Per-zone sprite (right glove grid art) */
   zoneSrc?: string;
+  /** Visual skin — gold recolors the red zone art. */
+  skin?: 'default' | 'gold';
   showImpactDot?: boolean;
 }) {
   const candidates = gloveImageCandidates(side);
@@ -42,7 +45,7 @@ function ScreenGlove({
 
   return (
     <div
-      className={`screen-glove screen-glove-${side} ${grabbed ? 'grabbed' : ''} ${useZoneArt ? 'screen-glove-zoned' : ''}`}
+      className={`screen-glove screen-glove-${side} screen-glove-skin-${skin} ${grabbed ? 'grabbed' : ''} ${useZoneArt ? 'screen-glove-zoned' : ''}`}
       style={{
         left: `${position.x * 100}%`,
         top: `${position.y * 100}%`,

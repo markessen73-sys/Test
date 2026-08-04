@@ -1,6 +1,7 @@
 import { FaceCaptureApp } from './face-capture/FaceCaptureApp';
 import { GymApp } from './GymApp';
 import { CharacterProvider } from './play/face/CharacterContext';
+import { GloveProvider } from './play/GloveContext';
 import { useBackgroundMusic } from './useBackgroundMusic';
 
 function App() {
@@ -12,18 +13,22 @@ function App() {
   if (builder === 'face' || builder === 'character') {
     return (
       <CharacterProvider>
-        <div className="app">
-          <FaceCaptureApp />
-        </div>
+        <GloveProvider>
+          <div className="app">
+            <FaceCaptureApp />
+          </div>
+        </GloveProvider>
       </CharacterProvider>
     );
   }
 
   return (
     <CharacterProvider>
-      <div className="app">
-        <GymApp />
-      </div>
+      <GloveProvider>
+        <div className="app">
+          <GymApp />
+        </div>
+      </GloveProvider>
     </CharacterProvider>
   );
 }
