@@ -98,11 +98,14 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
 
         {view === 'menu' && (
           <nav className="options-menu" aria-label="Options menu">
+            <p className="options-menu-lead">Gear up before you hit the floor.</p>
             <button type="button" className="options-menu-btn" onClick={() => setView('gloves')}>
-              Gloves
+              <span className="options-menu-btn-label">Gloves</span>
+              <span className="options-menu-btn-hint">Power, style, and special sets</span>
             </button>
             <button type="button" className="options-menu-btn" onClick={() => setView('boxers')}>
-              Boxers
+              <span className="options-menu-btn-label">Boxers</span>
+              <span className="options-menu-btn-hint">Stock faces and your photo faces</span>
             </button>
           </nav>
         )}
@@ -110,8 +113,7 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
         {view === 'gloves' && (
           <section className="options-section">
             <p className="options-section-hint">
-              Pick a glove set. Power shows punch strength out of 100. Your choice applies when you
-              close this panel.
+              Tap a set to preview. Power is punch strength out of 100. Saved when you close.
             </p>
             <div className="glove-grid">
               {gloves.map((g) => {
@@ -144,8 +146,7 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
             <section className="options-section">
               <h3 className="options-section-title">Your photo faces</h3>
               <p className="options-section-hint">
-                Add as many photo faces as you like. Each one appears in the character list. Delete any
-                you don’t want.
+                Add photo faces for the bag, ring, and bobo. Delete any you don’t want.
               </p>
               <a className="options-link-btn" href="?builder=face">
                 Add photo face
@@ -186,8 +187,7 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
             <section className="options-section">
               <h3 className="options-section-title">Character selection</h3>
               <p className="options-section-hint">
-                Tap a boxer to select. Your choice applies when you close this panel. Default Boxer is
-                always available.
+                Tap a boxer to select. Saved when you close. Default Boxer is always available.
               </p>
               <div className="character-grid">
                 {stockChars.map((c) => {

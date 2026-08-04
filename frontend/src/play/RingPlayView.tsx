@@ -65,13 +65,9 @@ export function RingPlayView({ onBack }: RingPlayViewProps) {
   return (
     <GlovesPlayShell
       onBack={onBack}
-      title="🥊 Mickey's Ring"
+      title="The Ring"
       punchCount={punchCount}
-      hint={
-        <>
-          <strong>Upward</strong> drags leave a vapour trail; release on your opponent while still moving to land shots.
-        </>
-      }
+      hint="Drag gloves up into your opponent, then release while moving to land shots."
       hudExtra={
         <>
           <KnockoutBellOverlay active={knockedOut} onRestart={onRestart} />

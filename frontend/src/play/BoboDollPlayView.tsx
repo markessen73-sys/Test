@@ -70,11 +70,7 @@ export function BoboDollPlayView({ onBack }: BoboDollPlayViewProps) {
       onBack={onBack}
       title="Bobo Doll"
       punchCount={punchCount}
-      hint={
-        <>
-          <strong>Upward</strong> drags leave a vapour trail; release on the bobo while still moving to rock it.
-        </>
-      }
+      hint="Drag gloves up into Bobo, then release while moving to rock the doll."
       hudExtra={
         <>
           <KnockoutBellOverlay active={knockedOut} onRestart={onRestart} />

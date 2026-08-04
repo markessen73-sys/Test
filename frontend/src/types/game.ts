@@ -13,7 +13,11 @@ export interface CameraShot {
 export interface StationInfo {
   id: GymStation;
   name: string;
+  /** Short label for station dots. */
+  shortLabel: string;
   description: string;
+  /** Primary browse CTA. */
+  cta: string;
   emoji: string;
   equipmentPos: [number, number, number];
   overview: CameraShot;
@@ -31,8 +35,10 @@ const GYM_AIM: Record<GymStation, [number, number, number]> = {
 export const GYM_STATIONS: StationInfo[] = [
   {
     id: 'ring',
-    name: "Mickey's Ring",
-    description: 'Sparring in the main ring',
+    name: 'The Ring',
+    shortLabel: 'Ring',
+    description: 'Spar with Mick’s partner in the main ring.',
+    cta: 'Enter the Ring',
     emoji: '🥊',
     equipmentPos: [0, 0, 0],
     overview: { position: [0, 4.5, 11], lookAt: [0, 1.0, 0], fov: 52 },
@@ -41,7 +47,9 @@ export const GYM_STATIONS: StationInfo[] = [
   {
     id: 'speedball',
     name: 'Speedball',
-    description: 'Fast hands on the speedball',
+    shortLabel: 'Speed',
+    description: 'Sharpen your hands on the speedball.',
+    cta: 'Hit the Speedball',
     emoji: '🏐',
     equipmentPos: [-5.8, 0, 0.5],
     overview: { position: [-6.5, 3.5, 5], lookAt: [-5.8, 1.5, 0.5], fov: 50 },
@@ -50,7 +58,9 @@ export const GYM_STATIONS: StationInfo[] = [
   {
     id: 'heavy-bag',
     name: 'Heavy Bag',
-    description: 'Power shots on the heavy bag',
+    shortLabel: 'Bag',
+    description: 'Throw power shots into the heavy bag.',
+    cta: 'Work the Bag',
     emoji: '🎯',
     equipmentPos: [0.2, 0, -5.5],
     overview: { position: [0.5, 3.5, -9], lookAt: [0.2, 1.2, -5.5], fov: 50 },
@@ -59,7 +69,9 @@ export const GYM_STATIONS: StationInfo[] = [
   {
     id: 'bobo-doll',
     name: 'Bobo Doll',
-    description: 'Rock the carnival bobo with your selected face',
+    shortLabel: 'Bobo',
+    description: 'Rock the carnival bobo with your chosen face.',
+    cta: 'Whack Bobo',
     emoji: '🎪',
     equipmentPos: [5.8, 0, 1.8],
     overview: { position: [8.5, 3.5, 5.5], lookAt: [5.8, 1.2, 1.8], fov: 50 },

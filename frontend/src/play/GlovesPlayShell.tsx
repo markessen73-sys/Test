@@ -2,7 +2,6 @@ import type { PointerEvent, ReactNode, RefObject } from 'react';
 import { ScreenGlove } from './ScreenGlove';
 import { SlugTrailCanvas } from './SlugTrailCanvas';
 import { unlockGameAudio } from '../gameAudio';
-import { useBuildSha } from '../useBuildSha';
 import { useGlove } from './GloveContext';
 import type { GloveState } from '../types/game';
 import type { GloveTransform } from './skeleton/types';
@@ -45,7 +44,6 @@ export function GlovesPlayShell({
   onRootMove,
   onRootUp,
 }: GlovesPlayShellProps) {
-  const buildSha = useBuildSha(__APP_GIT_SHA__);
   const { glove } = useGlove();
 
   const handlePointerDown = (e: PointerEvent) => {
@@ -88,13 +86,10 @@ export function GlovesPlayShell({
       <div className="play-ui">
         <header className="play-top">
           <button type="button" className="gym-back-btn" onClick={onBack}>
-            ← Back
+            ← Gym
           </button>
           <span className="play-title">{title}</span>
-          <span className="play-punch-count">{punchCount} punches</span>
-          <span className="play-build-tag" title="Build ID — confirms you have the latest code">
-            build {buildSha}
-          </span>
+          <span className="play-punch-count">{punchCount}</span>
         </header>
 
         {hudExtra}

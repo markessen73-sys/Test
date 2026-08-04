@@ -80,13 +80,9 @@ export function SpeedballPlayView({ onBack }: SpeedballPlayViewProps) {
   return (
     <GlovesPlayShell
       onBack={onBack}
-      title="🏐 Speedball"
+      title="Speedball"
       punchCount={punchCount}
-      hint={
-        <>
-          <strong>Upward</strong> drags leave a vapour trail; release on the speedball while still moving to score.
-        </>
-      }
+      hint="Drag gloves up into the ball, then release while moving to score."
       hudExtra={
         <>
           <KnockoutBellOverlay active={knockedOut} onRestart={onRestart} />

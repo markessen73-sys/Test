@@ -1,6 +1,6 @@
 import { Text } from '@react-three/drei';
 
-/** Cartoon Rocky-style gym — Mickey Goldmill's place, all warm grit. */
+/** Cartoon gym set — Mick's place, warm grit. */
 export function CartoonGym() {
   const brick = '#9B4E32';
   const brickDark = '#7A3C28';
@@ -48,7 +48,7 @@ export function CartoonGym() {
         </mesh>
       ))}
 
-      {/* MICKEY'S GYM sign */}
+      {/* MICK'S GYM sign */}
       <group position={[0, 5.2, -7.85]}>
         <mesh>
           <boxGeometry args={[4.5, 1.0, 0.12]} />
@@ -59,7 +59,7 @@ export function CartoonGym() {
           <meshStandardMaterial color="#E8C840" emissive="#B8860B" emissiveIntensity={0.2} roughness={0.7} />
         </mesh>
         <Text position={[0, 0, 0.14]} fontSize={0.42} color="#8B0000" anchorX="center" anchorY="middle">
-          MICKEY'S GYM
+          {`MICK'S GYM`}
         </Text>
       </group>
 

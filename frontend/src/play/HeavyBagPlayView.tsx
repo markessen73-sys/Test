@@ -60,14 +60,9 @@ export function HeavyBagPlayView({ onBack }: HeavyBagPlayViewProps) {
   return (
     <GlovesPlayShell
       onBack={onBack}
-      title="🎯 Heavy Bag"
+      title="Heavy Bag"
       punchCount={punchCount}
-      hint={
-        <>
-          <strong>Upward</strong> drags leave a vapour trail while you hold; release on the bag while
-          still moving to score.
-        </>
-      }
+      hint="Drag gloves up into the bag, then release while moving to land a punch."
       hudExtra={
         <>
           <KnockoutBellOverlay active={knockedOut} onRestart={onRestart} />
