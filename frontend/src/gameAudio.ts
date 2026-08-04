@@ -38,6 +38,8 @@ let inPlayMode = false;
 let musicBed: BackgroundMusicBed = 'gym';
 let activeMusicSrc = MUSIC_BEDS.gym;
 let musicSwitchToken = 0;
+/** When set (e.g. rubber chicken), replaces station punch SFX. */
+let punchSfxOverride: string | null = null;
 
 function currentMusicVolume(): number {
   if (musicBed === 'bobo') return BOBO_MUSIC_VOLUME;
@@ -169,16 +171,24 @@ export function unlockGameAudio(): void {
     void loadBuffer(src).catch(() => {});
   }
   void loadBuffer(MUSIC_BEDS.bobo).catch(() => {});
+  if (punchSfxOverride) void loadBuffer(punchSfxOverride).catch(() => {});
+}
+
+/** Override station punch sounds (rubber chicken uses one squeak on every target). */
+export function setPunchSfxOverride(src: string | null): void {
+  punchSfxOverride = src;
+  if (src) void loadBuffer(src).catch(() => {});
 }
 
 export function preloadPunchSfx(station: PunchSfxStation): void {
   void loadBuffer(PUNCH_SFX[station]).catch(() => {});
+  if (punchSfxOverride) void loadBuffer(punchSfxOverride).catch(() => {});
 }
 
 /** Play station punch sound (overlapping hits allowed). */
 export function playPunchSfx(station: PunchSfxStation, volume = 0.85): void {
-  const src = PUNCH_SFX[station];
-  const offset = PUNCH_START_OFFSET[station];
+  const src = punchSfxOverride ?? PUNCH_SFX[station];
+  const offset = punchSfxOverride ? 0 : PUNCH_START_OFFSET[station];
   const ctx = getAudioContext();
 
   if (ctx.state === 'suspended') {

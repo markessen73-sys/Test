@@ -2,10 +2,12 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
+import { setPunchSfxOverride } from '../gameAudio';
 import {
   DEFAULT_GLOVE_LOADOUT_ID,
   GLOVE_LOADOUT_LIST,
@@ -25,12 +27,21 @@ interface GloveContextValue {
 
 const GloveContext = createContext<GloveContextValue | null>(null);
 
+function syncPunchSfx(id: GloveLoadoutId) {
+  setPunchSfxOverride(GLOVE_LOADOUTS[id].punchSfx ?? null);
+}
+
 export function GloveProvider({ children }: { children: ReactNode }) {
   const [gloveId, setGloveIdState] = useState<GloveLoadoutId>(() => readStoredGloveLoadoutId());
+
+  useEffect(() => {
+    syncPunchSfx(gloveId);
+  }, [gloveId]);
 
   const setGloveId = useCallback((id: GloveLoadoutId) => {
     setGloveIdState(id);
     writeStoredGloveLoadoutId(id);
+    syncPunchSfx(id);
   }, []);
 
   const value = useMemo<GloveContextValue>(

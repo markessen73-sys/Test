@@ -20,7 +20,7 @@ function ScreenGlove({
   /** Per-zone sprite (right glove grid art) */
   zoneSrc?: string;
   /** Visual skin — gold recolors red zone art; other skins use dedicated packs. */
-  skin?: 'default' | 'gold' | 'bare-knuckle' | 'vintage';
+  skin?: 'default' | 'gold' | 'bare-knuckle' | 'vintage' | 'rubber-chicken';
   showImpactDot?: boolean;
 }) {
   const candidates = gloveImageCandidates(side);

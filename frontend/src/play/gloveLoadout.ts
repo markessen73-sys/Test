@@ -1,6 +1,11 @@
 import { assetUrl } from '../assetUrl';
 
-export type GloveLoadoutId = 'default' | 'gold' | 'bare-knuckle' | 'vintage';
+export type GloveLoadoutId =
+  | 'default'
+  | 'gold'
+  | 'bare-knuckle'
+  | 'vintage'
+  | 'rubber-chicken';
 
 export interface GloveLoadout {
   id: GloveLoadoutId;
@@ -8,11 +13,15 @@ export interface GloveLoadout {
   /** Punch power rating out of 100 — higher fills the damage bar faster. */
   power: number;
   /** CSS skin class suffix (`screen-glove-skin-*`). */
-  skin: 'default' | 'gold' | 'bare-knuckle' | 'vintage';
+  skin: 'default' | 'gold' | 'bare-knuckle' | 'vintage' | 'rubber-chicken';
   /** Zone art folder under /gloves/ (without trailing slash). */
   zoneFolder: string;
   /** Options thumbnail (right-hand zone art). */
   thumbSrc: string;
+  /** When set, replaces station punch SFX on every target. */
+  punchSfx?: string;
+  /** Extra swing flourish on punch (rubber chicken). */
+  punchSwing?: boolean;
 }
 
 export const GLOVE_LOADOUTS: Record<GloveLoadoutId, GloveLoadout> = {
@@ -48,6 +57,16 @@ export const GLOVE_LOADOUTS: Record<GloveLoadoutId, GloveLoadout> = {
     zoneFolder: 'vintage-zones',
     thumbSrc: assetUrl('/gloves/vintage-zones/zone-r1-c2.png'),
   },
+  'rubber-chicken': {
+    id: 'rubber-chicken',
+    name: 'Rubber Chicken',
+    power: 20,
+    skin: 'rubber-chicken',
+    zoneFolder: 'rubber-chicken-zones',
+    thumbSrc: assetUrl('/gloves/rubber-chicken-zones/zone-r1-c2.png'),
+    punchSfx: assetUrl('/sounds/digitalstore07-chicken-430403.mp3'),
+    punchSwing: true,
+  },
 };
 
 export const GLOVE_LOADOUT_LIST: GloveLoadout[] = [
@@ -55,6 +74,7 @@ export const GLOVE_LOADOUT_LIST: GloveLoadout[] = [
   GLOVE_LOADOUTS.gold,
   GLOVE_LOADOUTS['bare-knuckle'],
   GLOVE_LOADOUTS.vintage,
+  GLOVE_LOADOUTS['rubber-chicken'],
 ];
 
 export const DEFAULT_GLOVE_LOADOUT_ID: GloveLoadoutId = 'default';
@@ -70,7 +90,13 @@ export function glovePowerScale(power: number): number {
 }
 
 export function isGloveLoadoutId(id: string): id is GloveLoadoutId {
-  return id === 'default' || id === 'gold' || id === 'bare-knuckle' || id === 'vintage';
+  return (
+    id === 'default' ||
+    id === 'gold' ||
+    id === 'bare-knuckle' ||
+    id === 'vintage' ||
+    id === 'rubber-chicken'
+  );
 }
 
 export function readStoredGloveLoadoutId(): GloveLoadoutId {

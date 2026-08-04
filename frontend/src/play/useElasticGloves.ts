@@ -34,6 +34,9 @@ const RELEASE_MIN_NORM_SPEED = 0.1;
 const UPWARD_VY_NORM = 0.06;
 const AIM_FOLLOW_SPEED = 0.2;
 const MOVE_AIM_NORM_SPEED = 0.35;
+/** Rubber-chicken punch flourish (degrees). */
+const CHICKEN_SWING_DEG = 58;
+const CHICKEN_SWING_DECAY = 7.5;
 
 interface GloveBody {
   x: number;
@@ -184,10 +187,14 @@ export function useElasticGloves({
   isKnuckleOnTarget,
 }: UseElasticGlovesOptions) {
   const { glove: loadout } = useGlove();
+  const loadoutRef = useRef(loadout);
+  loadoutRef.current = loadout;
   const [left, setLeft] = useState<GloveState>(() => makeGlove(GLOVE_ANCHORS.left));
   const [right, setRight] = useState<GloveState>(() => makeGlove(GLOVE_ANCHORS.right));
   const [leftAim, setLeftAim] = useState(-INWARD_GLOVE_TILT);
   const [rightAim, setRightAim] = useState(INWARD_GLOVE_TILT);
+  const [leftSwing, setLeftSwing] = useState(0);
+  const [rightSwing, setRightSwing] = useState(0);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const rootSizeRef = useRef({ width: 1, height: 1 });
@@ -207,6 +214,7 @@ export function useElasticGloves({
     right: { ...GLOVE_ANCHORS.right },
   });
   const aimRef = useRef({ left: -INWARD_GLOVE_TILT, right: INWARD_GLOVE_TILT });
+  const swingBurstRef = useRef({ left: 0, right: 0 });
 
   const syncRootSize = useCallback((root: HTMLElement) => {
     const rect = root.getBoundingClientRect();
@@ -225,6 +233,11 @@ export function useElasticGloves({
         now - last > PUNCH_COOLDOWN_MS
       ) {
         lastPunchRef.current.set(glove, now);
+        if (loadoutRef.current.punchSwing) {
+          // Swing the chicken toward the screen centre / target.
+          const sign = glove === 'left' ? 1 : -1;
+          swingBurstRef.current[glove] = CHICKEN_SWING_DEG * sign;
+        }
         onPunch(glove, knucklePos);
         return true;
       }
@@ -302,6 +315,13 @@ export function useElasticGloves({
 
       setLeftAim(aimRef.current.left);
       setRightAim(aimRef.current.right);
+
+      swingBurstRef.current.left *= Math.exp(-CHICKEN_SWING_DECAY * dt);
+      swingBurstRef.current.right *= Math.exp(-CHICKEN_SWING_DECAY * dt);
+      if (Math.abs(swingBurstRef.current.left) < 0.15) swingBurstRef.current.left = 0;
+      if (Math.abs(swingBurstRef.current.right) < 0.15) swingBurstRef.current.right = 0;
+      setLeftSwing(swingBurstRef.current.left);
+      setRightSwing(swingBurstRef.current.right);
 
       setLeft((prev) => {
         const trail = prev.trail.filter((p) => now - p.t < TRAIL_FADE_MS);
@@ -445,8 +465,18 @@ export function useElasticGloves({
 
   const leftZoneSrc = leftGloveZoneSrc(left.position, loadout.zoneFolder);
   const rightZoneSrc = rightGloveZoneSrc(right.position, loadout.zoneFolder);
-  const leftTransform = gloveVisual(left.position, GLOVE_ANCHORS.left, 'left', true, leftAim);
-  const rightTransform = gloveVisual(right.position, GLOVE_ANCHORS.right, 'right', true, rightAim);
+  const leftBase = gloveVisual(left.position, GLOVE_ANCHORS.left, 'left', true, leftAim);
+  const rightBase = gloveVisual(right.position, GLOVE_ANCHORS.right, 'right', true, rightAim);
+  const leftTransform = {
+    ...leftBase,
+    rotate: leftAim + leftSwing,
+    scale: leftBase.scale * (1 + Math.abs(leftSwing) * 0.0035),
+  };
+  const rightTransform = {
+    ...rightBase,
+    rotate: rightAim + rightSwing,
+    scale: rightBase.scale * (1 + Math.abs(rightSwing) * 0.0035),
+  };
 
   return {
     left,
