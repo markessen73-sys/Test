@@ -1,6 +1,7 @@
 export {
   ensureBackgroundMusic,
   setBackgroundMusicBed,
+  setBackgroundMusicBedOverride,
   setBackgroundMusicPlayMode,
   startBackgroundMusic,
   unlockGameAudio,

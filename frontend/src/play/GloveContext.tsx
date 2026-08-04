@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { setPunchSfxOverride } from '../gameAudio';
+import { setBackgroundMusicBedOverride, setPunchSfxOverride } from '../gameAudio';
 import {
   DEFAULT_GLOVE_LOADOUT_ID,
   GLOVE_LOADOUT_LIST,
@@ -23,25 +23,28 @@ interface GloveContextValue {
   glove: GloveLoadout;
   gloves: GloveLoadout[];
   setGloveId: (id: GloveLoadoutId) => void;
+  /** True while 1920s gloves force silent-film look + music. */
+  silentFilmMode: boolean;
 }
 
 const GloveContext = createContext<GloveContextValue | null>(null);
 
-function syncPunchSfx(id: GloveLoadoutId) {
+function syncGloveAudio(id: GloveLoadoutId) {
   setPunchSfxOverride(GLOVE_LOADOUTS[id].punchSfx ?? null);
+  setBackgroundMusicBedOverride(id === 'vintage' ? 'silent-film' : null);
 }
 
 export function GloveProvider({ children }: { children: ReactNode }) {
   const [gloveId, setGloveIdState] = useState<GloveLoadoutId>(() => readStoredGloveLoadoutId());
 
   useEffect(() => {
-    syncPunchSfx(gloveId);
+    syncGloveAudio(gloveId);
   }, [gloveId]);
 
   const setGloveId = useCallback((id: GloveLoadoutId) => {
     setGloveIdState(id);
     writeStoredGloveLoadoutId(id);
-    syncPunchSfx(id);
+    syncGloveAudio(id);
   }, []);
 
   const value = useMemo<GloveContextValue>(
@@ -50,6 +53,7 @@ export function GloveProvider({ children }: { children: ReactNode }) {
       glove: GLOVE_LOADOUTS[gloveId],
       gloves: GLOVE_LOADOUT_LIST,
       setGloveId,
+      silentFilmMode: gloveId === 'vintage',
     }),
     [gloveId, setGloveId]
   );
@@ -65,6 +69,7 @@ export function useGlove(): GloveContextValue {
       glove: GLOVE_LOADOUTS[DEFAULT_GLOVE_LOADOUT_ID],
       gloves: GLOVE_LOADOUT_LIST,
       setGloveId: () => undefined,
+      silentFilmMode: false,
     };
   }
   return ctx;

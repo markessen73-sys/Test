@@ -38,6 +38,107 @@ html, body, #root, .app {
   padding: 0;
 }
 
+/* 1920s gloves — silent-film look across the whole app */
+.app.film-silent-era {
+  filter: grayscale(1) contrast(1.22) brightness(0.92) sepia(0.18);
+  animation: film-flicker 0.14s steps(2, end) infinite;
+}
+
+@keyframes film-flicker {
+  0% { filter: grayscale(1) contrast(1.22) brightness(0.9) sepia(0.18); }
+  40% { filter: grayscale(1) contrast(1.28) brightness(0.96) sepia(0.14); }
+  70% { filter: grayscale(1) contrast(1.18) brightness(0.88) sepia(0.2); }
+  100% { filter: grayscale(1) contrast(1.24) brightness(0.93) sepia(0.16); }
+}
+
+.film-grain-overlay,
+.film-scratch-overlay,
+.film-vignette-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 90;
+}
+
+.film-grain-overlay {
+  opacity: 0.28;
+  mix-blend-mode: overlay;
+  background-image:
+    repeating-radial-gradient(circle at 18% 32%, rgba(255, 255, 255, 0.12) 0 0.6px, transparent 1px 3px),
+    repeating-radial-gradient(circle at 72% 64%, rgba(0, 0, 0, 0.2) 0 0.5px, transparent 1px 2.5px);
+  background-size: 140px 140px, 90px 90px;
+  animation: film-grain-drift 0.55s steps(4, end) infinite;
+}
+
+@keyframes film-grain-drift {
+  0% { transform: translate(0, 0); opacity: 0.22; }
+  25% { transform: translate(-1.5%, 1%); opacity: 0.32; }
+  50% { transform: translate(1%, -1.5%); opacity: 0.2; }
+  75% { transform: translate(-0.5%, -1%); opacity: 0.3; }
+  100% { transform: translate(0.5%, 0.5%); opacity: 0.25; }
+}
+
+.film-scratch-overlay {
+  opacity: 0.35;
+  background:
+    linear-gradient(
+      92deg,
+      transparent 0%,
+      transparent 48%,
+      rgba(255, 255, 255, 0.18) 49%,
+      transparent 50%,
+      transparent 100%
+    ),
+    linear-gradient(
+      88deg,
+      transparent 0%,
+      transparent 71%,
+      rgba(255, 255, 255, 0.1) 72%,
+      transparent 73%,
+      transparent 100%
+    );
+  background-size: 100% 100%, 100% 100%;
+  animation: film-scratch-jitter 1.8s steps(6, end) infinite;
+  mix-blend-mode: soft-light;
+}
+
+@keyframes film-scratch-jitter {
+  0% { transform: translateX(0) skewX(0deg); opacity: 0.15; }
+  20% { transform: translateX(0.4%) skewX(0.15deg); opacity: 0.4; }
+  35% { transform: translateX(-0.6%) skewX(-0.2deg); opacity: 0.12; }
+  55% { transform: translateX(0.2%) skewX(0.1deg); opacity: 0.35; }
+  80% { transform: translateX(-0.3%) skewX(-0.05deg); opacity: 0.18; }
+  100% { transform: translateX(0) skewX(0deg); opacity: 0.22; }
+}
+
+.film-vignette-overlay {
+  background: radial-gradient(ellipse at center, transparent 42%, rgba(0, 0, 0, 0.55) 100%);
+  mix-blend-mode: multiply;
+  opacity: 0.85;
+  animation: film-glitch-cut 4.5s steps(1, end) infinite;
+}
+
+@keyframes film-glitch-cut {
+  0%,
+  86%,
+  100% {
+    clip-path: inset(0 0 0 0);
+    transform: none;
+  }
+  87% {
+    clip-path: inset(12% 0 40% 0);
+    transform: translateX(1.2%);
+  }
+  88% {
+    clip-path: inset(55% 0 8% 0);
+    transform: translateX(-1.5%);
+  }
+  89% {
+    clip-path: inset(0 0 0 0);
+    transform: none;
+  }
+}
+
 /* Header */
 .header {
   padding: 1.5rem 2rem;

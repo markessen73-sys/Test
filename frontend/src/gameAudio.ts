@@ -1,16 +1,18 @@
 import { assetUrl } from './assetUrl';
 
 export type PunchSfxStation = 'heavy-bag' | 'speedball' | 'bobo-doll' | 'ring';
-export type BackgroundMusicBed = 'gym' | 'bobo';
+export type BackgroundMusicBed = 'gym' | 'bobo' | 'silent-film';
 
 const MUSIC_BEDS: Record<BackgroundMusicBed, string> = {
   gym: assetUrl('/sounds/Boxing gym.mp3'),
   bobo: assetUrl('/sounds/slimeyfox-circus-di-primosole-beach-541357.mp3'),
+  'silent-film': assetUrl('/sounds/drift_sound-piano-roll-for-silent-film-377316.mp3'),
 };
 
 const BACKGROUND_MUSIC_VOLUME = 0.18;
 const BACKGROUND_MUSIC_PLAY_VOLUME = BACKGROUND_MUSIC_VOLUME * 0.5;
 const BOBO_MUSIC_VOLUME = 0.22;
+const SILENT_FILM_MUSIC_VOLUME = 0.2;
 
 const PUNCH_SFX: Record<PunchSfxStation, string> = {
   'heavy-bag': assetUrl('/sounds/universfield-punch-03-352040.mp3'),
@@ -50,14 +52,23 @@ let musicSource: AudioBufferSourceNode | null = null;
 let musicGain: GainNode | null = null;
 let musicPlaying = false;
 let inPlayMode = false;
+/** Station/context request (gym browse vs bobo play). */
 let musicBed: BackgroundMusicBed = 'gym';
+/** Glove-driven override — silent-film wins over gym/bobo while 1920s gloves are on. */
+let musicBedOverride: BackgroundMusicBed | null = null;
 let activeMusicSrc = MUSIC_BEDS.gym;
 let musicSwitchToken = 0;
 /** When set (e.g. rubber chicken), replaces station punch SFX. */
 let punchSfxOverride: string | null = null;
 
+function resolvedMusicBed(): BackgroundMusicBed {
+  return musicBedOverride ?? musicBed;
+}
+
 function currentMusicVolume(): number {
-  if (musicBed === 'bobo') return BOBO_MUSIC_VOLUME;
+  const bed = resolvedMusicBed();
+  if (bed === 'silent-film') return SILENT_FILM_MUSIC_VOLUME;
+  if (bed === 'bobo') return BOBO_MUSIC_VOLUME;
   return inPlayMode ? BACKGROUND_MUSIC_PLAY_VOLUME : BACKGROUND_MUSIC_VOLUME;
 }
 
@@ -160,15 +171,30 @@ export function setBackgroundMusicPlayMode(active: boolean): void {
 
 /**
  * Swap looping ambience. Bobo play silences the gym bed and plays circus music;
- * leaving restores the gym loop.
+ * leaving restores the gym loop. Respects glove overrides (1920s silent film).
  */
 export function setBackgroundMusicBed(bed: BackgroundMusicBed): void {
-  if (musicBed === bed && activeMusicSrc === MUSIC_BEDS[bed]) {
+  musicBed = bed;
+  applyResolvedMusicBed();
+}
+
+/**
+ * Glove-driven bed override. Pass `'silent-film'` for 1920s gloves, or `null` to
+ * clear. Overrides gym and bobo beds while active.
+ */
+export function setBackgroundMusicBedOverride(bed: BackgroundMusicBed | null): void {
+  musicBedOverride = bed;
+  applyResolvedMusicBed();
+}
+
+function applyResolvedMusicBed(): void {
+  const bed = resolvedMusicBed();
+  const src = MUSIC_BEDS[bed];
+  if (activeMusicSrc === src && musicPlaying) {
     updateMusicGain();
     return;
   }
-  musicBed = bed;
-  void switchBackgroundMusic(MUSIC_BEDS[bed]).catch(() => {
+  void switchBackgroundMusic(src).catch(() => {
     musicPlaying = false;
   });
 }
@@ -188,6 +214,7 @@ export function unlockGameAudio(): void {
   void loadBuffer(BOBO_CLOWN_HORN_SFX).catch(() => {});
   void loadBuffer(GLOVE_OUGH_SFX).catch(() => {});
   void loadBuffer(MUSIC_BEDS.bobo).catch(() => {});
+  void loadBuffer(MUSIC_BEDS['silent-film']).catch(() => {});
   if (punchSfxOverride) void loadBuffer(punchSfxOverride).catch(() => {});
 }
 
