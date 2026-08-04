@@ -19,6 +19,9 @@ const PUNCH_SFX: Record<PunchSfxStation, string> = {
   ring: assetUrl('/sounds/beetpro-ouch-sound-effect-30-11844.mp3'),
 };
 
+/** Second bobo hit sound — randomly alternates with the squeak (unless chicken override). */
+const BOBO_CLOWN_HORN_SFX = assetUrl('/sounds/freesound_community-clown-horn-44595.mp3');
+
 /** Skip encoder/file silence so impact aligns with the punch. */
 const PUNCH_START_OFFSET: Record<PunchSfxStation, number> = {
   'heavy-bag': 0.29,
@@ -26,6 +29,8 @@ const PUNCH_START_OFFSET: Record<PunchSfxStation, number> = {
   'bobo-doll': 0.03,
   ring: 0.08,
 };
+
+const BOBO_CLOWN_HORN_OFFSET = 0.02;
 
 let audioCtx: AudioContext | null = null;
 const buffers = new Map<string, AudioBuffer>();
@@ -170,6 +175,7 @@ export function unlockGameAudio(): void {
   for (const src of Object.values(PUNCH_SFX)) {
     void loadBuffer(src).catch(() => {});
   }
+  void loadBuffer(BOBO_CLOWN_HORN_SFX).catch(() => {});
   void loadBuffer(MUSIC_BEDS.bobo).catch(() => {});
   if (punchSfxOverride) void loadBuffer(punchSfxOverride).catch(() => {});
 }
@@ -182,13 +188,24 @@ export function setPunchSfxOverride(src: string | null): void {
 
 export function preloadPunchSfx(station: PunchSfxStation): void {
   void loadBuffer(PUNCH_SFX[station]).catch(() => {});
+  if (station === 'bobo-doll') void loadBuffer(BOBO_CLOWN_HORN_SFX).catch(() => {});
   if (punchSfxOverride) void loadBuffer(punchSfxOverride).catch(() => {});
+}
+
+function resolvePunchSfx(station: PunchSfxStation): { src: string; offset: number } {
+  // Rubber chicken (and any future override) always wins — never the clown horn.
+  if (punchSfxOverride) {
+    return { src: punchSfxOverride, offset: 0 };
+  }
+  if (station === 'bobo-doll' && Math.random() < 0.5) {
+    return { src: BOBO_CLOWN_HORN_SFX, offset: BOBO_CLOWN_HORN_OFFSET };
+  }
+  return { src: PUNCH_SFX[station], offset: PUNCH_START_OFFSET[station] };
 }
 
 /** Play station punch sound (overlapping hits allowed). */
 export function playPunchSfx(station: PunchSfxStation, volume = 0.85): void {
-  const src = punchSfxOverride ?? PUNCH_SFX[station];
-  const offset = punchSfxOverride ? 0 : PUNCH_START_OFFSET[station];
+  const { src, offset } = resolvePunchSfx(station);
   const ctx = getAudioContext();
 
   if (ctx.state === 'suspended') {
