@@ -7,18 +7,7 @@ import { useBackgroundMusic } from './useBackgroundMusic';
 
 function AppShell({ children }: { children: ReactNode }) {
   const { silentFilmMode } = useGlove();
-  return (
-    <div className={`app ${silentFilmMode ? 'film-silent-era' : ''}`}>
-      {children}
-      {silentFilmMode && (
-        <>
-          <div className="film-grain-overlay" aria-hidden />
-          <div className="film-scratch-overlay" aria-hidden />
-          <div className="film-vignette-overlay" aria-hidden />
-        </>
-      )}
-    </div>
-  );
+  return <div className={`app ${silentFilmMode ? 'film-silent-era' : ''}`}>{children}</div>;
 }
 
 function App() {
