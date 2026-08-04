@@ -17,6 +17,9 @@ export interface RingSwingState {
   worldOffsetX: number;
   worldOffsetY: number;
   worldOffsetZ: number;
+  /** Local lean (radians) — roll follows side-to-side, pitch follows depth. */
+  leanRoll: number;
+  leanPitch: number;
 }
 
 const HIT_IMPULSE = 0.22;
@@ -33,6 +36,10 @@ const MIN_LATERAL_HALF = 0.55;
 const DEPTH_FRACTION = 0.38;
 /** Hard cap on retreat depth (metres) — keeps him from going too far back. */
 const DEPTH_MAX_M = 0.48;
+/** Subtle side lean into the shuffle (~7°). */
+const MAX_LEAN_ROLL = 0.12;
+/** Subtle pitch when he steps back (~4°). */
+const MAX_LEAN_PITCH = 0.07;
 
 const RING_GROUP_Z = RING_GROUP_ORIGIN_Z;
 const FEET_SOLE_FRAC = 76 / 1536;
@@ -67,6 +74,8 @@ export function createRingSwingState(): RingSwingState {
     worldOffsetX: 0,
     worldOffsetY: 0,
     worldOffsetZ: 0,
+    leanRoll: 0,
+    leanPitch: 0,
   };
 }
 
@@ -244,6 +253,10 @@ export function stepRingSwing(
   const phase = state.time * SHUFFLE_SPEED;
   const lateralWave = (Math.sin(phase) + 1) * 0.5;
   const depthWave = (Math.sin(phase * 2) + 1) * 0.5;
+  const lateralSigned = lateralWave * 2 - 1;
+  // Lean into the side he's on; slight pitch when he steps back.
+  state.leanRoll = -lateralSigned * MAX_LEAN_ROLL * intensity;
+  state.leanPitch = depthWave * MAX_LEAN_PITCH * intensity;
 
   if (options.camera) {
     const { right, forward } = cameraBasis(options.camera);

@@ -44,6 +44,7 @@ function PlayRing({
 }) {
   const swingRef = useRef(createRingSwingState());
   const weaveRef = useRef<THREE.Group>(null);
+  const leanRef = useRef<THREE.Group>(null);
   const [hitFlash, setHitFlash] = useState(0);
   const lastImpactIdRef = useRef(0);
   const { camera, size } = useThree();
@@ -67,6 +68,9 @@ function PlayRing({
     const s = swingRef.current;
     if (weaveRef.current) {
       weaveRef.current.position.set(s.worldOffsetX, s.worldOffsetY, s.worldOffsetZ);
+    }
+    if (leanRef.current) {
+      leanRef.current.rotation.set(s.leanPitch, 0, s.leanRoll);
     }
     const zoneOffset = ringZoneScreenOffset(s, camera);
     ringZoneOffsetRef.current.x = zoneOffset.x;
@@ -129,13 +133,15 @@ function PlayRing({
       <group position={[0, RING_CANVAS_SURFACE_Y + RING_PARTNER_LIFT, RING_PARTNER_FORWARD]}>
         <group ref={weaveRef}>
           <group rotation={[0, RING_PARTNER_YAW, 0]}>
-            <SparringPartner
-              hitFlashAge={flashAge}
-              scale={RING_SPRITE_SCALE}
-              showFace
-              lastHitTime={hitFlash}
-              knockedOut={knockedOut}
-            />
+            <group ref={leanRef}>
+              <SparringPartner
+                hitFlashAge={flashAge}
+                scale={RING_SPRITE_SCALE}
+                showFace
+                lastHitTime={hitFlash}
+                knockedOut={knockedOut}
+              />
+            </group>
           </group>
         </group>
       </group>
