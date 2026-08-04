@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { setBackgroundMusicPlayMode } from './backgroundMusic';
+import { setBackgroundMusicBed, setBackgroundMusicPlayMode } from './backgroundMusic';
 import { HeavyBagPlayView } from './play/HeavyBagPlayView';
 import { BoboDollPlayView } from './play/BoboDollPlayView';
 import { SpeedballPlayView } from './play/SpeedballPlayView';
@@ -44,11 +44,14 @@ export function GymApp() {
     }
   }, []);
 
-  useEffect(() => {
-    setBackgroundMusicPlayMode(viewMode === 'play');
-  }, [viewMode]);
-
   const station = GYM_STATIONS[stationIndex];
+
+  useEffect(() => {
+    const isBoboPlay = viewMode === 'play' && station.id === 'bobo-doll';
+    setBackgroundMusicBed(isBoboPlay ? 'bobo' : 'gym');
+    // Duck gym ambience in other play modes; bobo uses its own full-volume bed.
+    setBackgroundMusicPlayMode(viewMode === 'play' && !isBoboPlay);
+  }, [viewMode, station.id]);
 
   const goNext = useCallback(() => {
     if (viewMode !== 'browse') return;

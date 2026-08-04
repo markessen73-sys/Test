@@ -1,10 +1,16 @@
 import { assetUrl } from './assetUrl';
 
 export type PunchSfxStation = 'heavy-bag' | 'speedball' | 'bobo-doll' | 'ring';
+export type BackgroundMusicBed = 'gym' | 'bobo';
 
-const BACKGROUND_MUSIC_SRC = assetUrl('/sounds/Boxing gym.mp3');
+const MUSIC_BEDS: Record<BackgroundMusicBed, string> = {
+  gym: assetUrl('/sounds/Boxing gym.mp3'),
+  bobo: assetUrl('/sounds/slimeyfox-circus-di-primosole-beach-541357.mp3'),
+};
+
 const BACKGROUND_MUSIC_VOLUME = 0.18;
 const BACKGROUND_MUSIC_PLAY_VOLUME = BACKGROUND_MUSIC_VOLUME * 0.5;
+const BOBO_MUSIC_VOLUME = 0.22;
 
 const PUNCH_SFX: Record<PunchSfxStation, string> = {
   'heavy-bag': assetUrl('/sounds/universfield-punch-03-352040.mp3'),
@@ -29,8 +35,12 @@ let musicSource: AudioBufferSourceNode | null = null;
 let musicGain: GainNode | null = null;
 let musicPlaying = false;
 let inPlayMode = false;
+let musicBed: BackgroundMusicBed = 'gym';
+let activeMusicSrc = MUSIC_BEDS.gym;
+let musicSwitchToken = 0;
 
 function currentMusicVolume(): number {
+  if (musicBed === 'bobo') return BOBO_MUSIC_VOLUME;
   return inPlayMode ? BACKGROUND_MUSIC_PLAY_VOLUME : BACKGROUND_MUSIC_VOLUME;
 }
 
@@ -100,8 +110,11 @@ async function ensureBackgroundPlaying(): Promise<void> {
     return;
   }
 
-  const buffer = await loadBuffer(BACKGROUND_MUSIC_SRC);
-  if (musicPlaying) return;
+  const token = musicSwitchToken;
+  const src = activeMusicSrc;
+  const buffer = await loadBuffer(src);
+  if (token !== musicSwitchToken) return;
+  if (musicPlaying && activeMusicSrc === src) return;
 
   stopBackgroundMusic();
   musicGain = ctx.createGain();
@@ -115,10 +128,32 @@ async function ensureBackgroundPlaying(): Promise<void> {
   musicPlaying = true;
 }
 
-/** Duck ambience while glove play is active. */
+async function switchBackgroundMusic(src: string): Promise<void> {
+  musicSwitchToken += 1;
+  activeMusicSrc = src;
+  stopBackgroundMusic();
+  await ensureBackgroundPlaying();
+}
+
+/** Duck gym ambience while glove play is active (ignored for bobo bed). */
 export function setBackgroundMusicPlayMode(active: boolean): void {
   inPlayMode = active;
   updateMusicGain();
+}
+
+/**
+ * Swap looping ambience. Bobo play silences the gym bed and plays circus music;
+ * leaving restores the gym loop.
+ */
+export function setBackgroundMusicBed(bed: BackgroundMusicBed): void {
+  if (musicBed === bed && activeMusicSrc === MUSIC_BEDS[bed]) {
+    updateMusicGain();
+    return;
+  }
+  musicBed = bed;
+  void switchBackgroundMusic(MUSIC_BEDS[bed]).catch(() => {
+    musicPlaying = false;
+  });
 }
 
 /** Resume audio after autoplay blocks or tab backgrounding. */
@@ -133,6 +168,7 @@ export function unlockGameAudio(): void {
   for (const src of Object.values(PUNCH_SFX)) {
     void loadBuffer(src).catch(() => {});
   }
+  void loadBuffer(MUSIC_BEDS.bobo).catch(() => {});
 }
 
 export function preloadPunchSfx(station: PunchSfxStation): void {
