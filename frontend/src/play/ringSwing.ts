@@ -25,6 +25,14 @@ const PUNCH_SPRING = 14;
 const PUNCH_DAMPING = 4;
 
 const SHUFFLE_SPEED = 0.68;
+/** Allow body edges past the screen so side-to-side stays visible when close. */
+const LATERAL_EDGE_OVERHANG = 0.22;
+/** Minimum half-span of lateral shuffle along camera-right (metres). */
+const MIN_LATERAL_HALF = 0.55;
+/** Fraction of screen-safe depth used for the retreat leg of the figure-8. */
+const DEPTH_FRACTION = 0.38;
+/** Hard cap on retreat depth (metres) — keeps him from going too far back. */
+const DEPTH_MAX_M = 0.48;
 
 const RING_GROUP_Z = RING_GROUP_ORIGIN_Z;
 const FEET_SOLE_FRAC = 76 / 1536;
@@ -151,13 +159,15 @@ function spriteScreenBounds(
   return { minX, maxX, minY, maxY };
 }
 
-/** World offset scale along axis where the left body edge touches the screen. */
+/** World offset scale along axis where a body edge reaches the screen margin. */
 function findEdgeTouchScale(
   camera: Camera,
   ctx: RingSwingClampContext,
   axis: Vector3,
   edge: 'left' | 'right'
 ): number {
+  const leftLimit = -LATERAL_EDGE_OVERHANG;
+  const rightLimit = 1 + LATERAL_EDGE_OVERHANG;
   let lo = -6;
   let hi = 6;
   for (let i = 0; i < 22; i++) {
@@ -170,9 +180,9 @@ function findEdgeTouchScale(
       axis.z * mid
     );
     if (edge === 'left') {
-      if (bounds.minX < 0) lo = mid;
+      if (bounds.minX < leftLimit) lo = mid;
       else hi = mid;
-    } else if (bounds.maxX > 1) {
+    } else if (bounds.maxX > rightLimit) {
       hi = mid;
     } else {
       lo = mid;
@@ -239,8 +249,13 @@ export function stepRingSwing(
     const { right, forward } = cameraBasis(options.camera);
     const ctx = buildClampContext(scale);
 
-    const leftScale = findEdgeTouchScale(options.camera, ctx, right, 'left');
-    const rightScale = findEdgeTouchScale(options.camera, ctx, right, 'right');
+    let leftScale = findEdgeTouchScale(options.camera, ctx, right, 'left');
+    let rightScale = findEdgeTouchScale(options.camera, ctx, right, 'right');
+    const midScale = (leftScale + rightScale) * 0.5;
+    const halfSpan = Math.max(Math.abs(leftScale - rightScale) * 0.5, MIN_LATERAL_HALF);
+    const leftDir = leftScale >= rightScale ? 1 : -1;
+    leftScale = midScale + leftDir * halfSpan;
+    rightScale = midScale - leftDir * halfSpan;
     const lateralScale =
       (rightScale + lateralWave * (leftScale - rightScale) + state.punchOffset) * intensity;
 
@@ -248,8 +263,9 @@ export function stepRingSwing(
     const baseY = right.y * lateralScale;
     const baseZ = right.z * lateralScale;
 
-    const maxToward = findMaxTowardDepth(options.camera, ctx, baseX, baseY, baseZ, forward);
-    let depthScale = depthWave * maxToward * intensity;
+    const maxAway = findMaxTowardDepth(options.camera, ctx, baseX, baseY, baseZ, forward);
+    let depthScale =
+      depthWave * Math.min(maxAway * DEPTH_FRACTION, DEPTH_MAX_M) * intensity;
 
     let ox = baseX + forward.x * depthScale;
     let oy = baseY + forward.y * depthScale;
@@ -274,7 +290,7 @@ export function stepRingSwing(
     state.worldOffsetZ = oz;
   } else {
     const lateral = (lateralWave * 2 - 1) * 1.55 * scale * intensity + state.punchOffset;
-    const depth = depthWave * 0.72 * scale * intensity;
+    const depth = depthWave * DEPTH_MAX_M * intensity;
     state.worldOffsetX = lateral;
     state.worldOffsetY = 0;
     state.worldOffsetZ = depth;
