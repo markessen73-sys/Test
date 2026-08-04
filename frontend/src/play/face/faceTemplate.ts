@@ -1,16 +1,7 @@
-import { assetUrl } from '../../assetUrl';
 import mapData from './faceTemplateMap';
 import type { FaceTemplateMap } from './types';
 
-export const FACE_TEMPLATE_MAP: FaceTemplateMap = mapData;
-
-export const FACE_TEMPLATE_SRC = assetUrl(FACE_TEMPLATE_MAP.template);
-
-/** Matching punched/"ooh!" expression of the live caricature (same layout). */
-export const FACE_OOH_SRC = assetUrl('/faces/test-template-face-ooh.png');
-
-/** Knockout expression — eyes closed, frown, stars (shown at 100% damage). */
-export const FACE_KO_SRC = assetUrl('/faces/test-template-face-knockout.png');
+const FACE_TEMPLATE_MAP: FaceTemplateMap = mapData;
 
 /** Crop rect from template image (faceOval). */
 export const FACE_SOURCE_OVAL = FACE_TEMPLATE_MAP.faceOval;

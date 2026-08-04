@@ -4,7 +4,7 @@
  */
 import { FaceLandmarker, FilesetResolver, type NormalizedLandmark } from '@mediapipe/tasks-vision';
 import { FACE_OUT_SIZE } from './faceDetect';
-import type { CustomFaceFeatures, CustomFaceSet, FaceFeatureMark } from './customFace';
+import type { CustomFaceFeatures, CustomFaceSet } from './customFace';
 
 const WASM_PATH = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm';
 const LANDMARKER_MODEL =
@@ -78,97 +78,6 @@ function mouthMetrics(landmarks: NormalizedLandmark[], w: number, h: number) {
   const cx = (left.x + right.x) / 2;
   const cy = (upper.y + lower.y) / 2;
   return { left, right, upper, lower, width, cx, cy };
-}
-
-/** Ellipse mark from a set of landmark indices (image-normalized). */
-function markFromLandmarks(
-  landmarks: NormalizedLandmark[],
-  indices: number[],
-  w: number,
-  h: number,
-): FaceFeatureMark | null {
-  const pts: Pt[] = [];
-  for (const i of indices) {
-    const lm = landmarks[i];
-    if (lm) pts.push(toPx(lm, w, h));
-  }
-  if (pts.length < 3) return null;
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  let sx = 0;
-  let sy = 0;
-  for (const p of pts) {
-    minX = Math.min(minX, p.x);
-    minY = Math.min(minY, p.y);
-    maxX = Math.max(maxX, p.x);
-    maxY = Math.max(maxY, p.y);
-    sx += p.x;
-    sy += p.y;
-  }
-  const cx = sx / pts.length / w;
-  const cy = sy / pts.length / h;
-  const rx = Math.max(0.03, ((maxX - minX) / w) * 0.55);
-  const ry = Math.max(0.025, ((maxY - minY) / h) * 0.55);
-  // Store as round using the larger axis (pop eyes force round anyway)
-  const r = Math.max(rx, ry);
-  return { cx, cy, rx: r, ry: r };
-}
-
-/**
- * Auto-detect eye (+ mouth) marks via Face Landmarker for selfie mode
- * (no manual highlighter pass).
- */
-export async function detectFaceFeatures(
-  cleanDataUrl: string,
-): Promise<CustomFaceFeatures | undefined> {
-  try {
-    const img = await loadImage(cleanDataUrl);
-    const landmarker = await getLandmarker();
-    const forDetect = opaqueComposite(img, '#6a6a6a');
-    const result = landmarker.detect(forDetect);
-    const face = result.faceLandmarks?.[0];
-    if (!face?.length) return undefined;
-    const w = img.naturalWidth || img.width || FACE_OUT_SIZE;
-    const h = img.naturalHeight || img.height || FACE_OUT_SIZE;
-
-    // MediaPipe image-left / image-right eye rings
-    const leftEye = markFromLandmarks(
-      face,
-      [33, 133, 160, 159, 158, 144, 145, 153, 7, 163],
-      w,
-      h,
-    );
-    const rightEye = markFromLandmarks(
-      face,
-      [362, 263, 387, 386, 385, 373, 374, 380, 249, 390],
-      w,
-      h,
-    );
-    const mouth = markFromLandmarks(
-      face,
-      [61, 291, 0, 17, 78, 308, 13, 14],
-      w,
-      h,
-    );
-
-    const features: CustomFaceFeatures = {};
-    // Image-space: smaller x = left side of the picture
-    if (leftEye && rightEye) {
-      if (leftEye.cx <= rightEye.cx) {
-        features.leftEye = leftEye;
-        features.rightEye = rightEye;
-      } else {
-        features.leftEye = rightEye;
-        features.rightEye = leftEye;
-      }
-    }
-    if (mouth) features.mouth = mouth;
-    return Object.keys(features).length ? features : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 function sampleRgb(

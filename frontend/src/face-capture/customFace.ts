@@ -308,37 +308,6 @@ export function getCustomFace(id: string): CustomFaceEntry | null {
   return readCustomFaceLibrary().faces.find((f) => f.id === id) ?? null;
 }
 
-/** @deprecated Prefer readCustomFaceLibrary — returns the newest face only. */
-export function readCustomFaceSet(): CustomFaceSet | null {
-  const faces = readCustomFaceLibrary().faces;
-  return faces.length ? faces[faces.length - 1]! : null;
-}
-
-/** @deprecated Prefer readCustomFaceLibrary. */
-export function readCustomFaceDataUrl(): string | null {
-  return readCustomFaceSet()?.clean ?? null;
-}
-
-/** @deprecated Prefer addCustomFace — overwrites library with a single face. */
-export function writeCustomFaceSet(faces: CustomFaceSet) {
-  addCustomFace(faces);
-}
-
-/** Upload / single-shot: use one cutout for every expression. */
-export function writeCustomFaceDataUrl(dataUrl: string) {
-  addCustomFace({ clean: dataUrl, ooh: dataUrl, knockout: dataUrl });
-}
-
-export function clearCustomFaceDataUrl() {
-  try {
-    localStorage.removeItem(CUSTOM_FACE_STORAGE_KEY);
-    localStorage.removeItem(CUSTOM_FACE_LIBRARY_KEY);
-    localStorage.removeItem(CUSTOM_FACE_META_KEY);
-  } catch {
-    /* ignore */
-  }
-}
-
 /** Ensure every library face with eye marks also has a meta entry (tiny, durable). */
 export function syncFaceFeaturesMeta(lib?: CustomFaceLibrary) {
   const faces = (lib ?? readCustomFaceLibrary()).faces;
