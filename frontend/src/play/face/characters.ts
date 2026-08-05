@@ -7,7 +7,7 @@ import { isPhotoCharacterId, type FaceFeatureMark } from '../../face-capture/cus
  * `public/faces/README.md`) so LM alignment, Default head size, KO scale,
  * natural-skin clown + curly wig, and pupils match pack conventions.
  */
-export type StockCharacterId = 'default' | 'byson' | 'tin-mick' | 'the-don';
+export type StockCharacterId = 'default' | 'byson' | 'tin-mick' | 'the-don' | 'king-of-the-north';
 
 /** Stock pack id, or `photo-<uuid>` for a user-uploaded face. */
 export type CharacterId = StockCharacterId | (string & {});
@@ -85,6 +85,7 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   byson: makeCharacter('byson', 'Byson'),
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick'),
   'the-don': makeCharacter('the-don', 'The Don'),
+  'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North'),
 };
 
 export const CHARACTER_LIST: CharacterDef[] = [
@@ -92,6 +93,7 @@ export const CHARACTER_LIST: CharacterDef[] = [
   CHARACTERS.byson,
   CHARACTERS['tin-mick'],
   CHARACTERS['the-don'],
+  CHARACTERS['king-of-the-north'],
 ];
 
 export const DEFAULT_CHARACTER_ID: StockCharacterId = 'default';
@@ -99,7 +101,13 @@ export const DEFAULT_CHARACTER_ID: StockCharacterId = 'default';
 export const CHARACTER_STORAGE_KEY = 'mickeys-gym-character';
 
 export function isStockCharacterId(value: string | null | undefined): value is StockCharacterId {
-  return value === 'default' || value === 'byson' || value === 'tin-mick' || value === 'the-don';
+  return (
+    value === 'default' ||
+    value === 'byson' ||
+    value === 'tin-mick' ||
+    value === 'the-don' ||
+    value === 'king-of-the-north'
+  );
 }
 
 /** @deprecated Prefer isStockCharacterId — photo ids are also valid CharacterIds. */
