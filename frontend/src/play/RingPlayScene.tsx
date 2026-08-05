@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useRef, useState, type RefObject } from 'react';
 import type { GlovePosition } from '../types/game';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SparringPartner, RING_CANVAS_SURFACE_Y, RING_SPRITE_SCALE } from '../gym/SparringPartner';
 import { ringZoneScreenOffset } from './ringImpact';
@@ -21,15 +21,47 @@ import {
   RING_ROPE_SPAN,
 } from './playCamera';
 import type { PunchImpact } from './punchImpact';
+import { useCharacter } from './face/CharacterContext';
 
-function RingPlayEnvironment() {
+function RingPlayEnvironment({ dusk = false }: { dusk?: boolean }) {
+  const fogColor = dusk ? '#1a2038' : '#1a1208';
   return (
     <>
-      <ambientLight intensity={0.52} color="#FFE4B5" />
-      <directionalLight position={[0, 7, -1]} intensity={1.15} color="#FFD699" castShadow />
-      <pointLight position={[0, 4, RING_GROUP_ORIGIN_Z]} intensity={9} color="#FFF0D0" distance={22} />
-      <fog attach="fog" args={['#1a1208', 8, 28]} />
+      <ambientLight intensity={dusk ? 0.42 : 0.52} color={dusk ? '#C8D4F0' : '#FFE4B5'} />
+      <directionalLight
+        position={[0, 7, -1]}
+        intensity={dusk ? 0.85 : 1.15}
+        color={dusk ? '#A8B8E0' : '#FFD699'}
+        castShadow
+      />
+      <pointLight
+        position={[0, 4, RING_GROUP_ORIGIN_Z]}
+        intensity={dusk ? 7 : 9}
+        color={dusk ? '#FFE8C8' : '#FFF0D0'}
+        distance={22}
+      />
+      <fog attach="fog" args={[fogColor, dusk ? 14 : 8, dusk ? 42 : 28]} />
     </>
+  );
+}
+
+/** Wide backdrop plane past the far ropes (world +Z from the player corner). */
+function RingBackdrop({ src }: { src: string }) {
+  const texture = useLoader(THREE.TextureLoader, src);
+  useEffect(() => {
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 8;
+    texture.needsUpdate = true;
+  }, [texture]);
+
+  // Far side of the ring sits near world z ≈ RING_GROUP_ORIGIN_Z + RING_HALF.
+  // Place the plate further past that so it reads as cityscape behind the ropes.
+  const z = RING_GROUP_ORIGIN_Z + RING_HALF + 6.5;
+  return (
+    <mesh position={[0, 4.2, z]} renderOrder={-1}>
+      <planeGeometry args={[28, 12]} />
+      <meshBasicMaterial map={texture} toneMapped={false} depthWrite={false} />
+    </mesh>
   );
 }
 
@@ -161,19 +193,24 @@ export function RingPlayScene({
   knockedOut = false,
 }: RingPlaySceneProps) {
   const cam = RING_PLAY_CAMERA;
+  const { character } = useCharacter();
+  const backdropSrc = character.ringBackdropSrc;
+  const dusk = Boolean(backdropSrc);
+
   return (
     <Canvas
       shadows
-      camera={{ position: cam.position, fov: cam.fov, near: 0.1, far: 40 }}
+      camera={{ position: cam.position, fov: cam.fov, near: 0.1, far: dusk ? 60 : 40 }}
       onCreated={({ camera }) => {
         camera.lookAt(...cam.lookAt);
       }}
       style={{ width: '100%', height: '100%', touchAction: 'none' }}
       gl={{ antialias: true, alpha: false }}
     >
-      <color attach="background" args={['#1a1208']} />
-      <RingPlayEnvironment />
+      <color attach="background" args={[dusk ? '#1a2038' : '#1a1208']} />
+      <RingPlayEnvironment dusk={dusk} />
       <Suspense fallback={null}>
+        {backdropSrc ? <RingBackdrop src={backdropSrc} /> : null}
         <PlayRing
           impacts={impacts}
           ringZoneOffsetRef={ringZoneOffsetRef}

@@ -52,6 +52,11 @@ const KO_WIDTH_MAX = 1.12;
 const REF_CHARACTER_ID = 'default';
 const REF_HEAD_WIDTH_MIN = 0.96;
 const REF_HEAD_WIDTH_MAX = 1.04;
+/** Packs with tall hair / long chin are intentionally smaller so they fit the head slot. */
+const REF_HEAD_WIDTH_MIN_BY_ID: Record<string, number> = {
+  'king-of-the-north': 0.60,
+  bozza: 0.60,
+};
 /** Clown pupil disk: min fraction of near-black (or white glint) pixels. */
 const CLOWN_BLACK_MIN = 0.72;
 /** Max mean RGB delta (cheek) between clean and clown — guards whiteface regression. */
@@ -360,11 +365,12 @@ async function checkCharacter(id, refCleanSpan) {
   const cleanSpan = spanAtY(clean.data, 0.55);
   if (refCleanSpan && cleanSpan && id !== REF_CHARACTER_ID) {
     const ratio = cleanSpan.w / refCleanSpan.w;
-    if (ratio < REF_HEAD_WIDTH_MIN || ratio > REF_HEAD_WIDTH_MAX) {
+    const min = REF_HEAD_WIDTH_MIN_BY_ID[id] ?? REF_HEAD_WIDTH_MIN;
+    if (ratio < min || ratio > REF_HEAD_WIDTH_MAX) {
       fail(
         id,
         `clean mid-face width ratio ${ratio.toFixed(3)} vs ${REF_CHARACTER_ID} ` +
-          `(need ${REF_HEAD_WIDTH_MIN}–${REF_HEAD_WIDTH_MAX}) — scale clean/ooh/KO to Default head size before baking`
+          `(need ${min}–${REF_HEAD_WIDTH_MAX}) — scale clean/ooh/KO to Default head size before baking`
       );
     }
   }

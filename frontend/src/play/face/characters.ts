@@ -38,6 +38,13 @@ export interface CharacterDef {
   boboDamageStageSrcs: readonly string[];
   boboHoldSrc: string;
   boboKoSrc: string;
+  /**
+   * Extra ring-partner head scale on top of the shared calibration chain.
+   * Use < 1 when a pack’s silhouette (tall hair / long chin) overflows the head slot.
+   */
+  faceScale?: number;
+  /** Optional ring play backdrop image (shown behind the far ropes). */
+  ringBackdropSrc?: string;
   /** True for user photo faces (can be deleted). */
   isPhotoFace?: boolean;
   /** Highlighter eye marks — animate pop-out eyes on punch when set. */
@@ -59,7 +66,11 @@ function characterFaceRoot(id: StockCharacterId): string {
   return `/faces/characters/${id}`;
 }
 
-function makeCharacter(id: StockCharacterId, name: string): CharacterDef {
+function makeCharacter(
+  id: StockCharacterId,
+  name: string,
+  extras: { faceScale?: number; ringBackdropSrc?: string } = {}
+): CharacterDef {
   const root = characterFaceRoot(id);
   const damage = `${root}/damage-stages`;
   const cleanSrc = assetUrl(`${root}/clean.png`);
@@ -83,16 +94,25 @@ function makeCharacter(id: StockCharacterId, name: string): CharacterDef {
     boboDamageStageSrcs: damageStageSrcs,
     boboHoldSrc: assetUrl(`${damage}/09-hold.png`),
     boboKoSrc: assetUrl(`${damage}/10-knockout.png`),
+    ...extras,
   };
 }
+
+const PARLIAMENT_BACKDROP = assetUrl('/backdrops/houses-of-parliament.png');
 
 export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   default: makeCharacter('default', 'Default Boxer'),
   byson: makeCharacter('byson', 'Byson'),
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick'),
   'the-don': makeCharacter('the-don', 'The Don'),
-  'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North'),
-  bozza: makeCharacter('bozza', 'Bozza'),
+  'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North', {
+    faceScale: 0.92,
+    ringBackdropSrc: PARLIAMENT_BACKDROP,
+  }),
+  bozza: makeCharacter('bozza', 'Bozza', {
+    faceScale: 0.92,
+    ringBackdropSrc: PARLIAMENT_BACKDROP,
+  }),
 };
 
 export const CHARACTER_LIST: CharacterDef[] = [
