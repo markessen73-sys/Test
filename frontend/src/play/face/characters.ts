@@ -7,7 +7,13 @@ import { isPhotoCharacterId, type FaceFeatureMark } from '../../face-capture/cus
  * `public/faces/README.md`) so LM alignment, Default head size, KO scale,
  * natural-skin clown + curly wig, and pupils match pack conventions.
  */
-export type StockCharacterId = 'default' | 'byson' | 'tin-mick' | 'the-don' | 'king-of-the-north';
+export type StockCharacterId =
+  | 'default'
+  | 'byson'
+  | 'tin-mick'
+  | 'the-don'
+  | 'king-of-the-north'
+  | 'bozza';
 
 /** Stock pack id, or `photo-<uuid>` for a user-uploaded face. */
 export type CharacterId = StockCharacterId | (string & {});
@@ -86,6 +92,7 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick'),
   'the-don': makeCharacter('the-don', 'The Don'),
   'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North'),
+  bozza: makeCharacter('bozza', 'Bozza'),
 };
 
 export const CHARACTER_LIST: CharacterDef[] = [
@@ -94,6 +101,7 @@ export const CHARACTER_LIST: CharacterDef[] = [
   CHARACTERS['tin-mick'],
   CHARACTERS['the-don'],
   CHARACTERS['king-of-the-north'],
+  CHARACTERS.bozza,
 ];
 
 export const DEFAULT_CHARACTER_ID: StockCharacterId = 'default';
@@ -106,7 +114,8 @@ export function isStockCharacterId(value: string | null | undefined): value is S
     value === 'byson' ||
     value === 'tin-mick' ||
     value === 'the-don' ||
-    value === 'king-of-the-north'
+    value === 'king-of-the-north' ||
+    value === 'bozza'
   );
 }
 

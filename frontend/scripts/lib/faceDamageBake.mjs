@@ -48,7 +48,25 @@ export function isLineArt(r, g, b) {
   return Math.max(r, g, b) < 55;
 }
 export function isIris(r, g, b) {
-  return g > 70 && g >= r - 5 && g > b + 5;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const chroma = max - min;
+  // Ignore near-gray / very bright (sclera-ish) pixels.
+  if (chroma < 18 || max > 235) return false;
+
+  // Green (Default): G dominant over R/B.
+  if (g > 70 && g >= r - 5 && g > b + 5) return true;
+
+  // Blue / blue-gray (The Don, Bozza, King Of The North).
+  if (b > 75 && b >= g - 8 && b > r + 18 && g > 50 && r < 160) return true;
+
+  // Brown / amber / dark brown (Byson, Tin Mick): warm, modest luminance.
+  // Cap max so bright ginger beard / peach / tan cheeks stay out.
+  if (r >= g && g >= b && max <= 115 && chroma >= 25 && b < 50 && g < r * 0.85) {
+    return true;
+  }
+
+  return false;
 }
 export function isSclera(r, g, b) {
   return r > 200 && g > 200 && b > 200 && Math.max(r, g, b) - Math.min(r, g, b) < 30;
