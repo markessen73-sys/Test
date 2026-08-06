@@ -23,24 +23,24 @@ import {
 import type { PunchImpact } from './punchImpact';
 import { useCharacter } from './face/CharacterContext';
 
-function RingPlayEnvironment({ dusk = false }: { dusk?: boolean }) {
-  const fogColor = dusk ? '#1a2038' : '#1a1208';
+function RingPlayEnvironment({ themed = false }: { themed?: boolean }) {
+  const fogColor = themed ? '#2a1410' : '#1a1208';
   return (
     <>
-      <ambientLight intensity={dusk ? 0.42 : 0.52} color={dusk ? '#C8D4F0' : '#FFE4B5'} />
+      <ambientLight intensity={themed ? 0.48 : 0.52} color={themed ? '#FFD4B8' : '#FFE4B5'} />
       <directionalLight
         position={[0, 7, -1]}
-        intensity={dusk ? 0.85 : 1.15}
-        color={dusk ? '#A8B8E0' : '#FFD699'}
+        intensity={themed ? 1.05 : 1.15}
+        color={themed ? '#FFC98A' : '#FFD699'}
         castShadow
       />
       <pointLight
         position={[0, 4, RING_GROUP_ORIGIN_Z]}
-        intensity={dusk ? 7 : 9}
-        color={dusk ? '#FFE8C8' : '#FFF0D0'}
+        intensity={themed ? 8 : 9}
+        color={themed ? '#FFE0B8' : '#FFF0D0'}
         distance={22}
       />
-      <fog attach="fog" args={[fogColor, dusk ? 14 : 8, dusk ? 42 : 28]} />
+      <fog attach="fog" args={[fogColor, themed ? 12 : 8, themed ? 40 : 28]} />
     </>
   );
 }
@@ -55,11 +55,12 @@ function RingBackdrop({ src }: { src: string }) {
   }, [texture]);
 
   // Far side of the ring sits near world z ≈ RING_GROUP_ORIGIN_Z + RING_HALF.
-  // Place the plate further past that so it reads as cityscape behind the ropes.
+  // Place the plate further past that so it reads behind the ropes.
   const z = RING_GROUP_ORIGIN_Z + RING_HALF + 6.5;
+  // Match images-8.jpeg aspect (~16:10).
   return (
-    <mesh position={[0, 4.2, z]} renderOrder={-1}>
-      <planeGeometry args={[28, 12]} />
+    <mesh position={[0, 4.6, z]} renderOrder={-1}>
+      <planeGeometry args={[32, 20]} />
       <meshBasicMaterial map={texture} toneMapped={false} depthWrite={false} />
     </mesh>
   );
@@ -195,20 +196,20 @@ export function RingPlayScene({
   const cam = RING_PLAY_CAMERA;
   const { character } = useCharacter();
   const backdropSrc = character.ringBackdropSrc;
-  const dusk = Boolean(backdropSrc);
+  const themed = Boolean(backdropSrc);
 
   return (
     <Canvas
       shadows
-      camera={{ position: cam.position, fov: cam.fov, near: 0.1, far: dusk ? 60 : 40 }}
+      camera={{ position: cam.position, fov: cam.fov, near: 0.1, far: themed ? 60 : 40 }}
       onCreated={({ camera }) => {
         camera.lookAt(...cam.lookAt);
       }}
       style={{ width: '100%', height: '100%', touchAction: 'none' }}
       gl={{ antialias: true, alpha: false }}
     >
-      <color attach="background" args={[dusk ? '#1a2038' : '#1a1208']} />
-      <RingPlayEnvironment dusk={dusk} />
+      <color attach="background" args={[themed ? '#2a1410' : '#1a1208']} />
+      <RingPlayEnvironment themed={themed} />
       <Suspense fallback={null}>
         {backdropSrc ? <RingBackdrop src={backdropSrc} /> : null}
         <PlayRing

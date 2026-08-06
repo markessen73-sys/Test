@@ -98,7 +98,7 @@ function makeCharacter(
   };
 }
 
-const PARLIAMENT_BACKDROP = assetUrl('/backdrops/houses-of-parliament.png');
+const RING_BACKDROP = assetUrl('/backdrops/images-8.jpeg');
 
 export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   default: makeCharacter('default', 'Default Boxer'),
@@ -106,12 +106,13 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick'),
   'the-don': makeCharacter('the-don', 'The Don'),
   'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North', {
-    faceScale: 0.92,
-    ringBackdropSrc: PARLIAMENT_BACKDROP,
+    // Pack is taller than Default (hair/chin), so mid-face stays smaller; boost on the ring.
+    faceScale: 1.28,
+    ringBackdropSrc: RING_BACKDROP,
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
-    faceScale: 0.92,
-    ringBackdropSrc: PARLIAMENT_BACKDROP,
+    faceScale: 1.06,
+    ringBackdropSrc: RING_BACKDROP,
   }),
 };
 
