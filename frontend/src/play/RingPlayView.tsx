@@ -79,6 +79,7 @@ export function RingPlayView({ onBack }: RingPlayViewProps) {
           />
         </>
       }
+      canvasBackdropSrc={character.ringBackdropSrc}
       canvas={
         <RingPlayScene
           impacts={impacts}

@@ -12,6 +12,8 @@ export interface GlovesPlayShellProps {
   punchCount: number;
   hint: ReactNode;
   canvas: ReactNode;
+  /** Optional full-bleed photo behind the WebGL canvas (e.g. ring Lords backdrop). */
+  canvasBackdropSrc?: string;
   /** Optional overlay (e.g. ring damage meter) — rendered inside `.play-ui`. */
   hudExtra?: ReactNode;
   left: GloveState;
@@ -32,6 +34,7 @@ export function GlovesPlayShell({
   punchCount,
   hint,
   canvas,
+  canvasBackdropSrc,
   hudExtra,
   left,
   right,
@@ -60,6 +63,13 @@ export function GlovesPlayShell({
       onPointerUp={onRootUp}
       onPointerCancel={onRootUp}
     >
+      {canvasBackdropSrc ? (
+        <div
+          className="play-canvas-backdrop"
+          style={{ backgroundImage: `url(${canvasBackdropSrc})` }}
+          aria-hidden
+        />
+      ) : null}
       <div className="play-canvas">{canvas}</div>
 
       <SlugTrailCanvas left={left} right={right} />

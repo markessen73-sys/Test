@@ -750,6 +750,18 @@ textarea {
   pointer-events: none;
 }
 
+/** Full-screen photo behind the transparent WebGL ring canvas. */
+.play-canvas-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: #2a1410;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 .slug-trail-canvas {
   position: absolute;
   inset: 0;

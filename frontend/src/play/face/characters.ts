@@ -111,7 +111,7 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
     ringBackdropSrc: RING_BACKDROP,
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
-    faceScale: 1.14,
+    faceScale: 1.85,
     ringBackdropSrc: RING_BACKDROP,
   }),
 };

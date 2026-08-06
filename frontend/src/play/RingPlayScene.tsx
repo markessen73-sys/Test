@@ -1,6 +1,6 @@
-import { Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { Suspense, useEffect, useRef, useState, type RefObject } from 'react';
 import type { GlovePosition } from '../types/game';
-import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SparringPartner, RING_CANVAS_SURFACE_Y, RING_SPRITE_SCALE } from '../gym/SparringPartner';
 import { ringZoneScreenOffset } from './ringImpact';
@@ -24,13 +24,12 @@ import type { PunchImpact } from './punchImpact';
 import { useCharacter } from './face/CharacterContext';
 
 function RingPlayEnvironment({ themed = false }: { themed?: boolean }) {
-  const fogColor = themed ? '#2a1410' : '#1a1208';
   return (
     <>
-      <ambientLight intensity={themed ? 0.55 : 0.52} color={themed ? '#FFD4B8' : '#FFE4B5'} />
+      <ambientLight intensity={themed ? 0.58 : 0.52} color={themed ? '#FFD4B8' : '#FFE4B5'} />
       <directionalLight
         position={[0, 7, -1]}
-        intensity={themed ? 1.1 : 1.15}
+        intensity={themed ? 1.15 : 1.15}
         color={themed ? '#FFC98A' : '#FFD699'}
         castShadow
       />
@@ -40,73 +39,9 @@ function RingPlayEnvironment({ themed = false }: { themed?: boolean }) {
         color={themed ? '#FFE0B8' : '#FFF0D0'}
         distance={22}
       />
-      <fog attach="fog" args={[fogColor, themed ? 20 : 8, themed ? 60 : 28]} />
+      {/* No far fog when themed — CSS backdrop must stay crisp behind the transparent canvas */}
+      {themed ? null : <fog attach="fog" args={['#1a1208', 8, 28]} />}
     </>
-  );
-}
-
-/**
- * Full-bleed photo behind the far ropes.
- * Billboard faces the camera and is sized so the entire image fits in view
- * (contain — no cropping of the Lords chamber photo).
- */
-function RingBackdrop({ src }: { src: string }) {
-  const texture = useLoader(THREE.TextureLoader, src);
-  const meshRef = useRef<THREE.Mesh>(null);
-  const { camera, size } = useThree();
-
-  useEffect(() => {
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = 8;
-    texture.wrapS = THREE.ClampToEdgeWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
-    texture.needsUpdate = true;
-  }, [texture]);
-
-  const imgAspect = useMemo(() => {
-    const img = texture.image as { width?: number; height?: number } | undefined;
-    if (img?.width && img?.height) return img.width / img.height;
-    return 1920 / 1195;
-  }, [texture]);
-
-  useFrame(() => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
-
-    // Sit just past the far (+Z) ropes, centered on the ring.
-    const z = RING_GROUP_ORIGIN_Z + RING_HALF + 3.5;
-    const y = 3.4;
-    mesh.position.set(0, y, z);
-    mesh.lookAt(camera.position);
-
-    // Distance from camera to plane centre.
-    const dist = mesh.position.distanceTo(camera.position);
-    const vFov = ((camera as THREE.PerspectiveCamera).fov * Math.PI) / 180;
-    const viewH = 2 * Math.tan(vFov / 2) * dist;
-    const viewW = viewH * (size.width / Math.max(1, size.height));
-
-    // Contain: whole image visible, may letterbox inside the view.
-    let planeH = viewH * 0.98;
-    let planeW = planeH * imgAspect;
-    if (planeW > viewW * 0.98) {
-      planeW = viewW * 0.98;
-      planeH = planeW / imgAspect;
-    }
-    mesh.scale.set(planeW, planeH, 1);
-  });
-
-  return (
-    <mesh ref={meshRef} renderOrder={-1}>
-      {/* Unit plane — sized via scale in useFrame */}
-      <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial
-        map={texture}
-        toneMapped={false}
-        depthWrite={false}
-        side={THREE.DoubleSide}
-        fog={false}
-      />
-    </mesh>
   );
 }
 
@@ -235,20 +170,22 @@ export function RingPlayScene({
 }: RingPlaySceneProps) {
   const cam = RING_PLAY_CAMERA;
   const { character } = useCharacter();
-  const backdropSrc = character.ringBackdropSrc;
-  const themed = Boolean(backdropSrc);
+  const themed = Boolean(character.ringBackdropSrc);
 
   return (
     <Canvas
       shadows
-      camera={{ position: cam.position, fov: cam.fov, near: 0.1, far: themed ? 80 : 40 }}
-      onCreated={({ camera }) => {
+      camera={{ position: cam.position, fov: cam.fov, near: 0.1, far: 40 }}
+      onCreated={({ camera, gl }) => {
         camera.lookAt(...cam.lookAt);
+        if (themed) {
+          gl.setClearColor(0x000000, 0);
+        }
       }}
-      style={{ width: '100%', height: '100%', touchAction: 'none' }}
-      gl={{ antialias: true, alpha: false }}
+      style={{ width: '100%', height: '100%', touchAction: 'none', background: 'transparent' }}
+      gl={{ antialias: true, alpha: themed }}
     >
-      <color attach="background" args={[themed ? '#2a1410' : '#1a1208']} />
+      {themed ? null : <color attach="background" args={['#1a1208']} />}
       <RingPlayEnvironment themed={themed} />
       <Suspense fallback={null}>
         <PlayRing
@@ -257,11 +194,6 @@ export function RingPlayScene({
           knockedOut={knockedOut}
         />
       </Suspense>
-      {backdropSrc ? (
-        <Suspense fallback={null}>
-          <RingBackdrop src={backdropSrc} />
-        </Suspense>
-      ) : null}
     </Canvas>
   );
 }
