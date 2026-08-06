@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState, type RefObject } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type { GlovePosition } from '../types/game';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -40,26 +40,65 @@ function RingPlayEnvironment({ themed = false }: { themed?: boolean }) {
         color={themed ? '#FFE0B8' : '#FFF0D0'}
         distance={22}
       />
-      {/* Keep fog short of the backdrop so the Lords chamber stays readable */}
-      <fog attach="fog" args={[fogColor, themed ? 18 : 8, themed ? 55 : 28]} />
+      <fog attach="fog" args={[fogColor, themed ? 20 : 8, themed ? 60 : 28]} />
     </>
   );
 }
 
-/** Wide backdrop plane past the far ropes — faces the player corner camera. */
+/**
+ * Full-bleed photo behind the far ropes.
+ * Billboard faces the camera and is sized so the entire image fits in view
+ * (contain — no cropping of the Lords chamber photo).
+ */
 function RingBackdrop({ src }: { src: string }) {
   const texture = useLoader(THREE.TextureLoader, src);
+  const meshRef = useRef<THREE.Mesh>(null);
+  const { camera, size } = useThree();
+
   useEffect(() => {
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = 8;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
     texture.needsUpdate = true;
   }, [texture]);
 
-  // Just behind the far (+Z) ropes so it fills the view past the partner.
-  const z = RING_GROUP_ORIGIN_Z + RING_HALF + 2.2;
+  const imgAspect = useMemo(() => {
+    const img = texture.image as { width?: number; height?: number } | undefined;
+    if (img?.width && img?.height) return img.width / img.height;
+    return 1920 / 1195;
+  }, [texture]);
+
+  useFrame(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+
+    // Sit just past the far (+Z) ropes, centered on the ring.
+    const z = RING_GROUP_ORIGIN_Z + RING_HALF + 3.5;
+    const y = 3.4;
+    mesh.position.set(0, y, z);
+    mesh.lookAt(camera.position);
+
+    // Distance from camera to plane centre.
+    const dist = mesh.position.distanceTo(camera.position);
+    const vFov = ((camera as THREE.PerspectiveCamera).fov * Math.PI) / 180;
+    const viewH = 2 * Math.tan(vFov / 2) * dist;
+    const viewW = viewH * (size.width / Math.max(1, size.height));
+
+    // Contain: whole image visible, may letterbox inside the view.
+    let planeH = viewH * 0.98;
+    let planeW = planeH * imgAspect;
+    if (planeW > viewW * 0.98) {
+      planeW = viewW * 0.98;
+      planeH = planeW / imgAspect;
+    }
+    mesh.scale.set(planeW, planeH, 1);
+  });
+
   return (
-    <mesh position={[1.2, 3.8, z]} rotation={[0, Math.PI, 0]} renderOrder={-1}>
-      <planeGeometry args={[36, 22]} />
+    <mesh ref={meshRef} renderOrder={-1}>
+      {/* Unit plane — sized via scale in useFrame */}
+      <planeGeometry args={[1, 1]} />
       <meshBasicMaterial
         map={texture}
         toneMapped={false}
@@ -134,7 +173,6 @@ function PlayRing({
 
       {postPositions.flatMap((x) =>
         postPositions.map((z) => {
-          // Back-right post sits in the player corner — keep it off-camera.
           if (x > 0 && z < 0) return null;
           return (
             <group key={`${x}-${z}`} position={[x, 0.22, z]}>
@@ -149,12 +187,10 @@ function PlayRing({
 
       {RING_ROPE_HEIGHTS.map((y, li) => (
         <group key={li} position={[0, y, 0]}>
-          {/* Far side (+Z) — visible across the ring */}
           <mesh position={[0, 0, postInset]}>
             <boxGeometry args={[RING_ROPE_SPAN, 0.055, 0.055]} />
             <meshStandardMaterial color={li === 1 ? rope : '#990000'} />
           </mesh>
-          {/* Left side (-X) — visible from the player corner */}
           <mesh position={[-postInset, 0, 0]}>
             <boxGeometry args={[0.055, 0.055, RING_ROPE_SPAN]} />
             <meshStandardMaterial color={li === 1 ? rope : '#990000'} />
@@ -162,7 +198,6 @@ function PlayRing({
         </group>
       ))}
 
-      {/* Player corner pad (back-right) */}
       <mesh position={[...RING_PLAYER_CORNER_PAD]} rotation={[0, RING_PARTNER_YAW, 0]}>
         <boxGeometry args={[RING_CORNER_PAD_SIZE, 0.035, RING_CORNER_PAD_SIZE]} />
         <meshStandardMaterial color="#B80000" roughness={0.85} />
@@ -206,7 +241,7 @@ export function RingPlayScene({
   return (
     <Canvas
       shadows
-      camera={{ position: cam.position, fov: cam.fov, near: 0.1, far: themed ? 60 : 40 }}
+      camera={{ position: cam.position, fov: cam.fov, near: 0.1, far: themed ? 80 : 40 }}
       onCreated={({ camera }) => {
         camera.lookAt(...cam.lookAt);
       }}

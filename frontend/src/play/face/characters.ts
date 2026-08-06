@@ -106,12 +106,12 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick'),
   'the-don': makeCharacter('the-don', 'The Don'),
   'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North', {
-    // Taller silhouette can't match Default mid-face in-canvas; boost ring decal.
-    faceScale: 1.55,
+    // Slightly smaller in-canvas to keep hair/chin margins + LM; boost on ring.
+    faceScale: 1.22,
     ringBackdropSrc: RING_BACKDROP,
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
-    faceScale: 1.28,
+    faceScale: 1.06,
     ringBackdropSrc: RING_BACKDROP,
   }),
 };
