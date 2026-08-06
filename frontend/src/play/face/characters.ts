@@ -106,11 +106,9 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick'),
   'the-don': makeCharacter('the-don', 'The Don'),
   'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North', {
-    faceScale: 0.92,
     ringBackdropSrc: PARLIAMENT_BACKDROP,
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
-    faceScale: 0.92,
     ringBackdropSrc: PARLIAMENT_BACKDROP,
   }),
 };

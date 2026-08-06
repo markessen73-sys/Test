@@ -58,9 +58,9 @@ function RingBackdrop({ src }: { src: string }) {
   // Place the plate further past that so it reads as cityscape behind the ropes.
   const z = RING_GROUP_ORIGIN_Z + RING_HALF + 6.5;
   return (
-    <mesh position={[0, 4.2, z]} renderOrder={-1}>
+    <mesh position={[0, 4.2, z]} rotation={[0, Math.PI, 0]} renderOrder={-1}>
       <planeGeometry args={[28, 12]} />
-      <meshBasicMaterial map={texture} toneMapped={false} depthWrite={false} />
+      <meshBasicMaterial map={texture} toneMapped={false} depthWrite={false} side={THREE.DoubleSide} />
     </mesh>
   );
 }
