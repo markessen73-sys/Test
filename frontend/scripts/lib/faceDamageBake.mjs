@@ -60,6 +60,19 @@ export function isIris(r, g, b) {
   // Blue / blue-gray (The Don, Bozza, King Of The North).
   if (b > 75 && b >= g - 8 && b > r + 18 && g > 50 && r < 160) return true;
 
+  // Dark gray / hazel pupils behind glasses (King Of The North).
+  if (
+    max <= 105 &&
+    max >= 28 &&
+    chroma >= 12 &&
+    chroma <= 55 &&
+    r >= g - 5 &&
+    g >= b - 8 &&
+    b < 70
+  ) {
+    return true;
+  }
+
   // Brown / amber / dark brown (Byson, Tin Mick): warm, modest luminance.
   // Cap max so bright ginger beard / peach / tan cheeks stay out.
   if (r >= g && g >= b && max <= 115 && chroma >= 25 && b < 50 && g < r * 0.85) {

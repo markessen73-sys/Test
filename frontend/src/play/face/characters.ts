@@ -106,13 +106,9 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick'),
   'the-don': makeCharacter('the-don', 'The Don'),
   'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North', {
-    // Pack keeps hair/chin margins (~0.52× Default mid-face); boost on the ring.
-    faceScale: 1.93,
     ringBackdropSrc: RING_BACKDROP,
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
-    // Pack keeps large hair margins (~0.5× Default mid-face); boost on the ring.
-    faceScale: 2.35,
     ringBackdropSrc: RING_BACKDROP,
   }),
 };
