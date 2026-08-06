@@ -111,7 +111,8 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
     ringBackdropSrc: RING_BACKDROP,
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
-    faceScale: 1.85,
+    // Pack keeps large hair margins (~0.5× Default mid-face); boost on the ring.
+    faceScale: 2.35,
     ringBackdropSrc: RING_BACKDROP,
   }),
 };
