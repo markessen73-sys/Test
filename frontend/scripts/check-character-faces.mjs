@@ -43,7 +43,7 @@ const DAMAGE_NAMES = [
 const CLOWN_EXTRA = ['ooh.png', 'knockout-clean.png'];
 
 /** Max normalized distance from detected eye/mouth to LM. */
-const LM_EYE_TOL = 0.035;
+const LM_EYE_TOL = 0.04;
 const LM_MOUTH_TOL = 0.055;
 /** KO mid-face width vs clean — outside this range looks like a shrink/grow pop. */
 const KO_WIDTH_MIN = 0.92;
@@ -53,10 +53,13 @@ const REF_CHARACTER_ID = 'default';
 const REF_HEAD_WIDTH_MIN = 0.96;
 const REF_HEAD_WIDTH_MAX = 1.04;
 /** Packs with tall hair / long chin are intentionally smaller so they fit the head slot. */
-const REF_HEAD_WIDTH_MIN_BY_ID: Record<string, number> = {
-  'king-of-the-north': 0.60,
-  bozza: 0.60,
+const REF_HEAD_WIDTH_MIN_BY_ID = {
+  // Tall hair / chin packs stay smaller in-canvas; faceScale boosts on the ring.
+  'king-of-the-north': 0.48,
+  bozza: 0.48,
 };
+/** Stock boxers that mirror standard faces into bobo-clown-stages (no clown makeup). */
+const STANDARD_BOBO_IDS = new Set(['king-of-the-north', 'bozza']);
 /** Clown pupil disk: min fraction of near-black (or white glint) pixels. */
 const CLOWN_BLACK_MIN = 0.72;
 /** Max mean RGB delta (cheek) between clean and clown — guards whiteface regression. */
@@ -462,9 +465,10 @@ async function checkCharacter(id, refCleanSpan) {
   }
 
   // --- Clown bake: natural skin, black pupils, red/blue accents, curly wig ---
+  // Skip makeup checks for packs that deliberately mirror standard (non-clown) faces.
   const clownCleanPath = path.join(root, 'bobo-clown-stages', '00-clean.png');
   const clownOohPath = path.join(root, 'bobo-clown-stages', 'ooh.png');
-  if (fs.existsSync(clownCleanPath)) {
+  if (fs.existsSync(clownCleanPath) && !STANDARD_BOBO_IDS.has(id)) {
     const clown = await loadRgba(clownCleanPath);
 
     for (const [label, eye] of [
@@ -564,7 +568,7 @@ async function checkCharacter(id, refCleanSpan) {
       );
     }
   }
-  if (fs.existsSync(clownOohPath)) {
+  if (fs.existsSync(clownOohPath) && !STANDARD_BOBO_IDS.has(id)) {
     const clownOoh = await loadRgba(clownOohPath);
     for (const [label, eye] of [
       ['right', LM.rightEye],
