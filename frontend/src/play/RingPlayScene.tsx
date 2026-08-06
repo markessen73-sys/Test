@@ -27,10 +27,10 @@ function RingPlayEnvironment({ themed = false }: { themed?: boolean }) {
   const fogColor = themed ? '#2a1410' : '#1a1208';
   return (
     <>
-      <ambientLight intensity={themed ? 0.48 : 0.52} color={themed ? '#FFD4B8' : '#FFE4B5'} />
+      <ambientLight intensity={themed ? 0.55 : 0.52} color={themed ? '#FFD4B8' : '#FFE4B5'} />
       <directionalLight
         position={[0, 7, -1]}
-        intensity={themed ? 1.05 : 1.15}
+        intensity={themed ? 1.1 : 1.15}
         color={themed ? '#FFC98A' : '#FFD699'}
         castShadow
       />
@@ -40,12 +40,13 @@ function RingPlayEnvironment({ themed = false }: { themed?: boolean }) {
         color={themed ? '#FFE0B8' : '#FFF0D0'}
         distance={22}
       />
-      <fog attach="fog" args={[fogColor, themed ? 12 : 8, themed ? 40 : 28]} />
+      {/* Keep fog short of the backdrop so the Lords chamber stays readable */}
+      <fog attach="fog" args={[fogColor, themed ? 18 : 8, themed ? 55 : 28]} />
     </>
   );
 }
 
-/** Wide backdrop plane past the far ropes (world +Z from the player corner). */
+/** Wide backdrop plane past the far ropes — faces the player corner camera. */
 function RingBackdrop({ src }: { src: string }) {
   const texture = useLoader(THREE.TextureLoader, src);
   useEffect(() => {
@@ -54,14 +55,18 @@ function RingBackdrop({ src }: { src: string }) {
     texture.needsUpdate = true;
   }, [texture]);
 
-  // Far side of the ring sits near world z ≈ RING_GROUP_ORIGIN_Z + RING_HALF.
-  // Place the plate further past that so it reads behind the ropes.
-  const z = RING_GROUP_ORIGIN_Z + RING_HALF + 6.5;
-  // Match images-8.jpeg aspect (~16:10).
+  // Just behind the far (+Z) ropes so it fills the view past the partner.
+  const z = RING_GROUP_ORIGIN_Z + RING_HALF + 2.2;
   return (
-    <mesh position={[0, 4.6, z]} renderOrder={-1}>
-      <planeGeometry args={[32, 20]} />
-      <meshBasicMaterial map={texture} toneMapped={false} depthWrite={false} />
+    <mesh position={[1.2, 3.8, z]} rotation={[0, Math.PI, 0]} renderOrder={-1}>
+      <planeGeometry args={[36, 22]} />
+      <meshBasicMaterial
+        map={texture}
+        toneMapped={false}
+        depthWrite={false}
+        side={THREE.DoubleSide}
+        fog={false}
+      />
     </mesh>
   );
 }
@@ -211,13 +216,17 @@ export function RingPlayScene({
       <color attach="background" args={[themed ? '#2a1410' : '#1a1208']} />
       <RingPlayEnvironment themed={themed} />
       <Suspense fallback={null}>
-        {backdropSrc ? <RingBackdrop src={backdropSrc} /> : null}
         <PlayRing
           impacts={impacts}
           ringZoneOffsetRef={ringZoneOffsetRef}
           knockedOut={knockedOut}
         />
       </Suspense>
+      {backdropSrc ? (
+        <Suspense fallback={null}>
+          <RingBackdrop src={backdropSrc} />
+        </Suspense>
+      ) : null}
     </Canvas>
   );
 }
