@@ -52,10 +52,10 @@ const KO_WIDTH_MAX = 1.12;
 const REF_CHARACTER_ID = 'default';
 const REF_HEAD_WIDTH_MIN = 0.96;
 const REF_HEAD_WIDTH_MAX = 1.04;
-/** Packs with tall hair / long chin are intentionally smaller so they fit the head slot. */
-const REF_HEAD_WIDTH_MIN_BY_ID: Record<string, number> = {
-  'king-of-the-north': 0.60,
-  bozza: 0.60,
+/** Packs with tall hair / long chin may need a lower minimum after rescaling. */
+const REF_HEAD_WIDTH_MIN_BY_ID = {
+  'king-of-the-north': 0.96,
+  bozza: 0.96,
 };
 /** Clown pupil disk: min fraction of near-black (or white glint) pixels. */
 const CLOWN_BLACK_MIN = 0.72;
