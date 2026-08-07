@@ -14,7 +14,8 @@ export type BodyStyleId =
   | 'body-08'
   | 'body-09'
   | 'body-10'
-  | 'body-11';
+  | 'body-11'
+  | 'body-12';
 
 export interface BodyStyle {
   id: BodyStyleId;
@@ -152,6 +153,15 @@ export const BODY_STYLES: Record<BodyStyleId, BodyStyle> = {
     [0.3981, 0.031, 0.6029, 0.161],
     0.0124
   ),
+  'body-12': body(
+    'body-12',
+    'Foxy Thong',
+    '/boxer/bodies/body-12.png',
+    '/boxer/bodies/body-12-thumb.png',
+    // Blank head slot on the regenerated Foxy pose (gloves-up guard).
+    [0.4082, 0.0215, 0.6064, 0.179],
+    0.0664
+  ),
 };
 
 export const BODY_STYLE_LIST: BodyStyle[] = [
@@ -167,6 +177,7 @@ export const BODY_STYLE_LIST: BodyStyle[] = [
   BODY_STYLES['body-09'],
   BODY_STYLES['body-10'],
   BODY_STYLES['body-11'],
+  BODY_STYLES['body-12'],
 ];
 
 export const DEFAULT_BODY_STYLE_ID: BodyStyleId = 'generic';
