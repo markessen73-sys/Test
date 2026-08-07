@@ -232,28 +232,9 @@ function fillInteriorHoles(data) {
   return n;
 }
 
-function softNeckFade(data) {
-  const bb = opaqueBBox(data);
-  if (!bb) return;
-  // Short hard-ish fade — long fades read as see-through on the ring backdrop.
-  const chinY = bb.y0 + (bb.y1 - bb.y0) * 0.96;
-  const fadeEnd = Math.min(H - 1, bb.y1 + 1);
-  for (let y = Math.floor(chinY); y < H; y++) {
-    const t = y >= fadeEnd ? 0 : 1 - (y - chinY) / Math.max(1, fadeEnd - chinY);
-    for (let x = 0; x < W; x++) {
-      const i = (y * W + x) * 4;
-      data[i + 3] = Math.round(data[i + 3] * Math.max(0, t));
-    }
-  }
-  // Crush leftover semi-transparent fringe at the chin to fully opaque or gone.
-  for (let y = bb.y0; y <= bb.y1; y++) {
-    for (let x = bb.x0; x <= bb.x1; x++) {
-      const i = (y * W + x) * 4;
-      const a = data[i + 3];
-      if (a > 0 && a < 80) data[i + 3] = 0;
-      else if (a >= 80 && a < 230) data[i + 3] = 255;
-    }
-  }
+function softNeckFade(_data) {
+  // Premade stock packs keep a hard chin/neck edge.
+  // Content-aware neck fade is only for user-uploaded photo faces.
 }
 
 function removeSpeckles(data) {

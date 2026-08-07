@@ -110,18 +110,9 @@ function spanAtY(data, fy) {
   return x0 < x1 ? (x1 - x0) / W : null;
 }
 
-function softNeckFade(data) {
-  const bb = opaqueBBox(data);
-  if (!bb) return;
-  const chinY = bb.y0 + (bb.y1 - bb.y0) * 0.92;
-  const fadeEnd = Math.min(H - 1, bb.y1 + 4);
-  for (let y = Math.floor(chinY); y < H; y++) {
-    const t = y >= fadeEnd ? 0 : 1 - (y - chinY) / Math.max(1, fadeEnd - chinY);
-    for (let x = 0; x < W; x++) {
-      const i = (y * W + x) * 4;
-      data[i + 3] = Math.round(data[i + 3] * Math.max(0, t));
-    }
-  }
+function softNeckFade(_data) {
+  // Premade stock packs keep a hard chin/neck edge.
+  // Content-aware neck fade is only for user-uploaded photo faces.
 }
 
 function removeSpeckles(data) {
