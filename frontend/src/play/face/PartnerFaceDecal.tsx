@@ -3,11 +3,9 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
   FACE_CONTAIN_PAD,
-  blendNeckTowardColor,
   drawFullFaceOnCanvas,
   fillClearInteriorBlack,
   loadFaceImage,
-  sampleBodyNeckColor,
 } from './composeFaceTexture';
 import { useCharacter } from './CharacterContext';
 import {
@@ -65,7 +63,7 @@ interface PartnerFaceDecalProps {
   spriteHeight: number;
   /** Head slot on the active body texture (defaults to generic ring partner). */
   faceRect?: NormRect;
-  /** Body texture URL — used to sample neck/shoulder colour for chin blend. */
+  /** Body texture URL — unused for blending; kept for call-site compatibility. */
   bodyTextureSrc?: string;
   /** Latest landed punch time — swaps to the authored ooh face. */
   lastHitTime?: number;
@@ -77,13 +75,13 @@ interface PartnerFaceDecalProps {
  * Clean 2D caricature on the moving sparring partner.
  * Injuries live on the HUD damage meter. On hit, swap to ooh; at 100% show KO.
  * Photo faces with eye marks animate pop-eyes zooming ½→full.
- * Stock faces: interior clear holes fill black; chin soft-blends toward body colour.
+ * Stock faces: interior clear holes fill black; hard chin edge (no bottom fade).
  */
 export function PartnerFaceDecal({
   spriteWidth,
   spriteHeight,
   faceRect = RING_PARTNER_FACE,
-  bodyTextureSrc,
+  bodyTextureSrc: _bodyTextureSrc,
   lastHitTime = 0,
   knockedOut = false,
 }: PartnerFaceDecalProps) {
@@ -96,7 +94,6 @@ export function PartnerFaceDecal({
   const texRef = useRef<THREE.CanvasTexture | null>(null);
   const popEyesRef = useRef<PopEyePair | null>(null);
   const skinRef = useRef<Rgb | null>(null);
-  const neckColorRef = useRef<Rgb | null>(null);
   const stockFaceRef = useRef(!character.isPhotoFace);
   const knockedOutRef = useRef(knockedOut);
   knockedOutRef.current = knockedOut;
@@ -137,10 +134,6 @@ export function PartnerFaceDecal({
   const finishPaint = (ctx: CanvasRenderingContext2D) => {
     if (stockFaceRef.current) {
       fillClearInteriorBlack(ctx, CANVAS_SIZE, CANVAS_SIZE);
-    }
-    const neck = neckColorRef.current;
-    if (neck) {
-      blendNeckTowardColor(ctx, CANVAS_SIZE, CANVAS_SIZE, neck, 0.09);
     }
   };
 
@@ -190,27 +183,18 @@ export function PartnerFaceDecal({
     setTexture(tex);
 
     skinRef.current = null;
-    neckColorRef.current = null;
     const marks = character.popEyes ?? null;
     popEyesRef.current = marks;
 
-    const faceLoads = Promise.all([
+    Promise.all([
       loadFaceImage(character.cleanSrc),
       loadFaceImage(character.oohSrc),
       loadFaceImage(character.knockoutSrc),
-    ]);
-    const bodyLoad = bodyTextureSrc
-      ? loadFaceImage(bodyTextureSrc)
-          .then((bodyImg) => sampleBodyNeckColor(bodyImg, faceRect))
-          .catch(() => null)
-      : Promise.resolve(null);
-
-    Promise.all([faceLoads, bodyLoad]).then(([[normal, ooh, ko], neck]) => {
+    ]).then(([normal, ooh, ko]) => {
       if (cancelled) return;
       normalRef.current = normal;
       oohRef.current = ooh;
       koRef.current = ko;
-      neckColorRef.current = neck;
       if (marks) {
         skinRef.current = skinFromFaceImage(ooh, marks);
       }
@@ -227,8 +211,6 @@ export function PartnerFaceDecal({
     character.oohSrc,
     character.knockoutSrc,
     character.popEyes,
-    bodyTextureSrc,
-    faceRect,
   ]);
 
   // Hold knockout face once the meter hits 100%.
