@@ -135,9 +135,8 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
     ringBackdropSrc: RING_BACKDROP,
-    // Mid-face was ~0.53 vs Default ~0.63 after margin pad — boost to match.
+    // Mid-face was smaller than Default after margin pad — boost to match.
     faceScale: 1.28,
-    // Pack recentered; slight left/up for ring body slot.
     faceNudgeX: -0.03,
     faceNudgeY: 0.08,
   }),
