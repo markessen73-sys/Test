@@ -112,44 +112,38 @@ const RING_BACKDROP = assetUrl('/backdrops/images-8.jpeg');
 export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   default: makeCharacter('default', 'Default Boxer'),
   'male-boxer': makeCharacter('male-boxer', 'Male Boxer', {
-    // Padded for ooh room (mid ~0.75); mild shrink + raise vs Default.
-    faceScale: 0.97,
-    faceNudgeY: 0.1,
+    faceScale: 1.05,
+    faceNudgeY: 0.08,
   }),
   'female-boxer': makeCharacter('female-boxer', 'Female Boxer', {
-    // Padded full-canvas pack (mid ~0.70); keep near Default visual weight.
-    faceScale: 0.99,
-    faceNudgeY: 0.12,
+    faceScale: 1.06,
+    faceNudgeY: 0.1,
   }),
   byson: makeCharacter('byson', 'Byson'),
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick', {
-    // Shared margin pad shrunk mid slightly — restore Default-ish ring size.
-    faceScale: 1.06,
+    faceScale: 1.08,
   }),
   'the-don': makeCharacter('the-don', 'The Don', {
-    faceScale: 1.07,
+    faceScale: 1.1,
   }),
   'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North', {
     ringBackdropSrc: RING_BACKDROP,
-    // Tall hair + ooh padding → mid ~0.60; boost to ~Default visual weight.
-    faceScale: 1.2,
-    faceNudgeY: 0.08,
+    faceScale: 1.18,
+    faceNudgeY: 0.06,
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
     ringBackdropSrc: RING_BACKDROP,
-    // Ooh was edge-clipped; shared pad shrunk mid — slight ring boost.
-    faceScale: 1.04,
+    faceScale: 1.12,
   }),
   'the-nige': makeCharacter('the-nige', 'The Nige', {
     ringBackdropSrc: RING_BACKDROP,
-    // Margin pad + prior overshoot fix.
-    faceScale: 1.07,
-    faceNudgeY: 0.1,
+    faceScale: 1.12,
+    faceNudgeY: 0.08,
   }),
   'the-greenie': makeCharacter('the-greenie', 'The Greenie', {
     ringBackdropSrc: RING_BACKDROP,
-    faceScale: 1.1,
-    faceNudgeY: 0.1,
+    faceScale: 1.14,
+    faceNudgeY: 0.08,
   }),
 };
 

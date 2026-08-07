@@ -16,8 +16,8 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CHAR_ROOT = path.resolve(__dirname, '../public/faces/characters');
 
-/** ~5.5% — room for ooh brow lift / open mouth beyond the clean silhouette. */
-const MARGIN = Math.floor(0.055 * 1024);
+/** ~12% — large clear frame so hair / chin / ears / ooh lift never clip. */
+const MARGIN = Math.floor(0.12 * 1024);
 const ALPHA = 40;
 
 function parseIds() {
