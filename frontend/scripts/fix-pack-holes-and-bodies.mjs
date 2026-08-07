@@ -14,7 +14,7 @@ const PUBLIC = path.resolve(__dirname, '../public');
 const CHAR_ROOT = path.join(PUBLIC, 'faces/characters');
 const BODY_DIR = path.join(PUBLIC, 'boxer/bodies');
 
-const FACE_PACKS = ['male-boxer', 'female-boxer'];
+const FACE_PACKS = [];
 
 function fillInteriorHoles(data, W, H) {
   const n = W * H;

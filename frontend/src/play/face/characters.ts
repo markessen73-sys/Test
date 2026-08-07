@@ -9,8 +9,6 @@ import { isPhotoCharacterId, type FaceFeatureMark } from '../../face-capture/cus
  */
 export type StockCharacterId =
   | 'default'
-  | 'male-boxer'
-  | 'female-boxer'
   | 'byson'
   | 'tin-mick'
   | 'the-don'
@@ -111,14 +109,6 @@ const RING_BACKDROP = assetUrl('/backdrops/images-8.jpeg');
 
 export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   default: makeCharacter('default', 'Default Boxer'),
-  'male-boxer': makeCharacter('male-boxer', 'Male Boxer', {
-    faceScale: 1.05,
-    faceNudgeY: 0.08,
-  }),
-  'female-boxer': makeCharacter('female-boxer', 'Female Boxer', {
-    faceScale: 1.06,
-    faceNudgeY: 0.1,
-  }),
   byson: makeCharacter('byson', 'Byson'),
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick', {
     faceScale: 1.08,
@@ -128,12 +118,14 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   }),
   'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North', {
     ringBackdropSrc: RING_BACKDROP,
-    faceScale: 1.18,
-    faceNudgeY: 0.06,
+    faceScale: 1.15,
+    faceNudgeY: 0.04,
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
     ringBackdropSrc: RING_BACKDROP,
-    faceScale: 1.12,
+    // Mid-face was ~0.53 vs Default ~0.63 after margin pad — boost to match.
+    faceScale: 1.28,
+    faceNudgeY: 0.02,
   }),
   'the-nige': makeCharacter('the-nige', 'The Nige', {
     ringBackdropSrc: RING_BACKDROP,
@@ -149,8 +141,6 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
 
 export const CHARACTER_LIST: CharacterDef[] = [
   CHARACTERS.default,
-  CHARACTERS['male-boxer'],
-  CHARACTERS['female-boxer'],
   CHARACTERS.byson,
   CHARACTERS['tin-mick'],
   CHARACTERS['the-don'],
@@ -167,8 +157,6 @@ export const CHARACTER_STORAGE_KEY = 'mickeys-gym-character';
 export function isStockCharacterId(value: string | null | undefined): value is StockCharacterId {
   return (
     value === 'default' ||
-    value === 'male-boxer' ||
-    value === 'female-boxer' ||
     value === 'byson' ||
     value === 'tin-mick' ||
     value === 'the-don' ||

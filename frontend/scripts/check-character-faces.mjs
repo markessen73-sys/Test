@@ -57,9 +57,7 @@ const REF_HEAD_WIDTH_MIN_BY_ID = {
   'king-of-the-north': 0.7,
   'the-nige': 0.7,
   'the-greenie': 0.7,
-  'male-boxer': 0.88,
-  'female-boxer': 0.82,
-  bozza: 0.88,
+  bozza: 0.75,
   'tin-mick': 0.9,
   'the-don': 0.9,
 };
@@ -69,8 +67,6 @@ const STANDARD_BOBO_IDS = new Set([
   'bozza',
   'the-nige',
   'the-greenie',
-  'male-boxer',
-  'female-boxer',
 ]);
 /** Clown pupil disk: min fraction of near-black (or white glint) pixels. */
 const CLOWN_BLACK_MIN = 0.72;

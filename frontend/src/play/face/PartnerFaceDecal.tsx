@@ -140,7 +140,7 @@ export function PartnerFaceDecal({
     }
     const neck = neckColorRef.current;
     if (neck) {
-      blendNeckTowardColor(ctx, CANVAS_SIZE, CANVAS_SIZE, neck, 0.12);
+      blendNeckTowardColor(ctx, CANVAS_SIZE, CANVAS_SIZE, neck, 0.09);
     }
   };
 
