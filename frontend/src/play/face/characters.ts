@@ -112,38 +112,43 @@ const RING_BACKDROP = assetUrl('/backdrops/images-8.jpeg');
 export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   default: makeCharacter('default', 'Default Boxer'),
   'male-boxer': makeCharacter('male-boxer', 'Male Boxer', {
-    // Tall 3D silhouette (bbox ~0.93–1.0) reads oversized vs Default; shrink + raise.
-    faceScale: 0.88,
+    // Padded for ooh room (mid ~0.75); mild shrink + raise vs Default.
+    faceScale: 0.97,
     faceNudgeY: 0.1,
   }),
   'female-boxer': makeCharacter('female-boxer', 'Female Boxer', {
-    // Full-canvas height pack — contain-fit was too large and sat low.
-    faceScale: 0.85,
+    // Padded full-canvas pack (mid ~0.70); keep near Default visual weight.
+    faceScale: 0.99,
     faceNudgeY: 0.12,
   }),
   byson: makeCharacter('byson', 'Byson'),
-  'tin-mick': makeCharacter('tin-mick', 'Tin Mick'),
-  'the-don': makeCharacter('the-don', 'The Don'),
+  'tin-mick': makeCharacter('tin-mick', 'Tin Mick', {
+    // Shared margin pad shrunk mid slightly — restore Default-ish ring size.
+    faceScale: 1.06,
+  }),
+  'the-don': makeCharacter('the-don', 'The Don', {
+    faceScale: 1.07,
+  }),
   'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North', {
     ringBackdropSrc: RING_BACKDROP,
-    // Pack is fit-to-canvas (tall hair/ooh) so mid-face is ~0.65 vs Default ~0.80.
-    // Slightly under previous 1.22 — head was a touch large and sat low on the body.
-    faceScale: 1.08,
+    // Tall hair + ooh padding → mid ~0.60; boost to ~Default visual weight.
+    faceScale: 1.2,
     faceNudgeY: 0.08,
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
     ringBackdropSrc: RING_BACKDROP,
+    // Ooh was edge-clipped; shared pad shrunk mid — slight ring boost.
+    faceScale: 1.04,
   }),
   'the-nige': makeCharacter('the-nige', 'The Nige', {
     ringBackdropSrc: RING_BACKDROP,
-    // Mid ~0.62 vs Default ~0.80, but prior 1.3 overshot (hair/margins). Match King weight.
-    faceScale: 1.05,
+    // Margin pad + prior overshoot fix.
+    faceScale: 1.07,
     faceNudgeY: 0.1,
   }),
   'the-greenie': makeCharacter('the-greenie', 'The Greenie', {
     ringBackdropSrc: RING_BACKDROP,
-    // Mid ~0.65; prior 1.25 made the head too big and low on the body.
-    faceScale: 1.05,
+    faceScale: 1.1,
     faceNudgeY: 0.1,
   }),
 };

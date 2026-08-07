@@ -52,11 +52,16 @@ const KO_WIDTH_MAX = 1.12;
 const REF_CHARACTER_ID = 'default';
 const REF_HEAD_WIDTH_MIN = 0.93;
 const REF_HEAD_WIDTH_MAX = 1.06;
-/** Packs with tall hair / long chin are intentionally smaller so they fit the head slot. */
+/** Packs with tall hair / long chin / shared ooh padding are intentionally smaller mid-face. */
 const REF_HEAD_WIDTH_MIN_BY_ID = {
-  'king-of-the-north': 0.75,
-  'the-nige': 0.75,
-  'the-greenie': 0.75,
+  'king-of-the-north': 0.7,
+  'the-nige': 0.7,
+  'the-greenie': 0.7,
+  'male-boxer': 0.88,
+  'female-boxer': 0.82,
+  bozza: 0.88,
+  'tin-mick': 0.9,
+  'the-don': 0.9,
 };
 /** Stock boxers that mirror standard faces into bobo-clown-stages (no clown makeup). */
 const STANDARD_BOBO_IDS = new Set([
