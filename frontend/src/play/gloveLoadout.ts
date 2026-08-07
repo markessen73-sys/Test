@@ -5,7 +5,9 @@ export type GloveLoadoutId =
   | 'gold'
   | 'bare-knuckle'
   | 'vintage'
-  | 'rubber-chicken';
+  | 'rubber-chicken'
+  | 'union-jack'
+  | 'usa';
 
 export interface GloveLoadout {
   id: GloveLoadoutId;
@@ -13,7 +15,14 @@ export interface GloveLoadout {
   /** Punch power rating out of 100 — higher fills the damage bar faster. */
   power: number;
   /** CSS skin class suffix (`screen-glove-skin-*`). */
-  skin: 'default' | 'gold' | 'bare-knuckle' | 'vintage' | 'rubber-chicken';
+  skin:
+    | 'default'
+    | 'gold'
+    | 'bare-knuckle'
+    | 'vintage'
+    | 'rubber-chicken'
+    | 'union-jack'
+    | 'usa';
   /** Zone art folder under /gloves/ (without trailing slash). */
   zoneFolder: string;
   /** Options thumbnail (right-hand zone art). */
@@ -67,6 +76,22 @@ export const GLOVE_LOADOUTS: Record<GloveLoadoutId, GloveLoadout> = {
     punchSfx: assetUrl('/sounds/digitalstore07-chicken-430403.mp3'),
     punchSwing: true,
   },
+  'union-jack': {
+    id: 'union-jack',
+    name: 'Union Jack',
+    power: 50,
+    skin: 'union-jack',
+    zoneFolder: 'union-jack-zones',
+    thumbSrc: assetUrl('/gloves/union-jack-zones/zone-r1-c2.png'),
+  },
+  usa: {
+    id: 'usa',
+    name: 'USA',
+    power: 50,
+    skin: 'usa',
+    zoneFolder: 'usa-zones',
+    thumbSrc: assetUrl('/gloves/usa-zones/zone-r1-c2.png'),
+  },
 };
 
 export const GLOVE_LOADOUT_LIST: GloveLoadout[] = [
@@ -75,6 +100,8 @@ export const GLOVE_LOADOUT_LIST: GloveLoadout[] = [
   GLOVE_LOADOUTS['bare-knuckle'],
   GLOVE_LOADOUTS.vintage,
   GLOVE_LOADOUTS['rubber-chicken'],
+  GLOVE_LOADOUTS['union-jack'],
+  GLOVE_LOADOUTS.usa,
 ];
 
 export const DEFAULT_GLOVE_LOADOUT_ID: GloveLoadoutId = 'default';
@@ -95,7 +122,9 @@ export function isGloveLoadoutId(id: string): id is GloveLoadoutId {
     id === 'gold' ||
     id === 'bare-knuckle' ||
     id === 'vintage' ||
-    id === 'rubber-chicken'
+    id === 'rubber-chicken' ||
+    id === 'union-jack' ||
+    id === 'usa'
   );
 }
 
