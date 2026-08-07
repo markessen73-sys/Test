@@ -15,7 +15,8 @@ export type StockCharacterId =
   | 'king-of-the-north'
   | 'bozza'
   | 'the-nige'
-  | 'the-greenie';
+  | 'the-greenie'
+  | 'pricey';
 
 /** Stock pack id, or `photo-<uuid>` for a user-uploaded face. */
 export type CharacterId = StockCharacterId | (string & {});
@@ -150,6 +151,12 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
     faceScale: 1.14,
     faceNudgeY: 0.08,
   }),
+  pricey: makeCharacter('pricey', 'Pricey', {
+    ringBackdropSrc: RING_BACKDROP,
+    // High bun → smaller mid-face than Default; scale up to match.
+    faceScale: 1.22,
+    faceNudgeY: 0.06,
+  }),
 };
 
 export const CHARACTER_LIST: CharacterDef[] = [
@@ -161,6 +168,7 @@ export const CHARACTER_LIST: CharacterDef[] = [
   CHARACTERS.bozza,
   CHARACTERS['the-nige'],
   CHARACTERS['the-greenie'],
+  CHARACTERS.pricey,
 ];
 
 export const DEFAULT_CHARACTER_ID: StockCharacterId = 'default';
@@ -176,7 +184,8 @@ export function isStockCharacterId(value: string | null | undefined): value is S
     value === 'king-of-the-north' ||
     value === 'bozza' ||
     value === 'the-nige' ||
-    value === 'the-greenie'
+    value === 'the-greenie' ||
+    value === 'pricey'
   );
 }
 
