@@ -119,16 +119,28 @@ export function PartnerFaceDecal({
     if (packScale !== 1) {
       current = scaleFromNose(current, packScale);
     }
+    const nudgeX = character.faceNudgeX ?? 0;
     const nudgeY = character.faceNudgeY ?? 0;
-    if (nudgeY !== 0) {
+    if (nudgeX !== 0 || nudgeY !== 0) {
       const [cx, cy, cz] = current.center;
       current = {
-        center: [cx, cy + nudgeY * current.size[1], cz],
+        center: [
+          cx + nudgeX * current.size[0],
+          cy + nudgeY * current.size[1],
+          cz,
+        ],
         size: current.size,
       };
     }
     return current;
-  }, [spriteWidth, spriteHeight, faceRect, character.faceScale, character.faceNudgeY]);
+  }, [
+    spriteWidth,
+    spriteHeight,
+    faceRect,
+    character.faceScale,
+    character.faceNudgeX,
+    character.faceNudgeY,
+  ]);
   const [fw, fh] = placement.size;
 
   const finishPaint = (ctx: CanvasRenderingContext2D) => {

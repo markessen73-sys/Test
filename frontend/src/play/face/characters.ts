@@ -46,6 +46,11 @@ export interface CharacterDef {
    */
   faceScale?: number;
   /**
+   * Extra ring-partner horizontal nudge as a fraction of the face decal width.
+   * Positive = move right on the body; negative = move left.
+   */
+  faceNudgeX?: number;
+  /**
    * Extra ring-partner vertical nudge as a fraction of the face decal height.
    * Positive = raise the head on the body; negative = lower.
    */
@@ -76,7 +81,12 @@ function characterFaceRoot(id: StockCharacterId): string {
 function makeCharacter(
   id: StockCharacterId,
   name: string,
-  extras: { faceScale?: number; faceNudgeY?: number; ringBackdropSrc?: string } = {}
+  extras: {
+    faceScale?: number;
+    faceNudgeX?: number;
+    faceNudgeY?: number;
+    ringBackdropSrc?: string;
+  } = {}
 ): CharacterDef {
   const root = characterFaceRoot(id);
   const damage = `${root}/damage-stages`;
@@ -109,7 +119,9 @@ const RING_BACKDROP = assetUrl('/backdrops/images-8.jpeg');
 
 export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   default: makeCharacter('default', 'Default Boxer'),
-  byson: makeCharacter('byson', 'Byson'),
+  byson: makeCharacter('byson', 'Byson', {
+    faceScale: 1.18,
+  }),
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick', {
     faceScale: 1.08,
   }),
@@ -118,14 +130,16 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   }),
   'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North', {
     ringBackdropSrc: RING_BACKDROP,
-    faceScale: 1.15,
-    faceNudgeY: 0.04,
+    faceScale: 1.02,
+    faceNudgeY: 0.1,
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
     ringBackdropSrc: RING_BACKDROP,
     // Mid-face was ~0.53 vs Default ~0.63 after margin pad — boost to match.
     faceScale: 1.28,
-    faceNudgeY: 0.02,
+    // Pack recentered; slight left/up for ring body slot.
+    faceNudgeX: -0.03,
+    faceNudgeY: 0.08,
   }),
   'the-nige': makeCharacter('the-nige', 'The Nige', {
     ringBackdropSrc: RING_BACKDROP,

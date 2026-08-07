@@ -144,10 +144,44 @@ export function fillClearInteriorBlack(
     if (a > alphaThreshold) continue;
     if (exterior[i]) continue;
     const o = i * 4;
-    data[o] = 0;
-    data[o + 1] = 0;
-    data[o + 2] = 0;
-    data[o + 3] = 255;
+    const x = i % width;
+    const y = (i / width) | 0;
+    // Sample nearby opaque colour. Dark surrounds (mouth cavities) stay black;
+    // light surrounds (blonde hair gaps) fill with that hair colour — not ink black.
+    let sr = 0,
+      sg = 0,
+      sb = 0,
+      sn = 0,
+      sumL = 0;
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+        const j = (ny * width + nx) * 4;
+        if ((data[j + 3] ?? 0) <= alphaThreshold) continue;
+        const r = data[j] ?? 0;
+        const g = data[j + 1] ?? 0;
+        const b = data[j + 2] ?? 0;
+        sr += r;
+        sg += g;
+        sb += b;
+        sumL += 0.299 * r + 0.587 * g + 0.114 * b;
+        sn++;
+      }
+    }
+    if (sn > 0 && sumL / sn >= 90) {
+      data[o] = Math.round(sr / sn);
+      data[o + 1] = Math.round(sg / sn);
+      data[o + 2] = Math.round(sb / sn);
+      data[o + 3] = 255;
+    } else {
+      data[o] = 0;
+      data[o + 1] = 0;
+      data[o + 2] = 0;
+      data[o + 3] = 255;
+    }
   }
   ctx.putImageData(imageData, 0, 0);
 }
