@@ -90,7 +90,7 @@ function SparringPartnerSprite({
   return (
     <group ref={innerRef}>
       <group ref={animRef} position={[0, centerY, 0]}>
-        <mesh castShadow position={[0, 0, 0.02]}>
+        <mesh castShadow position={[0, 0, 0.02]} renderOrder={1}>
           <planeGeometry args={[width, height]} />
           {/* Basic + untonemapped keeps body art readable; standard lighting crushed dark packs. */}
           <meshBasicMaterial

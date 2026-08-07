@@ -36,6 +36,66 @@ const PARTNER_FACE_NOSE_SCALE_STEPS = 2;
 const PARTNER_FACE_SCALE_OVERALL = 1.2;
 /** How long the "ooh!" face stays up (ms); eyes zoom for most of this. */
 const OOH_MS = 720;
+/** Body sprite sits at z≈0.02 — face front stays ahead; hair layer tucks behind. */
+const FACE_FRONT_Z = 0.03;
+const FACE_HAIR_BEHIND_Z = 0.01;
+
+/** Warm tan / peach skin — keep neck stump on the front plane. */
+function isNeckSkin(r: number, g: number, b: number) {
+  if (r < 70 || g < 35 || b < 15) return false;
+  if (r < g - 8 || g < b - 20) return false;
+  return r - b > 25 && r > 90;
+}
+
+/** Dark brown / black hair strands that hang past the chin. */
+function isHangingHair(r: number, g: number, b: number) {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max > 140) return false;
+  // Near-black outline or dark brown waves.
+  if (max < 48) return true;
+  return r >= g - 6 && g >= b - 18 && max - min < 70 && r > 25;
+}
+
+/**
+ * Clear hanging side-hair below the chin so the front plane only keeps face +
+ * neck; the full texture on the behind plane draws hair under the torso.
+ */
+function clearHangingHairForFront(ctx: CanvasRenderingContext2D, size: number) {
+  const img = ctx.getImageData(0, 0, size, size);
+  const d = img.data;
+  let x0 = size,
+    y0 = size,
+    x1 = 0,
+    y1 = 0;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if (d[(y * size + x) * 4 + 3] < 40) continue;
+      x0 = Math.min(x0, x);
+      y0 = Math.min(y0, y);
+      x1 = Math.max(x1, x);
+      y1 = Math.max(y1, y);
+    }
+  }
+  if (x0 >= x1 || y0 >= y1) return;
+  const chinY = Math.floor(y0 + (y1 - y0) * 0.68);
+  const cx = (x0 + x1) / 2;
+  const neckHalf = (x1 - x0) * 0.16;
+  for (let y = chinY; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const i = (y * size + x) * 4;
+      if (d[i + 3] < 40) continue;
+      const r = d[i];
+      const g = d[i + 1];
+      const b = d[i + 2];
+      const inNeck = Math.abs(x - cx) <= neckHalf;
+      // Keep only the skin neck column on the front plane; hair + collar go behind.
+      if (inNeck && isNeckSkin(r, g, b) && !isHangingHair(r, g, b)) continue;
+      d[i + 3] = 0;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
 
 function scaleFromNose(
   placement: ReturnType<typeof spriteNormRectToLocal>,
@@ -86,15 +146,21 @@ export function PartnerFaceDecal({
   knockedOut = false,
 }: PartnerFaceDecalProps) {
   const { character } = useCharacter();
+  const hairBehind = !!character.hairBehindBody;
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
+  const [hairTexture, setHairTexture] = useState<THREE.CanvasTexture | null>(null);
   const normalRef = useRef<HTMLImageElement | null>(null);
   const oohRef = useRef<HTMLImageElement | null>(null);
   const koRef = useRef<HTMLImageElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const hairCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const texRef = useRef<THREE.CanvasTexture | null>(null);
+  const hairTexRef = useRef<THREE.CanvasTexture | null>(null);
   const popEyesRef = useRef<PopEyePair | null>(null);
   const skinRef = useRef<Rgb | null>(null);
   const stockFaceRef = useRef(!character.isPhotoFace);
+  const hairBehindRef = useRef(hairBehind);
+  hairBehindRef.current = hairBehind;
   const knockedOutRef = useRef(knockedOut);
   knockedOutRef.current = knockedOut;
   stockFaceRef.current = !character.isPhotoFace;
@@ -132,7 +198,12 @@ export function PartnerFaceDecal({
         size: current.size,
       };
     }
-    return current;
+    // Keep face front Z explicit so hair-behind plane can sit under the body.
+    const [cx, cy] = current.center;
+    return {
+      center: [cx, cy, FACE_FRONT_Z] as [number, number, number],
+      size: current.size,
+    };
   }, [
     spriteWidth,
     spriteHeight,
@@ -142,11 +213,31 @@ export function PartnerFaceDecal({
     character.faceNudgeY,
   ]);
   const [fw, fh] = placement.size;
+  const hairCenter: [number, number, number] = [
+    placement.center[0],
+    placement.center[1],
+    FACE_HAIR_BEHIND_Z,
+  ];
 
   const finishPaint = (ctx: CanvasRenderingContext2D) => {
     if (stockFaceRef.current) {
       fillClearInteriorBlack(ctx, CANVAS_SIZE, CANVAS_SIZE);
     }
+  };
+
+  const syncHairBehind = (frontCtx: CanvasRenderingContext2D) => {
+    if (!hairBehindRef.current) return;
+    const hairCanvas = hairCanvasRef.current;
+    const hairTex = hairTexRef.current;
+    if (!hairCanvas || !hairTex) return;
+    const hctx = hairCanvas.getContext('2d');
+    if (!hctx) return;
+    // Full face (with hanging hair) goes behind the body.
+    hctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    hctx.drawImage(frontCtx.canvas, 0, 0);
+    hairTex.needsUpdate = true;
+    // Front plane keeps face + neck only.
+    clearHangingHairForFront(frontCtx, CANVAS_SIZE);
   };
 
   const paint = (img: HTMLImageElement, hitAgeMs?: number) => {
@@ -166,6 +257,7 @@ export function PartnerFaceDecal({
       drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE);
     }
     finishPaint(ctx);
+    syncHairBehind(ctx);
     tex.needsUpdate = true;
   };
 
@@ -177,6 +269,7 @@ export function PartnerFaceDecal({
     if (!ctx) return;
     paintKnockoutFace(ctx, CANVAS_SIZE, ko, timeMs);
     finishPaint(ctx);
+    syncHairBehind(ctx);
     tex.needsUpdate = true;
   };
 
@@ -193,6 +286,22 @@ export function PartnerFaceDecal({
     tex.colorSpace = THREE.SRGBColorSpace;
     texRef.current = tex;
     setTexture(tex);
+
+    let hairTex: THREE.CanvasTexture | null = null;
+    if (hairBehind) {
+      const hairCanvas = document.createElement('canvas');
+      hairCanvas.width = CANVAS_SIZE;
+      hairCanvas.height = CANVAS_SIZE;
+      hairCanvasRef.current = hairCanvas;
+      hairTex = new THREE.CanvasTexture(hairCanvas);
+      hairTex.colorSpace = THREE.SRGBColorSpace;
+      hairTexRef.current = hairTex;
+      setHairTexture(hairTex);
+    } else {
+      hairCanvasRef.current = null;
+      hairTexRef.current = null;
+      setHairTexture(null);
+    }
 
     skinRef.current = null;
     const marks = character.popEyes ?? null;
@@ -216,6 +325,7 @@ export function PartnerFaceDecal({
     return () => {
       cancelled = true;
       tex.dispose();
+      hairTex?.dispose();
     };
   }, [
     character.id,
@@ -223,6 +333,7 @@ export function PartnerFaceDecal({
     character.oohSrc,
     character.knockoutSrc,
     character.popEyes,
+    hairBehind,
   ]);
 
   // Hold knockout face once the meter hits 100%.
@@ -274,9 +385,17 @@ export function PartnerFaceDecal({
   if (!texture) return null;
 
   return (
-    <mesh position={placement.center} renderOrder={2}>
-      <planeGeometry args={[fw, fh]} />
-      <meshBasicMaterial map={texture} transparent depthWrite={false} />
-    </mesh>
+    <group>
+      {hairBehind && hairTexture ? (
+        <mesh position={hairCenter} renderOrder={0}>
+          <planeGeometry args={[fw, fh]} />
+          <meshBasicMaterial map={hairTexture} transparent depthWrite={false} />
+        </mesh>
+      ) : null}
+      <mesh position={placement.center} renderOrder={2}>
+        <planeGeometry args={[fw, fh]} />
+        <meshBasicMaterial map={texture} transparent depthWrite={false} />
+      </mesh>
+    </group>
   );
 }

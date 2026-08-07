@@ -16,7 +16,8 @@ export type StockCharacterId =
   | 'bozza'
   | 'the-nige'
   | 'the-greenie'
-  | 'pricey';
+  | 'pricey'
+  | 'kk';
 
 /** Stock pack id, or `photo-<uuid>` for a user-uploaded face. */
 export type CharacterId = StockCharacterId | (string & {});
@@ -56,6 +57,11 @@ export interface CharacterDef {
    * Positive = raise the head on the body; negative = lower.
    */
   faceNudgeY?: number;
+  /**
+   * When true, long hair that hangs below the chin is drawn on a second plane
+   * behind the body sprite so strands tuck under the shoulders/torso.
+   */
+  hairBehindBody?: boolean;
   /** Optional ring play backdrop image (shown behind the far ropes). */
   ringBackdropSrc?: string;
   /** True for user photo faces (can be deleted). */
@@ -86,6 +92,7 @@ function makeCharacter(
     faceScale?: number;
     faceNudgeX?: number;
     faceNudgeY?: number;
+    hairBehindBody?: boolean;
     ringBackdropSrc?: string;
   } = {}
 ): CharacterDef {
@@ -157,6 +164,13 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
     faceScale: 1.22,
     faceNudgeY: 0.06,
   }),
+  kk: makeCharacter('kk', 'KK', {
+    ringBackdropSrc: RING_BACKDROP,
+    faceScale: 1.05,
+    faceNudgeY: 0.04,
+    // Long wavy hair must tuck under the torso/shoulders.
+    hairBehindBody: true,
+  }),
 };
 
 export const CHARACTER_LIST: CharacterDef[] = [
@@ -169,6 +183,7 @@ export const CHARACTER_LIST: CharacterDef[] = [
   CHARACTERS['the-nige'],
   CHARACTERS['the-greenie'],
   CHARACTERS.pricey,
+  CHARACTERS.kk,
 ];
 
 export const DEFAULT_CHARACTER_ID: StockCharacterId = 'default';
@@ -185,7 +200,8 @@ export function isStockCharacterId(value: string | null | undefined): value is S
     value === 'bozza' ||
     value === 'the-nige' ||
     value === 'the-greenie' ||
-    value === 'pricey'
+    value === 'pricey' ||
+    value === 'kk'
   );
 }
 
