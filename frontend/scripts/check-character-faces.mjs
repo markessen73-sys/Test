@@ -53,9 +53,12 @@ const REF_CHARACTER_ID = 'default';
 const REF_HEAD_WIDTH_MIN = 0.93;
 const REF_HEAD_WIDTH_MAX = 1.06;
 /** Packs with tall hair / long chin are intentionally smaller so they fit the head slot. */
-const REF_HEAD_WIDTH_MIN_BY_ID = {};
+const REF_HEAD_WIDTH_MIN_BY_ID = {
+  'king-of-the-north': 0.75,
+  'the-nige': 0.75,
+};
 /** Stock boxers that mirror standard faces into bobo-clown-stages (no clown makeup). */
-const STANDARD_BOBO_IDS = new Set(['king-of-the-north', 'bozza']);
+const STANDARD_BOBO_IDS = new Set(['king-of-the-north', 'bozza', 'the-nige']);
 /** Clown pupil disk: min fraction of near-black (or white glint) pixels. */
 const CLOWN_BLACK_MIN = 0.72;
 /** Max mean RGB delta (cheek) between clean and clown — guards whiteface regression. */
