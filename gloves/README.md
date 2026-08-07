@@ -10,6 +10,8 @@ Drop your realistic glove photos here to replace the built-in SVGs.
 | `bare-knuckle-zones/zone-r*-c*.png` | Bare knuckle hand-wrap zone pack |
 | `vintage-zones/zone-r*-c*.png` | 1920s brown lace-up glove zone pack |
 | `rubber-chicken-zones/zone-r*-c*.png` | Hands holding rubber chickens |
+| `union-jack-zones/zone-r*-c*.png` | Union Jack flag gloves (power 50) |
+| `usa-zones/zone-r*-c*.png` | USA Stars & Stripes gloves (power 50) |
 
 **Tips for best results**
 - Transparent background (PNG/WebP)
