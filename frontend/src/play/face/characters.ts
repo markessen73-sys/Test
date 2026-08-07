@@ -107,6 +107,8 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   'the-don': makeCharacter('the-don', 'The Don'),
   'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North', {
     ringBackdropSrc: RING_BACKDROP,
+    // Pack is fit-to-canvas (tall hair/ooh) so mid-face is ~0.65 vs Default ~0.80.
+    faceScale: 1.22,
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
     ringBackdropSrc: RING_BACKDROP,

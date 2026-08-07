@@ -404,24 +404,65 @@ function nudgePupilsToLm(imageData) {
   return ctx.getImageData(0, 0, W, H);
 }
 
+const FIT_MARGIN = Math.floor(0.025 * H);
+
 function alignFace(keyedCanvas, keyedData, label, defSpan, defBb, forcedScale = null) {
   const bb = opaqueBBox(keyedData, { skipYellow: label === 'knockout' });
   if (!bb) throw new Error(`${label}: empty`);
   const curSpan = spanAtY(keyedData, 0.55) || (bb.x1 - bb.x0) / W;
-  const scale =
+  let scale =
     forcedScale != null ? forcedScale : (TARGET_MIDFACE_RATIO * defSpan) / Math.max(0.01, curSpan);
   const srcEyeY = bb.y0 + (bb.y1 - bb.y0) * EYE_BAND_T;
   const srcMidX = (bb.x0 + bb.x1) / 2;
   const dstEyeY = ((LM.rightEye.y + LM.leftEye.y) / 2) * H;
   const dstMidX = (defBb.x0 + defBb.x1) / 2;
 
-  const ctx = createCanvas(W, H).getContext('2d');
-  ctx.clearRect(0, 0, W, H);
-  ctx.translate(dstMidX, dstEyeY);
-  ctx.scale(scale, scale);
-  ctx.translate(-srcMidX, -srcEyeY);
-  ctx.drawImage(keyedCanvas, 0, 0);
-  let out = ctx.getImageData(0, 0, W, H);
+  // Tall hair / open-mouth ooh can exceed the canvas at Default mid-face —
+  // never clip the head; shrink until ≥FIT_MARGIN top/bottom remain.
+  const maxFit = Math.min(
+    (H - 2 * FIT_MARGIN) / Math.max(1, bb.y1 - bb.y0 + 1),
+    (W - 2 * FIT_MARGIN) / Math.max(1, bb.x1 - bb.x0 + 1)
+  );
+  if (scale > maxFit) {
+    console.log(label, `scale ${scale.toFixed(3)} capped to fit ${maxFit.toFixed(3)}`);
+    scale = maxFit;
+  }
+
+  function draw(s, tx, ty) {
+    const ctx = createCanvas(W, H).getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+    ctx.translate(tx, ty);
+    ctx.scale(s, s);
+    ctx.translate(-srcMidX, -srcEyeY);
+    ctx.drawImage(keyedCanvas, 0, 0);
+    return ctx.getImageData(0, 0, W, H);
+  }
+
+  let tx = dstMidX;
+  let ty = dstEyeY;
+  let out = draw(scale, tx, ty);
+  for (let iter = 0; iter < 16; iter++) {
+    const outBb = opaqueBBox(out.data);
+    if (!outBb) break;
+    const ok =
+      outBb.y0 >= FIT_MARGIN &&
+      outBb.y1 <= H - 1 - FIT_MARGIN &&
+      outBb.x0 >= 1 &&
+      outBb.x1 <= W - 2;
+    if (ok) break;
+    scale *= 0.97;
+    tx = dstMidX;
+    ty = dstEyeY;
+    out = draw(scale, tx, ty);
+    const bb2 = opaqueBBox(out.data);
+    if (!bb2) break;
+    if (bb2.y0 < FIT_MARGIN) ty += FIT_MARGIN - bb2.y0;
+    if (bb2.y1 > H - 1 - FIT_MARGIN) ty -= bb2.y1 - (H - 1 - FIT_MARGIN);
+    if (bb2.x0 < FIT_MARGIN) tx += FIT_MARGIN - bb2.x0;
+    if (bb2.x1 > W - 1 - FIT_MARGIN) tx -= bb2.x1 - (W - 1 - FIT_MARGIN);
+    out = draw(scale, tx, ty);
+  }
+
   out = nudgePupilsToLm(out);
   // Keep hair solid after transforms (interpolation can lighten).
   blackenHair(out.data);
@@ -431,31 +472,55 @@ function alignFace(keyedCanvas, keyedData, label, defSpan, defBb, forcedScale = 
   blackenHair(out.data);
 
   const mid = spanAtY(out.data, 0.55);
-  console.log(label, 'scale', scale.toFixed(3), 'midRatio', (mid / defSpan).toFixed(3));
+  const finalBb = opaqueBBox(out.data);
+  console.log(
+    label,
+    'scale',
+    scale.toFixed(3),
+    'midRatio',
+    (mid / defSpan).toFixed(3),
+    'top',
+    finalBb ? (finalBb.y0 / H).toFixed(3) : '?'
+  );
   return { canvas: canvasFromData(out), midRatio: (mid || 0) / defSpan, scale, imageData: out };
 }
 
 function matchMidFace(canvas, data, targetMid, defSpan, label) {
   const cur = spanAtY(data, 0.55);
-  if (!cur || !targetMid) return { canvas, midRatio: (cur || 0) / defSpan };
-  const factor = targetMid / cur;
-  if (Math.abs(factor - 1) < 0.02) return { canvas, midRatio: cur / defSpan };
+  if (!cur || !targetMid) return { canvas, midRatio: (cur || 0) / defSpan, imageData: { data } };
+  let factor = targetMid / cur;
+  if (Math.abs(factor - 1) < 0.02) return { canvas, midRatio: cur / defSpan, imageData: { data } };
   const eyeMidX = ((LM.rightEye.x + LM.leftEye.x) / 2) * W;
   const eyeMidY = ((LM.rightEye.y + LM.leftEye.y) / 2) * H;
-  const ctx = createCanvas(W, H).getContext('2d');
-  ctx.clearRect(0, 0, W, H);
-  ctx.translate(eyeMidX, eyeMidY);
-  ctx.scale(factor, factor);
-  ctx.translate(-eyeMidX, -eyeMidY);
-  ctx.drawImage(canvas, 0, 0);
-  const out = ctx.getImageData(0, 0, W, H);
-  blackenHair(out.data);
-  fillInteriorHoles(out.data);
-  softNeckFade(out.data);
-  removeSpeckles(out.data);
-  const mid = spanAtY(out.data, 0.55);
-  console.log(label, 'size-match', factor.toFixed(3), '→', (mid / defSpan).toFixed(3));
-  return { canvas: canvasFromData(out), midRatio: (mid || 0) / defSpan };
+  for (let iter = 0; iter < 12; iter++) {
+    const ctx = createCanvas(W, H).getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+    ctx.translate(eyeMidX, eyeMidY);
+    ctx.scale(factor, factor);
+    ctx.translate(-eyeMidX, -eyeMidY);
+    ctx.drawImage(canvas, 0, 0);
+    const out = ctx.getImageData(0, 0, W, H);
+    blackenHair(out.data);
+    fillInteriorHoles(out.data);
+    softNeckFade(out.data);
+    removeSpeckles(out.data);
+    const bb = opaqueBBox(out.data);
+    const ok =
+      bb &&
+      bb.y0 >= FIT_MARGIN &&
+      bb.y1 <= H - 1 - FIT_MARGIN &&
+      bb.x0 >= 1 &&
+      bb.x1 <= W - 2;
+    if (ok) {
+      const mid = spanAtY(out.data, 0.55);
+      console.log(label, 'size-match', factor.toFixed(3), '→', (mid / defSpan).toFixed(3));
+      return { canvas: canvasFromData(out), midRatio: (mid || 0) / defSpan, imageData: out };
+    }
+    factor *= 0.96;
+  }
+  const mid = spanAtY(data, 0.55);
+  console.log(label, 'size-match skipped (would clip)');
+  return { canvas, midRatio: (mid || 0) / defSpan, imageData: { data } };
 }
 
 function maskToClean(face, clean, dilate = 8) {

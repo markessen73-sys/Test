@@ -328,6 +328,27 @@ function alignFace(
     }
   }
 
+  // Never clip the head — shrink about eye mid until margins clear (ooh / tall hair).
+  outBb = opaqueBBox(out.data);
+  if (outBb && (outBb.y0 < minTop || outBb.y1 > H - 1 - minTop)) {
+    let s = scale;
+    let ty = dstEyeY;
+    for (let iter = 0; iter < 14; iter++) {
+      outBb = opaqueBBox(out.data);
+      if (!outBb) break;
+      if (outBb.y0 >= minTop && outBb.y1 <= H - 1 - minTop) break;
+      s *= 0.96;
+      ty = dstEyeY;
+      out = drawScaled(s, dstMidX, ty);
+      outBb = opaqueBBox(out.data);
+      if (!outBb) break;
+      if (outBb.y0 < minTop) ty += minTop - outBb.y0;
+      if (outBb.y1 > H - 1 - minTop) ty -= outBb.y1 - (H - 1 - minTop);
+      out = drawScaled(s, dstMidX, ty);
+    }
+    scale = s;
+  }
+
   // Nudge so dark pupils sit on LM (glasses characters).
   out = nudgePupilsToLm(out, label);
 
