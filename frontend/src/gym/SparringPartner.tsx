@@ -108,6 +108,7 @@ function SparringPartnerSprite({
             spriteWidth={width}
             spriteHeight={height}
             faceRect={body.faceRect}
+            bodyTextureSrc={body.textureSrc}
             lastHitTime={lastHitTime}
             knockedOut={knockedOut}
           />

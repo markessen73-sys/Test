@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { FACE_CONTAIN_PAD, drawFullFaceOnCanvas, loadFaceImage } from './composeFaceTexture';
+import {
+  FACE_CONTAIN_PAD,
+  blendNeckTowardColor,
+  drawFullFaceOnCanvas,
+  fillClearInteriorBlack,
+  loadFaceImage,
+  sampleBodyNeckColor,
+} from './composeFaceTexture';
 import { useCharacter } from './CharacterContext';
 import {
   FACE_NOSE_LANDMARK,
@@ -58,6 +65,8 @@ interface PartnerFaceDecalProps {
   spriteHeight: number;
   /** Head slot on the active body texture (defaults to generic ring partner). */
   faceRect?: NormRect;
+  /** Body texture URL — used to sample neck/shoulder colour for chin blend. */
+  bodyTextureSrc?: string;
   /** Latest landed punch time — swaps to the authored ooh face. */
   lastHitTime?: number;
   /** Damage meter at 100% — hold the knockout face. */
@@ -68,11 +77,13 @@ interface PartnerFaceDecalProps {
  * Clean 2D caricature on the moving sparring partner.
  * Injuries live on the HUD damage meter. On hit, swap to ooh; at 100% show KO.
  * Photo faces with eye marks animate pop-eyes zooming ½→full.
+ * Stock faces: interior clear holes fill black; chin soft-blends toward body colour.
  */
 export function PartnerFaceDecal({
   spriteWidth,
   spriteHeight,
   faceRect = RING_PARTNER_FACE,
+  bodyTextureSrc,
   lastHitTime = 0,
   knockedOut = false,
 }: PartnerFaceDecalProps) {
@@ -85,8 +96,11 @@ export function PartnerFaceDecal({
   const texRef = useRef<THREE.CanvasTexture | null>(null);
   const popEyesRef = useRef<PopEyePair | null>(null);
   const skinRef = useRef<Rgb | null>(null);
+  const neckColorRef = useRef<Rgb | null>(null);
+  const stockFaceRef = useRef(!character.isPhotoFace);
   const knockedOutRef = useRef(knockedOut);
   knockedOutRef.current = knockedOut;
+  stockFaceRef.current = !character.isPhotoFace;
   const lastPaintedAgeRef = useRef(-1);
   const hitTimeRef = useRef(lastHitTime);
   if (hitTimeRef.current !== lastHitTime) {
@@ -120,6 +134,16 @@ export function PartnerFaceDecal({
   }, [spriteWidth, spriteHeight, faceRect, character.faceScale, character.faceNudgeY]);
   const [fw, fh] = placement.size;
 
+  const finishPaint = (ctx: CanvasRenderingContext2D) => {
+    if (stockFaceRef.current) {
+      fillClearInteriorBlack(ctx, CANVAS_SIZE, CANVAS_SIZE);
+    }
+    const neck = neckColorRef.current;
+    if (neck) {
+      blendNeckTowardColor(ctx, CANVAS_SIZE, CANVAS_SIZE, neck, 0.12);
+    }
+  };
+
   const paint = (img: HTMLImageElement, hitAgeMs?: number) => {
     const canvas = canvasRef.current;
     const tex = texRef.current;
@@ -136,6 +160,7 @@ export function PartnerFaceDecal({
     } else {
       drawFullFaceOnCanvas(ctx, img, CANVAS_SIZE, CANVAS_SIZE);
     }
+    finishPaint(ctx);
     tex.needsUpdate = true;
   };
 
@@ -146,6 +171,7 @@ export function PartnerFaceDecal({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     paintKnockoutFace(ctx, CANVAS_SIZE, ko, timeMs);
+    finishPaint(ctx);
     tex.needsUpdate = true;
   };
 
@@ -164,18 +190,27 @@ export function PartnerFaceDecal({
     setTexture(tex);
 
     skinRef.current = null;
+    neckColorRef.current = null;
     const marks = character.popEyes ?? null;
     popEyesRef.current = marks;
 
-    Promise.all([
+    const faceLoads = Promise.all([
       loadFaceImage(character.cleanSrc),
       loadFaceImage(character.oohSrc),
       loadFaceImage(character.knockoutSrc),
-    ]).then(([normal, ooh, ko]) => {
+    ]);
+    const bodyLoad = bodyTextureSrc
+      ? loadFaceImage(bodyTextureSrc)
+          .then((bodyImg) => sampleBodyNeckColor(bodyImg, faceRect))
+          .catch(() => null)
+      : Promise.resolve(null);
+
+    Promise.all([faceLoads, bodyLoad]).then(([[normal, ooh, ko], neck]) => {
       if (cancelled) return;
       normalRef.current = normal;
       oohRef.current = ooh;
       koRef.current = ko;
+      neckColorRef.current = neck;
       if (marks) {
         skinRef.current = skinFromFaceImage(ooh, marks);
       }
@@ -186,7 +221,15 @@ export function PartnerFaceDecal({
       cancelled = true;
       tex.dispose();
     };
-  }, [character.id, character.cleanSrc, character.oohSrc, character.knockoutSrc, character.popEyes]);
+  }, [
+    character.id,
+    character.cleanSrc,
+    character.oohSrc,
+    character.knockoutSrc,
+    character.popEyes,
+    bodyTextureSrc,
+    faceRect,
+  ]);
 
   // Hold knockout face once the meter hits 100%.
   useEffect(() => {

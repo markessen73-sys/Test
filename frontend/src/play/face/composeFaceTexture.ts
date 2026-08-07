@@ -151,3 +151,121 @@ export function fillClearInteriorBlack(
   }
   ctx.putImageData(imageData, 0, 0);
 }
+
+function easeInQuad(t: number) {
+  return t * t;
+}
+
+/**
+ * Soft-blend the bottom of a face cutout toward a body/neck colour and fade alpha.
+ * Bottom of opaque content → transparent + body tint; top of band → original face.
+ * Call after drawing the face (and after hole-fill) so the chin meets mismatched bodies.
+ */
+export function blendNeckTowardColor(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  bodyRgb: { r: number; g: number; b: number },
+  frac = 0.12,
+) {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const { data } = imageData;
+
+  let minY = height;
+  let maxY = -1;
+  for (let y = 0; y < height; y++) {
+    const row = y * width * 4;
+    for (let x = 0; x < width; x++) {
+      if ((data[row + x * 4 + 3] ?? 0) > 12) {
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+        break;
+      }
+    }
+  }
+  if (maxY < 0 || maxY <= minY) return;
+
+  const contentH = maxY - minY + 1;
+  const fadeH = Math.max(10, Math.round(contentH * Math.min(0.28, Math.max(0.06, frac))));
+  const fadeStart = Math.max(minY, maxY - fadeH + 1);
+
+  for (let y = fadeStart; y <= maxY; y++) {
+    const t = (y - fadeStart) / Math.max(1, maxY - fadeStart);
+    const ease = easeInQuad(t);
+    // Colour shift ramps faster than alpha so a tinted seam reads before the fade-out.
+    const colorMix = Math.min(1, ease * 1.15);
+    const alphaMul = 1 - ease * 0.92;
+    const row = y * width * 4;
+    for (let x = 0; x < width; x++) {
+      const o = row + x * 4;
+      const a = data[o + 3] ?? 0;
+      if (a < 8) continue;
+      data[o] = Math.round((data[o] ?? 0) * (1 - colorMix) + bodyRgb.r * colorMix);
+      data[o + 1] = Math.round((data[o + 1] ?? 0) * (1 - colorMix) + bodyRgb.g * colorMix);
+      data[o + 2] = Math.round((data[o + 2] ?? 0) * (1 - colorMix) + bodyRgb.b * colorMix);
+      data[o + 3] = Math.round(a * alphaMul);
+    }
+  }
+  for (let y = maxY + 1; y < height; y++) {
+    const row = y * width * 4;
+    for (let x = 0; x < width; x++) {
+      data[row + x * 4 + 3] = 0;
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
+
+/**
+ * Average opaque RGB in a band just below the head slot on a body texture.
+ * Returns null if the sample is empty / mostly clear.
+ */
+export function sampleBodyNeckColor(
+  image: HTMLImageElement | HTMLCanvasElement,
+  faceRect: NormRect,
+): { r: number; g: number; b: number } | null {
+  const w = 'naturalWidth' in image ? image.naturalWidth || image.width : image.width;
+  const h = 'naturalHeight' in image ? image.naturalHeight || image.height : image.height;
+  if (w < 4 || h < 4) return null;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(image, 0, 0);
+  const { data } = ctx.getImageData(0, 0, w, h);
+
+  const [, , , faceY1] = faceRect;
+  const y0 = Math.min(h - 2, Math.max(0, Math.floor(faceY1 * h)));
+  const y1 = Math.min(h - 1, y0 + Math.max(6, Math.round(h * 0.045)));
+  const x0 = Math.floor(faceRect[0] * w);
+  const x1 = Math.ceil(faceRect[2] * w);
+  const midW = Math.max(4, Math.round((x1 - x0) * 0.55));
+  const cx = Math.round((x0 + x1) / 2);
+  const sx0 = Math.max(0, cx - Math.floor(midW / 2));
+  const sx1 = Math.min(w - 1, cx + Math.ceil(midW / 2));
+
+  let sr = 0;
+  let sg = 0;
+  let sb = 0;
+  let n = 0;
+  for (let y = y0; y <= y1; y++) {
+    for (let x = sx0; x <= sx1; x++) {
+      const i = (y * w + x) * 4;
+      if ((data[i + 3] ?? 0) < 140) continue;
+      // Prefer skin-ish / mid tones over pure black head blanks / neon.
+      const r = data[i] ?? 0;
+      const g = data[i + 1] ?? 0;
+      const b = data[i + 2] ?? 0;
+      const L = (r + g + b) / 3;
+      if (L < 25 || L > 245) continue;
+      const wgt = L > 55 && L < 210 ? 2 : 1;
+      sr += r * wgt;
+      sg += g * wgt;
+      sb += b * wgt;
+      n += wgt;
+    }
+  }
+  if (n < 8) return null;
+  return { r: Math.round(sr / n), g: Math.round(sg / n), b: Math.round(sb / n) };
+}

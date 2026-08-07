@@ -111,8 +111,16 @@ const RING_BACKDROP = assetUrl('/backdrops/images-8.jpeg');
 
 export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   default: makeCharacter('default', 'Default Boxer'),
-  'male-boxer': makeCharacter('male-boxer', 'Male Boxer'),
-  'female-boxer': makeCharacter('female-boxer', 'Female Boxer'),
+  'male-boxer': makeCharacter('male-boxer', 'Male Boxer', {
+    // Tall 3D silhouette (bbox ~0.93–1.0) reads oversized vs Default; shrink + raise.
+    faceScale: 0.88,
+    faceNudgeY: 0.1,
+  }),
+  'female-boxer': makeCharacter('female-boxer', 'Female Boxer', {
+    // Full-canvas height pack — contain-fit was too large and sat low.
+    faceScale: 0.85,
+    faceNudgeY: 0.12,
+  }),
   byson: makeCharacter('byson', 'Byson'),
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick'),
   'the-don': makeCharacter('the-don', 'The Don'),
@@ -128,13 +136,15 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   }),
   'the-nige': makeCharacter('the-nige', 'The Nige', {
     ringBackdropSrc: RING_BACKDROP,
-    // Pack fit-to-canvas (full head margins) → mid ~0.62 vs Default ~0.80.
-    faceScale: 1.3,
+    // Mid ~0.62 vs Default ~0.80, but prior 1.3 overshot (hair/margins). Match King weight.
+    faceScale: 1.05,
+    faceNudgeY: 0.1,
   }),
   'the-greenie': makeCharacter('the-greenie', 'The Greenie', {
     ringBackdropSrc: RING_BACKDROP,
-    // Pack fit-to-canvas → mid ~0.64 vs Default ~0.80.
-    faceScale: 1.25,
+    // Mid ~0.65; prior 1.25 made the head too big and low on the body.
+    faceScale: 1.05,
+    faceNudgeY: 0.1,
   }),
 };
 

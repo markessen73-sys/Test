@@ -84,6 +84,89 @@ function hardenAlpha(data) {
   }
 }
 
+/** Fill transparent holes inside the silhouette with neighbor colour. */
+function fillInteriorHoles(data) {
+  const trans = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) trans[i] = data[i * 4 + 3] < 40 ? 1 : 0;
+  const bg = new Uint8Array(W * H);
+  const q = [];
+  const push = (x, y) => {
+    const i = y * W + x;
+    if (!trans[i] || bg[i]) return;
+    bg[i] = 1;
+    q.push(i);
+  };
+  for (let x = 0; x < W; x++) {
+    push(x, 0);
+    push(x, H - 1);
+  }
+  for (let y = 0; y < H; y++) {
+    push(0, y);
+    push(W - 1, y);
+  }
+  while (q.length) {
+    const i = q.pop();
+    const x = i % W;
+    const y = (i / W) | 0;
+    if (x > 0) push(x - 1, y);
+    if (x < W - 1) push(x + 1, y);
+    if (y > 0) push(x, y - 1);
+    if (y < H - 1) push(x, y + 1);
+  }
+  let filled = 0;
+  for (let iter = 0; iter < 120; iter++) {
+    const batch = [];
+    for (let y = 1; y < H - 1; y++) {
+      for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x;
+        if (!trans[i] || bg[i]) continue;
+        let sr = 0,
+          sg = 0,
+          sb = 0,
+          sn = 0;
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+          [1, 1],
+          [-1, -1],
+          [1, -1],
+          [-1, 1],
+        ]) {
+          const j = ((y + dy) * W + (x + dx)) * 4;
+          if (data[j + 3] < 200) continue;
+          const L = (data[j] + data[j + 1] + data[j + 2]) / 3;
+          const wgt = L > 55 ? 3 : 1;
+          sr += data[j] * wgt;
+          sg += data[j + 1] * wgt;
+          sb += data[j + 2] * wgt;
+          sn += wgt;
+        }
+        if (sn > 0) {
+          batch.push({
+            i,
+            r: Math.round(sr / sn),
+            g: Math.round(sg / sn),
+            b: Math.round(sb / sn),
+          });
+        }
+      }
+    }
+    if (!batch.length) break;
+    for (const p of batch) {
+      const i4 = p.i * 4;
+      data[i4] = p.r;
+      data[i4 + 1] = p.g;
+      data[i4 + 2] = p.b;
+      data[i4 + 3] = 255;
+      trans[p.i] = 0;
+      filled++;
+    }
+  }
+  return filled;
+}
+
 function keyNearBlack(img) {
   const ctx = createCanvas(W, H).getContext('2d');
   ctx.clearRect(0, 0, W, H);
@@ -275,8 +358,19 @@ function alignToDefault(srcCanvas, srcData, defSpan, defBb, label) {
     out = draw(scale, tx, ty);
   }
   hardenAlpha(out.data);
+  const holes = fillInteriorHoles(out.data);
   const mid = spanAtY(out.data, 0.55);
-  console.log(label, 'scale', scale.toFixed(3), 'mid', mid?.toFixed(3), 'ratio', (mid / defSpan).toFixed(3));
+  console.log(
+    label,
+    'scale',
+    scale.toFixed(3),
+    'mid',
+    mid?.toFixed(3),
+    'ratio',
+    (mid / defSpan).toFixed(3),
+    'holes',
+    holes
+  );
   const canvas = createCanvas(W, H);
   canvas.getContext('2d').putImageData(out, 0, 0);
   return { canvas, imageData: out, mid };
