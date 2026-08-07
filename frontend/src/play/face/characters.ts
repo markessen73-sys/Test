@@ -9,6 +9,8 @@ import { isPhotoCharacterId, type FaceFeatureMark } from '../../face-capture/cus
  */
 export type StockCharacterId =
   | 'default'
+  | 'male-boxer'
+  | 'female-boxer'
   | 'byson'
   | 'tin-mick'
   | 'the-don'
@@ -109,6 +111,8 @@ const RING_BACKDROP = assetUrl('/backdrops/images-8.jpeg');
 
 export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   default: makeCharacter('default', 'Default Boxer'),
+  'male-boxer': makeCharacter('male-boxer', 'Male Boxer'),
+  'female-boxer': makeCharacter('female-boxer', 'Female Boxer'),
   byson: makeCharacter('byson', 'Byson'),
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick'),
   'the-don': makeCharacter('the-don', 'The Don'),
@@ -136,6 +140,8 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
 
 export const CHARACTER_LIST: CharacterDef[] = [
   CHARACTERS.default,
+  CHARACTERS['male-boxer'],
+  CHARACTERS['female-boxer'],
   CHARACTERS.byson,
   CHARACTERS['tin-mick'],
   CHARACTERS['the-don'],
@@ -152,6 +158,8 @@ export const CHARACTER_STORAGE_KEY = 'mickeys-gym-character';
 export function isStockCharacterId(value: string | null | undefined): value is StockCharacterId {
   return (
     value === 'default' ||
+    value === 'male-boxer' ||
+    value === 'female-boxer' ||
     value === 'byson' ||
     value === 'tin-mick' ||
     value === 'the-don' ||

@@ -59,7 +59,14 @@ const REF_HEAD_WIDTH_MIN_BY_ID = {
   'the-greenie': 0.75,
 };
 /** Stock boxers that mirror standard faces into bobo-clown-stages (no clown makeup). */
-const STANDARD_BOBO_IDS = new Set(['king-of-the-north', 'bozza', 'the-nige', 'the-greenie']);
+const STANDARD_BOBO_IDS = new Set([
+  'king-of-the-north',
+  'bozza',
+  'the-nige',
+  'the-greenie',
+  'male-boxer',
+  'female-boxer',
+]);
 /** Clown pupil disk: min fraction of near-black (or white glint) pixels. */
 const CLOWN_BLACK_MIN = 0.72;
 /** Max mean RGB delta (cheek) between clean and clown — guards whiteface regression. */
