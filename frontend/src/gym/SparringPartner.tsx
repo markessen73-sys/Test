@@ -3,21 +3,15 @@ import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import type { Group } from 'three';
 import * as THREE from 'three';
-import { assetUrl } from '../assetUrl';
 import { PartnerFaceDecal } from '../play/face/PartnerFaceDecal';
-
-const SPARRING_BOXER_TEXTURE = assetUrl('/boxer/sparring-boxer.png');
+import { useBody } from '../play/BodyContext';
+import type { BodyStyle } from '../play/bodyStyles';
+import { BODY_STYLES } from '../play/bodyStyles';
 
 /** Base sprite plane height in metres. */
 export const SPARRING_SPRITE_BASE_HEIGHT = 3.44;
 /** Ring play mode scale (50% larger than base). */
 export const RING_SPRITE_SCALE = 1.5;
-
-/**
- * Lowest opaque boot pixels in the source image (1024×1536 RGBA).
- * Rows ~76 px from the bottom — the visible shoe contact line.
- */
-const FEET_SOLE_FRAC = 76 / 1536;
 
 /** Ring canvas top surface — partner feet sit here (ring-local Y). */
 export const RING_CANVAS_SURFACE_Y = 0.24;
@@ -33,8 +27,8 @@ export function partnerFootAlignLift(_scale = 1): number {
 /** Browse overview — soles anchor at ring canvas via spriteCenterY. */
 export const GYM_PARTNER_LIFT = partnerFootAlignLift(1);
 
-function spriteCenterY(height: number): number {
-  return height * (0.5 - FEET_SOLE_FRAC);
+function spriteCenterY(height: number, feetSoleFrac: number): number {
+  return height * (0.5 - feetSoleFrac);
 }
 
 interface SparringPartnerProps {
@@ -52,6 +46,8 @@ interface SparringPartnerProps {
   /** Damage meter at 100% — show knockout face. */
   knockedOut?: boolean;
   innerRef?: RefObject<Group | null>;
+  /** Override body style (defaults to Options selection). */
+  body?: BodyStyle;
 }
 
 function SparringPartnerSprite({
@@ -63,14 +59,17 @@ function SparringPartnerSprite({
   lastHitTime = 0,
   knockedOut = false,
   innerRef,
+  body: bodyProp,
 }: SparringPartnerProps) {
+  const { body: selectedBody } = useBody();
+  const body = bodyProp ?? selectedBody;
   const animRef = useRef<Group>(null);
-  const texture = useTexture(SPARRING_BOXER_TEXTURE);
+  const texture = useTexture(body.textureSrc);
   const opacity = dimmed ? 0.35 : 1;
   const flash = hitFlashAge < 1;
   const height = SPARRING_SPRITE_BASE_HEIGHT * scale;
-  const width = height * (1024 / 1536);
-  const centerY = spriteCenterY(height);
+  const width = height * body.aspect;
+  const centerY = spriteCenterY(height, body.feetSoleFrac);
   const motion = scale;
 
   useFrame((state) => {
@@ -104,6 +103,7 @@ function SparringPartnerSprite({
           <PartnerFaceDecal
             spriteWidth={width}
             spriteHeight={height}
+            faceRect={body.faceRect}
             lastHitTime={lastHitTime}
             knockedOut={knockedOut}
           />
@@ -122,4 +122,4 @@ export function SparringPartner(props: SparringPartnerProps) {
   );
 }
 
-useTexture.preload(SPARRING_BOXER_TEXTURE);
+useTexture.preload(BODY_STYLES.generic.textureSrc);

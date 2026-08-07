@@ -16,6 +16,7 @@ import {
 } from './spriteFacePlacement';
 import { paintOohReaction, skinFromFaceImage, type PopEyePair } from './paintOohReaction';
 import { paintKnockoutFace } from './paintKnockout';
+import type { NormRect } from './types';
 import type { Rgb } from '../../face-capture/popEyes';
 
 const CANVAS_SIZE = 512;
@@ -55,6 +56,8 @@ interface PartnerFaceDecalProps {
   spriteWidth: number;
   /** Sprite plane height in metres. */
   spriteHeight: number;
+  /** Head slot on the active body texture (defaults to generic ring partner). */
+  faceRect?: NormRect;
   /** Latest landed punch time — swaps to the authored ooh face. */
   lastHitTime?: number;
   /** Damage meter at 100% — hold the knockout face. */
@@ -69,6 +72,7 @@ interface PartnerFaceDecalProps {
 export function PartnerFaceDecal({
   spriteWidth,
   spriteHeight,
+  faceRect = RING_PARTNER_FACE,
   lastHitTime = 0,
   knockedOut = false,
 }: PartnerFaceDecalProps) {
@@ -91,7 +95,7 @@ export function PartnerFaceDecal({
   }
 
   const placement = useMemo(() => {
-    const base = spriteNormRectToLocal(RING_PARTNER_FACE, spriteWidth, spriteHeight, {
+    const base = spriteNormRectToLocal(faceRect, spriteWidth, spriteHeight, {
       scale: PARTNER_FACE_SCALE_TOP_RIGHT,
       anchor: 'top-right',
     });
@@ -105,7 +109,7 @@ export function PartnerFaceDecal({
       current = scaleFromNose(current, packScale);
     }
     return current;
-  }, [spriteWidth, spriteHeight, character.faceScale]);
+  }, [spriteWidth, spriteHeight, faceRect, character.faceScale]);
   const [fw, fh] = placement.size;
 
   const paint = (img: HTMLImageElement, hitAgeMs?: number) => {

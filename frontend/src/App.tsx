@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { FaceCaptureApp } from './face-capture/FaceCaptureApp';
 import { GymApp } from './GymApp';
 import { CharacterProvider } from './play/face/CharacterContext';
+import { BodyProvider } from './play/BodyContext';
 import { GloveProvider, useGlove } from './play/GloveContext';
 import { useBackgroundMusic } from './useBackgroundMusic';
 
@@ -20,9 +21,11 @@ function App() {
     return (
       <CharacterProvider>
         <GloveProvider>
-          <AppShell>
-            <FaceCaptureApp />
-          </AppShell>
+          <BodyProvider>
+            <AppShell>
+              <FaceCaptureApp />
+            </AppShell>
+          </BodyProvider>
         </GloveProvider>
       </CharacterProvider>
     );
@@ -31,9 +34,11 @@ function App() {
   return (
     <CharacterProvider>
       <GloveProvider>
-        <AppShell>
-          <GymApp />
-        </AppShell>
+        <BodyProvider>
+          <AppShell>
+            <GymApp />
+          </AppShell>
+        </BodyProvider>
       </GloveProvider>
     </CharacterProvider>
   );
