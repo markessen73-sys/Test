@@ -67,6 +67,10 @@ function SparringPartnerSprite({
   const texture = useTexture(body.textureSrc);
   const opacity = dimmed ? 0.35 : 1;
   const flash = hitFlashAge < 1;
+  const flashMix = flash ? Math.max(0, 1 - hitFlashAge) : 0;
+  const flashColor = flash
+    ? `rgb(${255},${Math.round(255 - 100 * flashMix)},${Math.round(255 - 140 * flashMix)})`
+    : '#ffffff';
   const height = SPARRING_SPRITE_BASE_HEIGHT * scale;
   const width = height * body.aspect;
   const centerY = spriteCenterY(height, body.feetSoleFrac);
@@ -88,14 +92,14 @@ function SparringPartnerSprite({
       <group ref={animRef} position={[0, centerY, 0]}>
         <mesh castShadow position={[0, 0, 0.02]}>
           <planeGeometry args={[width, height]} />
-          <meshStandardMaterial
+          {/* Basic + untonemapped keeps body art readable; standard lighting crushed dark packs. */}
+          <meshBasicMaterial
             map={texture}
             transparent
             alphaTest={0.06}
             opacity={opacity}
-            emissive={flash ? '#ff6644' : '#000000'}
-            emissiveIntensity={flash ? 0.4 * (1 - hitFlashAge) : 0}
-            roughness={0.85}
+            color={flashColor}
+            toneMapped={false}
             side={THREE.DoubleSide}
           />
         </mesh>
