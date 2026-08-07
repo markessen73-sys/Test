@@ -45,6 +45,11 @@ export interface CharacterDef {
    * Use < 1 when a pack’s silhouette (tall hair / long chin) overflows the head slot.
    */
   faceScale?: number;
+  /**
+   * Extra ring-partner vertical nudge as a fraction of the face decal height.
+   * Positive = raise the head on the body; negative = lower.
+   */
+  faceNudgeY?: number;
   /** Optional ring play backdrop image (shown behind the far ropes). */
   ringBackdropSrc?: string;
   /** True for user photo faces (can be deleted). */
@@ -71,7 +76,7 @@ function characterFaceRoot(id: StockCharacterId): string {
 function makeCharacter(
   id: StockCharacterId,
   name: string,
-  extras: { faceScale?: number; ringBackdropSrc?: string } = {}
+  extras: { faceScale?: number; faceNudgeY?: number; ringBackdropSrc?: string } = {}
 ): CharacterDef {
   const root = characterFaceRoot(id);
   const damage = `${root}/damage-stages`;
@@ -110,7 +115,9 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North', {
     ringBackdropSrc: RING_BACKDROP,
     // Pack is fit-to-canvas (tall hair/ooh) so mid-face is ~0.65 vs Default ~0.80.
-    faceScale: 1.22,
+    // Slightly under previous 1.22 — head was a touch large and sat low on the body.
+    faceScale: 1.08,
+    faceNudgeY: 0.08,
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
     ringBackdropSrc: RING_BACKDROP,

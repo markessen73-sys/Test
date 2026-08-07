@@ -108,8 +108,16 @@ export function PartnerFaceDecal({
     if (packScale !== 1) {
       current = scaleFromNose(current, packScale);
     }
+    const nudgeY = character.faceNudgeY ?? 0;
+    if (nudgeY !== 0) {
+      const [cx, cy, cz] = current.center;
+      current = {
+        center: [cx, cy + nudgeY * current.size[1], cz],
+        size: current.size,
+      };
+    }
     return current;
-  }, [spriteWidth, spriteHeight, faceRect, character.faceScale]);
+  }, [spriteWidth, spriteHeight, faceRect, character.faceScale, character.faceNudgeY]);
   const [fw, fh] = placement.size;
 
   const paint = (img: HTMLImageElement, hitAgeMs?: number) => {
