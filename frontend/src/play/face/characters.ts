@@ -45,8 +45,8 @@ export interface CharacterDef {
   boboHoldSrc: string;
   boboKoSrc: string;
   /**
-   * When set, this boxer always uses this body in the ring (seamless character).
-   * Overrides the Options → Bodies picker.
+   * Ring body for this boxer. Stock boxers always define one; photo faces fall
+   * back to the generic body when unset.
    */
   bodyId?: BodyStyleId;
   /**
@@ -138,24 +138,32 @@ function makeCharacter(
 }
 
 const RING_BACKDROP = assetUrl('/backdrops/images-8.jpeg');
+const LA_SKYLINE_BACKDROP = assetUrl('/backdrops/la-skyline.jpg');
 
 export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
-  default: makeCharacter('default', 'Default Boxer'),
+  default: makeCharacter('default', 'Default Boxer', {
+    bodyId: 'generic',
+  }),
   byson: makeCharacter('byson', 'Byson', {
+    bodyId: 'generic',
     faceScale: 1.18,
   }),
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick', {
+    bodyId: 'generic',
     faceScale: 1.08,
   }),
   'the-don': makeCharacter('the-don', 'The Don', {
+    bodyId: 'generic',
     faceScale: 1.1,
   }),
   'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North', {
+    bodyId: 'generic',
     ringBackdropSrc: RING_BACKDROP,
     faceScale: 1.02,
     faceNudgeY: 0.1,
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
+    bodyId: 'generic',
     ringBackdropSrc: RING_BACKDROP,
     // Mid-face was smaller than Default after margin pad — boost to match.
     faceScale: 1.28,
@@ -163,26 +171,28 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
     faceNudgeY: 0.08,
   }),
   'the-nige': makeCharacter('the-nige', 'The Nige', {
+    bodyId: 'generic',
     ringBackdropSrc: RING_BACKDROP,
     faceScale: 1.12,
     faceNudgeY: 0.08,
   }),
   'the-greenie': makeCharacter('the-greenie', 'The Greenie', {
+    bodyId: 'generic',
     ringBackdropSrc: RING_BACKDROP,
     faceScale: 1.14,
     faceNudgeY: 0.08,
   }),
   pricey: makeCharacter('pricey', 'Pricey', {
+    bodyId: 'generic',
     ringBackdropSrc: RING_BACKDROP,
     // High bun → smaller mid-face than Default; scale up to match.
     faceScale: 1.22,
     faceNudgeY: 0.06,
   }),
   kk: makeCharacter('kk', 'KK', {
-    ringBackdropSrc: RING_BACKDROP,
-    // Seamless: original Foxy Thong body + Gold gloves (no recolor).
-    bodyId: 'body-12',
-    gloveId: 'gold',
+    ringBackdropSrc: LA_SKYLINE_BACKDROP,
+    // Seamless complete boxer — body owned by character, gloves from Options.
+    bodyId: 'body-kk',
     faceScale: 1.05,
     faceNudgeY: 0.04,
     // Long wavy hair must tuck under the torso/shoulders.

@@ -3,15 +3,13 @@ import { useCharacter } from './play/face/CharacterContext';
 import type { CharacterId } from './play/face/characters';
 import { useGlove } from './play/GloveContext';
 import type { GloveLoadoutId } from './play/gloveLoadout';
-import { useBody } from './play/BodyContext';
-import type { BodyStyleId } from './play/bodyStyles';
 
 interface OptionsPanelProps {
   open: boolean;
   onClose: () => void;
 }
 
-type OptionsView = 'menu' | 'gloves' | 'boxers' | 'bodies';
+type OptionsView = 'menu' | 'gloves' | 'boxers';
 
 function GlovePowerBar({ power }: { power: number }) {
   const clamped = Math.max(0, Math.min(100, power));
@@ -34,31 +32,28 @@ function GlovePowerBar({ power }: { power: number }) {
 }
 
 /**
- * Gym options overlay. Top level is Gloves / Boxers / Bodies; selections apply on close.
+ * Gym options overlay. Top level is Gloves / Boxers; selections apply on close.
+ * Ring bodies are defined per boxer (not a separate Options choice).
  */
 export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
   const { characterId, characters, setCharacterId, deletePhotoFace } = useCharacter();
   const { gloveId, gloves, setGloveId } = useGlove();
-  const { bodyId, bodies, setBodyId } = useBody();
   const [view, setView] = useState<OptionsView>('menu');
   const [draftCharacterId, setDraftCharacterId] = useState<CharacterId>(characterId);
   const [draftGloveId, setDraftGloveId] = useState<GloveLoadoutId>(gloveId);
-  const [draftBodyId, setDraftBodyId] = useState<BodyStyleId>(bodyId);
 
   useEffect(() => {
     if (!open) return;
     setView('menu');
     setDraftCharacterId(characterId);
     setDraftGloveId(gloveId);
-    setDraftBodyId(bodyId);
-  }, [open, characterId, gloveId, bodyId]);
+  }, [open, characterId, gloveId]);
 
   const close = useCallback(() => {
     setCharacterId(draftCharacterId);
     setGloveId(draftGloveId);
-    setBodyId(draftBodyId);
     onClose();
-  }, [draftCharacterId, draftGloveId, draftBodyId, onClose, setCharacterId, setGloveId, setBodyId]);
+  }, [draftCharacterId, draftGloveId, onClose, setCharacterId, setGloveId]);
 
   useEffect(() => {
     if (!open) return;
@@ -81,14 +76,7 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
   const stockChars = characters.filter((c) => !c.isPhotoFace);
   const photoChars = characters.filter((c) => c.isPhotoFace);
 
-  const title =
-    view === 'gloves'
-      ? 'Gloves'
-      : view === 'boxers'
-        ? 'Boxers'
-        : view === 'bodies'
-          ? 'Bodies'
-          : 'Options';
+  const title = view === 'gloves' ? 'Gloves' : view === 'boxers' ? 'Boxers' : 'Options';
 
   return (
     <div className="options-overlay" role="dialog" aria-modal="true" aria-label="Options">
@@ -117,11 +105,7 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
             </button>
             <button type="button" className="options-menu-btn" onClick={() => setView('boxers')}>
               <span className="options-menu-btn-label">Boxers</span>
-              <span className="options-menu-btn-hint">Some boxers bring their own body and gloves</span>
-            </button>
-            <button type="button" className="options-menu-btn" onClick={() => setView('bodies')}>
-              <span className="options-menu-btn-label">Bodies</span>
-              <span className="options-menu-btn-hint">Ring sparring partner styles</span>
+              <span className="options-menu-btn-hint">Each boxer brings their own body</span>
             </button>
           </nav>
         )}
@@ -130,7 +114,7 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
           <section className="options-section">
             <p className="options-section-hint">
               Tap a set to preview. Power is punch strength out of 100. Boxers with built-in gloves
-              (like KK → Gold) ignore this. Saved when you close.
+              ignore this. Saved when you close.
             </p>
             <div className="glove-grid">
               {gloves.map((g) => {
@@ -151,32 +135,6 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
                     />
                     <span className="glove-select-name">{g.name}</span>
                     <GlovePowerBar power={g.power} />
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {view === 'bodies' && (
-          <section className="options-section">
-            <p className="options-section-hint">
-              Pick a sparring body for The Ring. Boxers with a built-in body (like KK → Foxy Thong)
-              ignore this. Saved when you close.
-            </p>
-            <div className="body-grid">
-              {bodies.map((b) => {
-                const selected = draftBodyId === b.id;
-                return (
-                  <button
-                    key={b.id}
-                    type="button"
-                    className={`body-select-btn ${selected ? 'is-selected' : ''}`}
-                    aria-pressed={selected}
-                    onClick={() => setDraftBodyId(b.id)}
-                  >
-                    <img className="body-select-thumb" src={b.thumbSrc} alt="" draggable={false} />
-                    <span className="body-select-name">{b.name}</span>
                   </button>
                 );
               })}

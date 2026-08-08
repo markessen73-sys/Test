@@ -4,10 +4,9 @@ import { useTexture } from '@react-three/drei';
 import type { Group } from 'three';
 import * as THREE from 'three';
 import { PartnerFaceDecal } from '../play/face/PartnerFaceDecal';
-import { useBody } from '../play/BodyContext';
 import { useCharacter } from '../play/face/CharacterContext';
 import type { BodyStyle } from '../play/bodyStyles';
-import { BODY_STYLES } from '../play/bodyStyles';
+import { BODY_STYLES, DEFAULT_BODY_STYLE_ID } from '../play/bodyStyles';
 
 /** Base sprite plane height in metres. */
 export const SPARRING_SPRITE_BASE_HEIGHT = 3.44;
@@ -47,7 +46,7 @@ interface SparringPartnerProps {
   /** Damage meter at 100% — show knockout face. */
   knockedOut?: boolean;
   innerRef?: RefObject<Group | null>;
-  /** Override body style (defaults to Options selection). */
+  /** Override body style (defaults to the selected boxer's body). */
   body?: BodyStyle;
 }
 
@@ -62,12 +61,11 @@ function SparringPartnerSprite({
   innerRef,
   body: bodyProp,
 }: SparringPartnerProps) {
-  const { body: selectedBody } = useBody();
   const { character } = useCharacter();
   const body =
     bodyProp ??
     (character.bodyId ? BODY_STYLES[character.bodyId] : undefined) ??
-    selectedBody;
+    BODY_STYLES[DEFAULT_BODY_STYLE_ID];
   const animRef = useRef<Group>(null);
   const texture = useTexture(body.textureSrc);
   const opacity = dimmed ? 0.35 : 1;
@@ -133,4 +131,4 @@ export function SparringPartner(props: SparringPartnerProps) {
 }
 
 useTexture.preload(BODY_STYLES.generic.textureSrc);
-useTexture.preload(BODY_STYLES['body-12'].textureSrc);
+useTexture.preload(BODY_STYLES['body-kk'].textureSrc);

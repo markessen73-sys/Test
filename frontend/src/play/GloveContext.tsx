@@ -40,7 +40,7 @@ export function GloveProvider({ children }: { children: ReactNode }) {
   const [storedGloveId, setStoredGloveId] = useState<GloveLoadoutId>(() =>
     readStoredGloveLoadoutId()
   );
-  /** Character-bound loadout (e.g. KK → gold) overrides the Options picker. */
+  /** Character-bound loadout overrides the Options picker when set. */
   const gloveId = character.gloveId ?? storedGloveId;
 
   useEffect(() => {

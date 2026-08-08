@@ -15,7 +15,8 @@ export type BodyStyleId =
   | 'body-09'
   | 'body-10'
   | 'body-11'
-  | 'body-12';
+  | 'body-12'
+  | 'body-kk';
 
 export interface BodyStyle {
   id: BodyStyleId;
@@ -162,6 +163,15 @@ export const BODY_STYLES: Record<BodyStyleId, BodyStyle> = {
     [0.4082, 0.0215, 0.6064, 0.179],
     0.0664
   ),
+  'body-kk': body(
+    'body-kk',
+    'KK',
+    '/boxer/bodies/body-kk.png',
+    '/boxer/bodies/body-kk-thumb.png',
+    // Soft hourglass pink kit; blank head matched to KK face skin.
+    [0.4268, 0.0592, 0.5898, 0.2188],
+    0.0306
+  ),
 };
 
 export const BODY_STYLE_LIST: BodyStyle[] = [
@@ -178,6 +188,7 @@ export const BODY_STYLE_LIST: BodyStyle[] = [
   BODY_STYLES['body-10'],
   BODY_STYLES['body-11'],
   BODY_STYLES['body-12'],
+  BODY_STYLES['body-kk'],
 ];
 
 export const DEFAULT_BODY_STYLE_ID: BodyStyleId = 'generic';
