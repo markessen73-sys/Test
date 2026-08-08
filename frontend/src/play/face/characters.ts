@@ -156,18 +156,18 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
     bodyId: 'generic',
   }),
   byson: makeCharacter('byson', 'Byson', {
-    ringBackdropSrc: RING_BACKDROP,
-    bodyId: 'body-byson',
+    bodyId: 'generic',
     faceScale: 1.18,
-    bakedRingPoses: {
-      idleSrc: assetUrl('/boxer/bodies/byson-idle.png'),
-      oohSrc: assetUrl('/boxer/bodies/byson-ooh.png'),
-      knockoutSrc: assetUrl('/boxer/bodies/byson-knockout.png'),
-    },
   }),
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick', {
-    bodyId: 'generic',
+    ringBackdropSrc: RING_BACKDROP,
+    bodyId: 'body-tin-mick',
     faceScale: 1.08,
+    bakedRingPoses: {
+      idleSrc: assetUrl('/boxer/bodies/tin-mick-idle.png'),
+      oohSrc: assetUrl('/boxer/bodies/tin-mick-ooh.png'),
+      knockoutSrc: assetUrl('/boxer/bodies/tin-mick-knockout.png'),
+    },
   }),
   'the-don': makeCharacter('the-don', 'The Don', {
     ringBackdropSrc: RING_BACKDROP,

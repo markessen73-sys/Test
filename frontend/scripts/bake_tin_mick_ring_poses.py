@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Bake Byson whole-body solid ring poses from user-authored full renders.
+"""Bake Tin Mick whole-body solid ring poses from user-authored full renders.
 
 Sources (repo root uploads — upload order normal, ooh, knockout):
-  idle      → file_00000000597c81f4ad8f06e92ddd3792.png
+  idle      → file_0000000096348246aaa5efe22ae923fb.png  (boxing guard)
   ooh       → file_00000000677c81f6bcd1e297b6b30f27.png
-  knockout  → file_0000000096348246aaa5efe22ae923fb.png
+  knockout  → file_00000000597c81f4ad8f06e92ddd3792.png  (bowed head)
 
-Outputs: public/boxer/bodies/byson-{idle,ooh,knockout}.png (+ thumbs)
-Face pack refresh: public/faces/characters/byson/{clean,ooh,knockout}.png
+Outputs: public/boxer/bodies/tin-mick-{idle,ooh,knockout}.png (+ thumbs)
+Face pack refresh: public/faces/characters/tin-mick/{clean,ooh,knockout}.png
 """
 from __future__ import annotations
 
@@ -21,14 +21,14 @@ from bake_bozza_ring_poses import assert_solid, pack, remove_bg, seal_silhouette
 ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT.parent
 OUT = ROOT / 'public/boxer/bodies'
-FACES = ROOT / 'public/faces/characters/byson'
+FACES = ROOT / 'public/faces/characters/tin-mick'
 W, H = 1024, 1536
 TOP_PAD = 40
 
 USER_IMPORTS = {
-    'idle': REPO_ROOT / 'file_00000000597c81f4ad8f06e92ddd3792.png',
+    'idle': REPO_ROOT / 'file_0000000096348246aaa5efe22ae923fb.png',
     'ooh': REPO_ROOT / 'file_00000000677c81f6bcd1e297b6b30f27.png',
-    'knockout': REPO_ROOT / 'file_0000000096348246aaa5efe22ae923fb.png',
+    'knockout': REPO_ROOT / 'file_00000000597c81f4ad8f06e92ddd3792.png',
 }
 
 
@@ -63,12 +63,12 @@ def sync_user_face_packs() -> None:
 
 
 def save_pose_outputs(pose: str, packed: Image.Image) -> None:
-    packed.save(OUT / f'byson-{pose}.png', optimize=True)
+    packed.save(OUT / f'tin-mick-{pose}.png', optimize=True)
     thumb = packed.resize((128, 192), Image.Resampling.LANCZOS)
     t = np.array(thumb.convert('RGBA'))
     t[:, :, 3] = np.where(t[:, :, 3] > 40, 255, 0).astype(np.uint8)
     Image.fromarray(np.array(seal_silhouette(Image.fromarray(t), close_iters=3))).save(
-        OUT / f'byson-{pose}-thumb.png', optimize=True
+        OUT / f'tin-mick-{pose}-thumb.png', optimize=True
     )
     print('wrote', pose)
 
