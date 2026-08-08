@@ -170,10 +170,9 @@ export const BODY_STYLES: Record<BodyStyleId, BodyStyle> = {
     // via character.bakedRingPoses.
     '/boxer/bodies/kk-idle.png',
     '/boxer/bodies/kk-idle-thumb.png',
-    // Same packing metrics as Foxy Thong (muscular base) — unused when baked.
-    // feetSoleFrac matches shrunk baked KK poses (~0.067).
+    // Same packing metrics as Foxy Thong / user KK source refs.
     [0.4082, 0.0215, 0.6064, 0.179],
-    0.0671
+    0.0664
   ),
 };
 
