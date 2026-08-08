@@ -74,6 +74,16 @@ export interface CharacterDef {
    * behind the body sprite so strands tuck under the shoulders/torso.
    */
   hairBehindBody?: boolean;
+  /**
+   * Complete baked ring figure (face + hair + body in one texture). When set,
+   * SparringPartner swaps these full-body sprites for idle / ooh / KO and skips
+   * the face decal. Used to test whole-character baking vs face-on-body.
+   */
+  bakedRingPoses?: {
+    idleSrc: string;
+    oohSrc: string;
+    knockoutSrc: string;
+  };
   /** Optional ring play backdrop image (shown behind the far ropes). */
   ringBackdropSrc?: string;
   /** True for user photo faces (can be deleted). */
@@ -107,6 +117,7 @@ function makeCharacter(
     faceNudgeX?: number;
     faceNudgeY?: number;
     hairBehindBody?: boolean;
+    bakedRingPoses?: CharacterDef['bakedRingPoses'];
     ringBackdropSrc?: string;
   } = {}
 ): CharacterDef {
@@ -191,11 +202,14 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   }),
   kk: makeCharacter('kk', 'KK', {
     ringBackdropSrc: LA_SKYLINE_BACKDROP,
-    // Complete boxer: dedicated black-kit body; gloves from Options; hair behind torso.
+    // Methodology test: whole baked figure (not face-on-body). Face pack still
+    // used for Options thumb / damage HUD / bag / bobo.
     bodyId: 'body-kk',
-    faceScale: 1.05,
-    faceNudgeY: 0.04,
-    hairBehindBody: true,
+    bakedRingPoses: {
+      idleSrc: assetUrl('/boxer/bodies/kk-idle.png'),
+      oohSrc: assetUrl('/boxer/bodies/kk-ooh.png'),
+      knockoutSrc: assetUrl('/boxer/bodies/kk-knockout.png'),
+    },
   }),
 };
 

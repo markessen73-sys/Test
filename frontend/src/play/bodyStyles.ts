@@ -166,9 +166,11 @@ export const BODY_STYLES: Record<BodyStyleId, BodyStyle> = {
   'body-kk': body(
     'body-kk',
     'KK',
-    '/boxer/bodies/body-kk.png',
-    '/boxer/bodies/body-kk-thumb.png',
-    // Same packing metrics as Foxy Thong (muscular base).
+    // Default browse/ring texture is the baked idle figure; ring ooh/KO swap
+    // via character.bakedRingPoses.
+    '/boxer/bodies/kk-idle.png',
+    '/boxer/bodies/kk-idle-thumb.png',
+    // Same packing metrics as Foxy Thong (muscular base) — unused when baked.
     [0.4082, 0.0215, 0.6064, 0.179],
     0.0664
   ),
