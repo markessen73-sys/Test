@@ -146,8 +146,9 @@ export function fillClearInteriorBlack(
     const o = i * 4;
     const x = i % width;
     const y = (i / width) | 0;
-    // Sample nearby opaque colour. Dark surrounds (mouth cavities) stay black;
-    // light surrounds (blonde hair gaps) fill with that hair colour — not ink black.
+    // Always prefer nearby opaque colour so dark-hair strand gaps fill with
+    // brown (not ink black, which reads as clear holes on dark backdrops).
+    // Fall back to black only when no opaque neighbours exist (true cavities).
     let sr = 0,
       sg = 0,
       sb = 0,
@@ -164,14 +165,17 @@ export function fillClearInteriorBlack(
         const r = data[j] ?? 0;
         const g = data[j + 1] ?? 0;
         const b = data[j + 2] ?? 0;
-        sr += r;
-        sg += g;
-        sb += b;
-        sumL += 0.299 * r + 0.587 * g + 0.114 * b;
-        sn++;
+        const L = 0.299 * r + 0.587 * g + 0.114 * b;
+        // Prefer mid/light samples so hair fills don't collapse to pure outline black.
+        const wgt = L > 40 ? 3 : L > 18 ? 2 : 1;
+        sr += r * wgt;
+        sg += g * wgt;
+        sb += b * wgt;
+        sumL += L * wgt;
+        sn += wgt;
       }
     }
-    if (sn > 0 && sumL / sn >= 90) {
+    if (sn > 0) {
       data[o] = Math.round(sr / sn);
       data[o + 1] = Math.round(sg / sn);
       data[o + 2] = Math.round(sb / sn);
