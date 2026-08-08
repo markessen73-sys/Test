@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { setBackgroundMusicBedOverride, setPunchSfxOverride } from '../gameAudio';
+import { useCharacter } from './face/CharacterContext';
 import {
   DEFAULT_GLOVE_LOADOUT_ID,
   GLOVE_LOADOUT_LIST,
@@ -35,14 +36,19 @@ function syncGloveAudio(id: GloveLoadoutId) {
 }
 
 export function GloveProvider({ children }: { children: ReactNode }) {
-  const [gloveId, setGloveIdState] = useState<GloveLoadoutId>(() => readStoredGloveLoadoutId());
+  const { character } = useCharacter();
+  const [storedGloveId, setStoredGloveId] = useState<GloveLoadoutId>(() =>
+    readStoredGloveLoadoutId()
+  );
+  /** Character-bound loadout (e.g. KK → gold) overrides the Options picker. */
+  const gloveId = character.gloveId ?? storedGloveId;
 
   useEffect(() => {
     syncGloveAudio(gloveId);
   }, [gloveId]);
 
   const setGloveId = useCallback((id: GloveLoadoutId) => {
-    setGloveIdState(id);
+    setStoredGloveId(id);
     writeStoredGloveLoadoutId(id);
     syncGloveAudio(id);
   }, []);

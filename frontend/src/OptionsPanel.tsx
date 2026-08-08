@@ -117,7 +117,7 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
             </button>
             <button type="button" className="options-menu-btn" onClick={() => setView('boxers')}>
               <span className="options-menu-btn-label">Boxers</span>
-              <span className="options-menu-btn-hint">Faces — some boxers bring their own body</span>
+              <span className="options-menu-btn-hint">Some boxers bring their own body and gloves</span>
             </button>
             <button type="button" className="options-menu-btn" onClick={() => setView('bodies')}>
               <span className="options-menu-btn-label">Bodies</span>
@@ -129,7 +129,8 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
         {view === 'gloves' && (
           <section className="options-section">
             <p className="options-section-hint">
-              Tap a set to preview. Power is punch strength out of 100. Saved when you close.
+              Tap a set to preview. Power is punch strength out of 100. Boxers with built-in gloves
+              (like KK → Gold) ignore this. Saved when you close.
             </p>
             <div className="glove-grid">
               {gloves.map((g) => {
@@ -160,8 +161,8 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
         {view === 'bodies' && (
           <section className="options-section">
             <p className="options-section-hint">
-              Pick a sparring body for The Ring. Boxers with a built-in body (like KK) ignore this
-              and always use their own. Saved when you close.
+              Pick a sparring body for The Ring. Boxers with a built-in body (like KK → Foxy Thong)
+              ignore this. Saved when you close.
             </p>
             <div className="body-grid">
               {bodies.map((b) => {

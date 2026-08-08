@@ -133,4 +133,4 @@ export function SparringPartner(props: SparringPartnerProps) {
 }
 
 useTexture.preload(BODY_STYLES.generic.textureSrc);
-useTexture.preload(BODY_STYLES['body-kk'].textureSrc);
+useTexture.preload(BODY_STYLES['body-12'].textureSrc);

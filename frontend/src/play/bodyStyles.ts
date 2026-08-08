@@ -15,9 +15,7 @@ export type BodyStyleId =
   | 'body-09'
   | 'body-10'
   | 'body-11'
-  | 'body-12'
-  /** Character-bound: KK gold Foxy (thong stance). */
-  | 'body-kk';
+  | 'body-12';
 
 export interface BodyStyle {
   id: BodyStyleId;
@@ -161,16 +159,6 @@ export const BODY_STYLES: Record<BodyStyleId, BodyStyle> = {
     '/boxer/bodies/body-12.png',
     '/boxer/bodies/body-12-thumb.png',
     // Blank head slot on the regenerated Foxy pose (gloves-up guard).
-    [0.4082, 0.0215, 0.6064, 0.179],
-    0.0664
-  ),
-  // Seamless character body — not listed in the Bodies picker.
-  'body-kk': body(
-    'body-kk',
-    'KK Gold',
-    '/boxer/bodies/body-kk.png',
-    '/boxer/bodies/body-kk-thumb.png',
-    // Same blank head slot as Foxy Thong stance.
     [0.4082, 0.0215, 0.6064, 0.179],
     0.0664
   ),
