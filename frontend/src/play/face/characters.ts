@@ -164,8 +164,14 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
     faceScale: 1.08,
   }),
   'the-don': makeCharacter('the-don', 'The Don', {
-    bodyId: 'generic',
+    ringBackdropSrc: RING_BACKDROP,
+    bodyId: 'body-don',
     faceScale: 1.1,
+    bakedRingPoses: {
+      idleSrc: assetUrl('/boxer/bodies/don-idle.png'),
+      oohSrc: assetUrl('/boxer/bodies/don-ooh.png'),
+      knockoutSrc: assetUrl('/boxer/bodies/don-knockout.png'),
+    },
   }),
   'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North', {
     bodyId: 'generic',
