@@ -1,0 +1,408 @@
+#!/usr/bin/env python3
+"""Extract 9 ear-pair styles onto blank-aligned 1024 overlays.
+
+Source: file_00000000c184820a8c0203d285a8c48c.png (3×3 ear pairs on black)
+
+Placement is locked to the ears already drawn on blank-no-features.png:
+detect each template ear's tip / attach / top / bottom, remove those ears
+to make blank-no-ears.png, then fit every sheet style into that footprint.
+"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import numpy as np
+from PIL import Image, ImageFilter
+
+ROOT = Path(__file__).resolve().parents[1]
+SHEET = ROOT / 'file_00000000c184820a8c0203d285a8c48c.png'
+BLANK = ROOT / 'frontend/public/assets/build-face/blank-no-features.png'
+OUT = ROOT / 'frontend/public/assets/build-face/ears'
+CATALOG = ROOT / 'frontend/public/assets/build-face/catalog.json'
+BLANK_NO_EARS = ROOT / 'frontend/public/assets/build-face/blank-no-ears.png'
+
+NAMES = [
+  'Standard', 'Small', 'Large',
+  'Low set', 'High set', 'Pointed top',
+  'Round', 'Prominent', 'Folded',
+]
+SLUGS = [
+  '01-standard', '02-small', '03-large',
+  '04-low-set', '05-high-set', '06-pointed-top',
+  '07-round', '08-prominent', '09-folded',
+]
+# Cell crops: (y0,y1,x0,x1) for the 3×3 sheet
+CELLS = [
+  (9, 251, 70, 362), (9, 241, 513, 790), (10, 259, 936, 1245),
+  (407, 665, 72, 360), (406, 605, 511, 789), (406, 647, 944, 1229),
+  (801, 1039, 67, 362), (801, 1047, 495, 805), (801, 1046, 937, 1229),
+]
+# Relative tweaks vs the template ear footprint
+TWEAKS = {
+  '01-standard': {'scale': 1.0, 'dy': 0},
+  '02-small': {'scale': 0.82, 'dy': 4},
+  '03-large': {'scale': 1.22, 'dy': -4},
+  '04-low-set': {'scale': 1.0, 'dy': 38},
+  '05-high-set': {'scale': 1.0, 'dy': -32},
+  '06-pointed-top': {'scale': 1.05, 'dy': -6},
+  '07-round': {'scale': 1.0, 'dy': 0},
+  '08-prominent': {'scale': 1.15, 'dy': 0},
+  '09-folded': {'scale': 0.92, 'dy': 4},
+}
+# Tall sheet ears (~0.5 w/h). Scale uniformly from height (no wide stretch).
+# Inner edge docks to the cheek; tip sticks outside the head.
+BASE_SCALE_H = 2.00
+BASE_DY = 40
+# How many px the ear overlaps onto the head so the seam isn't a gap.
+ATTACH_INSET = 8
+
+
+def _clusters(xs: np.ndarray, gap: int = 3) -> list[tuple[int, int]]:
+  if not len(xs):
+    return []
+  xs = np.sort(xs.astype(int))
+  groups: list[list[int]] = [[int(xs[0])]]
+  for x in xs[1:]:
+    x = int(x)
+    if x <= groups[-1][-1] + gap:
+      groups[-1].append(x)
+    else:
+      groups.append([x])
+  return [(g[0], g[-1]) for g in groups if g[-1] - g[0] + 1 >= 2]
+
+
+def detect_template_ears(blank: np.ndarray) -> dict:
+  """Measure L/R ear footprints from the template's own ear outlines."""
+  a = blank[:, :, 3] > 10
+  lum = blank[:, :, :3].mean(2)
+  outline = a & (lum < 55)
+
+  left_rows: list[tuple[int, int, int]] = []
+  right_rows: list[tuple[int, int, int]] = []
+  for y in range(400, 520):
+    cs = _clusters(np.where(outline[y, :350])[0])
+    if len(cs) >= 2:
+      tip, attach = cs[0][0], cs[-1][0]
+      if attach - tip >= 25:
+        left_rows.append((y, tip, attach))
+    cs = _clusters(np.where(outline[y, 674:])[0] + 674)
+    if len(cs) >= 2:
+      attach, tip = cs[0][1], cs[-1][1]
+      if tip - attach >= 25:
+        right_rows.append((y, attach, tip))
+
+  if not left_rows or not right_rows:
+    raise SystemExit('Could not detect template ears from blank-no-features.png')
+
+  # Ignore shoulder flare at the very bottom
+  left_rows = [r for r in left_rows if r[0] <= 505]
+  right_rows = [r for r in right_rows if r[0] <= 505]
+
+  def pack(rows: list[tuple[int, int, int]], side: str) -> dict:
+    top, bot = rows[0][0], rows[-1][0]
+    if side == 'L':
+      tip = int(min(r[1] for r in rows))
+      attach = int(np.median([r[2] for r in rows[: max(1, len(rows) // 3)]]))
+      return {
+        'side': 'L',
+        'tip': tip,
+        'attach': attach,
+        'top': int(top),
+        'bot': int(bot),
+        'w': int(attach - tip),
+        'h': int(bot - top + 1),
+        'cx': float((tip + attach) / 2),
+        'cy': float((top + bot) / 2),
+      }
+    tip = int(max(r[2] for r in rows))
+    attach = int(np.median([r[1] for r in rows[: max(1, len(rows) // 3)]]))
+    return {
+      'side': 'R',
+      'tip': tip,
+      'attach': attach,
+      'top': int(top),
+      'bot': int(bot),
+      'w': int(tip - attach),
+      'h': int(bot - top + 1),
+      'cx': float((tip + attach) / 2),
+      'cy': float((top + bot) / 2),
+    }
+
+  L = pack(left_rows, 'L')
+  R = pack(right_rows, 'R')
+  # Unify height/vertical span to the larger ear so the pair matches
+  top = min(L['top'], R['top'])
+  bot = max(L['bot'], R['bot'])
+  h = bot - top + 1
+  w = max(L['w'], R['w'])
+  L.update({'top': top, 'bot': bot, 'h': h, 'w': w, 'cy': (top + bot) / 2, 'attach': L['tip'] + w})
+  R.update({'top': top, 'bot': bot, 'h': h, 'w': w, 'cy': (top + bot) / 2, 'attach': R['tip'] - w})
+  print(f"Template L ear tip={L['tip']} attach={L['attach']} y={L['top']}-{L['bot']} w={L['w']} h={L['h']}")
+  print(f"Template R ear tip={R['tip']} attach={R['attach']} y={R['top']}-{R['bot']} w={R['w']} h={R['h']}")
+  return {'L': L, 'R': R}
+
+
+def write_blank_no_ears(blank: np.ndarray, ears: dict) -> np.ndarray:
+  """Rebuild a smooth earless head — trim flares and redraw cheek outlines.
+
+  Zeroing tip→attach left notches and a vertical attach scar; the head oval
+  was drawn with ears baked into the silhouette, so we reshape the mid-head
+  to a face-width curve and paint a clean outline.
+  """
+  out = blank.copy()
+  a = blank[:, :, 3] > 10
+
+  # Interior skin + outline colours from the template
+  skin = blank[450, 512].copy()
+  outline_rgba = np.array([10, 12, 18, 255], dtype=np.uint8)
+
+  # Pre-ear temple edges and post-ear neck edges frame the reshape.
+  pre_y = min(ears['L']['top'] - 10, 410)
+  while pre_y > 200 and not a[pre_y].any():
+    pre_y -= 1
+  pre_xs = np.where(a[pre_y])[0]
+  pre_L, pre_R = int(pre_xs.min()), int(pre_xs.max())
+
+  post_y = 690
+  while post_y < 850 and a[post_y].any():
+    xs = np.where(a[post_y])[0]
+    # Neck jump: left edge moves inward sharply vs ear-inclusive oval
+    if xs.min() > 200:
+      break
+    post_y += 1
+  post_xs = np.where(a[post_y])[0]
+  post_L, post_R = int(post_xs.min()), int(post_xs.max())
+
+  # Face width without ears ≈ temple, slightly eased outward.
+  mid_L = pre_L - 4
+  mid_R = pre_R + 4
+
+  y_lo = pre_y + 1
+  y_hi = post_y - 1
+  print(f'Reshape ears y={y_lo}-{y_hi} temple={pre_L}-{pre_R} mid={mid_L}-{mid_R} neck={post_L}-{post_R} @{post_y}')
+
+  def smoothstep(t: float) -> float:
+    t = max(0.0, min(1.0, t))
+    return t * t * (3.0 - 2.0 * t)
+
+  for y in range(y_lo, y_hi + 1):
+    t = (y - y_lo) / max(1, y_hi - y_lo)
+    if t < 0.12:
+      u = smoothstep(t / 0.12)
+      tL = pre_L * (1 - u) + mid_L * u
+      tR = pre_R * (1 - u) + mid_R * u
+    elif t < 0.82:
+      tL, tR = float(mid_L), float(mid_R)
+    else:
+      u = smoothstep((t - 0.82) / 0.18)
+      tL = mid_L * (1 - u) + post_L * u
+      tR = mid_R * (1 - u) + post_R * u
+    tL_i, tR_i = int(round(tL)), int(round(tR))
+    if tR_i - tL_i < 40:
+      continue
+
+    xs = np.where(out[y, :, 3] > 10)[0]
+    if not len(xs):
+      continue
+    cur_L, cur_R = int(xs.min()), int(xs.max())
+
+    # Trim ear flare outside the face curve
+    if cur_L < tL_i:
+      out[y, cur_L:tL_i] = 0
+    if cur_R > tR_i:
+      out[y, tR_i + 1:cur_R + 1] = 0
+
+    # Replace leftover dark attach scars just inside the new cheek with skin
+    for x in range(tL_i, min(tL_i + 10, tR_i)):
+      pix = out[y, x]
+      if pix[3] > 10 and float(pix[:3].mean()) < 55:
+        out[y, x] = skin
+    for x in range(max(tL_i, tR_i - 9), tR_i + 1):
+      pix = out[y, x]
+      if pix[3] > 10 and float(pix[:3].mean()) < 55:
+        out[y, x] = skin
+
+    # Ensure fill exists just inside the cheek, then stamp a clean outline
+    if out[y, min(tL_i + 3, tR_i), 3] < 10:
+      out[y, tL_i + 2:tL_i + 6] = skin
+    if out[y, max(tR_i - 3, tL_i), 3] < 10:
+      out[y, tR_i - 5:tR_i - 1] = skin
+    out[y, tL_i] = outline_rgba
+    if tL_i + 1 < tR_i:
+      out[y, tL_i + 1] = outline_rgba
+    out[y, tR_i] = outline_rgba
+    if tR_i - 1 > tL_i:
+      out[y, tR_i - 1] = outline_rgba
+
+  # Scrub leftover ear-cavity / attach strokes just inside the cheeks.
+  # Keep only the 2px outer outline; anything darker further in becomes skin.
+  a2 = out[:, :, 3] > 10
+  for y in range(y_lo, y_hi + 1):
+    xs = np.where(a2[y])[0]
+    if not len(xs):
+      continue
+    tL_i, tR_i = int(xs.min()), int(xs.max())
+    for x in range(tL_i + 2, min(tL_i + 55, tR_i - 2)):
+      if float(out[y, x, :3].mean()) < 90:
+        out[y, x] = skin
+    for x in range(max(tL_i + 2, tR_i - 54), tR_i - 1):
+      if float(out[y, x, :3].mean()) < 90:
+        out[y, x] = skin
+    # Re-stamp outline after scrub
+    out[y, tL_i] = outline_rgba
+    out[y, min(tL_i + 1, tR_i)] = outline_rgba
+    out[y, tR_i] = outline_rgba
+    out[y, max(tR_i - 1, tL_i)] = outline_rgba
+
+  Image.fromarray(out).save(BLANK_NO_EARS)
+  return out
+
+
+def extract_ears(cell_rgb: np.ndarray) -> list[dict]:
+  lum = cell_rgb.mean(2)
+  bright = (cell_rgb[:, :, 0] > 180) & (cell_rgb[:, :, 1] > 180) & (cell_rgb[:, :, 2] > 180)
+  mask = (lum > 40) & ~bright
+  h, w = mask.shape
+  visited = np.zeros_like(mask)
+  comps: list[dict] = []
+  for y in range(h):
+    for x in np.where(mask[y] & ~visited[y])[0]:
+      if visited[y, x]:
+        continue
+      stack = [(int(y), int(x))]
+      visited[y, x] = True
+      cells: list[tuple[int, int]] = []
+      while stack:
+        cy, cx = stack.pop()
+        cells.append((cy, cx))
+        for ny, nx in ((cy - 1, cx), (cy + 1, cx), (cy, cx - 1), (cy, cx + 1)):
+          if 0 <= ny < h and 0 <= nx < w and mask[ny, nx] and not visited[ny, nx]:
+            visited[ny, nx] = True
+            stack.append((ny, nx))
+      if len(cells) >= 40:
+        xs = [p[1] for p in cells]
+        ys = [p[0] for p in cells]
+        comps.append({
+          'n': len(cells), 'x0': min(xs), 'x1': max(xs),
+          'y0': min(ys), 'y1': max(ys), 'cells': cells,
+        })
+  comps.sort(key=lambda c: -c['n'])
+  ears = comps[:2]
+  ears.sort(key=lambda c: c['x0'])
+  return ears
+
+
+def ear_rgba(cell_rgb: np.ndarray, ear: dict) -> np.ndarray:
+  y0, y1, x0, x1 = ear['y0'], ear['y1'], ear['x0'], ear['x1']
+  pad = 2
+  y0 = max(0, y0 - pad)
+  x0 = max(0, x0 - pad)
+  y1 = min(cell_rgb.shape[0] - 1, y1 + pad)
+  x1 = min(cell_rgb.shape[1] - 1, x1 + pad)
+  crop = cell_rgb[y0:y1 + 1, x0:x1 + 1].copy()
+  alpha = np.zeros(crop.shape[:2], dtype=np.uint8)
+  for cy, cx in ear['cells']:
+    alpha[cy - y0, cx - x0] = 255
+  alpha = np.array(Image.fromarray(alpha).filter(ImageFilter.MaxFilter(3)))
+  lum = crop.mean(2)
+  soft = np.clip((lum - 25) / 40, 0, 1)
+  alpha = (alpha.astype(np.float32) / 255 * soft * 255).astype(np.uint8)
+  return np.dstack([crop, alpha])
+
+
+def measure_cheeks(noears: np.ndarray, ears: dict) -> None:
+  """Cheek = head silhouette edge after template ears are removed."""
+  a = noears[:, :, 3] > 10
+  y0 = max(0, ears['L']['top'])
+  y1 = min(1023, ears['L']['bot'])
+  lefts, rights = [], []
+  for y in range(y0, y1 + 1):
+    xs = np.where(a[y])[0]
+    if len(xs):
+      lefts.append(int(xs.min()))
+      rights.append(int(xs.max()))
+  ears['L']['cheek'] = int(np.median(lefts)) if lefts else ears['L']['attach']
+  ears['R']['cheek'] = int(np.median(rights)) if rights else ears['R']['attach']
+  print(f"Cheek L={ears['L']['cheek']} R={ears['R']['cheek']}")
+
+
+def place_ear(canvas: Image.Image, rgba: np.ndarray, target: dict, tw: dict) -> None:
+  """Place ear on the outside of the head — uniform scale, cheek-docked."""
+  ys0, xs0 = np.where(rgba[:, :, 3] > 20)
+  if not len(ys0):
+    return
+  rgba = rgba[ys0.min():ys0.max() + 1, xs0.min():xs0.max() + 1]
+  src_h = rgba.shape[0]
+  src_w = rgba.shape[1]
+
+  s = float(tw['scale'])
+  nh = max(1, int(round(target['h'] * BASE_SCALE_H * s)))
+  scale = nh / max(1, src_h)
+  nw = max(1, int(round(src_w * scale)))
+  img = Image.fromarray(rgba, 'RGBA').resize((nw, nh), Image.Resampling.LANCZOS)
+  arr = np.array(img)
+  ys, xs = np.where(arr[:, :, 3] > 20)
+  if not len(ys):
+    return
+  content_h = int(ys.max() - ys.min() + 1)
+  cy = target['cy'] + BASE_DY + float(tw['dy'])
+  cheek = float(target['cheek'])
+  # Inner edge docks to cheek (slight inset); tip sticks outward.
+  if target['side'] == 'L':
+    px = int(round(cheek + ATTACH_INSET - xs.max()))
+  else:
+    px = int(round(cheek - ATTACH_INSET - xs.min()))
+  py = int(round(cy - content_h / 2.0 - ys.min()))
+  canvas.paste(img, (px, py), img)
+
+
+def main() -> None:
+  if not SHEET.exists():
+    raise SystemExit(f'Missing sheet: {SHEET}')
+  sheet = np.array(Image.open(SHEET).convert('RGB'))
+  blank = np.array(Image.open(BLANK).convert('RGBA'))
+  targets = detect_template_ears(blank)
+  noears = write_blank_no_ears(blank, targets)
+  measure_cheeks(noears, targets)
+  OUT.mkdir(parents=True, exist_ok=True)
+  for p in OUT.glob('*.png'):
+    p.unlink()
+
+  catalog = []
+  for i, (ya, yb, xa, xb) in enumerate(CELLS):
+    cell = sheet[ya:yb + 1, xa:xb + 1].copy()
+    ears = extract_ears(cell)
+    canvas = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0))
+    tw = TWEAKS.get(SLUGS[i], {'scale': 1.0, 'dy': 0})
+    if len(ears) >= 2:
+      place_ear(canvas, ear_rgba(cell, ears[0]), targets['L'], tw)
+      place_ear(canvas, ear_rgba(cell, ears[1]), targets['R'], tw)
+    path = OUT / f'{SLUGS[i]}.png'
+    canvas.save(path)
+    catalog.append({
+      'id': SLUGS[i],
+      'name': NAMES[i],
+      'file': f'assets/build-face/ears/{SLUGS[i]}.png',
+    })
+    arr = np.array(canvas)
+    ha = arr[:, :, 3] > 20
+    if ha.any():
+      ys, xs = np.where(ha)
+      print(f'{i + 1:02d} {SLUGS[i]} bbox x={xs.min()}-{xs.max()} y={ys.min()}-{ys.max()}')
+    else:
+      print(f'{i + 1:02d} {SLUGS[i]} (empty)')
+
+  cat: dict = {}
+  if CATALOG.exists():
+    cat = json.loads(CATALOG.read_text())
+  cat['blank'] = 'assets/build-face/blank-no-features.png'
+  cat['blankNoEars'] = 'assets/build-face/blank-no-ears.png'
+  cat['ears'] = catalog
+  cat['earsSource'] = SHEET.name
+  CATALOG.write_text(json.dumps(cat, indent=2) + '\n')
+  print(f'Wrote {len(catalog)} ear styles -> {OUT}')
+
+
+if __name__ == '__main__':
+  main()

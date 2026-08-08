@@ -1,0 +1,30 @@
+import { assetUrl } from '../../assetUrl';
+import { DAMAGE_FACE_SEQUENCE } from './faceDamage';
+
+/**
+ * Original shared boxer damage ladder (under `/faces/damage-stages/`),
+ * used before the per-character “Default” pack existed.
+ */
+export const DAMAGE_STAGE_CLEAN_SRC = assetUrl('/faces/damage-stages/00-clean.png');
+
+/**
+ * Pre-baked cumulative injury faces.
+ * Index 0 = 10% (left cauliflower ear) … index 7 = 80% (forehead cut).
+ */
+export const DAMAGE_STAGE_SRCS: readonly string[] = [
+  assetUrl('/faces/damage-stages/01-cauliflowerLeftEar.png'),
+  assetUrl('/faces/damage-stages/02-blackRightEye.png'),
+  assetUrl('/faces/damage-stages/03-chinCrossPlaster.png'),
+  assetUrl('/faces/damage-stages/04-cauliflowerRightEar.png'),
+  assetUrl('/faces/damage-stages/05-missingTooth.png'),
+  assetUrl('/faces/damage-stages/06-swollenLeftEye.png'),
+  assetUrl('/faces/damage-stages/07-brokenNose.png'),
+  assetUrl('/faces/damage-stages/08-foreheadBandage.png'),
+] as const;
+
+export const DAMAGE_STAGE_HOLD_SRC = assetUrl('/faces/damage-stages/09-hold.png');
+export const DAMAGE_STAGE_KNOCKOUT_SRC = assetUrl('/faces/damage-stages/10-knockout.png');
+
+if (DAMAGE_STAGE_SRCS.length !== DAMAGE_FACE_SEQUENCE.length) {
+  throw new Error('DAMAGE_STAGE_SRCS length must match DAMAGE_FACE_SEQUENCE');
+}
