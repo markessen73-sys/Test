@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Bake KK whole-body ring poses from body-kk + face pack.
 
-Idle = gloves up. Ooh = gloves drop. Knockout = hands fully down.
-Hair is composited behind the torso so it sits naturally as one figure.
+Fixes applied for solid silhouette methodology test:
+- Seal interior holes / weak alpha (nothing clear inside silhouette)
+- Inpaint pale yellow-white broken highlights (read as clear patches)
+- Convert yellow outline + gold skin patches to pink accents
+- Lift small crushed-black islands that read as holes on dark backgrounds
+- Fit face with top margin so the crown is not cropped
 
-Outputs:
-  public/boxer/bodies/kk-{idle,ooh,knockout}.png (+ thumbs)
+Idle = gloves up. Ooh = gloves drop. Knockout = hands fully down.
 """
 from __future__ import annotations
 
@@ -22,6 +25,115 @@ FACE_ROOT = PUBLIC / 'faces/characters/kk'
 OUT_DIR = PUBLIC / 'boxer/bodies'
 
 FACE_RECT = [0.4082, 0.0215, 0.6064, 0.179]
+
+
+def nearest_fill(a: np.ndarray, mask: np.ndarray, solid: np.ndarray) -> np.ndarray:
+    if not mask.any():
+        return a
+    a = a.copy()
+    _, (iy, ix) = ndimage.distance_transform_edt(~solid, return_indices=True)
+    a[mask] = a[iy, ix][mask]
+    a[mask, 3] = 255
+    return a
+
+
+def seal(a: np.ndarray, close_iter: int = 3, neighbor_passes: int = 12) -> np.ndarray:
+    al = a[:, :, 3]
+    solid = al > 180
+    soft = (al > 0) & (al <= 180)
+    sil = ndimage.binary_closing(solid | soft, iterations=close_iter)
+    filled = ndimage.binary_fill_holes(sil)
+    a = nearest_fill(a, filled & ~(al > 180), al > 180)
+    a[filled, 3] = 255
+    a[~filled, 3] = 0
+    kernel = np.ones((3, 3), np.float32)
+    kernel[1, 1] = 0
+    for _ in range(neighbor_passes):
+        al = a[:, :, 3]
+        opaque = al > 200
+        neigh = ndimage.convolve(opaque.astype(np.float32), kernel, mode='constant')
+        todo = ((~opaque) & (neigh >= 5)) | ((al > 0) & (al <= 200) & (neigh >= 3))
+        if not todo.any():
+            break
+        a = nearest_fill(a, todo, opaque)
+    filled = ndimage.binary_fill_holes(ndimage.binary_closing(a[:, :, 3] > 40, iterations=2))
+    a[filled, 3] = 255
+    a[~filled, 3] = 0
+    return a
+
+
+def is_pale(r: np.ndarray, g: np.ndarray, b: np.ndarray, al: np.ndarray) -> np.ndarray:
+    opaque = al > 40
+    return opaque & (r > 175) & (g > 145) & (b > 70) & ((r.astype(int) + g) > (2 * b + 30))
+
+
+def repair_pale(a: np.ndarray) -> np.ndarray:
+    r, g, b, al = a[:, :, 0], a[:, :, 1], a[:, :, 2], a[:, :, 3]
+    pale = is_pale(r, g, b, al)
+    good = (al > 200) & ~pale
+    return nearest_fill(a, pale, good)
+
+
+def lift_dark_islands(a: np.ndarray, max_size: int = 900) -> np.ndarray:
+    """Fill small crushed-black islands that read as clear holes on dark UIs."""
+    r, g, b = a[:, :, 0].astype(int), a[:, :, 1].astype(int), a[:, :, 2].astype(int)
+    al = a[:, :, 3]
+    opaque = al > 40
+    mx = np.maximum(np.maximum(r, g), b)
+    dark = opaque & (mx < 42)
+    good = opaque & (mx >= 60)
+    lab, n = ndimage.label(dark)
+    cand = np.zeros_like(dark)
+    for i in range(1, n + 1):
+        m = lab == i
+        s = int(m.sum())
+        if s < 3 or s > max_size:
+            continue
+        dil = ndimage.binary_dilation(m, iterations=2)
+        border = dil & ~m & opaque
+        if border.sum() == 0:
+            continue
+        if (good[border]).mean() < 0.4:
+            continue
+        cand |= m
+    return nearest_fill(a, cand, good)
+
+
+def yellow_to_pink(a: np.ndarray) -> np.ndarray:
+    a = a.copy()
+    r = a[:, :, 0].astype(np.float32)
+    g = a[:, :, 1].astype(np.float32)
+    b = a[:, :, 2].astype(np.float32)
+    al = a[:, :, 3]
+    opaque = al > 40
+    eroded = ndimage.binary_erosion(opaque, iterations=3)
+    rim = opaque & ~eroded
+    rim_warm = rim & (r > 90) & (r >= g - 8)
+    a[rim_warm, 0] = np.clip(np.maximum(r[rim_warm], 205), 205, 255).astype(np.uint8)
+    a[rim_warm, 1] = np.clip(g[rim_warm] * 0.26 + 50, 45, 110).astype(np.uint8)
+    a[rim_warm, 2] = np.clip(b[rim_warm] * 0.35 + 130, 125, 210).astype(np.uint8)
+    yellow = opaque & (r > 195) & (g > 135) & (b < 125) & ((r - b) > 85) & ((g - b) > 30)
+    strength = np.clip(((g - b) / np.maximum(r - b, 1) - 0.3) / 0.5, 0, 1) * yellow
+    a[:, :, 1] = np.clip(g * (1 - 0.75 * strength) + 50 * strength, 0, 255).astype(np.uint8)
+    a[:, :, 2] = np.clip(b * (1 - 0.4 * strength) + (g * 0.45 + 55) * strength, 0, 255).astype(np.uint8)
+    return a
+
+
+def clear_blank_head(a: np.ndarray) -> np.ndarray:
+    h, w = a.shape[:2]
+    fr = FACE_RECT
+    y0, y1 = int(fr[1] * h) - 8, int(fr[3] * h) + 55
+    x0, x1 = int(fr[0] * w) - 45, int(fr[2] * w) + 45
+    for y in range(max(0, y0), min(h, y1)):
+        for x in range(max(0, x0), min(w, x1)):
+            r, g, b, al = map(int, a[y, x])
+            if al < 40:
+                continue
+            if (r > 160 and 80 < g < 200 and b < 120 and r > g and r - b > 60) or (
+                r > 180 and g > 110 and b < 100 and abs(r - g) < 80
+            ):
+                a[y, x, 3] = 0
+    return a
 
 
 def is_hanging_hair(r: int, g: int, b: int, a: int) -> bool:
@@ -47,74 +159,23 @@ def is_neck_skin(r: int, g: int, b: int, a: int) -> bool:
     return r - b > 25 and r > 90
 
 
-def is_blank_head(r: int, g: int, b: int, a: int) -> bool:
-    if a < 40:
-        return False
-    if r > 160 and 80 < g < 200 and b < 120 and r > g and r - b > 60:
-        return True
-    if r > 180 and g > 110 and b < 100 and abs(r - g) < 80:
-        return True
-    return False
-
-
-def recolor_pink_to_black(im: Image.Image) -> Image.Image:
-    a = np.array(im)
-    r = a[:, :, 0].astype(np.int16)
-    g = a[:, :, 1].astype(np.int16)
-    b = a[:, :, 2].astype(np.int16)
-    al = a[:, :, 3]
-    pink = (al > 40) & (r > 130) & (b > 60) & (g < 160) & (r > g + 12) & ((r - g) > 20)
-    pink |= (al > 40) & (r > 150) & (b > 90) & (g < 130) & (r > g)
-    out = a.copy()
-    out[pink, 0] = np.clip(r[pink] // 7, 10, 42).astype(np.uint8)
-    out[pink, 1] = np.clip(g[pink] // 9, 8, 36).astype(np.uint8)
-    out[pink, 2] = np.clip(b[pink] // 7, 12, 48).astype(np.uint8)
-    return Image.fromarray(out)
-
-
-def clear_blank_head(im: Image.Image) -> Image.Image:
-    a = np.array(im)
-    h, w = a.shape[:2]
-    fr = FACE_RECT
-    y0, y1 = int(fr[1] * h) - 8, int(fr[3] * h) + 50
-    x0, x1 = int(fr[0] * w) - 40, int(fr[2] * w) + 40
-    for y in range(max(0, y0), min(h, y1)):
-        for x in range(max(0, x0), min(w, x1)):
-            r, g, b, al = map(int, a[y, x])
-            if is_blank_head(r, g, b, al):
-                a[y, x, 3] = 0
-    return Image.fromarray(a)
-
-
-def face_layers(
-    face_path: Path,
-    dest_w: int,
-    dest_h: int,
-    face_rect: list[float],
-    face_scale: float = 1.05,
-    nudge_y: float = 0.04,
-) -> tuple[Image.Image, Image.Image]:
-    face = Image.open(face_path).convert('RGBA')
-    fw, fh = face.size
-    x0, y0, x1, y1 = face_rect
-    cx = (x0 + x1) / 2
-    cy = (y0 + y1) / 2
-    scale = 1.25 * 1.1 * 1.1 * 1.1 * 1.2 * face_scale
-    half_w = (x1 - x0) / 2 * scale * 1.35
-    half_h = (y1 - y0) / 2 * scale * 1.55
-    cy = cy - nudge_y * (y1 - y0) * scale - half_h * 0.12
+def face_layers(face_img: Image.Image, dest_w: int, dest_h: int, top_margin: int = 60):
+    fw, fh = face_img.size
+    x0, y0, x1, y1 = FACE_RECT
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    scale = 1.05 * 1.02 * 1.02 * 1.04 * 0.74
+    half_w = (x1 - x0) / 2 * scale * 1.15
+    half_h = (y1 - y0) / 2 * scale * 1.25
     contain = min((2 * half_w * dest_w) / fw, (2 * half_h * dest_h) / fh) * 0.94
-    draw_w = int(fw * contain)
-    draw_h = int(fh * contain)
-    face_r = face.resize((draw_w, draw_h), Image.Resampling.LANCZOS)
-    canvas = Image.new('RGBA', (dest_w, dest_h), (0, 0, 0, 0))
+    draw_w, draw_h = int(fw * contain), int(fh * contain)
+    face_r = face_img.resize((draw_w, draw_h), Image.Resampling.LANCZOS)
     px = int(cx * dest_w - draw_w / 2)
-    py = int(cy * dest_h - draw_h / 2)
+    py = max(top_margin, int(cy * dest_h - draw_h / 2))
+    canvas = Image.new('RGBA', (dest_w, dest_h), (0, 0, 0, 0))
     canvas.paste(face_r, (px, py), face_r)
     arr = np.array(canvas)
     front = arr.copy()
-    alpha = arr[:, :, 3]
-    ys, xs = np.where(alpha > 40)
+    ys, xs = np.where(arr[:, :, 3] > 40)
     if len(xs) == 0:
         return canvas, canvas
     bx0, bx1, by0, by1 = xs.min(), xs.max(), ys.min(), ys.max()
@@ -134,15 +195,14 @@ def face_layers(
     return Image.fromarray(arr), Image.fromarray(front)
 
 
-def glove_blobs(body: Image.Image) -> tuple[np.ndarray, np.ndarray]:
-    a = np.array(body)
+def glove_blobs(body_img: Image.Image):
+    a = np.array(body_img)
     h, w = a.shape[:2]
-    r = a[:, :, 0].astype(int)
-    g = a[:, :, 1].astype(int)
-    b = a[:, :, 2].astype(int)
-    al = a[:, :, 3]
-    dark = (al > 160) & (np.maximum(np.maximum(r, g), b) < 100)
-    upper = (np.arange(h)[:, None] > 20) & (np.arange(h)[:, None] < 380)
+    r, g, b, al = a[:, :, 0].astype(int), a[:, :, 1].astype(int), a[:, :, 2].astype(int), a[:, :, 3]
+    gear = ((al > 160) & (np.maximum(np.maximum(r, g), b) < 100)) | (
+        (al > 160) & (r > 150) & (b > 80) & (g < 150) & (r > g + 25)
+    )
+    upper = (np.arange(h)[:, None] > 20) & (np.arange(h)[:, None] < 400)
     left_roi = upper & (np.arange(w)[None, :] > 200) & (np.arange(w)[None, :] < 460)
     right_roi = upper & (np.arange(w)[None, :] > 560) & (np.arange(w)[None, :] < 820)
 
@@ -153,63 +213,91 @@ def glove_blobs(body: Image.Image) -> tuple[np.ndarray, np.ndarray]:
         sizes = ndimage.sum(m, lab, range(1, n + 1))
         return lab == (int(np.argmax(sizes)) + 1)
 
-    left = ndimage.binary_dilation(largest(dark & left_roi), iterations=2)
-    right = ndimage.binary_dilation(largest(dark & right_roi), iterations=2)
-    return left, right
+    return ndimage.binary_dilation(largest(gear & left_roi), iterations=2), ndimage.binary_dilation(
+        largest(gear & right_roi), iterations=2
+    )
 
 
-def translate_gloves(body: Image.Image, dy: int, dx_out: int = 0) -> Image.Image:
-    a = np.array(body)
+def translate_gloves(body_img: Image.Image, dy: int, dx_out: int = 0) -> Image.Image:
+    a = np.array(body_img)
     h, w = a.shape[:2]
-    left, right = glove_blobs(body)
+    left, right = glove_blobs(body_img)
 
     def shift(mask: np.ndarray, dx: int, drop: int) -> Image.Image:
         layer = np.zeros_like(a)
         layer[mask] = a[mask]
-        lim = Image.fromarray(layer)
-        return lim.transform(
+        return Image.fromarray(layer).transform(
             (w, h), Image.AFFINE, (1, 0, -dx, 0, 1, -drop), resample=Image.Resampling.BICUBIC
         )
 
     out = a.copy()
-    clear = ndimage.binary_dilation(left | right, iterations=2)
-    out[clear, 3] = 0
-    out_im = Image.fromarray(out)
-    out_im = Image.alpha_composite(out_im, shift(left, -dx_out, dy))
+    out[ndimage.binary_dilation(left | right, iterations=2), 3] = 0
+    out_im = Image.alpha_composite(Image.fromarray(out), shift(left, -dx_out, dy))
     out_im = Image.alpha_composite(out_im, shift(right, +dx_out, dy))
-    return out_im
+    arr = seal(np.array(out_im))
+    arr = repair_pale(arr)
+    arr = lift_dark_islands(arr, max_size=400)
+    return Image.fromarray(arr)
 
 
-def fill_shoulder_gaps(idle: np.ndarray, posed: np.ndarray) -> np.ndarray:
-    h, w = posed.shape[:2]
-    hole = (posed[:, :, 3] < 40) & (idle[:, :, 3] > 160)
-    band = (np.arange(h)[:, None] > 80) & (np.arange(h)[:, None] < 420)
-    sides = ((np.arange(w)[None, :] > 220) & (np.arange(w)[None, :] < 470)) | (
-        (np.arange(w)[None, :] > 550) & (np.arange(w)[None, :] < 800)
-    )
-    r, g, b = idle[:, :, 0].astype(int), idle[:, :, 1].astype(int), idle[:, :, 2].astype(int)
-    skin = (r > 120) & (r - b > 30) & (r > g - 10)
-    fill = hole & band & sides & skin
-    fill = ndimage.binary_dilation(fill, iterations=1) & hole & band & sides & (idle[:, :, 3] > 160) & skin
-    out = posed.copy()
-    out[fill] = idle[fill]
-    return out
+def shrink_fit(a: np.ndarray, scale: float = 0.86, top_margin: int = 70) -> np.ndarray:
+    im = Image.fromarray(a)
+    h, w = a.shape[:2]
+    ys, xs = np.where(a[:, :, 3] > 40)
+    y0, y1 = ys.min(), ys.max()
+    foot_x = (xs.min() + xs.max()) / 2
+    nw, nh = int(w * scale), int(h * scale)
+    scaled = im.resize((nw, nh), Image.Resampling.LANCZOS)
+    paste_x = int(foot_x - foot_x * scale)
+    paste_y = int(y1 - y1 * scale)
+    new_top = int(y0 * scale) + paste_y
+    if new_top < top_margin:
+        paste_y += top_margin - new_top
+    canvas = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    canvas.paste(scaled, (paste_x, paste_y), scaled)
+    return np.array(canvas)
 
 
-def bake_pose(body: Image.Image, face_path: Path, pose: str) -> Image.Image:
-    body = recolor_pink_to_black(body)
+def prepare_body(path: Path) -> Image.Image:
+    a = np.array(Image.open(path).convert('RGBA'))
+    a = seal(a)
+    a = repair_pale(a)
+    a = yellow_to_pink(a)
+    a = lift_dark_islands(a)
+    a = seal(a, close_iter=2, neighbor_passes=8)
+    a = repair_pale(a)
+    a = yellow_to_pink(a)
+    return Image.fromarray(a)
+
+
+def prepare_face(path: Path) -> Image.Image:
+    fa = seal(np.array(Image.open(path).convert('RGBA')), close_iter=2, neighbor_passes=8)
+    fa = repair_pale(fa)
+    return Image.fromarray(fa)
+
+
+def bake(pose: str, face_path: Path, body: Image.Image) -> Image.Image:
+    b = body.copy()
     if pose == 'ooh':
-        body = translate_gloves(body, dy=95, dx_out=25)
+        b = translate_gloves(b, 95, 25)
     elif pose == 'knockout':
-        body = translate_gloves(body, dy=220, dx_out=55)
-    body = clear_blank_head(body)
-    w, h = body.size
-    hair, face_front = face_layers(face_path, w, h, FACE_RECT)
-    out = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+        b = translate_gloves(b, 220, 55)
+    ba = clear_blank_head(np.array(b))
+    hair, front = face_layers(prepare_face(face_path), *b.size)
+    out = Image.new('RGBA', b.size, (0, 0, 0, 0))
     out = Image.alpha_composite(out, hair)
-    out = Image.alpha_composite(out, body)
-    out = Image.alpha_composite(out, face_front)
-    return out
+    out = Image.alpha_composite(out, Image.fromarray(ba))
+    out = Image.alpha_composite(out, front)
+    a = seal(np.array(out))
+    a = repair_pale(a)
+    a = lift_dark_islands(a)
+    a = yellow_to_pink(a)
+    a = shrink_fit(a, scale=0.86, top_margin=70)
+    a = seal(a)
+    a = repair_pale(a)
+    a = lift_dark_islands(a)
+    a = yellow_to_pink(a)
+    return Image.fromarray(a)
 
 
 def main() -> None:
@@ -218,17 +306,9 @@ def main() -> None:
         'ooh': FACE_ROOT / 'ooh.png',
         'knockout': FACE_ROOT / 'knockout.png',
     }
-    base = Image.open(BODY_SRC).convert('RGBA')
-    idle_arr = None
+    body = prepare_body(BODY_SRC)
     for pose, face_path in faces.items():
-        baked = bake_pose(base.copy(), face_path, pose)
-        arr = np.array(baked)
-        if pose == 'idle':
-            idle_arr = arr
-        else:
-            assert idle_arr is not None
-            arr = fill_shoulder_gaps(idle_arr, arr)
-            baked = Image.fromarray(arr)
+        baked = bake(pose, face_path, body)
         out = OUT_DIR / f'kk-{pose}.png'
         baked.save(out, optimize=True)
         baked.resize((128, 192), Image.Resampling.LANCZOS).save(OUT_DIR / f'kk-{pose}-thumb.png')
