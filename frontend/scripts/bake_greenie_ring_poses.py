@@ -803,21 +803,23 @@ def key_import_only(arr: np.ndarray) -> np.ndarray:
     rgb = out[:, :, :3].astype(np.int16)
     mx = rgb.max(axis=2)
     chroma = mx - rgb.min(axis=2)
-    r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
 
     corner = rgb[0, 0]
     dist = np.abs(rgb - corner).sum(axis=2)
     studio = (dist <= 35) | ((mx >= 252) & (chroma <= 6))
-
-    green = (g > r + 18) & (g > 80)
-    skin = (r > 100) & (g > 70) & (b < r - 5) & (chroma > 18) & (mx < 250)
-    dark = mx < 80
-    colored = chroma > 30
-    figure = ndimage.binary_dilation(green | skin | dark | colored, iterations=28)
-    out[studio & ~figure, 3] = 0
-
-    exterior = _edge_flood(studio & (out[:, :, 3] > 0))
+    exterior = _edge_flood(studio)
     out[exterior, 3] = 0
+
+    # Peel the white matting fringe: flood transparency through near-white pixels
+    # that touch the exterior, but leave interior whites (eyes, recycling logo).
+    for _ in range(40):
+        alpha = out[:, :, 3]
+        clear = alpha < 40
+        pale = (alpha > 0) & (mx > 235) & (chroma < 30)
+        grow = ndimage.binary_dilation(clear, iterations=1) & pale
+        if not grow.any():
+            break
+        out[grow, 3] = 0
     return out
 
 
