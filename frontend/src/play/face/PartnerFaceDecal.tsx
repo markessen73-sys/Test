@@ -36,9 +36,9 @@ const PARTNER_FACE_NOSE_SCALE_STEPS = 2;
 const PARTNER_FACE_SCALE_OVERALL = 1.2;
 /** How long the "ooh!" face stays up (ms); eyes zoom for most of this. */
 const OOH_MS = 720;
-/** Body sprite sits at z≈0.02 — face front stays ahead; hair layer tucks behind. */
-const FACE_FRONT_Z = 0.03;
-const FACE_HAIR_BEHIND_Z = 0.01;
+/** Body sprite sits at z≈0.02 — face front stays ahead; hair layer tucks behind torso. */
+const FACE_FRONT_Z = 0.035;
+const FACE_HAIR_BEHIND_Z = -0.01;
 
 /** Warm tan / peach skin — keep neck stump on the front plane. */
 function isNeckSkin(r: number, g: number, b: number) {
@@ -51,10 +51,12 @@ function isNeckSkin(r: number, g: number, b: number) {
 function isHangingHair(r: number, g: number, b: number) {
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
-  if (max > 140) return false;
   // Near-black outline or dark brown waves.
   if (max < 48) return true;
-  return r >= g - 6 && g >= b - 18 && max - min < 70 && r > 25;
+  if (max <= 140 && r >= g - 6 && g >= b - 18 && max - min < 70 && r > 25) return true;
+  // Skin-colored blotches inside hanging hair must also go behind the body.
+  if (r > 120 && r - b > 55 && r > g + 8 && b < 120 && max < 250) return true;
+  return false;
 }
 
 /**

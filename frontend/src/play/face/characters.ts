@@ -191,11 +191,10 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   }),
   kk: makeCharacter('kk', 'KK', {
     ringBackdropSrc: LA_SKYLINE_BACKDROP,
-    // Seamless complete boxer — body owned by character, gloves from Options.
+    // Complete boxer: dedicated black-kit body; gloves from Options; hair behind torso.
     bodyId: 'body-kk',
     faceScale: 1.05,
     faceNudgeY: 0.04,
-    // Long wavy hair must tuck under the torso/shoulders.
     hairBehindBody: true,
   }),
 };
