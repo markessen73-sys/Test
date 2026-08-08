@@ -192,19 +192,17 @@ def paste_head(
     paste_x = int(cx - nw / 2)
     out = body.copy()
 
-    # Clear only mannequin plate in the face stack — never wipe chest / shoulder skin.
-    clear_top = max(0, paste_y - 12)
-    clear_bot = min(H, paste_y + int(nh * 0.95))
-    clear_left = max(0, paste_x - 8)
-    clear_right = min(W, paste_x + nw + 8)
-    region = out[clear_top:clear_bot, clear_left:clear_right]
-    r = region[:, :, :3].astype(np.float32)
-    alpha = region[:, :, 3]
-    green = _is_green_gear(r, alpha)
-    plate = _studio_plate_like(r, alpha) | _mannequin_flesh_plate(r, alpha)
-    wipe = plate & ~green
-    region[:, :, 3] = np.where(wipe, 0, region[:, :, 3])
-    out[clear_top:clear_bot, clear_left:clear_right] = region
+    # Clear mannequin head ellipse only — never touch chest / shoulder skin.
+    yy, xx = np.mgrid[0:H, 0:W]
+    ry = max(18, (head_bottom - (paste_y - 12)) * 0.55)
+    rx = ry * 0.82
+    cy = (paste_y + head_bottom) / 2 - ry * 0.08
+    ellipse = ((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2 <= 1.0
+    wipe = ellipse & (yy < head_bottom + 4) & (out[:, :, 3] > 0)
+    r = out[:, :, :3].astype(np.float32)
+    green = _is_green_gear(r, out[:, :, 3])
+    wipe &= ~green
+    out[wipe, 3] = 0
 
     y0 = max(0, paste_y)
     x0 = max(0, paste_x)
@@ -437,7 +435,9 @@ def _horizontal_paint(rgb: np.ndarray, need: np.ndarray, known: np.ndarray) -> n
     return out
 
 
-def seal_silhouette(im: Image.Image, close_iters: int = SEAL_CLOSE_ITERS) -> Image.Image:
+def seal_silhouette(
+    im: Image.Image, close_iters: int = SEAL_CLOSE_ITERS, face_mask: np.ndarray | None = None
+) -> Image.Image:
     a = np.array(im.convert('RGBA'))
     alpha = a[:, :, 3]
     rgb = a[:, :, :3].astype(np.float32)
@@ -466,7 +466,10 @@ def seal_silhouette(im: Image.Image, close_iters: int = SEAL_CLOSE_ITERS) -> Ima
     if n > 1:
         sizes = ndimage.sum(silhouette, labeled, range(1, n + 1))
         keep = int(np.argmax(sizes)) + 1
-        silhouette = labeled == keep
+        keep_labels = {keep}
+        if face_mask is not None and face_mask.any():
+            keep_labels |= set(int(x) for x in np.unique(labeled[face_mask]) if x > 0)
+        silhouette = np.isin(labeled, list(keep_labels))
     known = body & silhouette & (mx > 4)
     need = silhouette & ((alpha < 255) | (mx <= 4))
     rgb = _horizontal_paint(rgb, need, known)
@@ -478,7 +481,7 @@ def seal_silhouette(im: Image.Image, close_iters: int = SEAL_CLOSE_ITERS) -> Ima
     return Image.fromarray(out)
 
 
-def pack_fit(im: Image.Image) -> Image.Image:
+def pack_fit(im: Image.Image, face_mask: np.ndarray | None = None) -> Image.Image:
     a = np.array(im)
     ys, xs = np.where(a[:, :, 3] > 40)
     x0, x1, y0, y1 = int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max())
@@ -488,15 +491,35 @@ def pack_fit(im: Image.Image) -> Image.Image:
     avail_h = sole_y - TOP_PAD
     avail_w = W - 2 * SIDE_PAD
     scale = min(avail_w / fw, avail_h / fh) * 0.98
+
+    if face_mask is not None and face_mask.any():
+        fys, fxs = np.where(face_mask)
+        face_h = int(fys.max() - fys.min()) + 1
+        # Ensure scaled head height fits below TOP_PAD with margin.
+        max_scale = (avail_h - 12) / max(fh, 1)
+        head_frac = face_h / max(fh, 1)
+        head_room = TOP_PAD + 12
+        head_scale = (avail_h - head_room) / max(face_h, 1) / max(head_frac, 0.05)
+        scale = min(scale, head_scale, max_scale)
+
     nw, nh = max(1, int(round(fw * scale))), max(1, int(round(fh * scale)))
     scaled = crop.resize((nw, nh), Image.Resampling.LANCZOS)
     canvas = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     paste_x = (W - nw) // 2
-    paste_y = sole_y - nh + 1
-    if paste_y < TOP_PAD // 2:
-        paste_y = TOP_PAD // 2
+    paste_y = max(TOP_PAD, sole_y - nh + 1)
     canvas.paste(scaled, (paste_x, paste_y), scaled)
     return canvas
+
+
+def assert_head_present(im: Image.Image, pose: str) -> None:
+    arr = np.asarray(im)
+    ys = np.where(arr[:, :, 3] > 40)[0]
+    if len(ys) == 0:
+        raise SystemExit(f'{pose}: empty figure')
+    top_y = int(ys.min())
+    head_band = arr[top_y : top_y + 180, :, 3] > 40
+    if head_band.sum() < 8000:
+        raise SystemExit(f'{pose}: head missing after pack (top_y={top_y}, band={head_band.sum()})')
 
 
 def strip_exterior_pale(arr: np.ndarray) -> np.ndarray:
@@ -546,20 +569,13 @@ def main() -> None:
         body2 = erase_head_disk(body, top, head_bottom, cx)
         face = np.asarray(Image.open(face_path).convert('RGBA'))
         composited, face_mask = paste_head(body2, face, head_bottom, cx, chin_frac)
-        if pose == 'idle':
-            composited = strip_mannequin_plate(composited, face_mask, pose)
-            composited = purge_plate_pixels(composited, face_mask)
         composited = bridge_neck_column(composited, face_mask, cx)
         composited = weld_head_to_body(composited, face_mask, cx)
         composited = fill_neck_gap(composited, head_bottom)
-        if pose == 'idle':
-            composited = bridge_neck_column(composited, face_mask, cx)
-            composited = purge_plate_pixels(composited, face_mask)
-        sealed = seal_silhouette(Image.fromarray(composited))
-        packed = seal_silhouette(pack_fit(sealed))
-        pa = np.asarray(packed)
-        pa = strip_exterior_pale(pa)
-        packed = seal_silhouette(Image.fromarray(pa), close_iters=8)
+        sealed = seal_silhouette(Image.fromarray(composited), face_mask=face_mask)
+        packed = seal_silhouette(pack_fit(sealed, face_mask), face_mask=face_mask)
+        assert_head_present(packed, pose)
+        packed = seal_silhouette(packed, close_iters=8, face_mask=face_mask)
         assert_solid(packed, pose)
         packed.save(OUT / f'greenie-{pose}.png', optimize=True)
         Image.fromarray(np.asarray(packed)).save(SRC / f'{pose}-composited.png')
