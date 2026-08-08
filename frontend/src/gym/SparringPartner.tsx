@@ -182,3 +182,6 @@ useTexture.preload(BODY_STYLES.generic.textureSrc);
 useTexture.preload(BODY_STYLES['body-kk'].textureSrc);
 useTexture.preload(assetUrl('/boxer/bodies/kk-ooh.png'));
 useTexture.preload(assetUrl('/boxer/bodies/kk-knockout.png'));
+useTexture.preload(BODY_STYLES['body-bozza'].textureSrc);
+useTexture.preload(assetUrl('/boxer/bodies/bozza-ooh.png'));
+useTexture.preload(assetUrl('/boxer/bodies/bozza-knockout.png'));

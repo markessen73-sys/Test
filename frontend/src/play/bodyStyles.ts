@@ -16,7 +16,8 @@ export type BodyStyleId =
   | 'body-10'
   | 'body-11'
   | 'body-12'
-  | 'body-kk';
+  | 'body-kk'
+  | 'body-bozza';
 
 export interface BodyStyle {
   id: BodyStyleId;
@@ -174,6 +175,15 @@ export const BODY_STYLES: Record<BodyStyleId, BodyStyle> = {
     [0.4082, 0.0215, 0.6064, 0.179],
     0.0664
   ),
+  'body-bozza': body(
+    'body-bozza',
+    'Bozza',
+    '/boxer/bodies/bozza-idle.png',
+    '/boxer/bodies/bozza-idle-thumb.png',
+    // Whole-baked figure; faceRect unused when bakedRingPoses is set.
+    [0.4082, 0.0215, 0.6064, 0.179],
+    0.0664
+  ),
 };
 
 export const BODY_STYLE_LIST: BodyStyle[] = [
@@ -191,6 +201,7 @@ export const BODY_STYLE_LIST: BodyStyle[] = [
   BODY_STYLES['body-11'],
   BODY_STYLES['body-12'],
   BODY_STYLES['body-kk'],
+  BODY_STYLES['body-bozza'],
 ];
 
 export const DEFAULT_BODY_STYLE_ID: BodyStyleId = 'generic';

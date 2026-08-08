@@ -174,12 +174,15 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
     faceNudgeY: 0.1,
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
-    bodyId: 'generic',
     ringBackdropSrc: RING_BACKDROP,
-    // Mid-face was smaller than Default after margin pad — boost to match.
-    faceScale: 1.28,
-    faceNudgeX: -0.03,
-    faceNudgeY: 0.08,
+    // Whole baked figure (not face-on-body). Face pack still used for Options
+    // thumb / damage HUD / bag / bobo.
+    bodyId: 'body-bozza',
+    bakedRingPoses: {
+      idleSrc: assetUrl('/boxer/bodies/bozza-idle.png'),
+      oohSrc: assetUrl('/boxer/bodies/bozza-ooh.png'),
+      knockoutSrc: assetUrl('/boxer/bodies/bozza-knockout.png'),
+    },
   }),
   'the-nige': makeCharacter('the-nige', 'The Nige', {
     bodyId: 'generic',
