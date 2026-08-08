@@ -18,9 +18,15 @@ from PIL import Image
 from scipy import ndimage
 
 ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = ROOT.parent
 OUT = ROOT / 'public/boxer/bodies'
 SRC = OUT / 'greenie-source-refs'
 FACES = ROOT / 'public/faces/characters/the-greenie'
+USER_IMPORTS = {
+    'idle': REPO_ROOT / 'file_000000004ca881f49ec099cc469bc5f3.png',
+    'ooh': REPO_ROOT / 'file_00000000b3f081f48c2f7358d7f3a123.png',
+}
+USER_KNOCKOUT_FACE = REPO_ROOT / 'file_00000000b3f081f48c2f7358d7f3a123.png'
 W, H = 1024, 1536
 FEET_SOLE = 0.0664
 TOP_PAD = 120
@@ -760,9 +766,95 @@ def assert_solid(
     print(f'{name}: solid opaque={int(opaque.sum())} surrounded={surrounded}')
 
 
+def extract_face_pack(arr: np.ndarray) -> np.ndarray:
+    """Crop head and upper neck from a keyed full-body render for the face pack."""
+    solid = arr[:, :, 3] > 40
+    ys, xs = np.where(solid)
+    y0, y1, x0, x1 = int(ys.min()), int(ys.max()), int(xs.min()), int(xs.max())
+    fig_h = y1 - y0
+    head_y1 = y0 + int(0.36 * fig_h)
+    cx = (x0 + x1) // 2
+    half_w = int((x1 - x0) * 0.34)
+    pad = 48
+    crop = arr[
+        max(0, y0 - pad) : min(H, head_y1 + pad),
+        max(0, cx - half_w - pad) : min(W, cx + half_w + pad),
+    ]
+    canvas = np.zeros((H, W, 4), np.uint8)
+    ch, cw = crop.shape[:2]
+    paste_x = (W - cw) // 2
+    paste_y = max(48, TOP_PAD // 2)
+    canvas[paste_y : paste_y + ch, paste_x : paste_x + cw] = crop
+    return canvas
+
+
+def sync_user_face_packs() -> None:
+    """Refresh Options / bag / bobo face packs from user-provided full renders."""
+    idle_path = USER_IMPORTS.get('idle')
+    ooh_path = USER_IMPORTS.get('ooh')
+    if idle_path and idle_path.exists():
+        idle = key_white_bg_safe(np.asarray(Image.open(idle_path).convert('RGBA')))
+        Image.fromarray(extract_face_pack(idle)).save(FACES / 'clean.png', optimize=True)
+    if ooh_path and ooh_path.exists():
+        ooh = key_white_bg_safe(np.asarray(Image.open(ooh_path).convert('RGBA')))
+        pack = extract_face_pack(ooh)
+        Image.fromarray(pack).save(FACES / 'ooh.png', optimize=True)
+        ko_src = USER_KNOCKOUT_FACE if USER_KNOCKOUT_FACE.exists() else ooh_path
+        if ko_src == ooh_path:
+            Image.fromarray(pack).save(FACES / 'knockout.png', optimize=True)
+        else:
+            ko = key_white_bg_safe(np.asarray(Image.open(ko_src).convert('RGBA')))
+            Image.fromarray(extract_face_pack(ko)).save(FACES / 'knockout.png', optimize=True)
+
+
+def process_imported_render(path: Path, pose: str) -> tuple[Image.Image, np.ndarray | None]:
+    """Pack and seal a user-authored full-body ring pose."""
+    arr = key_white_bg_safe(np.asarray(Image.open(path).convert('RGBA')))
+    allow_clear = armpit_clear_mask(arr) if pose == 'ooh' else None
+    if allow_clear is not None:
+        arr = arr.copy()
+        arr[allow_clear, 3] = 0
+    sealed = seal_silhouette(Image.fromarray(arr), allow_clear=allow_clear)
+    packed, _, packed_clear = pack_fit(sealed, allow_clear=allow_clear)
+    packed_allow = (
+        ndimage.binary_dilation(packed_clear, iterations=2)
+        if packed_clear is not None
+        else None
+    )
+    packed = seal_silhouette(packed, allow_clear=packed_allow, close_iters=6)
+    assert_head_present(packed, pose)
+    final_arr = np.asarray(packed).copy()
+    if packed_allow is not None:
+        final_arr[packed_allow] = (0, 0, 0, 0)
+    final_arr[:, :, 3] = np.where(final_arr[:, :, 3] > 40, 255, 0).astype(np.uint8)
+    final_arr = fill_tiny_holes(final_arr, allow_clear=packed_allow)
+    return Image.fromarray(final_arr), packed_allow
+
+
+def save_pose_outputs(pose: str, packed: Image.Image, sealed: Image.Image | None = None) -> None:
+    packed.save(OUT / f'greenie-{pose}.png', optimize=True)
+    if sealed is not None:
+        Image.fromarray(np.asarray(sealed)).save(SRC / f'{pose}-composited.png')
+    thumb = packed.resize((128, 192), Image.Resampling.LANCZOS)
+    t = np.array(thumb.convert('RGBA'))
+    t[:, :, 3] = np.where(t[:, :, 3] > 40, 255, 0).astype(np.uint8)
+    Image.fromarray(np.array(seal_silhouette(Image.fromarray(t), close_iters=3))).save(
+        OUT / f'greenie-{pose}-thumb.png', optimize=True
+    )
+    print('wrote', pose)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
+    sync_user_face_packs()
     for pose, body_name, face_name, chin_frac in JOBS:
+        import_path = USER_IMPORTS.get(pose)
+        if import_path and import_path.exists():
+            packed, packed_allow = process_imported_render(import_path, pose)
+            assert_solid(packed, pose, allow_clear=packed_allow)
+            save_pose_outputs(pose, packed)
+            continue
+
         body_path = SRC / body_name
         face_path = FACES / face_name
         if not body_path.exists():
@@ -812,15 +904,7 @@ def main() -> None:
         final_arr = fill_tiny_holes(final_arr, allow_clear=packed_allow)
         packed = Image.fromarray(final_arr)
         assert_solid(packed, pose, allow_clear=packed_allow)
-        packed.save(OUT / f'greenie-{pose}.png', optimize=True)
-        Image.fromarray(np.asarray(packed)).save(SRC / f'{pose}-composited.png')
-        thumb = packed.resize((128, 192), Image.Resampling.LANCZOS)
-        t = np.array(thumb.convert('RGBA'))
-        t[:, :, 3] = np.where(t[:, :, 3] > 40, 255, 0).astype(np.uint8)
-        Image.fromarray(np.array(seal_silhouette(Image.fromarray(t), close_iters=3))).save(
-            OUT / f'greenie-{pose}-thumb.png', optimize=True
-        )
-        print('wrote', pose)
+        save_pose_outputs(pose, packed, sealed=sealed)
 
 
 if __name__ == '__main__':
