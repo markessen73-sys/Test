@@ -155,7 +155,7 @@ export const BODY_STYLES: Record<BodyStyleId, BodyStyle> = {
   ),
   'body-12': body(
     'body-12',
-    'Foxy Thong',
+    'Foxy Lace',
     '/boxer/bodies/body-12.png',
     '/boxer/bodies/body-12-thumb.png',
     // Blank head slot on the regenerated Foxy pose (gloves-up guard).
