@@ -766,6 +766,34 @@ def assert_solid(
     print(f'{name}: solid opaque={int(opaque.sum())} surrounded={surrounded}')
 
 
+def punch_armpit_wedges(arr: np.ndarray) -> np.ndarray:
+    """Clear studio wedges between inner arms and torso on the ooh pose."""
+    out = arr.copy()
+    rgb = out[:, :, :3].astype(np.int16)
+    mx = rgb.max(axis=2)
+    chroma = mx - rgb.min(axis=2)
+    r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+    corner = rgb[0, 0]
+    dist = np.abs(rgb - corner).sum(axis=2)
+    studio = (dist <= 35) | ((mx >= 252) & (chroma <= 6))
+
+    solid = out[:, :, 3] > 40
+    if not solid.any():
+        return out
+    ys, xs = np.where(solid)
+    y0, y1, x0, x1 = int(ys.min()), int(ys.max()), int(xs.min()), int(xs.max())
+    fig_h, fig_w = y1 - y0, x1 - x0
+
+    green = (g > r + 18) & (g > 80)
+    skin = (r > 100) & (g > 70) & (b < r - 5) & (chroma > 18) & (mx < 250)
+    dark = mx < 80
+    tight_figure = ndimage.binary_dilation(green | skin | dark, iterations=8)
+
+    wedge = armpit_clear_mask(out)
+    out[studio & wedge & ~tight_figure, 3] = 0
+    return out
+
+
 def key_import_only(arr: np.ndarray) -> np.ndarray:
     """Strip studio background while preserving the user's authored silhouette."""
     if arr.shape[2] == 3:
@@ -780,15 +808,16 @@ def key_import_only(arr: np.ndarray) -> np.ndarray:
     corner = rgb[0, 0]
     dist = np.abs(rgb - corner).sum(axis=2)
     studio = (dist <= 35) | ((mx >= 252) & (chroma <= 6))
-    exterior = _edge_flood(studio)
-    out[exterior, 3] = 0
 
     green = (g > r + 18) & (g > 80)
     skin = (r > 100) & (g > 70) & (b < r - 5) & (chroma > 18) & (mx < 250)
-    solid = out[:, :, 3] > 40
-    pale_inside = studio & (out[:, :, 3] > 0) & ~exterior
-    hull = ndimage.binary_fill_holes(solid | green | skin)
-    out[pale_inside & hull & ~green & ~skin, 3] = 0
+    dark = mx < 80
+    colored = chroma > 30
+    figure = ndimage.binary_dilation(green | skin | dark | colored, iterations=28)
+    out[studio & ~figure, 3] = 0
+
+    exterior = _edge_flood(studio & (out[:, :, 3] > 0))
+    out[exterior, 3] = 0
     return out
 
 
@@ -836,6 +865,8 @@ def sync_user_face_packs() -> None:
 def process_imported_render(path: Path, pose: str) -> tuple[Image.Image, np.ndarray | None]:
     """Use a user-authored full-body render as-is — preserve their alpha mask."""
     keyed = key_import_only(np.asarray(Image.open(path).convert('RGBA')))
+    if pose == 'ooh':
+        keyed = punch_armpit_wedges(keyed)
     allow_clear = allowed_clear_from_alpha(keyed[:, :, 3])
     final_arr = keyed.copy()
     final_arr[:, :, 3] = np.where(final_arr[:, :, 3] > 40, 255, 0).astype(np.uint8)
