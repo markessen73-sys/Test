@@ -168,9 +168,9 @@ export const BODY_STYLES: Record<BodyStyleId, BodyStyle> = {
     'KK',
     '/boxer/bodies/body-kk.png',
     '/boxer/bodies/body-kk-thumb.png',
-    // Soft hourglass pink kit; blank head matched to KK face skin.
-    [0.4268, 0.0592, 0.5898, 0.2188],
-    0.0306
+    // Same packing metrics as Foxy Thong (muscular base).
+    [0.4082, 0.0215, 0.6064, 0.179],
+    0.0664
   ),
 };
 
