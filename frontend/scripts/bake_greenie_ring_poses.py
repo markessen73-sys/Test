@@ -23,8 +23,9 @@ SRC = OUT / 'greenie-source-refs'
 FACES = ROOT / 'public/faces/characters/the-greenie'
 W, H = 1024, 1536
 FEET_SOLE = 0.0664
-TOP_PAD = 56
+TOP_PAD = 88
 SIDE_PAD = 36
+NECK_HALF_W = 42
 
 SEAL_CLOSE_ITERS = 6
 SURROUND_FILL_PASSES = 12
@@ -154,9 +155,18 @@ def erase_head_disk(body: np.ndarray, top: int, head_bottom: int, cx: int) -> np
     return out
 
 
+def _studio_plate_like(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+    """Warm off-white mannequin / studio leftovers — not pale body skin."""
+    mx = rgb.max(axis=2)
+    chroma = mx - rgb.min(axis=2)
+    r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+    warm = (r > g - 8) & (r > b - 5)
+    return (alpha > 0) & warm & (mx > 175) & (chroma < 42) & (r - g < 38)
+
+
 def paste_head(
     body: np.ndarray, face: np.ndarray, head_bottom: int, cx: int, chin_frac: float
-) -> np.ndarray:
+) -> tuple[np.ndarray, np.ndarray]:
     face = key_black_face(face)
     fa = face[:, :, 3] > 40
     fys, fxs = np.where(fa)
@@ -182,15 +192,17 @@ def paste_head(
     paste_x = int(cx - nw / 2)
     out = body.copy()
 
-    # Clear head window (keep green gloves if idle guard overlaps).
-    clear_top = max(0, paste_y - 8)
-    clear_bot = min(H, head_bottom + 6)
-    clear_left = max(0, paste_x - 12)
-    clear_right = min(W, paste_x + nw + 12)
+    # Clear only mannequin plate in the face stack — never wipe chest / shoulder skin.
+    clear_top = max(0, paste_y - 12)
+    clear_bot = min(H, paste_y + int(nh * 0.95))
+    clear_left = max(0, paste_x - 8)
+    clear_right = min(W, paste_x + nw + 8)
     region = out[clear_top:clear_bot, clear_left:clear_right]
     r = region[:, :, :3].astype(np.float32)
-    green = (region[:, :, 3] > 40) & (r[:, :, 1] > r[:, :, 0] + 25) & (r[:, :, 1] > 100)
-    wipe = (region[:, :, 3] > 0) & ~green
+    alpha = region[:, :, 3]
+    green = _is_green_gear(r, alpha)
+    plate = _studio_plate_like(r, alpha) | _mannequin_flesh_plate(r, alpha)
+    wipe = plate & ~green
     region[:, :, 3] = np.where(wipe, 0, region[:, :, 3])
     out[clear_top:clear_bot, clear_left:clear_right] = region
 
@@ -205,26 +217,183 @@ def paste_head(
         dst[:, :, :3].astype(np.float32) * (1 - sa) + src[:, :, :3].astype(np.float32) * sa
     ).astype(np.uint8)
     out[y0:y1, x0:x1, 3:4] = np.maximum(dst[:, :, 3:4], src[:, :, 3:4])
+
+    face_mask = np.zeros((H, W), dtype=bool)
+    face_mask[y0:y1, x0:x1] = src[:, :, 3] > 40
+    return out, face_mask
+
+
+def _is_green_gear(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+    r = rgb[:, :, 0]
+    g = rgb[:, :, 1]
+    return (alpha > 40) & (g > r + 18) & (g > 80)
+
+
+def _mannequin_flesh_plate(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+    """Flat warm blocks from generated body refs (not caricature face)."""
+    mx = rgb.max(axis=2)
+    r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+    warm = (r > g - 10) & (r > b - 5)
+    flat = (mx - rgb.min(axis=2)) < 55
+    return (alpha > 40) & warm & flat & (r > 185) & (g > 155) & (b > 125) & (r - b < 65)
+
+
+def _skin_seed(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+    mx = rgb.max(axis=2)
+    chroma = mx - rgb.min(axis=2)
+    plate = _studio_plate_like(rgb, alpha) | _mannequin_flesh_plate(rgb, alpha)
+    return (
+        (alpha > 200)
+        & (mx > 120)
+        & (mx < 230)
+        & (chroma < 70)
+        & (rgb[:, :, 0] > rgb[:, :, 2] - 10)
+        & ~plate
+    )
+
+
+def strip_mannequin_plate(arr: np.ndarray, face_mask: np.ndarray, pose: str) -> np.ndarray:
+    """Drop generated shoulder plates while keeping face, gloves, and torso."""
+    if not face_mask.any():
+        return arr
+    fys, fxs = np.where(face_mask)
+    fy0, fy1, fx0, fx1 = int(fys.min()), int(fys.max()), int(fxs.min()), int(fxs.max())
+    face_h = fy1 - fy0
+    face_w = fx1 - fx0
+    cx = (fx0 + fx1) // 2
+
+    a = arr[:, :, 3] > 40
+    if not a.any():
+        return arr
+    ys, xs = np.where(a)
+    y0, y1, x0, x1 = int(ys.min()), int(ys.max()), int(xs.min()), int(xs.max())
+
+    band_top = max(y0, fy0 - face_h // 6)
+    band_bot = min(H, fy1 + face_h // 3)
+    band = np.zeros((H, W), dtype=bool)
+    band[band_top:band_bot, x0 : x1 + 1] = True
+
+    rgb = arr[:, :, :3].astype(np.float32)
+    alpha = arr[:, :, 3]
+    green = _is_green_gear(rgb, alpha)
+    plate = _studio_plate_like(rgb, alpha) | _mannequin_flesh_plate(rgb, alpha)
+    keep = ndimage.binary_dilation(face_mask, iterations=14) | green
+    kill = band & a & plate & ~keep
+
+    if pose == 'idle':
+        chest = np.zeros((H, W), dtype=bool)
+        chest[
+            fy1 : min(H, fy1 + int(face_h * 0.55)),
+            max(0, cx - int(face_w * 0.75)) : min(W, cx + int(face_w * 0.75) + 1),
+        ] = True
+        kill |= chest & a & plate & ~green & ~keep
+
+    if not kill.any():
+        return arr
+    out = arr.copy()
+    out[kill, 3] = 0
+    return out
+
+
+def bridge_neck_column(arr: np.ndarray, face_mask: np.ndarray, cx: int) -> np.ndarray:
+    """Fill a narrow transparent column between chin and the main torso."""
+    a = arr[:, :, 3]
+    fys, _ = np.where(face_mask)
+    if len(fys) == 0:
+        return arr
+    chin_y = int(fys.max())
+
+    torso_y = None
+    for y in range(chin_y + 2, min(H, chin_y + 220)):
+        row = a[y] > 200
+        if not row.any():
+            continue
+        xs = np.flatnonzero(row)
+        if xs[-1] - xs[0] >= 140:
+            torso_y = y
+            break
+    if torso_y is None or torso_y <= chin_y + 2:
+        return arr
+
+    zone = np.zeros_like(a, dtype=bool)
+    zone[chin_y + 1 : torso_y, cx - NECK_HALF_W : cx + NECK_HALF_W] = True
+    need = zone & (a < 40)
+    if not need.any():
+        return arr
+
+    rgb = arr[:, :, :3].astype(np.float32)
+    skin = _skin_seed(rgb, a)
+    if not skin.any():
+        return arr
+    _, (iy, ix) = ndimage.distance_transform_edt(~skin, return_indices=True)
+    out = arr.copy()
+    ys, xs = np.where(need)
+    out[ys, xs, :3] = arr[iy[ys, xs], ix[ys, xs], :3]
+    out[ys, xs, 3] = 255
+    return out
+
+
+def purge_plate_pixels(arr: np.ndarray, face_mask: np.ndarray) -> np.ndarray:
+    """Remove any remaining mannequin plate tint before sealing."""
+    rgb = arr[:, :, :3].astype(np.float32)
+    alpha = arr[:, :, 3]
+    plate = _studio_plate_like(rgb, alpha) | _mannequin_flesh_plate(rgb, alpha)
+    green = _is_green_gear(rgb, alpha)
+    keep = ndimage.binary_dilation(face_mask, iterations=12) | green
+    kill = plate & (alpha > 0) & ~keep
+    if not kill.any():
+        return arr
+    out = arr.copy()
+    out[kill, 3] = 0
+    return out
+
+
+def weld_head_to_body(arr: np.ndarray, face_mask: np.ndarray, cx: int) -> np.ndarray:
+    """Connect disconnected face and torso components with a narrow neck weld."""
+    a = arr[:, :, 3]
+    fys, _ = np.where(face_mask)
+    if len(fys) == 0:
+        return arr
+    chin_y = int(fys.max())
+    labeled, n = ndimage.label(a > 40)
+    if n < 2:
+        return arr
+    face_lab = int(labeled[face_mask][0])
+    sizes = [(i, int((labeled == i).sum())) for i in range(1, n + 1)]
+    body_lab = max(sizes, key=lambda t: t[1])[0]
+    if face_lab == body_lab:
+        return arr
+
+    rgb = arr[:, :, :3].astype(np.float32)
+    skin = _skin_seed(rgb, a)
+    if not skin.any():
+        return arr
+    _, (iy, ix) = ndimage.distance_transform_edt(~skin, return_indices=True)
+    out = arr.copy()
+    col_x0, col_x1 = cx - NECK_HALF_W, cx + NECK_HALF_W
+    for y in range(chin_y, min(H, chin_y + 260)):
+        row_labs = labeled[y, col_x0:col_x1]
+        if np.any(row_labs == body_lab):
+            break
+        gap = a[y, col_x0:col_x1] < 40
+        if not gap.any():
+            continue
+        xs = np.flatnonzero(gap) + col_x0
+        out[y, xs, :3] = arr[iy[y, xs], ix[y, xs], :3]
+        out[y, xs, 3] = 255
     return out
 
 
 def fill_neck_gap(arr: np.ndarray, head_bottom: int) -> np.ndarray:
     a = arr[:, :, 3]
     rgb = arr[:, :, :3].astype(np.float32)
-    mx = rgb.max(axis=2)
-    chroma = mx - rgb.min(axis=2)
-    skin = (
-        (a > 200)
-        & (mx > 120)
-        & (mx < 230)
-        & (chroma < 70)
-        & (rgb[:, :, 0] > rgb[:, :, 2] - 10)
-    )
+    skin = _skin_seed(rgb, a)
     zone = np.zeros_like(a, dtype=bool)
-    zone[max(0, head_bottom - 80) : head_bottom + 90, W // 2 - 180 : W // 2 + 180] = True
+    zone[
+        max(0, head_bottom - 28) : head_bottom + 24,
+        W // 2 - NECK_HALF_W : W // 2 + NECK_HALF_W,
+    ] = True
     need = zone & (a < 40)
-    frac = ndimage.uniform_filter((a > 200).astype(np.float32), size=11)
-    need |= zone & (a < 128) & (frac > 0.45)
     if not need.any() or not skin.any():
         return arr
     _, (iy, ix) = ndimage.distance_transform_edt(~skin, return_indices=True)
@@ -376,16 +545,21 @@ def main() -> None:
         top, head_bottom, cx = detect_mannequin_head(body)
         body2 = erase_head_disk(body, top, head_bottom, cx)
         face = np.asarray(Image.open(face_path).convert('RGBA'))
-        composited = paste_head(body2, face, head_bottom, cx, chin_frac)
+        composited, face_mask = paste_head(body2, face, head_bottom, cx, chin_frac)
+        if pose == 'idle':
+            composited = strip_mannequin_plate(composited, face_mask, pose)
+            composited = purge_plate_pixels(composited, face_mask)
+        composited = bridge_neck_column(composited, face_mask, cx)
+        composited = weld_head_to_body(composited, face_mask, cx)
         composited = fill_neck_gap(composited, head_bottom)
+        if pose == 'idle':
+            composited = bridge_neck_column(composited, face_mask, cx)
+            composited = purge_plate_pixels(composited, face_mask)
         sealed = seal_silhouette(Image.fromarray(composited))
         packed = seal_silhouette(pack_fit(sealed))
         pa = np.asarray(packed)
-        ys, xs = np.where(pa[:, :, 3] > 200)
-        approx_neck = ys.min() + int(0.22 * (ys.max() - ys.min()))
-        pa = fill_neck_gap(pa, approx_neck)
         pa = strip_exterior_pale(pa)
-        packed = seal_silhouette(Image.fromarray(pa))
+        packed = seal_silhouette(Image.fromarray(pa), close_iters=8)
         assert_solid(packed, pose)
         packed.save(OUT / f'greenie-{pose}.png', optimize=True)
         Image.fromarray(np.asarray(packed)).save(SRC / f'{pose}-composited.png')
