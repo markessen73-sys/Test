@@ -1,5 +1,6 @@
 import { assetUrl } from '../../assetUrl';
 import { isPhotoCharacterId, type FaceFeatureMark } from '../../face-capture/customFace';
+import type { BodyStyleId } from '../bodyStyles';
 
 /**
  * Playable face packs live under `public/faces/characters/<id>/`.
@@ -42,6 +43,11 @@ export interface CharacterDef {
   boboDamageStageSrcs: readonly string[];
   boboHoldSrc: string;
   boboKoSrc: string;
+  /**
+   * When set, this boxer always uses this body in the ring (seamless character).
+   * Overrides the Options → Bodies picker.
+   */
+  bodyId?: BodyStyleId;
   /**
    * Extra ring-partner head scale on top of the shared calibration chain.
    * Use < 1 when a pack’s silhouette (tall hair / long chin) overflows the head slot.
@@ -89,6 +95,7 @@ function makeCharacter(
   id: StockCharacterId,
   name: string,
   extras: {
+    bodyId?: BodyStyleId;
     faceScale?: number;
     faceNudgeX?: number;
     faceNudgeY?: number;
@@ -166,6 +173,7 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   }),
   kk: makeCharacter('kk', 'KK', {
     ringBackdropSrc: RING_BACKDROP,
+    bodyId: 'body-kk',
     faceScale: 1.05,
     faceNudgeY: 0.04,
     // Long wavy hair must tuck under the torso/shoulders.

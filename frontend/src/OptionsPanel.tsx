@@ -117,7 +117,7 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
             </button>
             <button type="button" className="options-menu-btn" onClick={() => setView('boxers')}>
               <span className="options-menu-btn-label">Boxers</span>
-              <span className="options-menu-btn-hint">Stock faces and your photo faces</span>
+              <span className="options-menu-btn-hint">Faces — some boxers bring their own body</span>
             </button>
             <button type="button" className="options-menu-btn" onClick={() => setView('bodies')}>
               <span className="options-menu-btn-label">Bodies</span>
@@ -160,8 +160,8 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
         {view === 'bodies' && (
           <section className="options-section">
             <p className="options-section-hint">
-              Pick a sparring body for The Ring. Generic is the classic silhouette. Saved when you
-              close.
+              Pick a sparring body for The Ring. Boxers with a built-in body (like KK) ignore this
+              and always use their own. Saved when you close.
             </p>
             <div className="body-grid">
               {bodies.map((b) => {

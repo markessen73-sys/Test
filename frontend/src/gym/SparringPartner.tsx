@@ -5,6 +5,7 @@ import type { Group } from 'three';
 import * as THREE from 'three';
 import { PartnerFaceDecal } from '../play/face/PartnerFaceDecal';
 import { useBody } from '../play/BodyContext';
+import { useCharacter } from '../play/face/CharacterContext';
 import type { BodyStyle } from '../play/bodyStyles';
 import { BODY_STYLES } from '../play/bodyStyles';
 
@@ -62,7 +63,11 @@ function SparringPartnerSprite({
   body: bodyProp,
 }: SparringPartnerProps) {
   const { body: selectedBody } = useBody();
-  const body = bodyProp ?? selectedBody;
+  const { character } = useCharacter();
+  const body =
+    bodyProp ??
+    (character.bodyId ? BODY_STYLES[character.bodyId] : undefined) ??
+    selectedBody;
   const animRef = useRef<Group>(null);
   const texture = useTexture(body.textureSrc);
   const opacity = dimmed ? 0.35 : 1;
@@ -128,3 +133,4 @@ export function SparringPartner(props: SparringPartnerProps) {
 }
 
 useTexture.preload(BODY_STYLES.generic.textureSrc);
+useTexture.preload(BODY_STYLES['body-kk'].textureSrc);
