@@ -26,10 +26,10 @@ FEET_SOLE = 0.0664
 TOP_PAD = 56
 SIDE_PAD = 36
 
-SEAL_CLOSE_ITERS = 8
-SURROUND_FILL_PASSES = 16
-SURROUND_KERNEL = 13
-SURROUND_FRAC = 0.55
+SEAL_CLOSE_ITERS = 6
+SURROUND_FILL_PASSES = 12
+SURROUND_KERNEL = 11
+SURROUND_FRAC = 0.62
 
 JOBS = [
     ('idle', 'idle-body-raw.png', 'clean.png', 0.86),
@@ -63,18 +63,24 @@ def _edge_flood(mask: np.ndarray) -> np.ndarray:
 
 
 def key_white_bg_safe(arr: np.ndarray) -> np.ndarray:
+    """Remove warm off-white studio BG without eating pale body skin."""
     rgb = arr[:, :, :3].astype(np.int16)
     a = arr[:, :, 3]
     mx = rgb.max(axis=2)
     chroma = mx - rgb.min(axis=2)
-    corner = rgb[2, 2]
+    corner = rgb[2, 2].astype(np.int16)
     dist = np.abs(rgb - corner).sum(axis=2)
-    studio = ((mx > 245) & (chroma < 18)) | ((mx > 238) & (chroma < 12)) | (dist <= 18) | (a < 8)
+    # Generated refs use warm near-white plates (e.g. 248,235,230), not pure white.
+    studio = (dist <= 55) | ((mx > 235) & (chroma < 28)) | ((mx > 245) & (chroma < 40)) | (a < 8)
     exterior = _edge_flood(studio)
-    protect = (chroma > 12) | (mx < 230)
-    for _ in range(2):
+    # Protect green gear and any clearly non-BG figure content.
+    green = (rgb[:, :, 1] > rgb[:, :, 0] + 18) & (rgb[:, :, 1] > 80)
+    protect = green | ((chroma > 35) & (mx < 230)) | (mx < 200)
+    for _ in range(4):
         grown = ndimage.binary_dilation(exterior, iterations=1) & ~protect
-        claim = grown & (((mx > 242) & (chroma < 20)) | (a < 40) | (dist <= 22))
+        claim = grown & (
+            (dist <= 60) | ((mx > 230) & (chroma < 32)) | (a < 40)
+        )
         if not claim.any():
             break
         exterior = exterior | claim
@@ -175,6 +181,19 @@ def paste_head(
     paste_y = head_bottom - chin_local
     paste_x = int(cx - nw / 2)
     out = body.copy()
+
+    # Clear head window (keep green gloves if idle guard overlaps).
+    clear_top = max(0, paste_y - 8)
+    clear_bot = min(H, head_bottom + 6)
+    clear_left = max(0, paste_x - 12)
+    clear_right = min(W, paste_x + nw + 12)
+    region = out[clear_top:clear_bot, clear_left:clear_right]
+    r = region[:, :, :3].astype(np.float32)
+    green = (region[:, :, 3] > 40) & (r[:, :, 1] > r[:, :, 0] + 25) & (r[:, :, 1] > 100)
+    wipe = (region[:, :, 3] > 0) & ~green
+    region[:, :, 3] = np.where(wipe, 0, region[:, :, 3])
+    out[clear_top:clear_bot, clear_left:clear_right] = region
+
     y0 = max(0, paste_y)
     x0 = max(0, paste_x)
     y1 = min(H, paste_y + nh)
@@ -269,7 +288,7 @@ def seal_silhouette(im: Image.Image, close_iters: int = SEAL_CLOSE_ITERS) -> Ima
         left[:, 1:] = silhouette[:, :-1]
         right[:, :-1] = silhouette[:, 1:]
         n4 = up.astype(np.uint8) + down + left + right
-        claim |= (~silhouette) & (n4 >= 3)
+        claim |= (~silhouette) & (n4 >= 4)
         if not claim.any():
             break
         silhouette = silhouette | claim
