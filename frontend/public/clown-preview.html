@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Bobo clown stage preview</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 1rem;
+        background: #111;
+        color: #eee;
+        font-family: system-ui, sans-serif;
+      }
+      h1 {
+        font-size: 1.1rem;
+        margin: 0 0 1rem;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 0.75rem;
+      }
+      figure {
+        margin: 0;
+        background: #1a1a1a;
+        border: 1px solid #333;
+        padding: 0.5rem;
+        text-align: center;
+      }
+      img {
+        width: 160px;
+        height: 160px;
+        object-fit: contain;
+        background: #000;
+      }
+      figcaption {
+        margin-top: 0.35rem;
+        font-size: 0.75rem;
+        color: #ccc;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Bobo doll comedy-clown faces (11 stages)</h1>
+    <div class="grid" id="grid"></div>
+    <script>
+      const stages = [
+        ['0% clean clown', './faces/bobo-clown-stages/00-clean.png'],
+        ['ooh (live doll hit)', './faces/bobo-clown-stages/ooh.png'],
+        ['knockout-clean (live doll KO)', './faces/bobo-clown-stages/knockout-clean.png'],
+        ['10% left cauliflower ear', './faces/bobo-clown-stages/01-cauliflowerLeftEar.png'],
+        ['20% + right black eye', './faces/bobo-clown-stages/02-blackRightEye.png'],
+        ['30% + chin cross plaster', './faces/bobo-clown-stages/03-chinCrossPlaster.png'],
+        ['40% + right cauliflower ear', './faces/bobo-clown-stages/04-cauliflowerRightEar.png'],
+        ['50% + missing tooth', './faces/bobo-clown-stages/05-missingTooth.png'],
+        ['60% + swollen left eye', './faces/bobo-clown-stages/06-swollenLeftEye.png'],
+        ['70% + broken nose', './faces/bobo-clown-stages/07-brokenNose.png'],
+        ['80% + forehead cut', './faces/bobo-clown-stages/08-foreheadBandage.png'],
+        ['90% hold', './faces/bobo-clown-stages/09-hold.png'],
+        ['100% HUD knockout', './faces/bobo-clown-stages/10-knockout.png'],
+      ];
+      const grid = document.getElementById('grid');
+      for (const [label, src] of stages) {
+        const fig = document.createElement('figure');
+        fig.innerHTML = `<img src="${src}" alt="${label}" /><figcaption>${label}</figcaption>`;
+        grid.appendChild(fig);
+      }
+    </script>
+  </body>
+</html>

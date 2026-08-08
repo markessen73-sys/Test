@@ -1,0 +1,16 @@
+{
+  "source": "file_00000000178081f48b8c802f02b638c3.png",
+  "size": [
+    1024,
+    1024
+  ],
+  "faceOval": [
+    0.2402,
+    0.0586,
+    0.7617,
+    0.9258
+  ],
+  "outline": "faces/guide/face-guide-outline.png",
+  "mask": "faces/guide/face-guide-mask.png",
+  "notes": "Outer head outline only \u2014 ears, eyes, and nose removed from wireframe"
+}
