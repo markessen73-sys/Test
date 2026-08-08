@@ -25,8 +25,8 @@ FACES = ROOT / 'public/faces/characters/the-greenie'
 USER_IMPORTS = {
     'idle': REPO_ROOT / 'file_000000004ca881f49ec099cc469bc5f3.png',
     'ooh': REPO_ROOT / 'file_00000000b3f081f48c2f7358d7f3a123.png',
+    'knockout': REPO_ROOT / 'file_00000000b3f081f48c2f7358d7f3a123.png',
 }
-USER_KNOCKOUT_FACE = REPO_ROOT / 'file_00000000b3f081f48c2f7358d7f3a123.png'
 W, H = 1024, 1536
 FEET_SOLE = 0.0664
 TOP_PAD = 120
@@ -766,6 +766,42 @@ def assert_solid(
     print(f'{name}: solid opaque={int(opaque.sum())} surrounded={surrounded}')
 
 
+def key_import_only(arr: np.ndarray) -> np.ndarray:
+    """Strip studio background while preserving the user's authored silhouette."""
+    if arr.shape[2] == 3:
+        out = np.dstack([arr, np.full(arr.shape[:2], 255, np.uint8)])
+    else:
+        out = arr.copy()
+    rgb = out[:, :, :3].astype(np.int16)
+    mx = rgb.max(axis=2)
+    chroma = mx - rgb.min(axis=2)
+    r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+
+    corner = rgb[0, 0]
+    dist = np.abs(rgb - corner).sum(axis=2)
+    studio = (dist <= 35) | ((mx >= 252) & (chroma <= 6))
+    exterior = _edge_flood(studio)
+    out[exterior, 3] = 0
+
+    green = (g > r + 18) & (g > 80)
+    skin = (r > 100) & (g > 70) & (b < r - 5) & (chroma > 18) & (mx < 250)
+    solid = out[:, :, 3] > 40
+    pale_inside = studio & (out[:, :, 3] > 0) & ~exterior
+    hull = ndimage.binary_fill_holes(solid | green | skin)
+    out[pale_inside & hull & ~green & ~skin, 3] = 0
+    return out
+
+
+def allowed_clear_from_alpha(alpha: np.ndarray) -> np.ndarray:
+    """Interior transparency that was already in the user render (e.g. armpit wedges)."""
+    clear = alpha < 40
+    opaque = alpha >= 200
+    if not opaque.any():
+        return clear
+    hull = ndimage.binary_fill_holes(opaque)
+    return clear & hull
+
+
 def extract_face_pack(arr: np.ndarray) -> np.ndarray:
     """Crop head and upper neck from a keyed full-body render for the face pack."""
     solid = arr[:, :, 3] > 40
@@ -790,45 +826,20 @@ def extract_face_pack(arr: np.ndarray) -> np.ndarray:
 
 def sync_user_face_packs() -> None:
     """Refresh Options / bag / bobo face packs from user-provided full renders."""
-    idle_path = USER_IMPORTS.get('idle')
-    ooh_path = USER_IMPORTS.get('ooh')
-    if idle_path and idle_path.exists():
-        idle = key_white_bg_safe(np.asarray(Image.open(idle_path).convert('RGBA')))
-        Image.fromarray(extract_face_pack(idle)).save(FACES / 'clean.png', optimize=True)
-    if ooh_path and ooh_path.exists():
-        ooh = key_white_bg_safe(np.asarray(Image.open(ooh_path).convert('RGBA')))
-        pack = extract_face_pack(ooh)
-        Image.fromarray(pack).save(FACES / 'ooh.png', optimize=True)
-        ko_src = USER_KNOCKOUT_FACE if USER_KNOCKOUT_FACE.exists() else ooh_path
-        if ko_src == ooh_path:
-            Image.fromarray(pack).save(FACES / 'knockout.png', optimize=True)
-        else:
-            ko = key_white_bg_safe(np.asarray(Image.open(ko_src).convert('RGBA')))
-            Image.fromarray(extract_face_pack(ko)).save(FACES / 'knockout.png', optimize=True)
+    for pose, face_name in (('idle', 'clean.png'), ('ooh', 'ooh.png'), ('knockout', 'knockout.png')):
+        import_path = USER_IMPORTS.get(pose)
+        if import_path and import_path.exists():
+            keyed = key_import_only(np.asarray(Image.open(import_path).convert('RGBA')))
+            Image.fromarray(extract_face_pack(keyed)).save(FACES / face_name, optimize=True)
 
 
 def process_imported_render(path: Path, pose: str) -> tuple[Image.Image, np.ndarray | None]:
-    """Pack and seal a user-authored full-body ring pose."""
-    arr = key_white_bg_safe(np.asarray(Image.open(path).convert('RGBA')))
-    allow_clear = armpit_clear_mask(arr) if pose == 'ooh' else None
-    if allow_clear is not None:
-        arr = arr.copy()
-        arr[allow_clear, 3] = 0
-    sealed = seal_silhouette(Image.fromarray(arr), allow_clear=allow_clear)
-    packed, _, packed_clear = pack_fit(sealed, allow_clear=allow_clear)
-    packed_allow = (
-        ndimage.binary_dilation(packed_clear, iterations=2)
-        if packed_clear is not None
-        else None
-    )
-    packed = seal_silhouette(packed, allow_clear=packed_allow, close_iters=6)
-    assert_head_present(packed, pose)
-    final_arr = np.asarray(packed).copy()
-    if packed_allow is not None:
-        final_arr[packed_allow] = (0, 0, 0, 0)
+    """Use a user-authored full-body render as-is — preserve their alpha mask."""
+    keyed = key_import_only(np.asarray(Image.open(path).convert('RGBA')))
+    allow_clear = allowed_clear_from_alpha(keyed[:, :, 3])
+    final_arr = keyed.copy()
     final_arr[:, :, 3] = np.where(final_arr[:, :, 3] > 40, 255, 0).astype(np.uint8)
-    final_arr = fill_tiny_holes(final_arr, allow_clear=packed_allow)
-    return Image.fromarray(final_arr), packed_allow
+    return Image.fromarray(final_arr), allow_clear if allow_clear.any() else None
 
 
 def save_pose_outputs(pose: str, packed: Image.Image, sealed: Image.Image | None = None) -> None:
@@ -851,7 +862,7 @@ def main() -> None:
         import_path = USER_IMPORTS.get(pose)
         if import_path and import_path.exists():
             packed, packed_allow = process_imported_render(import_path, pose)
-            assert_solid(packed, pose, allow_clear=packed_allow)
+            assert_head_present(packed, pose)
             save_pose_outputs(pose, packed)
             continue
 
