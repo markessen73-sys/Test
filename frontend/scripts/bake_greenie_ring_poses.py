@@ -23,11 +23,11 @@ SRC = OUT / 'greenie-source-refs'
 FACES = ROOT / 'public/faces/characters/the-greenie'
 W, H = 1024, 1536
 FEET_SOLE = 0.0664
-TOP_PAD = 88
+TOP_PAD = 120
 SIDE_PAD = 36
 NECK_HALF_W = 42
 
-SEAL_CLOSE_ITERS = 6
+SEAL_CLOSE_ITERS = 4
 SURROUND_FILL_PASSES = 12
 SURROUND_KERNEL = 11
 SURROUND_FRAC = 0.62
@@ -402,6 +402,146 @@ def fill_neck_gap(arr: np.ndarray, head_bottom: int) -> np.ndarray:
     return out
 
 
+def armpit_clear_mask(body: np.ndarray) -> np.ndarray:
+    """Triangular wedges under each shoulder — stay transparent on ooh pose."""
+    solid = body[:, :, 3] > 40
+    if not solid.any():
+        return np.zeros(solid.shape, dtype=bool)
+    ys, xs = np.where(solid)
+    y0, y1, x0, x1 = int(ys.min()), int(ys.max()), int(xs.min()), int(xs.max())
+    fig_h, fig_w = y1 - y0, x1 - x0
+
+    mask = np.zeros(solid.shape, dtype=bool)
+    y_top = y0 + int(0.165 * fig_h)
+    y_bot = y0 + int(0.335 * fig_h)
+    for y in range(y_top, y_bot):
+        t = (y - y_top) / max(1, y_bot - y_top - 1)
+        lx0 = x0 + int(fig_w * (0.10 + 0.06 * t))
+        lx1 = x0 + int(fig_w * (0.20 + 0.04 * (1 - t)))
+        mask[y, lx0:lx1] = True
+        rx1 = x1 - int(fig_w * (0.10 + 0.06 * t))
+        rx0 = x1 - int(fig_w * (0.20 + 0.04 * (1 - t)))
+        mask[y, rx0:rx1] = True
+
+    hull = ndimage.binary_fill_holes(ndimage.binary_closing(solid, iterations=3))
+    near = ndimage.binary_dilation(solid, iterations=20)
+    return mask & hull & near
+
+
+def overlay_face_from_pack(
+    arr: np.ndarray, packed_mask: np.ndarray, face_path: Path, chin_frac: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """Re-paste the face pack on top after body sealing so crown and features stay crisp."""
+    fys, fxs = np.where(packed_mask)
+    if len(fys) == 0:
+        return arr, packed_mask
+    fy0, fy1, fx0, fx1 = int(fys.min()), int(fys.max()), int(fxs.min()), int(fxs.max())
+    face_h = fy1 - fy0 + 1
+    face_w = fx1 - fx0 + 1
+    cx = (fx0 + fx1) // 2
+    crown_pad = max(10, int(face_h * 0.12))
+    fy0 = max(0, fy0 - crown_pad)
+    target_h = fy1 - fy0 + 1
+
+    face = key_black_face(np.asarray(Image.open(face_path).convert('RGBA')))
+    fa = face[:, :, 3] > 40
+    fys2, fxs2 = np.where(fa)
+    face_crop = face[fys2.min() : fys2.max() + 1, fxs2.min() : fxs2.max() + 1]
+    scale = min(face_w / face_crop.shape[1], target_h / face_crop.shape[0])
+    nh = max(1, int(round(face_crop.shape[0] * scale)))
+    nw = max(1, int(round(face_crop.shape[1] * scale)))
+    face_r = np.asarray(
+        Image.fromarray(face_crop, 'RGBA').resize((nw, nh), Image.Resampling.LANCZOS)
+    )
+    chin_local = int(nh * chin_frac)
+    paste_y = fy1 - chin_local
+    paste_x = int(cx - nw / 2)
+
+    out = arr.copy()
+    y0 = max(0, paste_y)
+    x0 = max(0, paste_x)
+    y1 = min(H, paste_y + nh)
+    x1 = min(W, paste_x + nw)
+    src = face_r[
+        y0 - paste_y : y0 - paste_y + (y1 - y0),
+        x0 - paste_x : x0 - paste_x + (x1 - x0),
+    ]
+    dst = out[y0:y1, x0:x1]
+    sa = src[:, :, 3:4].astype(np.float32) / 255.0
+    out[y0:y1, x0:x1, :3] = (
+        dst[:, :, :3].astype(np.float32) * (1 - sa) + src[:, :, :3].astype(np.float32) * sa
+    ).astype(np.uint8)
+    out[y0:y1, x0:x1, 3:4] = np.maximum(dst[:, :, 3:4], src[:, :, 3:4])
+
+    face_mask = np.zeros((H, W), dtype=bool)
+    face_mask[y0:y1, x0:x1] = src[:, :, 3] > 40
+    return out, face_mask
+
+
+def fill_internal_face_holes(arr: np.ndarray, face_mask: np.ndarray) -> np.ndarray:
+    """Fill accidental transparent specks inside the pasted face without touching the body."""
+    if not face_mask.any():
+        return arr
+    region = ndimage.binary_dilation(face_mask, iterations=2)
+    alpha = arr[:, :, 3]
+    rgb = arr[:, :, :3].astype(np.float32)
+    holes = region & (alpha < 40)
+    if not holes.any():
+        return arr
+    known = region & (alpha >= 200) & (rgb.max(axis=2) > 8)
+    if not known.any():
+        return arr
+    out = arr.copy()
+    _, (iy, ix) = ndimage.distance_transform_edt(~known, return_indices=True)
+    ys, xs = np.where(holes)
+    out[ys, xs, :3] = arr[iy[ys, xs], ix[ys, xs], :3]
+    out[ys, xs, 3] = 255
+    return out
+
+
+def expand_face_mask(face_mask: np.ndarray) -> np.ndarray:
+    """Include crown cap and cheek fringe so keying gaps do not survive sealing."""
+    if not face_mask.any():
+        return face_mask
+    fys, fxs = np.where(face_mask)
+    fy0, fy1 = int(fys.min()), int(fys.max())
+    fx0, fx1 = int(fxs.min()), int(fxs.max())
+    face_h = fy1 - fy0 + 1
+    face_w = fx1 - fx0 + 1
+    cx = (fx0 + fx1) // 2
+    out = face_mask.copy()
+    crown_h = max(12, int(face_h * 0.16))
+    for i in range(crown_h):
+        y = fy0 - crown_h + i
+        if y < 0:
+            continue
+        t = (i + 1) / crown_h
+        half_w = max(3, int(face_w * 0.24 * t))
+        out[y, cx - half_w : cx + half_w + 1] = True
+    out |= ndimage.binary_dilation(face_mask, iterations=max(8, int(face_h * 0.05)))
+    return out
+
+
+def solidify_face_region(arr: np.ndarray, face_mask: np.ndarray) -> np.ndarray:
+    """Force the pasted face fully opaque — seal closing must not eat the crown."""
+    if not face_mask.any():
+        return arr
+    region = expand_face_mask(face_mask)
+    out = arr.copy()
+    rgb = out[:, :, :3].astype(np.float32)
+    alpha = out[:, :, 3]
+    need = region & (alpha < 255)
+    if not need.any():
+        return out
+    known = region & (alpha >= 200) & (rgb.max(axis=2) > 8)
+    if known.any():
+        _, (iy, ix) = ndimage.distance_transform_edt(~known, return_indices=True)
+        ys, xs = np.where(need)
+        out[ys, xs, :3] = out[iy[ys, xs], ix[ys, xs], :3]
+    out[region, 3] = 255
+    return out
+
+
 def _nearest_color(rgb: np.ndarray, need: np.ndarray, known: np.ndarray) -> np.ndarray:
     if not need.any() or not known.any():
         return rgb
@@ -436,13 +576,18 @@ def _horizontal_paint(rgb: np.ndarray, need: np.ndarray, known: np.ndarray) -> n
 
 
 def seal_silhouette(
-    im: Image.Image, close_iters: int = SEAL_CLOSE_ITERS, face_mask: np.ndarray | None = None
+    im: Image.Image,
+    close_iters: int = SEAL_CLOSE_ITERS,
+    face_mask: np.ndarray | None = None,
+    allow_clear: np.ndarray | None = None,
 ) -> Image.Image:
     a = np.array(im.convert('RGBA'))
     alpha = a[:, :, 3]
     rgb = a[:, :, :3].astype(np.float32)
     mx = rgb.max(axis=2)
     body = alpha > 40
+    if face_mask is not None and face_mask.any():
+        body = body | expand_face_mask(face_mask)
     closed = ndimage.binary_closing(body, iterations=close_iters)
     silhouette = ndimage.binary_fill_holes(closed)
     for _ in range(SURROUND_FILL_PASSES):
@@ -470,6 +615,10 @@ def seal_silhouette(
         if face_mask is not None and face_mask.any():
             keep_labels |= set(int(x) for x in np.unique(labeled[face_mask]) if x > 0)
         silhouette = np.isin(labeled, list(keep_labels))
+    if face_mask is not None and face_mask.any():
+        silhouette = silhouette | expand_face_mask(face_mask)
+    if allow_clear is not None:
+        silhouette = silhouette & ~allow_clear
     known = body & silhouette & (mx > 4)
     need = silhouette & ((alpha < 255) | (mx <= 4))
     rgb = _horizontal_paint(rgb, need, known)
@@ -481,7 +630,11 @@ def seal_silhouette(
     return Image.fromarray(out)
 
 
-def pack_fit(im: Image.Image, face_mask: np.ndarray | None = None) -> Image.Image:
+def pack_fit(
+    im: Image.Image,
+    face_mask: np.ndarray | None = None,
+    allow_clear: np.ndarray | None = None,
+) -> tuple[Image.Image, np.ndarray | None, np.ndarray | None]:
     a = np.array(im)
     ys, xs = np.where(a[:, :, 3] > 40)
     x0, x1, y0, y1 = int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max())
@@ -492,23 +645,40 @@ def pack_fit(im: Image.Image, face_mask: np.ndarray | None = None) -> Image.Imag
     avail_w = W - 2 * SIDE_PAD
     scale = min(avail_w / fw, avail_h / fh) * 0.98
 
+    packed_mask = None
+    packed_clear = None
     if face_mask is not None and face_mask.any():
         fys, fxs = np.where(face_mask)
         face_h = int(fys.max() - fys.min()) + 1
-        # Ensure scaled head height fits below TOP_PAD with margin.
         max_scale = (avail_h - 12) / max(fh, 1)
-        head_frac = face_h / max(fh, 1)
-        head_room = TOP_PAD + 12
-        head_scale = (avail_h - head_room) / max(face_h, 1) / max(head_frac, 0.05)
+        head_room = TOP_PAD + int(face_h * 0.12)
+        head_scale = (avail_h - head_room) / max(face_h, 1) / max(face_h / max(fh, 1), 0.05)
         scale = min(scale, head_scale, max_scale)
 
     nw, nh = max(1, int(round(fw * scale))), max(1, int(round(fh * scale)))
     scaled = crop.resize((nw, nh), Image.Resampling.LANCZOS)
     canvas = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     paste_x = (W - nw) // 2
-    paste_y = max(TOP_PAD, sole_y - nh + 1)
+    paste_y = max(TOP_PAD + 8, sole_y - nh + 1)
     canvas.paste(scaled, (paste_x, paste_y), scaled)
-    return canvas
+
+    if face_mask is not None and face_mask.any():
+        fm_crop = face_mask[y0 : y1 + 1, x0 : x1 + 1].astype(np.uint8) * 255
+        fm_scaled = np.asarray(
+            Image.fromarray(fm_crop).resize((nw, nh), Image.Resampling.NEAREST)
+        ) > 128
+        packed_mask = np.zeros((H, W), dtype=bool)
+        packed_mask[paste_y : paste_y + nh, paste_x : paste_x + nw] = fm_scaled
+
+    if allow_clear is not None and allow_clear.any():
+        ac_crop = allow_clear[y0 : y1 + 1, x0 : x1 + 1].astype(np.uint8) * 255
+        ac_scaled = np.asarray(
+            Image.fromarray(ac_crop).resize((nw, nh), Image.Resampling.NEAREST)
+        ) > 128
+        packed_clear = np.zeros((H, W), dtype=bool)
+        packed_clear[paste_y : paste_y + nh, paste_x : paste_x + nw] = ac_scaled
+
+    return canvas, packed_mask, packed_clear
 
 
 def assert_head_present(im: Image.Image, pose: str) -> None:
@@ -538,15 +708,50 @@ def strip_exterior_pale(arr: np.ndarray) -> np.ndarray:
     return out
 
 
-def assert_solid(im: Image.Image, name: str) -> None:
+def fill_tiny_holes(
+    arr: np.ndarray, allow_clear: np.ndarray | None = None, max_size: int = 6
+) -> np.ndarray:
+    """Close pinhole gaps left by armpit carving or face overlay seams."""
+    out = arr.copy()
+    alpha = out[:, :, 3]
+    opaque = alpha == 255
+    holes = ndimage.binary_fill_holes(opaque) & ~opaque
+    if allow_clear is not None:
+        holes = holes & ~allow_clear
+    labeled, n = ndimage.label(holes)
+    if n == 0:
+        return out
+    known = opaque
+    _, (iy, ix) = ndimage.distance_transform_edt(~known, return_indices=True)
+    for i in range(1, n + 1):
+        comp = labeled == i
+        if int(comp.sum()) > max_size:
+            continue
+        out[comp, :3] = arr[iy[comp], ix[comp], :3]
+        out[comp, 3] = 255
+    return out
+
+
+def assert_solid(
+    im: Image.Image, name: str, allow_clear: np.ndarray | None = None
+) -> None:
     a = np.array(im)
     alpha = a[:, :, 3]
     soft = int(((alpha > 0) & (alpha < 255)).sum())
     opaque = alpha == 255
     holes = int((ndimage.binary_fill_holes(opaque) & ~opaque).sum())
-    clear_inside = int(((~_edge_flood(alpha < 128)) & (alpha < 255)).sum())
+    clear_zone = alpha < 128
+    if allow_clear is not None:
+        clear_zone = clear_zone & ~allow_clear
+    interior_clear = (~_edge_flood(clear_zone)) & (alpha < 255)
+    if allow_clear is not None:
+        interior_clear = interior_clear & ~allow_clear
+    clear_inside = int(interior_clear.sum())
     frac = ndimage.uniform_filter(opaque.astype(np.float32), size=11)
-    surrounded = int(((alpha < 128) & (frac > 0.55)).sum())
+    surrounded_mask = (alpha < 128) & (frac > 0.55)
+    if allow_clear is not None:
+        surrounded_mask = surrounded_mask & ~allow_clear
+    surrounded = int(surrounded_mask.sum())
     if soft or holes or clear_inside or surrounded > 200:
         raise SystemExit(
             f'{name} not solid: soft={soft} holes={holes} '
@@ -567,16 +772,46 @@ def main() -> None:
         body = key_white_bg_safe(np.asarray(Image.open(body_path).convert('RGBA')))
         top, head_bottom, cx = detect_mannequin_head(body)
         body2 = erase_head_disk(body, top, head_bottom, cx)
+        allow_clear = armpit_clear_mask(body2) if pose == 'ooh' else None
         face = np.asarray(Image.open(face_path).convert('RGBA'))
         composited, face_mask = paste_head(body2, face, head_bottom, cx, chin_frac)
+        composited = solidify_face_region(composited, face_mask)
+        if allow_clear is not None:
+            composited = composited.copy()
+            composited[allow_clear, 3] = 0
         composited = bridge_neck_column(composited, face_mask, cx)
         composited = weld_head_to_body(composited, face_mask, cx)
         composited = fill_neck_gap(composited, head_bottom)
-        sealed = seal_silhouette(Image.fromarray(composited), face_mask=face_mask)
-        packed = seal_silhouette(pack_fit(sealed, face_mask), face_mask=face_mask)
+        composited = solidify_face_region(composited, face_mask)
+        sealed = seal_silhouette(
+            Image.fromarray(composited), face_mask=face_mask, allow_clear=allow_clear
+        )
+        packed, packed_face, packed_clear = pack_fit(sealed, face_mask, allow_clear)
+        packed_mask = packed_face if packed_face is not None else face_mask
+        packed_allow = packed_clear if packed_clear is not None else allow_clear
+        if packed_allow is not None:
+            packed_allow = ndimage.binary_dilation(packed_allow, iterations=2)
+        packed = seal_silhouette(
+            packed, face_mask=packed_mask, allow_clear=packed_allow
+        )
         assert_head_present(packed, pose)
-        packed = seal_silhouette(packed, close_iters=8, face_mask=face_mask)
-        assert_solid(packed, pose)
+        body_arr = np.asarray(packed).copy()
+        body_arr[packed_mask] = (0, 0, 0, 0)
+        body_sealed = seal_silhouette(
+            Image.fromarray(body_arr),
+            close_iters=6,
+            allow_clear=packed_allow,
+        )
+        final_arr, final_face = overlay_face_from_pack(
+            np.asarray(body_sealed), packed_mask, face_path, chin_frac
+        )
+        final_arr = fill_internal_face_holes(final_arr, final_face)
+        if packed_allow is not None:
+            final_arr[packed_allow] = (0, 0, 0, 0)
+        final_arr[:, :, 3] = np.where(final_arr[:, :, 3] > 40, 255, 0).astype(np.uint8)
+        final_arr = fill_tiny_holes(final_arr, allow_clear=packed_allow)
+        packed = Image.fromarray(final_arr)
+        assert_solid(packed, pose, allow_clear=packed_allow)
         packed.save(OUT / f'greenie-{pose}.png', optimize=True)
         Image.fromarray(np.asarray(packed)).save(SRC / f'{pose}-composited.png')
         thumb = packed.resize((128, 192), Image.Resampling.LANCZOS)
