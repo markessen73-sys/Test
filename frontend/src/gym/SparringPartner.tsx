@@ -185,3 +185,6 @@ useTexture.preload(assetUrl('/boxer/bodies/kk-knockout.png'));
 useTexture.preload(BODY_STYLES['body-bozza'].textureSrc);
 useTexture.preload(assetUrl('/boxer/bodies/bozza-ooh.png'));
 useTexture.preload(assetUrl('/boxer/bodies/bozza-knockout.png'));
+useTexture.preload(BODY_STYLES['body-greenie'].textureSrc);
+useTexture.preload(assetUrl('/boxer/bodies/greenie-ooh.png'));
+useTexture.preload(assetUrl('/boxer/bodies/greenie-knockout.png'));

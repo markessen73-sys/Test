@@ -191,10 +191,15 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
     faceNudgeY: 0.08,
   }),
   'the-greenie': makeCharacter('the-greenie', 'The Greenie', {
-    bodyId: 'generic',
     ringBackdropSrc: RING_BACKDROP,
-    faceScale: 1.14,
-    faceNudgeY: 0.08,
+    // Whole baked figure (thin pale + green gear + recycling logo). Face pack
+    // still used for Options thumb / damage HUD / bag / bobo.
+    bodyId: 'body-greenie',
+    bakedRingPoses: {
+      idleSrc: assetUrl('/boxer/bodies/greenie-idle.png'),
+      oohSrc: assetUrl('/boxer/bodies/greenie-ooh.png'),
+      knockoutSrc: assetUrl('/boxer/bodies/greenie-knockout.png'),
+    },
   }),
   pricey: makeCharacter('pricey', 'Pricey', {
     bodyId: 'generic',
