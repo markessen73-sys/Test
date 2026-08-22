@@ -127,7 +127,7 @@ def armpit_clear_mask_ooh(body: np.ndarray) -> np.ndarray:
 
     mask = np.zeros(solid.shape, dtype=bool)
     y_top = y0 + int(0.10 * fig_h)
-    y_bot = y0 + int(0.48 * fig_h)
+    y_bot = y0 + int(0.52 * fig_h)
     for y in range(y_top, y_bot):
         t = (y - y_top) / max(1, y_bot - y_top - 1)
         lx0 = x0 + int(fig_w * (0.04 + 0.10 * t))
@@ -135,6 +135,31 @@ def armpit_clear_mask_ooh(body: np.ndarray) -> np.ndarray:
         mask[y, lx0:lx1] = True
         rx1 = x1 - int(fig_w * (0.04 + 0.10 * t))
         rx0 = x1 - int(fig_w * (0.34 - 0.02 * t))
+        mask[y, rx0:rx1] = True
+
+    hull = ndimage.binary_fill_holes(ndimage.binary_closing(solid, iterations=3))
+    return mask & hull
+
+
+def armpit_outer_lower_mask(body: np.ndarray) -> np.ndarray:
+    """Thin lower wedges between inner glove and hip — not the outer arm surface."""
+    solid = body[:, :, 3] > 40
+    if not solid.any():
+        return np.zeros(solid.shape, dtype=bool)
+    ys, xs = np.where(solid)
+    y0, y1, x0, x1 = int(ys.min()), int(ys.max()), int(xs.min()), int(xs.max())
+    fig_h, fig_w = y1 - y0, x1 - x0
+
+    mask = np.zeros(solid.shape, dtype=bool)
+    y_top = y0 + int(0.38 * fig_h)
+    y_bot = y0 + int(0.52 * fig_h)
+    for y in range(y_top, y_bot):
+        t = (y - y_top) / max(1, y_bot - y_top - 1)
+        lx0 = x0 + int(fig_w * (0.14 + 0.06 * t))
+        lx1 = x0 + int(fig_w * (0.20 - 0.02 * t))
+        mask[y, lx0:lx1] = True
+        rx1 = x1 - int(fig_w * (0.14 + 0.06 * t))
+        rx0 = x1 - int(fig_w * (0.20 - 0.02 * t))
         mask[y, rx0:rx1] = True
 
     hull = ndimage.binary_fill_holes(ndimage.binary_closing(solid, iterations=3))
@@ -195,19 +220,32 @@ def punch_ooh_armpit_wedges(arr: np.ndarray, src: Image.Image) -> np.ndarray:
     mx = rgb.max(axis=2)
     chroma = mx - rgb.min(axis=2)
     wedge = armpit_clear_mask_ooh(out)
-    pale = (out[:, :, 3] > 40) & (mx > 160) & (chroma < 55)
-    out[wedge & pale, 3] = 0
+    outer_lower = armpit_outer_lower_mask(out)
 
     dist = source_bg_distance_mask(src, out.shape[:2])
-    studio = dist < 120
     solid = out[:, :, 3] > 40
     if solid.any():
         ys, _ = np.where(solid)
         y0, y1 = int(ys.min()), int(ys.max())
         fig_h = y1 - y0
         y_band = np.zeros(out.shape[:2], dtype=bool)
-        y_band[y0 + int(0.18 * fig_h) : y0 + int(0.42 * fig_h), :] = True
-        out[wedge & y_band & studio & (out[:, :, 3] > 40), 3] = 0
+        y_band[y0 + int(0.16 * fig_h) : y0 + int(0.52 * fig_h), :] = True
+        out[wedge & y_band & (dist < 90) & (out[:, :, 3] > 40), 3] = 0
+
+    pale = (out[:, :, 3] > 40) & (mx > 160) & (chroma < 55)
+    out[wedge & pale, 3] = 0
+
+    pale_lower = (mx > 180) & (chroma < 68)
+    out[outer_lower & pale_lower & (out[:, :, 3] > 40), 3] = 0
+
+    clear = out[:, :, 3] < 40
+    for _ in range(12):
+        near = ndimage.binary_dilation(clear, iterations=2)
+        grow = wedge & near & (out[:, :, 3] > 40) & (mx > 128) & (chroma < 74)
+        if not grow.any():
+            break
+        out[grow, 3] = 0
+        clear = out[:, :, 3] < 40
     return out
 
 
@@ -221,7 +259,10 @@ def assert_pose_solid(packed: Image.Image, pose: str) -> None:
         assert_solid(packed, pose)
         return
     arr = np.asarray(packed)
-    allow = ndimage.binary_dilation(armpit_clear_mask_ooh(arr), iterations=5)
+    allow = ndimage.binary_dilation(
+        armpit_clear_mask_ooh(arr) | armpit_outer_lower_mask(arr),
+        iterations=5,
+    )
     alpha = arr[:, :, 3]
     opaque = alpha == 255
     holes_mask = ndimage.binary_fill_holes(opaque) & ~opaque
