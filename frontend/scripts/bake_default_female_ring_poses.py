@@ -171,8 +171,8 @@ def punch_ooh_armpit_wedges(arr: np.ndarray) -> np.ndarray:
     rgb = out[:, :, :3].astype(np.int16)
     mx = rgb.max(axis=2)
     chroma = mx - rgb.min(axis=2)
-    wedge = armpit_clear_mask_ooh(out)
-    pale = (out[:, :, 3] > 40) & (mx > 160) & (chroma < 55)
+    wedge = armpit_clear_mask_ooh(out) | armpit_clear_mask_idle(out)
+    pale = (out[:, :, 3] > 40) & (mx > 120) & (chroma < 65)
     out[wedge & pale, 3] = 0
     return out
 
@@ -188,8 +188,12 @@ def assert_pose_solid(packed: Image.Image, pose: str) -> None:
         assert_solid(packed, pose)
         return
     arr = np.asarray(packed)
-    allow = armpit_clear_mask_idle(arr) if pose == 'idle' else armpit_clear_mask_ooh(arr)
-    allow = ndimage.binary_dilation(allow, iterations=5 if pose == 'idle' else 2)
+    allow = (
+        armpit_clear_mask_idle(arr)
+        if pose == 'idle'
+        else (armpit_clear_mask_ooh(arr) | armpit_clear_mask_idle(arr))
+    )
+    allow = ndimage.binary_dilation(allow, iterations=5)
     alpha = arr[:, :, 3]
     opaque = alpha == 255
     holes_mask = ndimage.binary_fill_holes(opaque) & ~opaque
