@@ -149,15 +149,13 @@ function makeCharacter(
   };
 }
 
-const RING_BACKDROP = assetUrl('/backdrops/images-8.jpeg');
-const LA_SKYLINE_BACKDROP = assetUrl('/backdrops/la-skyline.jpg');
+const PARLIAMENT_RING_BACKDROP = assetUrl('/backdrops/images-8.jpeg');
 
 export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   default: makeCharacter('default', 'Default Boxer', {
     bodyId: 'generic',
   }),
   'default-female': makeCharacter('default-female', 'Default Female', {
-    ringBackdropSrc: RING_BACKDROP,
     bodyId: 'body-default-female',
     bakedRingPoses: {
       idleSrc: assetUrl('/boxer/bodies/default-female-idle.png'),
@@ -166,7 +164,6 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
     },
   }),
   byson: makeCharacter('byson', 'Byson', {
-    ringBackdropSrc: RING_BACKDROP,
     bodyId: 'body-byson',
     faceScale: 1.18,
     bakedRingPoses: {
@@ -176,7 +173,6 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
     },
   }),
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick', {
-    ringBackdropSrc: RING_BACKDROP,
     bodyId: 'body-tin-mick',
     faceScale: 1.08,
     bakedRingPoses: {
@@ -186,7 +182,6 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
     },
   }),
   'the-don': makeCharacter('the-don', 'The Don', {
-    ringBackdropSrc: RING_BACKDROP,
     bodyId: 'body-don',
     faceScale: 1.1,
     bakedRingPoses: {
@@ -197,12 +192,12 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   }),
   'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North', {
     bodyId: 'generic',
-    ringBackdropSrc: RING_BACKDROP,
+    ringBackdropSrc: PARLIAMENT_RING_BACKDROP,
     faceScale: 1.02,
     faceNudgeY: 0.1,
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
-    ringBackdropSrc: RING_BACKDROP,
+    ringBackdropSrc: PARLIAMENT_RING_BACKDROP,
     // Whole baked figure (not face-on-body). Face pack still used for Options
     // thumb / damage HUD / bag / bobo.
     bodyId: 'body-bozza',
@@ -214,12 +209,12 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   }),
   'the-nige': makeCharacter('the-nige', 'The Nige', {
     bodyId: 'generic',
-    ringBackdropSrc: RING_BACKDROP,
+    ringBackdropSrc: PARLIAMENT_RING_BACKDROP,
     faceScale: 1.12,
     faceNudgeY: 0.08,
   }),
   'the-greenie': makeCharacter('the-greenie', 'The Greenie', {
-    ringBackdropSrc: RING_BACKDROP,
+    ringBackdropSrc: PARLIAMENT_RING_BACKDROP,
     // Whole baked figure (thin pale + green gear + recycling logo). Face pack
     // still used for Options thumb / damage HUD / bag / bobo.
     bodyId: 'body-greenie',
@@ -231,13 +226,11 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   }),
   pricey: makeCharacter('pricey', 'Pricey', {
     bodyId: 'generic',
-    ringBackdropSrc: RING_BACKDROP,
     // High bun → smaller mid-face than Default; scale up to match.
     faceScale: 1.22,
     faceNudgeY: 0.06,
   }),
   kk: makeCharacter('kk', 'KK', {
-    ringBackdropSrc: LA_SKYLINE_BACKDROP,
     // Methodology test: whole baked figure (not face-on-body). Face pack still
     // used for Options thumb / damage HUD / bag / bobo.
     bodyId: 'body-kk',
