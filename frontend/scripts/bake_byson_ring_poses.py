@@ -2,9 +2,9 @@
 """Bake Byson whole-body solid ring poses from user-authored full renders.
 
 Sources (repo root uploads — upload order normal, ooh, knockout):
-  idle      → file_000000001d3c81f48f45f7961e108ae6.png
+  idle      → file_000000004a088246abdd63d9b4993a29.png  (guard — 3rd upload)
   ooh       → file_00000000338c81f4a282b4bd41038589.png
-  knockout  → file_000000004a088246abdd63d9b4993a29.png
+  knockout  → file_000000001d3c81f48f45f7961e108ae6.png  (slump — 1st upload)
 
 Outputs: public/boxer/bodies/byson-{idle,ooh,knockout}.png (+ thumbs)
 Face pack refresh: public/faces/characters/byson/{clean,ooh,knockout}.png
@@ -27,10 +27,88 @@ W, H = 1024, 1536
 TOP_PAD = 40
 
 USER_IMPORTS = {
-    'idle': REPO_ROOT / 'file_000000001d3c81f48f45f7961e108ae6.png',
+    'idle': REPO_ROOT / 'file_000000004a088246abdd63d9b4993a29.png',
     'ooh': REPO_ROOT / 'file_00000000338c81f4a282b4bd41038589.png',
-    'knockout': REPO_ROOT / 'file_000000004a088246abdd63d9b4993a29.png',
+    'knockout': REPO_ROOT / 'file_000000001d3c81f48f45f7961e108ae6.png',
 }
+
+
+def peel_exterior_fringe(
+    arr: np.ndarray,
+    *,
+    pale: bool = False,
+    passes: int = 40,
+) -> np.ndarray:
+    """Flood transparency through pale matting touching the exterior."""
+    out = arr.copy()
+    rgb = out[:, :, :3].astype(np.int16)
+    for _ in range(passes):
+        alpha = out[:, :, 3]
+        mx = rgb.max(axis=2)
+        chroma = mx - rgb.min(axis=2)
+        clear = alpha < 40
+        fringe = (alpha > 0) & (mx > 200) & (chroma < 45)
+        grow = ndimage.binary_dilation(clear, iterations=1) & fringe
+        if not grow.any():
+            break
+        out[grow, 3] = 0
+    return out
+
+
+def head_crown_mask(body: np.ndarray) -> np.ndarray:
+    solid = body[:, :, 3] > 40
+    if not solid.any():
+        return np.zeros(solid.shape, dtype=bool)
+    ys, xs = np.where(solid)
+    y0, y1, x0, x1 = int(ys.min()), int(ys.max()), int(xs.min()), int(xs.max())
+    fig_h = y1 - y0
+    mask = np.zeros(solid.shape, dtype=bool)
+    crown_y1 = y0 + int(0.45 * fig_h)
+    pad = int((x1 - x0) * 0.10)
+    mask[y0:crown_y1, max(0, x0 - pad) : min(body.shape[1], x1 + pad + 1)] = True
+    return mask
+
+
+def peel_dark_hair_matte(arr: np.ndarray) -> np.ndarray:
+    """Remove dark gray studio matting hugging the hair outline."""
+    out = arr.copy()
+    crown = head_crown_mask(out)
+    rgb = out[:, :, :3].astype(np.int16)
+    alpha = out[:, :, 3]
+    mx = rgb.max(axis=2)
+    chroma = mx - rgb.min(axis=2)
+    clear = alpha < 40
+    near_clear = ndimage.binary_dilation(clear, iterations=5)
+    matte = crown & near_clear & (alpha > 0) & (mx >= 30) & (mx < 130) & (chroma < 60)
+    out[matte, 3] = 0
+    fringe = crown & (alpha > 10) & (alpha < 240) & (mx < 100) & (chroma < 50)
+    out[fringe & near_clear, 3] = 0
+    return out
+
+
+def key_byson(im: Image.Image) -> np.ndarray:
+    """Key studio BG, then restore interior figure holes (shorts logo, etc.)."""
+    src = np.asarray(im.convert('RGBA'))
+    keyed = np.asarray(remove_bg(Image.fromarray(src)))
+    alpha = keyed[:, :, 3]
+    body = alpha > 40
+    closed = ndimage.binary_closing(body, iterations=18)
+    hull = ndimage.binary_fill_holes(closed)
+    holes = hull & (alpha < 40)
+    if not holes.any():
+        return keyed
+    corner = src[2, 2, :3].astype(np.int16)
+    dist = np.abs(src[:, :, :3].astype(np.int16) - corner).sum(axis=2)
+    restore = holes & (dist > 30)
+    out = keyed.copy()
+    out[restore, :3] = src[restore, :3]
+    out[restore, 3] = 255
+    return out
+
+
+def preprocess_idle(arr: np.ndarray) -> np.ndarray:
+    out = peel_exterior_fringe(arr, pale=True)
+    return peel_dark_hair_matte(out)
 
 
 def armpit_clear_mask_ooh(body: np.ndarray) -> np.ndarray:
@@ -112,7 +190,9 @@ def sync_user_face_packs() -> None:
     for pose, face_name in (('idle', 'clean.png'), ('ooh', 'ooh.png'), ('knockout', 'knockout.png')):
         import_path = USER_IMPORTS.get(pose)
         if import_path and import_path.exists():
-            keyed = np.asarray(remove_bg(Image.open(import_path).convert('RGBA')))
+            keyed = key_byson(Image.open(import_path))
+            if pose == 'idle':
+                keyed = preprocess_idle(keyed)
             Image.fromarray(extract_face_pack(keyed)).save(FACES / face_name, optimize=True)
 
 
@@ -127,25 +207,35 @@ def save_pose_outputs(pose: str, packed: Image.Image) -> None:
     print('wrote', pose)
 
 
+def bake_idle(path: Path) -> Image.Image:
+    arr = preprocess_idle(key_byson(Image.open(path)))
+    return seal_silhouette(pack(seal_silhouette(Image.fromarray(arr))))
+
+
 def bake_ooh(path: Path) -> Image.Image:
-    keyed = remove_bg(Image.open(path))
+    keyed = Image.fromarray(key_byson(Image.open(path)))
     packed = seal_silhouette(pack(seal_silhouette(keyed)))
     return Image.fromarray(punch_ooh_armpit_wedges(np.asarray(packed)))
+
+
+def bake_knockout(path: Path) -> Image.Image:
+    keyed = Image.fromarray(key_byson(Image.open(path)))
+    return seal_silhouette(pack(seal_silhouette(keyed)))
 
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     FACES.mkdir(parents=True, exist_ok=True)
     sync_user_face_packs()
+    bakers = {
+        'idle': bake_idle,
+        'ooh': bake_ooh,
+        'knockout': bake_knockout,
+    }
     for pose, path in USER_IMPORTS.items():
         if not path.exists():
             raise SystemExit(f'missing source for {pose}: {path}')
-        if pose == 'ooh':
-            packed = bake_ooh(path)
-        else:
-            keyed = remove_bg(Image.open(path))
-            sealed = seal_silhouette(keyed)
-            packed = seal_silhouette(pack(sealed))
+        packed = bakers[pose](path)
         assert_pose_solid(packed, pose)
         save_pose_outputs(pose, packed)
 
