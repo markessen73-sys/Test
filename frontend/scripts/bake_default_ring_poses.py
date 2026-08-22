@@ -178,17 +178,57 @@ def punch_idle_armpit_wedges(arr: np.ndarray) -> np.ndarray:
     return out
 
 
+def carve_ooh_gaps(keyed: np.ndarray, src: Image.Image) -> np.ndarray:
+    """Keep inner armpit pockets transparent before seal fills them with pale studio color."""
+    out = keyed.copy()
+    wedge = armpit_gap_mask(out)
+    src_rgb = np.asarray(src.convert('RGBA'))[:, :, :3].astype(np.int16)
+    corner = src_rgb[2, 2]
+    dist = np.abs(src_rgb - corner).sum(axis=2)
+    studio = dist <= 48
+    out[wedge & studio, 3] = 0
+    rgb = out[:, :, :3].astype(np.int16)
+    mx = rgb.max(axis=2)
+    chroma = mx - rgb.min(axis=2)
+    r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+    camo = (b > r + 6) & (b > 65)
+    pale = (mx > 188) & (chroma < 48)
+    out[wedge & pale & ~camo, 3] = 0
+    return out
+
+
+def flood_clear_pale_gaps(arr: np.ndarray) -> np.ndarray:
+    """Remove pale sealed fill still sitting inside armpit pockets."""
+    out = arr.copy()
+    wedge = armpit_gap_mask(out)
+    rgb = out[:, :, :3].astype(np.int16)
+    mx = rgb.max(axis=2)
+    chroma = mx - rgb.min(axis=2)
+    clear = out[:, :, 3] < 40
+    for _ in range(6):
+        near_clear = ndimage.binary_dilation(clear, iterations=2)
+        pale = wedge & (out[:, :, 3] > 40) & (mx > 172) & (chroma < 50)
+        grow = pale & near_clear
+        if not grow.any():
+            break
+        out[grow, 3] = 0
+        clear = out[:, :, 3] < 40
+    return out
+
+
 def punch_ooh_armpit_wedges(arr: np.ndarray) -> np.ndarray:
     """Clear sealed studio fill in inner armpit pockets on the ooh pose."""
     out = arr.copy()
     wedge = armpit_gap_mask(out)
     rgb = out[:, :, :3].astype(np.int16)
     mx = rgb.max(axis=2)
-    chroma = mx - rgb.min(axis=2)
+    r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+    camo = (b > r + 6) & (b > 65)
+    dark = mx < 90
+    keep = ndimage.binary_dilation(camo | dark, iterations=6)
     corner = rgb[0, 0]
     dist = np.abs(rgb - corner).sum(axis=2)
-    clear = wedge & ((dist <= 42) | ((mx > 196) & (chroma < 45)))
-    out[clear, 3] = 0
+    out[wedge & (~keep | (dist <= 45)), 3] = 0
     return out
 
 
@@ -202,7 +242,7 @@ def assert_pose_solid(packed: Image.Image, pose: str) -> None:
         assert_solid(packed, pose)
         return
     arr = np.asarray(packed)
-    allow = ndimage.binary_dilation(armpit_gap_mask(arr), iterations=5)
+    allow = ndimage.binary_dilation(armpit_gap_mask(arr), iterations=16)
     alpha = arr[:, :, 3]
     opaque = alpha == 255
     holes_mask = ndimage.binary_fill_holes(opaque) & ~opaque
@@ -262,11 +302,14 @@ def bake_idle(path: Path) -> Image.Image:
 
 
 def bake_ooh(path: Path) -> Image.Image:
-    keyed = Image.fromarray(key_default(Image.open(path)))
-    packed = seal_silhouette(pack(seal_silhouette(keyed)))
+    src = Image.open(path)
+    keyed = carve_ooh_gaps(key_default(src), src)
+    sealed = seal_silhouette(Image.fromarray(keyed), close_iters=6)
+    packed = seal_silhouette(pack(sealed), close_iters=6)
     punched = punch_ooh_armpit_wedges(np.asarray(packed))
-    peeled = peel_exterior_fringe(punched, pale=True, passes=20)
-    return seal_silhouette(Image.fromarray(peeled), close_iters=3)
+    flooded = flood_clear_pale_gaps(punched)
+    peeled = peel_exterior_fringe(flooded, pale=True, passes=20)
+    return Image.fromarray(peeled)
 
 
 def bake_knockout(path: Path) -> Image.Image:
