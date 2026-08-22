@@ -3,7 +3,7 @@ import type { GlovePosition } from '../types/game';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SparringPartner, RING_CANVAS_SURFACE_Y, RING_SPRITE_SCALE } from '../gym/SparringPartner';
-import { CartoonGym } from '../gym/CartoonGym';
+import { Text } from '@react-three/drei';
 import { ringZoneScreenOffset } from './ringImpact';
 import { applyRingHitImpulse, createRingSwingState, stepRingSwing } from './ringSwing';
 import {
@@ -24,6 +24,45 @@ import {
 import type { PunchImpact } from './punchImpact';
 import { useCharacter } from './face/CharacterContext';
 
+function GymPlayBackdrop() {
+  const brick = '#9B4E32';
+  const brickDark = '#7A3C28';
+  const gymZ = RING_GROUP_ORIGIN_Z;
+  return (
+    <group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, gymZ]} receiveShadow>
+        <planeGeometry args={[20, 14]} />
+        <meshStandardMaterial color="#8B6914" roughness={0.92} />
+      </mesh>
+      <mesh position={[0, 3.8, gymZ - 5.2]} receiveShadow>
+        <planeGeometry args={[22, 9]} />
+        <meshStandardMaterial color={brick} roughness={1} />
+      </mesh>
+      <mesh position={[-8.5, 3.8, gymZ]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[16, 9]} />
+        <meshStandardMaterial color={brickDark} roughness={1} />
+      </mesh>
+      <mesh position={[8.5, 3.8, gymZ]} rotation={[0, -Math.PI / 2, 0]}>
+        <planeGeometry args={[16, 9]} />
+        <meshStandardMaterial color={brick} roughness={1} />
+      </mesh>
+      <group position={[0, 5.4, gymZ - 5.05]}>
+        <mesh>
+          <boxGeometry args={[4.5, 1.0, 0.12]} />
+          <meshStandardMaterial color="#2a1a0a" />
+        </mesh>
+        <mesh position={[0, 0, 0.07]}>
+          <boxGeometry args={[4.3, 0.85, 0.02]} />
+          <meshStandardMaterial color="#E8C840" emissive="#B8860B" emissiveIntensity={0.25} roughness={0.7} />
+        </mesh>
+        <Text position={[0, 0, 0.14]} fontSize={0.42} color="#8B0000" anchorX="center" anchorY="middle">
+          {`MICK'S GYM`}
+        </Text>
+      </group>
+    </group>
+  );
+}
+
 function RingPlayEnvironment({ themed = false }: { themed?: boolean }) {
   return (
     <>
@@ -41,7 +80,7 @@ function RingPlayEnvironment({ themed = false }: { themed?: boolean }) {
         distance={22}
       />
       {/* No far fog when themed — CSS backdrop must stay crisp behind the transparent canvas */}
-      {themed ? null : <fog attach="fog" args={['#1a1208', 8, 28]} />}
+      {themed ? null : <fog attach="fog" args={['#1a1208', 12, 36]} />}
     </>
   );
 }
@@ -189,9 +228,9 @@ export function RingPlayScene({
       {themed ? null : <color attach="background" args={['#1a1208']} />}
       <RingPlayEnvironment themed={themed} />
       {themed ? null : (
-        <group position={[0, 0, RING_GROUP_ORIGIN_Z]}>
-          <CartoonGym />
-        </group>
+        <Suspense fallback={null}>
+          <GymPlayBackdrop />
+        </Suspense>
       )}
       <Suspense fallback={null}>
         <PlayRing
