@@ -152,8 +152,13 @@ function makeCharacter(
 const PARLIAMENT_RING_BACKDROP = assetUrl('/backdrops/images-8.jpeg');
 
 export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
-  default: makeCharacter('default', 'Default Boxer', {
-    bodyId: 'generic',
+  default: makeCharacter('default', 'Default Male', {
+    bodyId: 'body-default',
+    bakedRingPoses: {
+      idleSrc: assetUrl('/boxer/bodies/default-idle.png'),
+      oohSrc: assetUrl('/boxer/bodies/default-ooh.png'),
+      knockoutSrc: assetUrl('/boxer/bodies/default-knockout.png'),
+    },
   }),
   'default-female': makeCharacter('default-female', 'Default Female', {
     bodyId: 'body-default-female',

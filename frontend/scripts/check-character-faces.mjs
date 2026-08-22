@@ -62,6 +62,7 @@ const REF_HEAD_WIDTH_MIN_BY_ID = {
   bozza: 0.75,
   'tin-mick': 0.9,
   'the-don': 0.9,
+  default: 0.9,
   'default-female': 0.9,
   byson: 0.9,
 };
@@ -73,6 +74,7 @@ const STANDARD_BOBO_IDS = new Set([
   'the-greenie',
   'pricey',
   'kk',
+  'default',
   'default-female',
   'byson',
 ]);
