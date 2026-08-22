@@ -20,7 +20,8 @@ export type BodyStyleId =
   | 'body-bozza'
   | 'body-greenie'
   | 'body-don'
-  | 'body-tin-mick';
+  | 'body-tin-mick'
+  | 'body-default-female';
 
 export interface BodyStyle {
   id: BodyStyleId;
@@ -211,6 +212,14 @@ export const BODY_STYLES: Record<BodyStyleId, BodyStyle> = {
     [0.4082, 0.0215, 0.6064, 0.179],
     0.0664
   ),
+  'body-default-female': body(
+    'body-default-female',
+    'Default Female',
+    '/boxer/bodies/default-female-idle.png',
+    '/boxer/bodies/default-female-idle-thumb.png',
+    [0.4082, 0.0215, 0.6064, 0.179],
+    0.0664
+  ),
 };
 
 export const BODY_STYLE_LIST: BodyStyle[] = [
@@ -232,6 +241,7 @@ export const BODY_STYLE_LIST: BodyStyle[] = [
   BODY_STYLES['body-greenie'],
   BODY_STYLES['body-don'],
   BODY_STYLES['body-tin-mick'],
+  BODY_STYLES['body-default-female'],
 ];
 
 export const DEFAULT_BODY_STYLE_ID: BodyStyleId = 'generic';

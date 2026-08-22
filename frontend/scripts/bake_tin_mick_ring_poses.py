@@ -15,8 +15,9 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
+from scipy import ndimage
 
-from bake_bozza_ring_poses import assert_solid, pack, remove_bg, seal_silhouette
+from bake_bozza_ring_poses import pack, remove_bg, seal_silhouette
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT.parent
@@ -30,6 +31,59 @@ USER_IMPORTS = {
     'ooh': REPO_ROOT / 'file_00000000677c81f6bcd1e297b6b30f27.png',
     'knockout': REPO_ROOT / 'file_00000000597c81f4ad8f06e92ddd3792.png',
 }
+
+
+def armpit_clear_mask_ooh(body: np.ndarray) -> np.ndarray:
+    """Wider wedges for arms-down ooh pose — clears white gaps beside the torso."""
+    solid = body[:, :, 3] > 40
+    if not solid.any():
+        return np.zeros(solid.shape, dtype=bool)
+    ys, xs = np.where(solid)
+    y0, y1, x0, x1 = int(ys.min()), int(ys.max()), int(xs.min()), int(xs.max())
+    fig_h, fig_w = y1 - y0, x1 - x0
+
+    mask = np.zeros(solid.shape, dtype=bool)
+    y_top = y0 + int(0.10 * fig_h)
+    y_bot = y0 + int(0.52 * fig_h)
+    for y in range(y_top, y_bot):
+        t = (y - y_top) / max(1, y_bot - y_top - 1)
+        lx0 = x0 + int(fig_w * (0.04 + 0.10 * t))
+        lx1 = x0 + int(fig_w * (0.34 - 0.02 * t))
+        mask[y, lx0:lx1] = True
+        rx1 = x1 - int(fig_w * (0.04 + 0.10 * t))
+        rx0 = x1 - int(fig_w * (0.34 - 0.02 * t))
+        mask[y, rx0:rx1] = True
+
+    hull = ndimage.binary_fill_holes(ndimage.binary_closing(solid, iterations=3))
+    return mask & hull
+
+
+def punch_ooh_armpit_wedges(arr: np.ndarray) -> np.ndarray:
+    """Clear pale studio fill between inner arms and torso on the ooh pose."""
+    out = arr.copy()
+    rgb = out[:, :, :3].astype(np.int16)
+    mx = rgb.max(axis=2)
+    chroma = mx - rgb.min(axis=2)
+    wedge = armpit_clear_mask_ooh(out)
+    pale = (out[:, :, 3] > 40) & (mx > 160) & (chroma < 55)
+    out[wedge & pale, 3] = 0
+    return out
+
+
+def assert_pose_solid(packed: Image.Image, pose: str) -> None:
+    arr = np.asarray(packed)
+    allow = armpit_clear_mask_ooh(arr) if pose == 'ooh' else None
+    if allow is not None:
+        allow = ndimage.binary_dilation(allow, iterations=2)
+    alpha = arr[:, :, 3]
+    opaque = alpha == 255
+    holes_mask = ndimage.binary_fill_holes(opaque) & ~opaque
+    if allow is not None:
+        holes_mask &= ~allow
+    holes = int(holes_mask.sum())
+    if holes:
+        raise SystemExit(f'{pose} not solid: holes={holes}')
+    print(f'{pose}: solid opaque={int(opaque.sum())}')
 
 
 def extract_face_pack(arr: np.ndarray) -> np.ndarray:
@@ -83,7 +137,9 @@ def main() -> None:
         keyed = remove_bg(Image.open(path))
         sealed = seal_silhouette(keyed)
         packed = seal_silhouette(pack(sealed))
-        assert_solid(packed, pose)
+        if pose == 'ooh':
+            packed = Image.fromarray(punch_ooh_armpit_wedges(np.asarray(packed)))
+        assert_pose_solid(packed, pose)
         save_pose_outputs(pose, packed)
 
 

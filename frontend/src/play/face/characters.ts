@@ -11,6 +11,7 @@ import type { GloveLoadoutId } from '../gloveLoadout';
  */
 export type StockCharacterId =
   | 'default'
+  | 'default-female'
   | 'byson'
   | 'tin-mick'
   | 'the-don'
@@ -155,6 +156,15 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
   default: makeCharacter('default', 'Default Boxer', {
     bodyId: 'generic',
   }),
+  'default-female': makeCharacter('default-female', 'Default Female', {
+    ringBackdropSrc: RING_BACKDROP,
+    bodyId: 'body-default-female',
+    bakedRingPoses: {
+      idleSrc: assetUrl('/boxer/bodies/default-female-idle.png'),
+      oohSrc: assetUrl('/boxer/bodies/default-female-ooh.png'),
+      knockoutSrc: assetUrl('/boxer/bodies/default-female-knockout.png'),
+    },
+  }),
   byson: makeCharacter('byson', 'Byson', {
     bodyId: 'generic',
     faceScale: 1.18,
@@ -235,6 +245,7 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
 
 export const CHARACTER_LIST: CharacterDef[] = [
   CHARACTERS.default,
+  CHARACTERS['default-female'],
   CHARACTERS.byson,
   CHARACTERS['tin-mick'],
   CHARACTERS['the-don'],
@@ -253,6 +264,7 @@ export const CHARACTER_STORAGE_KEY = 'mickeys-gym-character';
 export function isStockCharacterId(value: string | null | undefined): value is StockCharacterId {
   return (
     value === 'default' ||
+    value === 'default-female' ||
     value === 'byson' ||
     value === 'tin-mick' ||
     value === 'the-don' ||
