@@ -166,8 +166,14 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
     },
   }),
   byson: makeCharacter('byson', 'Byson', {
-    bodyId: 'generic',
+    ringBackdropSrc: RING_BACKDROP,
+    bodyId: 'body-byson',
     faceScale: 1.18,
+    bakedRingPoses: {
+      idleSrc: assetUrl('/boxer/bodies/byson-idle.png'),
+      oohSrc: assetUrl('/boxer/bodies/byson-ooh.png'),
+      knockoutSrc: assetUrl('/boxer/bodies/byson-knockout.png'),
+    },
   }),
   'tin-mick': makeCharacter('tin-mick', 'Tin Mick', {
     ringBackdropSrc: RING_BACKDROP,

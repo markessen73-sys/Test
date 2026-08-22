@@ -197,3 +197,6 @@ useTexture.preload(assetUrl('/boxer/bodies/tin-mick-knockout.png'));
 useTexture.preload(BODY_STYLES['body-default-female'].textureSrc);
 useTexture.preload(assetUrl('/boxer/bodies/default-female-ooh.png'));
 useTexture.preload(assetUrl('/boxer/bodies/default-female-knockout.png'));
+useTexture.preload(BODY_STYLES['body-byson'].textureSrc);
+useTexture.preload(assetUrl('/boxer/bodies/byson-ooh.png'));
+useTexture.preload(assetUrl('/boxer/bodies/byson-knockout.png'));
