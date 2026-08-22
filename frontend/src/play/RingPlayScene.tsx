@@ -3,6 +3,7 @@ import type { GlovePosition } from '../types/game';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SparringPartner, RING_CANVAS_SURFACE_Y, RING_SPRITE_SCALE } from '../gym/SparringPartner';
+import { CartoonGym } from '../gym/CartoonGym';
 import { ringZoneScreenOffset } from './ringImpact';
 import { applyRingHitImpulse, createRingSwingState, stepRingSwing } from './ringSwing';
 import {
@@ -187,6 +188,11 @@ export function RingPlayScene({
     >
       {themed ? null : <color attach="background" args={['#1a1208']} />}
       <RingPlayEnvironment themed={themed} />
+      {themed ? null : (
+        <group position={[0, 0, RING_GROUP_ORIGIN_Z]}>
+          <CartoonGym />
+        </group>
+      )}
       <Suspense fallback={null}>
         <PlayRing
           impacts={impacts}
