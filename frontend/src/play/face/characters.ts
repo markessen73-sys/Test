@@ -196,10 +196,15 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
     },
   }),
   'king-of-the-north': makeCharacter('king-of-the-north', 'King Of The North', {
-    bodyId: 'generic',
+    bodyId: 'body-king',
     ringBackdropSrc: PARLIAMENT_RING_BACKDROP,
     faceScale: 1.02,
     faceNudgeY: 0.1,
+    bakedRingPoses: {
+      idleSrc: assetUrl('/boxer/bodies/king-idle.png'),
+      oohSrc: assetUrl('/boxer/bodies/king-ooh.png'),
+      knockoutSrc: assetUrl('/boxer/bodies/king-knockout.png'),
+    },
   }),
   bozza: makeCharacter('bozza', 'Bozza', {
     ringBackdropSrc: PARLIAMENT_RING_BACKDROP,
