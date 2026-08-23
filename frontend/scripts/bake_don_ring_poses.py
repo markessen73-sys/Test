@@ -2,9 +2,9 @@
 """Bake The Don whole-body solid ring poses from user-authored full renders.
 
 Sources (repo root uploads — visual pose mapping):
-  idle      → file_00000000e4b881f4a2acbd7f78d9e949.png  (boxing guard)
-  ooh       → file_000000006fec81f4a75db246c1a30693.png  (surprised O mouth)
-  knockout  → file_00000000d18881f4ba89f5bef1594651.png  (defeated slump)
+  idle      → file_00000000b8fc8210b123b8584da23d29.png  (boxing guard)
+  ooh       → file_00000000929082109250a741afec7d37.png  (surprised O mouth)
+  knockout  → file_00000000201881f4b4fb6f4e1efaaa83.png  (defeated slump)
 
 Outputs: public/boxer/bodies/don-{idle,ooh,knockout}.png (+ thumbs)
 Face pack refresh: public/faces/characters/the-don/{clean,ooh,knockout}.png
@@ -26,10 +26,10 @@ W, H = 1024, 1536
 TOP_PAD = 40
 
 USER_IMPORTS = {
-  # Latest three uploads (aa72a9fb) — mapped by pose content, not filename order.
-  'idle': REPO_ROOT / 'file_00000000e4b881f4a2acbd7f78d9e949.png',
-  'ooh': REPO_ROOT / 'file_000000006fec81f4a75db246c1a30693.png',
-  'knockout': REPO_ROOT / 'file_00000000d18881f4ba89f5bef1594651.png',
+  # Latest three uploads (34c8d3fd) — mapped by pose content, not filename order.
+  'idle': REPO_ROOT / 'file_00000000b8fc8210b123b8584da23d29.png',
+  'ooh': REPO_ROOT / 'file_00000000929082109250a741afec7d37.png',
+  'knockout': REPO_ROOT / 'file_00000000201881f4b4fb6f4e1efaaa83.png',
 }
 
 
