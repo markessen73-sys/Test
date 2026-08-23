@@ -1,0 +1,137 @@
+{
+  "head": {
+    "src": "/boxer/parts/head.png",
+    "pivot": [
+      0.5,
+      0.94
+    ],
+    "zIndex": 30,
+    "widthVw": 0
+  },
+  "torso": {
+    "src": "/boxer/parts/torso.png",
+    "pivot": [
+      0.5,
+      0.93
+    ],
+    "zIndex": 10,
+    "widthVw": 0
+  },
+  "pelvis": {
+    "src": "/boxer/parts/pelvis.png",
+    "pivot": [
+      0.5,
+      0.28
+    ],
+    "zIndex": 12,
+    "widthVw": 0
+  },
+  "upper-arm-left": {
+    "src": "/boxer/parts/upper-arm-left.png",
+    "pivot": [
+      0.82,
+      0.14
+    ],
+    "zIndex": 22,
+    "widthVw": 0
+  },
+  "forearm-left": {
+    "src": "/boxer/parts/forearm-left.png",
+    "pivot": [
+      0.84,
+      0.12
+    ],
+    "zIndex": 24,
+    "widthVw": 0
+  },
+  "glove-left": {
+    "src": "/boxer/parts/glove-left.png",
+    "pivot": [
+      0.55,
+      0.08
+    ],
+    "zIndex": 40,
+    "widthVw": 0
+  },
+  "upper-arm-right": {
+    "src": "/boxer/parts/upper-arm-right.png",
+    "pivot": [
+      0.18,
+      0.14
+    ],
+    "zIndex": 22,
+    "widthVw": 0
+  },
+  "forearm-right": {
+    "src": "/boxer/parts/forearm-right.png",
+    "pivot": [
+      0.16,
+      0.12
+    ],
+    "zIndex": 24,
+    "widthVw": 0
+  },
+  "glove-right": {
+    "src": "/boxer/parts/glove-right.png",
+    "pivot": [
+      0.48,
+      0.12
+    ],
+    "zIndex": 40,
+    "widthVw": 0
+  },
+  "thigh-left": {
+    "src": "/boxer/parts/thigh-left.png",
+    "pivot": [
+      0.55,
+      0.1
+    ],
+    "zIndex": 8,
+    "widthVw": 0
+  },
+  "shin-left": {
+    "src": "/boxer/parts/shin-left.png",
+    "pivot": [
+      0.52,
+      0.08
+    ],
+    "zIndex": 9,
+    "widthVw": 0
+  },
+  "boot-left": {
+    "src": "/boxer/parts/boot-left.png",
+    "pivot": [
+      0.5,
+      0.08
+    ],
+    "zIndex": 11,
+    "widthVw": 0
+  },
+  "thigh-right": {
+    "src": "/boxer/parts/thigh-right.png",
+    "pivot": [
+      0.45,
+      0.1
+    ],
+    "zIndex": 8,
+    "widthVw": 0
+  },
+  "shin-right": {
+    "src": "/boxer/parts/shin-right.png",
+    "pivot": [
+      0.48,
+      0.08
+    ],
+    "zIndex": 9,
+    "widthVw": 0
+  },
+  "boot-right": {
+    "src": "/boxer/parts/boot-right.png",
+    "pivot": [
+      0.5,
+      0.08
+    ],
+    "zIndex": 11,
+    "widthVw": 0
+  }
+}
