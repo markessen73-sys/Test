@@ -191,7 +191,6 @@ useTexture.preload(assetUrl('/boxer/bodies/greenie-knockout.png'));
 useTexture.preload(BODY_STYLES['body-don'].textureSrc);
 useTexture.preload(assetUrl('/boxer/bodies/don-ooh.png'));
 useTexture.preload(assetUrl('/boxer/bodies/don-knockout.png'));
-<<<<<<< HEAD
 useTexture.preload(BODY_STYLES['body-tin-mick'].textureSrc);
 useTexture.preload(assetUrl('/boxer/bodies/tin-mick-ooh.png'));
 useTexture.preload(assetUrl('/boxer/bodies/tin-mick-knockout.png'));
@@ -204,8 +203,6 @@ useTexture.preload(assetUrl('/boxer/bodies/default-female-knockout.png'));
 useTexture.preload(BODY_STYLES['body-byson'].textureSrc);
 useTexture.preload(assetUrl('/boxer/bodies/byson-ooh.png'));
 useTexture.preload(assetUrl('/boxer/bodies/byson-knockout.png'));
-=======
 useTexture.preload(BODY_STYLES['body-king'].textureSrc);
 useTexture.preload(assetUrl('/boxer/bodies/king-ooh.png'));
 useTexture.preload(assetUrl('/boxer/bodies/king-knockout.png'));
->>>>>>> origin/cursor/king-of-the-north-ring-poses-453c

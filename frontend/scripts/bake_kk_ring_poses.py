@@ -261,6 +261,153 @@ def pack(im: Image.Image) -> Image.Image:
     return canvas
 
 
+def armpit_clear_mask_ooh(body: np.ndarray) -> np.ndarray:
+    """Wider wedges for arms-down ooh pose — clears white gaps beside the torso."""
+    solid = body[:, :, 3] > 40
+    if not solid.any():
+        return np.zeros(solid.shape, dtype=bool)
+    ys, xs = np.where(solid)
+    y0, y1, x0, x1 = int(ys.min()), int(ys.max()), int(xs.min()), int(xs.max())
+    fig_h, fig_w = y1 - y0, x1 - x0
+
+    mask = np.zeros(solid.shape, dtype=bool)
+    y_top = y0 + int(0.10 * fig_h)
+    y_bot = y0 + int(0.52 * fig_h)
+    for y in range(y_top, y_bot):
+        t = (y - y_top) / max(1, y_bot - y_top - 1)
+        lx0 = x0 + int(fig_w * (0.04 + 0.10 * t))
+        lx1 = x0 + int(fig_w * (0.34 - 0.02 * t))
+        mask[y, lx0:lx1] = True
+        rx1 = x1 - int(fig_w * (0.04 + 0.10 * t))
+        rx0 = x1 - int(fig_w * (0.34 - 0.02 * t))
+        mask[y, rx0:rx1] = True
+
+    hull = ndimage.binary_fill_holes(ndimage.binary_closing(solid, iterations=3))
+    return mask & hull
+
+
+def armpit_outer_lower_mask(body: np.ndarray) -> np.ndarray:
+    """Thin lower wedges between inner glove and hip — not the outer arm surface."""
+    solid = body[:, :, 3] > 40
+    if not solid.any():
+        return np.zeros(solid.shape, dtype=bool)
+    ys, xs = np.where(solid)
+    y0, y1, x0, x1 = int(ys.min()), int(ys.max()), int(xs.min()), int(xs.max())
+    fig_h, fig_w = y1 - y0, x1 - x0
+
+    mask = np.zeros(solid.shape, dtype=bool)
+    y_top = y0 + int(0.38 * fig_h)
+    y_bot = y0 + int(0.52 * fig_h)
+    for y in range(y_top, y_bot):
+        t = (y - y_top) / max(1, y_bot - y_top - 1)
+        lx0 = x0 + int(fig_w * (0.14 + 0.06 * t))
+        lx1 = x0 + int(fig_w * (0.20 - 0.02 * t))
+        mask[y, lx0:lx1] = True
+        rx1 = x1 - int(fig_w * (0.14 + 0.06 * t))
+        rx0 = x1 - int(fig_w * (0.20 - 0.02 * t))
+        mask[y, rx0:rx1] = True
+
+    hull = ndimage.binary_fill_holes(ndimage.binary_closing(solid, iterations=3))
+    return mask & hull
+
+
+def _horizontal_bridge_mask(opaque: np.ndarray, wedge: np.ndarray, reach: int = 80) -> np.ndarray:
+    """Opaque wedge pixels bridging clear gaps between arm and torso on the same row."""
+    clear = ~opaque
+    h, w = opaque.shape
+    bridges = np.zeros((h, w), dtype=bool)
+    for y in range(h):
+        if not wedge[y].any():
+            continue
+        wx = np.flatnonzero(wedge[y])
+        if len(wx) < 2:
+            continue
+        for x in wx:
+            if not opaque[y, x]:
+                continue
+            left_clear = clear[y, max(0, x - reach) : x].any()
+            right_clear = clear[y, x + 1 : min(w, x + reach + 1)].any()
+            if left_clear and right_clear:
+                bridges[y, x] = True
+    return bridges
+
+
+def source_bg_distance_mask(src: Image.Image, target_shape: tuple[int, int]) -> np.ndarray:
+    """Map source studio distance onto a packed body canvas."""
+    src_rgb = np.asarray(src.convert('RGBA'))[:, :, :3].astype(np.int16)
+    corner = src_rgb[2, 2]
+    dist = np.abs(src_rgb - corner).sum(axis=2)
+    if src_rgb.shape[:2] != target_shape:
+        dist_img = Image.fromarray(dist.astype(np.uint16))
+        dist = np.array(dist_img.resize((target_shape[1], target_shape[0]), Image.NEAREST))
+    return dist
+
+
+def _armpit_y_band(shape: tuple[int, int], y0: int, fig_h: int, top_frac: float, bot_frac: float) -> np.ndarray:
+    band = np.zeros(shape, dtype=bool)
+    band[y0 + int(top_frac * fig_h) : y0 + int(bot_frac * fig_h), :] = True
+    return band
+
+
+def punch_armpit_wedges_packed(
+    arr: np.ndarray, src: Image.Image | None = None,
+) -> np.ndarray:
+    """Post-pack wedge clear for arms-down poses."""
+    out = arr.copy()
+    rgb = out[:, :, :3].astype(np.int16)
+    mx = rgb.max(axis=2)
+    chroma = mx - rgb.min(axis=2)
+    wedge = armpit_clear_mask_ooh(out)
+    outer_lower = armpit_outer_lower_mask(out)
+
+    solid = out[:, :, 3] > 40
+    if solid.any() and src is not None:
+        ys, _ = np.where(solid)
+        y0, y1 = int(ys.min()), int(ys.max())
+        fig_h = y1 - y0
+        y_band = _armpit_y_band(out.shape[:2], y0, fig_h, 0.16, 0.52)
+        dist = source_bg_distance_mask(src, out.shape[:2])
+        out[wedge & y_band & (dist < 90) & (out[:, :, 3] > 40), 3] = 0
+
+    pale = (out[:, :, 3] > 40) & (mx > 160) & (chroma < 55)
+    out[wedge & pale, 3] = 0
+    pale_lower = (mx > 180) & (chroma < 68)
+    out[outer_lower & pale_lower & (out[:, :, 3] > 40), 3] = 0
+
+    opaque = out[:, :, 3] > 40
+    out[_horizontal_bridge_mask(opaque, wedge), 3] = 0
+
+    clear = out[:, :, 3] < 40
+    for _ in range(12):
+        near = ndimage.binary_dilation(clear, iterations=2)
+        grow = wedge & near & (out[:, :, 3] > 40) & (mx > 128) & (chroma < 74)
+        if not grow.any():
+            break
+        out[grow, 3] = 0
+        clear = out[:, :, 3] < 40
+        out[_horizontal_bridge_mask(out[:, :, 3] > 40, wedge), 3] = 0
+    return out
+
+
+def assert_pose_solid(packed: Image.Image, pose: str) -> None:
+    if pose in ('ooh', 'knockout'):
+        arr = np.asarray(packed)
+        allow = ndimage.binary_dilation(
+            armpit_clear_mask_ooh(arr) | armpit_outer_lower_mask(arr),
+            iterations=5,
+        )
+        alpha = arr[:, :, 3]
+        opaque = alpha == 255
+        holes_mask = ndimage.binary_fill_holes(opaque) & ~opaque
+        holes_mask &= ~allow
+        holes = int(holes_mask.sum())
+        if holes:
+            raise SystemExit(f'{pose} not solid: holes={holes}')
+        print(f'{pose}: solid opaque={int(opaque.sum())}')
+        return
+    assert_solid(packed, pose)
+
+
 def assert_solid(im: Image.Image, name: str) -> None:
     a = np.array(im)
     alpha = a[:, :, 3]
@@ -299,12 +446,20 @@ def main() -> None:
             if not alt.exists():
                 raise SystemExit(f'missing source for {pose}: {path}')
             src = alt
-        keyed = remove_bg(Image.open(src))
+        src_im = Image.open(src)
+        keyed = remove_bg(src_im)
         # Seal before pack so tunnels are closed at source resolution,
         # then seal again after LANCZOS (which can reintroduce soft/clear).
         sealed = seal_silhouette(keyed)
         packed = seal_silhouette(pack(sealed))
-        assert_solid(packed, pose)
+        if pose in ('ooh', 'knockout'):
+            packed = Image.fromarray(
+                punch_armpit_wedges_packed(
+                    np.asarray(packed),
+                    src=src_im if pose == 'ooh' else None,
+                )
+            )
+        assert_pose_solid(packed, pose)
         packed.save(OUT_DIR / f'kk-{pose}.png', optimize=True)
         packed.resize((128, 192), Image.Resampling.LANCZOS).save(
             OUT_DIR / f'kk-{pose}-thumb.png', optimize=True
