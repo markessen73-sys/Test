@@ -17,6 +17,7 @@ import numpy as np
 from PIL import Image
 
 from bake_bozza_ring_poses import assert_solid, pack, remove_bg, seal_silhouette
+from scipy import ndimage
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT.parent
@@ -74,16 +75,50 @@ def save_pose_outputs(pose: str, packed: Image.Image) -> None:
     print('wrote', pose)
 
 
-def bake_pose(keyed: Image.Image, pose: str) -> Image.Image:
-    """Pack keyed art to ring canvas and seal.
+def fill_interior_gaps(arr: np.ndarray) -> np.ndarray:
+    """Paint enclosed clear pixels from nearest opaque neighbor."""
+    out = arr.copy()
+    opaque = out[:, :, 3] == 255
+    enclosed = ndimage.binary_fill_holes(opaque)
+    need = enclosed & ~opaque
+    if need.any():
+        _, (iy, ix) = ndimage.distance_transform_edt(~opaque, return_indices=True)
+        ys, xs = np.where(need)
+        out[ys, xs] = out[iy[ys, xs], ix[ys, xs]]
+    frac = ndimage.uniform_filter((out[:, :, 3] == 255).astype(np.float32), size=11)
+    surrounded = (out[:, :, 3] < 128) & (frac > 0.55)
+    if surrounded.any():
+        opaque2 = out[:, :, 3] == 255
+        _, (iy, ix) = ndimage.distance_transform_edt(~opaque2, return_indices=True)
+        ys, xs = np.where(surrounded)
+        out[ys, xs] = out[iy[ys, xs], ix[ys, xs]]
+    out[:, :, 3] = np.where(out[:, :, 3] > 40, 255, 0).astype(np.uint8)
+    return out
 
-    Ooh loses a boot if sealed before pack (red boot fringe); idle needs
-    pre-pack seal to keep boots on the canvas.
+
+def bake_pose(keyed: Image.Image, leg_frac: float = 0.72) -> Image.Image:
+    """Pack keyed art, seal torso, and restore feet from the raw pack.
+
+    Full-frame seal eats red boot fringe; copying strongly opaque foot-band
+    pixels from pack(keyed) keeps soles and stripes, then gap-fill solidifies.
     """
-    if pose == 'ooh':
-        return seal_silhouette(pack(keyed))
-    sealed = seal_silhouette(keyed)
-    return seal_silhouette(pack(sealed))
+    raw = pack(keyed)
+    raw_a = np.asarray(raw)
+    solid = raw_a[:, :, 3] > 40
+    ys, xs = np.where(solid)
+    y0, y1 = int(ys.min()), int(ys.max())
+    h = raw_a.shape[0]
+    y_knee = y0 + int(leg_frac * (y1 - y0))
+    sealed = np.asarray(seal_silhouette(raw))
+    out = sealed.copy()
+    foot_rows = np.arange(h)[:, None] >= y_knee
+    strong = raw_a[:, :, 3] > 200
+    keep = foot_rows & strong
+    for _ in range(4):
+        out[keep] = raw_a[keep]
+        out[:, :, 3] = np.where(out[:, :, 3] > 40, 255, 0).astype(np.uint8)
+        out = fill_interior_gaps(out)
+    return Image.fromarray(out)
 
 
 def main() -> None:
@@ -94,7 +129,7 @@ def main() -> None:
         if not path.exists():
             raise SystemExit(f'missing source for {pose}: {path}')
         keyed = remove_bg(Image.open(path))
-        packed = bake_pose(keyed, pose)
+        packed = bake_pose(keyed)
         assert_solid(packed, pose)
         save_pose_outputs(pose, packed)
 
