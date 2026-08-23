@@ -206,3 +206,6 @@ useTexture.preload(assetUrl('/boxer/bodies/byson-knockout.png'));
 useTexture.preload(BODY_STYLES['body-king'].textureSrc);
 useTexture.preload(assetUrl('/boxer/bodies/king-ooh.png'));
 useTexture.preload(assetUrl('/boxer/bodies/king-knockout.png'));
+useTexture.preload(BODY_STYLES['body-pricey'].textureSrc);
+useTexture.preload(assetUrl('/boxer/bodies/pricey-ooh.png'));
+useTexture.preload(assetUrl('/boxer/bodies/pricey-knockout.png'));

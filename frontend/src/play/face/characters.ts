@@ -235,10 +235,16 @@ export const CHARACTERS: Record<StockCharacterId, CharacterDef> = {
     },
   }),
   pricey: makeCharacter('pricey', 'Pricey', {
-    bodyId: 'generic',
+    ringBackdropSrc: PARLIAMENT_RING_BACKDROP,
+    bodyId: 'body-pricey',
     // High bun → smaller mid-face than Default; scale up to match.
     faceScale: 1.22,
     faceNudgeY: 0.06,
+    bakedRingPoses: {
+      idleSrc: assetUrl('/boxer/bodies/pricey-idle.png'),
+      oohSrc: assetUrl('/boxer/bodies/pricey-ooh.png'),
+      knockoutSrc: assetUrl('/boxer/bodies/pricey-knockout.png'),
+    },
   }),
   kk: makeCharacter('kk', 'KK', {
     // Methodology test: whole baked figure (not face-on-body). Face pack still
