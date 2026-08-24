@@ -17,7 +17,6 @@ import numpy as np
 from PIL import Image
 
 from bake_bozza_ring_poses import assert_solid, pack, remove_bg, seal_silhouette
-from bake_kk_ring_poses import assert_pose_solid, punch_armpit_wedges_packed
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT.parent
@@ -74,43 +73,20 @@ def save_pose_outputs(pose: str, packed: Image.Image) -> None:
     print('wrote', pose)
 
 
-def bake_idle(path: Path) -> Image.Image:
+def bake_pose(path: Path) -> Image.Image:
     keyed = remove_bg(Image.open(path))
     return seal_silhouette(pack(seal_silhouette(keyed)))
-
-
-def bake_ooh(path: Path) -> Image.Image:
-    src_im = Image.open(path)
-    keyed = remove_bg(src_im)
-    packed = seal_silhouette(pack(seal_silhouette(keyed)))
-    punched = punch_armpit_wedges_packed(np.asarray(packed), src=src_im)
-    return Image.fromarray(punched)
-
-
-def bake_knockout(path: Path) -> Image.Image:
-    keyed = remove_bg(Image.open(path))
-    packed = seal_silhouette(pack(seal_silhouette(keyed)))
-    punched = punch_armpit_wedges_packed(np.asarray(packed))
-    return Image.fromarray(punched)
 
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     FACES.mkdir(parents=True, exist_ok=True)
     sync_user_face_packs()
-    bakers = {
-        'idle': bake_idle,
-        'ooh': bake_ooh,
-        'knockout': bake_knockout,
-    }
     for pose, path in USER_IMPORTS.items():
         if not path.exists():
             raise SystemExit(f'missing source for {pose}: {path}')
-        packed = bakers[pose](path)
-        if pose in ('ooh', 'knockout'):
-            assert_pose_solid(packed, pose)
-        else:
-            assert_solid(packed, pose)
+        packed = bake_pose(path)
+        assert_solid(packed, pose)
         save_pose_outputs(pose, packed)
 
 
