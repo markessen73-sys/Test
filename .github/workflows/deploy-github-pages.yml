@@ -1,8 +1,9 @@
 name: Deploy GitHub Pages
 
+# The site is published by GitHub's legacy branch publisher from gh-pages.
+# Push-triggered runs on main failed before starting (Pages environment only
+# accepts gh-pages), so this workflow is manual-only.
 on:
-  push:
-    branches: [main, gh-pages]
   workflow_dispatch:
 
 permissions:
@@ -10,15 +11,12 @@ permissions:
   pages: write
   id-token: write
 
-# Avoid fighting the legacy gh-pages branch publisher (deployment_queued timeouts).
 concurrency:
   group: github-pages
   cancel-in-progress: true
 
 jobs:
   deploy:
-    # Legacy branch publishing already deploys gh-pages; skip Actions deploy on that branch.
-    if: github.ref != 'refs/heads/gh-pages'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
