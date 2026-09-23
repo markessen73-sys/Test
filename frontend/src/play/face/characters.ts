@@ -87,6 +87,8 @@ export interface CharacterDef {
   };
   /** Optional ring play backdrop image (shown behind the far ropes). */
   ringBackdropSrc?: string;
+  /** Face-only portrait for the character-select grid. */
+  selectSrc: string;
   /** True for user photo faces (can be deleted). */
   isPhotoFace?: boolean;
   /** Highlighter eye marks — animate pop-out eyes on punch when set. */
@@ -132,6 +134,7 @@ function makeCharacter(
     id,
     name,
     cleanSrc,
+    selectSrc: assetUrl(`${root}/select.png`),
     oohSrc,
     knockoutSrc,
     damageStageCleanSrc: assetUrl(`${damage}/00-clean.png`),
