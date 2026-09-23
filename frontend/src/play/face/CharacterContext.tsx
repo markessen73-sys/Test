@@ -63,9 +63,13 @@ function characterFromPhoto(entry: CustomFaceEntry): CharacterDef {
   const right = features?.rightEye;
   const next: CharacterDef = {
     ...stock,
+    // Default Male is a whole baked figure; photo faces need the face-on-body rig.
+    bodyId: 'generic',
+    bakedRingPoses: undefined,
     id: entry.id,
     name: entry.name,
     cleanSrc: entry.clean,
+    selectSrc: entry.clean,
     oohSrc: entry.ooh,
     knockoutSrc: entry.knockout,
     // Live bobo + HUD use the photo / shared damage ladder (no clown makeup).
