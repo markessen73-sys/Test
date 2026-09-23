@@ -201,7 +201,7 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
                       aria-pressed={selected}
                       onClick={() => setDraftCharacterId(c.id)}
                     >
-                      <img className="character-select-face" src={c.cleanSrc} alt="" draggable={false} />
+                      <img className="character-select-face" src={c.selectSrc} alt="" draggable={false} />
                       <span className="character-select-name">{c.name}</span>
                     </button>
                   );
@@ -216,7 +216,7 @@ export function OptionsPanel({ open, onClose }: OptionsPanelProps) {
                       aria-pressed={selected}
                       onClick={() => setDraftCharacterId(c.id)}
                     >
-                      <img className="character-select-face" src={c.cleanSrc} alt="" draggable={false} />
+                      <img className="character-select-face" src={c.selectSrc} alt="" draggable={false} />
                       <span className="character-select-name">{c.name}</span>
                     </button>
                   );

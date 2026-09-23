@@ -38,7 +38,7 @@ export function BoxingGymScene({ stationId, viewMode }: BoxingGymSceneProps) {
 
   return (
     <Canvas
-      shadows
+      shadows="percentage"
       camera={{ position: shot.position, fov: shot.fov, near: 0.1, far: 50 }}
       style={{ width: '100%', height: '100%', touchAction: 'none' }}
       gl={{ antialias: true }}

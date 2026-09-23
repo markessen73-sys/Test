@@ -162,7 +162,7 @@ export function BoboDollPlayScene({
   const cam = BOBO_PLAY_CAMERA;
   return (
     <Canvas
-      shadows
+      shadows="percentage"
       camera={{ position: cam.position, fov: cam.fov, near: 0.1, far: 30 }}
       onCreated={({ camera }) => {
         camera.lookAt(...cam.lookAt);

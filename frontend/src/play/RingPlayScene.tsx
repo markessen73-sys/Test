@@ -214,7 +214,7 @@ export function RingPlayScene({
 
   return (
     <Canvas
-      shadows
+      shadows="percentage"
       camera={{ position: cam.position, fov: cam.fov, near: 0.1, far: 40 }}
       onCreated={({ camera, gl }) => {
         camera.lookAt(...cam.lookAt);
